@@ -753,6 +753,276 @@ async function setExistingSevenArchesShadowRooms(page: Page, options: {
   });
 }
 
+async function prepareSevenKamaresPricingPromotionFixture(page: Page): Promise<void> {
+  await page.evaluate(({ hotelId, upperId, groundId, planId, upperRateId, groundRateId, scheduleId, partyScheduleId }) => {
+    const clone = (value: any) => JSON.parse(JSON.stringify(value));
+    const store = (window as any).__h2aE2eStore;
+    const thresholds = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const durations = [...thresholds, 14];
+    const matrices: Record<number, number[]> = {
+      2: [100, 90, 88, 84, 80, 76, 74, 72, 70],
+      3: [130, 113, 113, 104, 100, 95, 94, 90, 90],
+      4: [155, 135, 135, 120, 118, 114, 111, 107, 107],
+      5: [200, 180, 176, 168, 160, 152, 148, 144, 140],
+      6: [260, 226, 226, 208, 200, 190, 188, 180, 180],
+      7: [310, 270, 270, 240, 236, 228, 222, 214, 214],
+      8: [310, 270, 270, 240, 236, 228, 222, 214, 214],
+    };
+    const allTiers = Object.entries(matrices).flatMap(([guestCount, rates]) => thresholds.map((threshold, index) => ({
+      guest_count: Number(guestCount), threshold_nights: threshold, nightly_rate: rates[index], is_active: true,
+    })));
+    const roomTiers = allTiers.filter((tier) => tier.guest_count <= 4);
+    const rateFor = (guestCount: number, nights: number) => {
+      const threshold = Math.min(nights, 10);
+      return matrices[guestCount][thresholds.indexOf(threshold)];
+    };
+    const roomRateId = (roomTypeId: string) => roomTypeId === upperId ? upperRateId : groundRateId;
+    const comparison = (requestedGuests: number, allocations: any[], nights: number) => {
+      const roomNightlyRates = allocations.map((item) => ({
+        room_type_id: item.room_type_id,
+        room_rate_id: item.room_rate_id,
+        pricing_guest_count: item.pricing_guest_count,
+        nightly_rate: rateFor(item.pricing_guest_count, nights),
+      }));
+      const roomRateSum = roomNightlyRates.reduce((total: number, item: any) => total + item.nightly_rate, 0);
+      const legacyNightlyRate = rateFor(Math.max(2, requestedGuests), nights);
+      return {
+        requested_guest_count: requestedGuests,
+        priced_occupancy: allocations.length === 1 ? allocations[0].pricing_guest_count : null,
+        nights,
+        threshold_nights: Math.min(nights, 10),
+        room_nightly_rates: roomNightlyRates,
+        room_rate_sum: roomRateSum,
+        legacy_nightly_rate: legacyNightlyRate,
+        stay_total: roomRateSum * nights,
+        delta_from_legacy: roomRateSum - legacyNightlyRate,
+        currency: 'EUR',
+      };
+    };
+    const choiceRows = [1, 2, 3, 4].map((guestCount) => ({
+      guest_count: guestCount,
+      allocation_mode: 'customer_choice',
+      options: [upperId, groundId].map((roomTypeId) => {
+        const resolved = [{
+          room_type_id: roomTypeId,
+          room_rate_id: roomRateId(roomTypeId),
+          allocated_guest_count: guestCount,
+          pricing_guest_count: Math.max(2, guestCount),
+        }];
+        return {
+          allocation: [{
+            room_type_id: roomTypeId,
+            room_rate_id: roomRateId(roomTypeId),
+            allocated_guest_count: null,
+            pricing_guest_count: null,
+            units_required: 1,
+          }],
+          nightly_comparisons: durations.map((nights) => comparison(guestCount, resolved, nights)),
+        };
+      }),
+    }));
+    const bundleMap: Record<number, { physical: number[]; pricing: number[] }> = {
+      5: { physical: [3, 2], pricing: [2, 2] },
+      6: { physical: [3, 3], pricing: [3, 3] },
+      7: { physical: [4, 3], pricing: [4, 4] },
+      8: { physical: [4, 4], pricing: [4, 4] },
+    };
+    const bundleRows = [5, 6, 7, 8].map((guestCount) => {
+      const mapping = bundleMap[guestCount];
+      const allocations = [upperId, groundId].map((roomTypeId, index) => ({
+        room_type_id: roomTypeId,
+        room_rate_id: roomRateId(roomTypeId),
+        allocated_guest_count: mapping.physical[index],
+        pricing_guest_count: mapping.pricing[index],
+        units_required: 1,
+      }));
+      return {
+        guest_count: guestCount,
+        allocation_mode: 'required_bundle',
+        options: [{ allocation: allocations, nightly_comparisons: durations.map((nights) => comparison(guestCount, allocations, nights)) }],
+      };
+    });
+
+    store.room_types = [{
+      id: upperId, hotel_id: hotelId, code: 'upper-floor-apartment', name_i18n: { en: 'Upper Floor Apartment' },
+      max_occupancy: 4, capacity_adults: null, capacity_children: null, inventory_mode: 'pooled',
+      base_inventory_count: 1, amenities: ['air_conditioning', 'balcony', 'terrace'], gallery: [],
+      status: 'active', sort_order: 100, version: 13,
+    }, {
+      id: groundId, hotel_id: hotelId, code: 'ground-floor-apartment', name_i18n: { en: 'Ground Floor Apartment' },
+      max_occupancy: 4, capacity_adults: null, capacity_children: null, inventory_mode: 'pooled',
+      base_inventory_count: 1, amenities: ['air_conditioning', 'terrace'], gallery: [],
+      status: 'active', sort_order: 200, version: 14,
+    }];
+    store.rate_plans = [{
+      id: planId, hotel_id: hotelId, code: 'standard', name_i18n: { en: 'Standard' },
+      cancellation_policy: { type: 'non_refundable' }, price_inclusions: ['cleaning', 'taxes'],
+      is_active: false, review_status: 'reviewed', sort_order: 100, version: 2,
+    }];
+    store.room_rates = [upperId, groundId].map((roomTypeId, index) => ({
+      id: roomRateId(roomTypeId), hotel_id: hotelId, room_type_id: roomTypeId, rate_plan_id: planId,
+      pricing_schedule_id: scheduleId, base_nightly_rate: 0, currency: 'EUR', is_active: false,
+      sort_order: (index + 1) * 100, version: 1,
+    }));
+    store.pricing_schedules = [{
+      id: scheduleId, hotel_id: hotelId, code: 'shared-apartment-occupancy-los', name_i18n: { en: 'Shared room schedule' },
+      application_scope: 'room_occupancy', currency: 'EUR', maximum_party_size: 4,
+      minimum_billable_occupancy: 2, is_active: false, review_status: 'requires_review', source: 'legacy_preview',
+      version: 4,
+    }, {
+      id: partyScheduleId, hotel_id: hotelId, code: 'legacy-property-party-preview', name_i18n: { en: 'Legacy party preview' },
+      application_scope: 'property_booking_party', currency: 'EUR', maximum_party_size: 8,
+      minimum_billable_occupancy: 2, is_active: false, review_status: 'requires_review', source: 'legacy_preview',
+      version: 5,
+    }];
+    store.pricing_schedule_tiers = [
+      ...roomTiers.map((tier, index) => ({ ...tier, id: `41000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, schedule_id: scheduleId, version: 1 })),
+      ...allTiers.map((tier, index) => ({ ...tier, id: `42000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, schedule_id: partyScheduleId, version: 1 })),
+    ];
+    const allocationRules = [
+      { guests: 1, mode: 'customer_choice', physical: [null, null], pricing: [null, null] },
+      { guests: 5, mode: 'required_bundle', physical: [3, 2], pricing: [2, 2] },
+      { guests: 6, mode: 'required_bundle', physical: [3, 3], pricing: [3, 3] },
+      { guests: 7, mode: 'required_bundle', physical: [4, 3], pricing: [4, 4] },
+      { guests: 8, mode: 'required_bundle', physical: [4, 4], pricing: [4, 4] },
+    ].map((rule, ruleIndex) => ({
+      id: `43000000-0000-4000-8000-${String(ruleIndex + 1).padStart(12, '0')}`,
+      hotel_id: hotelId,
+      code: rule.mode === 'customer_choice' ? 'guests-1-4-choice' : `guests-${rule.guests}-bundle`,
+      min_guest_count: rule.guests,
+      max_guest_count: rule.mode === 'customer_choice' ? 4 : rule.guests,
+      allocation_mode: rule.mode,
+      is_active: true,
+      review_status: 'reviewed',
+      sort_order: (ruleIndex + 1) * 100,
+      version: 1,
+      items_fingerprint: `items-${ruleIndex + 1}`,
+      items: [upperId, groundId].map((roomTypeId, itemIndex) => ({
+        id: `44000000-0000-4000-8${ruleIndex}0${itemIndex}-${String(ruleIndex * 2 + itemIndex + 1).padStart(12, '0')}`,
+        room_type_id: roomTypeId,
+        units_required: 1,
+        allocated_guest_count: rule.physical[itemIndex],
+        // H3.1P starts with the physical split only. The reviewed promotion
+        // writes this separate pricing occupancy atomically.
+        pricing_guest_count: null,
+        sort_order: (itemIndex + 1) * 100,
+      })),
+    }));
+    store.h3_configuration = {
+      hotel_id: hotelId,
+      property: { id: hotelId, architecture_version: 'legacy', minimum_stay_nights: 2, updated_at: store.property.updated_at },
+      pricing_schedules: clone(store.pricing_schedules),
+      rate_plans: clone(store.rate_plans),
+      allocation_rules: allocationRules,
+      payment_policies: [], commission_policies: [], calendar_sources: [], flags: clone(store.flags),
+    };
+    store.promotion_receipts = [];
+    store.promotion_legacy_baseline = JSON.stringify(store.property.pricing_tiers);
+    (window as any).__promotionFailNextApply = false;
+
+    const buildPreview = () => ({
+      hotel_id: hotelId,
+      contract_version: 'seven_kamares_legacy_to_h3_pricing_v1',
+      supported: true,
+      public_change: false,
+      property: { id: hotelId, architecture_version: 'legacy', updated_at: store.property.updated_at },
+      flags: clone(store.flags),
+      source: {
+        pricing_model: 'tiered_by_nights', currency: 'EUR', rule_count: 63,
+        pricing_fingerprint: '7208ab4ecc0e47abd64d87ca1ac53a03', tier_fingerprint: 'legacy-tier-fingerprint',
+        tiers: clone(allTiers),
+        property_party_preview: {
+          ...clone(store.pricing_schedules.find((row: any) => row.id === partyScheduleId)),
+          tier_count: 63, tier_fingerprint: 'party-tier-fingerprint', tiers: clone(allTiers),
+        },
+      },
+      target: {
+        rate_plan: clone(store.rate_plans[0]), rooms: clone(store.room_types), room_rates: clone(store.room_rates),
+        room_schedule: {
+          ...clone(store.pricing_schedules.find((row: any) => row.id === scheduleId)),
+          tier_count: 27, tier_fingerprint: 'room-tier-fingerprint', tiers: clone(roomTiers),
+        },
+        allocation_fingerprint: 'allocation-fingerprint', target_fingerprint: 'target-fingerprint',
+      },
+      allocation_previews: clone([...choiceRows, ...bundleRows]),
+      pricing_occupancy_mapping_fingerprint: 'pricing-occupancy-mapping-fingerprint',
+      parity: {
+        threshold_case_count: 63, threshold_mismatch_count: 0,
+        long_stay_case_count: 7, long_stay_mismatch_count: 0,
+        total_case_count: 70, total_mismatch_count: 0, fingerprint: 'parity-fingerprint',
+      },
+      expected: {
+        property_updated_at: store.property.updated_at,
+        legacy_pricing_fingerprint: '7208ab4ecc0e47abd64d87ca1ac53a03',
+        room_schedule_version: store.pricing_schedules.find((row: any) => row.id === scheduleId).version,
+        room_schedule_tier_fingerprint: 'room-tier-fingerprint',
+        allocation_fingerprint: 'allocation-fingerprint',
+      },
+      snapshot_token: `pricing-promotion-v${store.pricing_schedules.find((row: any) => row.id === scheduleId).version}`,
+      promotion: {
+        status: store.pricing_schedules.find((row: any) => row.id === scheduleId).review_status === 'reviewed'
+          ? 'reviewed'
+          : 'not_reviewed',
+        decision: 'promote_room_schedule_to_reviewed',
+      },
+      safety: { legacy_unchanged: true, public_change: false }, blockers: [],
+    });
+    (window as any).__installPricingPromotionHandlers = () => {
+      const stub = (window as any).__supabaseStub;
+      stub.setRpcHandler('hotel_v2_admin_get_legacy_pricing_promotion_preview', (params: any) => (
+        params.p_hotel_id === hotelId
+          ? { data: buildPreview(), error: null }
+          : { data: null, error: { code: 'P0002', message: 'property_not_found' } }
+      ));
+      stub.setRpcHandler('hotel_v2_admin_get_h3_1_configuration', () => ({ data: clone(store.h3_configuration), error: null }));
+      stub.setRpcHandler('hotel_v2_admin_apply_legacy_pricing_promotion', (params: any) => {
+        const plan = clone(params.p_plan || {});
+        const schedule = store.pricing_schedules.find((row: any) => row.id === scheduleId);
+        if ((window as any).__promotionFailNextApply) {
+          (window as any).__promotionFailNextApply = false;
+          schedule.version += 1;
+          store.h3_configuration.pricing_schedules.find((row: any) => row.id === scheduleId).version = schedule.version;
+          return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_pricing_promotion_stale_review' } };
+        }
+        if (plan.hotel_id !== hotelId || plan.acknowledge_pricing_occupancy_mapping !== true
+            || plan.snapshot_token !== `pricing-promotion-v${schedule.version}`
+            || Number(plan.expected?.room_schedule_version) !== Number(schedule.version)) {
+          return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_pricing_promotion_stale_review' } };
+        }
+        const reviewedPricingByCode: Record<string, number[]> = {
+          'guests-5-bundle': [2, 2],
+          'guests-6-bundle': [3, 3],
+          'guests-7-bundle': [4, 4],
+          'guests-8-bundle': [4, 4],
+        };
+        store.h3_configuration.allocation_rules.forEach((rule: any) => {
+          const reviewedPricing = reviewedPricingByCode[rule.code];
+          if (!reviewedPricing) return;
+          rule.items.forEach((item: any, index: number) => {
+            item.pricing_guest_count = reviewedPricing[index];
+          });
+        });
+        schedule.review_status = 'reviewed';
+        schedule.version += 1;
+        const h3Schedule = store.h3_configuration.pricing_schedules.find((row: any) => row.id === scheduleId);
+        h3Schedule.review_status = 'reviewed';
+        h3Schedule.version = schedule.version;
+        store.promotion_receipts.push({ plan, correlation_id: params.p_correlation_id });
+        return { data: { hotel_id: hotelId, review_status: 'reviewed', correlation_id: params.p_correlation_id }, error: null };
+      });
+    };
+  }, {
+    hotelId: HOTEL_ID,
+    upperId: SEVEN_ARCHES_UPPER_ID,
+    groundId: SEVEN_ARCHES_GROUND_ID,
+    planId: SEVEN_ARCHES_RATE_PLAN_ID,
+    upperRateId: SEVEN_ARCHES_UPPER_RATE_ID,
+    groundRateId: SEVEN_ARCHES_GROUND_RATE_ID,
+    scheduleId: SEVEN_ARCHES_SCHEDULE_ID,
+    partyScheduleId: SEVEN_ARCHES_PARTY_PREVIEW_ID,
+  });
+}
+
 test('H2A Property Workspace keeps one legacy property inert while Rooms, Units and Rates use reviewed exact-ID RPCs', async ({ page }) => {
   test.setTimeout(120_000);
   await page.addInitScript(seedHotelsV2H2aWorkspace(), {
@@ -2126,7 +2396,7 @@ test('H2B Calendar edits exact dates atomically, exposes occupancy tiers, and sw
   await staleCalendarReview.locator('[data-calendar-review-confirm]').click();
   await expect(page.getByText('Save stopped: Calendar data changed after Review. Reload the exact range and review again.')).toBeVisible();
   await expect(staleCalendarReview).toBeVisible();
-  const afterStale = await page.evaluate(() => {
+  const afterStale = await page.evaluate((scheduleId) => {
     const store = (window as any).__h2aE2eStore;
     return {
       overrides: JSON.stringify(store.calendar_overrides),
@@ -2210,13 +2480,13 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
       base_nightly_rate: 0, currency: 'EUR', is_active: false, version: 1,
     }];
     store.pricing_schedules = [{
-      id: scheduleId, hotel_id: hotelId, code: 'seven-kamares-shared-room',
+      id: scheduleId, hotel_id: hotelId, code: 'shared-apartment-occupancy-los',
       name: 'Shared room schedule', application_scope: 'room_occupancy', maximum_party_size: 4,
-      minimum_billable_occupancy: 1, is_active: false, version: 3,
+      minimum_billable_occupancy: 1, is_active: false, review_status: 'requires_review', version: 3,
     }, {
       id: partyPreviewId, hotel_id: hotelId, code: 'legacy-property-party-preview',
       name: 'Legacy property party preview', application_scope: 'property_booking_party', maximum_party_size: 8,
-      minimum_billable_occupancy: 1, is_active: false, version: 5,
+      minimum_billable_occupancy: 1, is_active: false, review_status: 'requires_review', version: 5,
     }];
 
     const configuration: any = {
@@ -2259,6 +2529,12 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
       }
       if (plan.hotel_id !== hotelId || plan.expected_property_updated_at !== store.h3_configuration.property.updated_at) {
         return { data: null, error: { code: 'PT409', message: 'hotels_v2_h3_1_stale_property' } };
+      }
+      if ((plan.operations || []).some((operation: any) => (
+        operation.entity === 'allocation_rule'
+        && (operation.payload?.items || []).some((item: any) => item.pricing_guest_count != null)
+      ))) {
+        return { data: null, error: { code: '22023', message: 'hotels_v2_h3_1p_dedicated_pricing_review_required' } };
       }
       for (const operation of plan.operations || []) {
         if (operation.entity === 'property_configuration') {
@@ -2340,6 +2616,14 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await expect(editor).toContainText('template does not invent account details');
   await expect(editor).toContainText('Future customer pricing is the sum of exact allocated Room Rates using the room_occupancy schedule');
   await expect(editor).toContainText('inactive 63-tier property_booking_party schedule remains a legacy parity preview only');
+  await expect(editor).toContainText('Only the dedicated 70-case legacy pricing Review may write it.');
+  await expect(editor).toContainText('Pricing occupancy is pending and locked.');
+  await expect(editor.locator('[data-h3-pricing-locked="1"]')).toHaveCount(10);
+  await expect(editor.locator('[data-h3-pricing-locked="1"]').first()).toHaveAttribute('readonly', '');
+  const pendingFiveGuestPricing = editor.locator('[data-rule-code="guests-5-bundle"] [data-h3-room-pricing-guests]');
+  await expect(pendingFiveGuestPricing).toHaveCount(2);
+  await expect(pendingFiveGuestPricing.nth(0)).toHaveValue('');
+  await expect(pendingFiveGuestPricing.nth(1)).toHaveValue('');
   await expect(editor.locator('[data-h3-open-overview]')).toHaveText('Review times in Overview');
   await expect(editor).toContainText('Public: no change');
   await page.locator('button[form="hotelH3ConfigurationForm"]').click();
@@ -2351,6 +2635,7 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await expect(review).toContainText('current public booking remain unchanged');
   await expect(review).toContainText('Future customer pricing will sum the exact allocated Room Rates using the room_occupancy schedule');
   await expect(review).toContainText('property_booking_party schedule is legacy preview only and never customer pricing');
+  await expect(review).toContainText('This generic plan cannot promote or change the legacy pricing-occupancy mapping');
   await expect(review).toContainText('Separately review 14:00 check-in and 11:00 check-out in Overview');
   const receiptCountBeforeConfirm = await page.evaluate(
     () => (window as any).__h2aE2eStore.h3_apply_receipts.length,
@@ -2365,6 +2650,7 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   await expect(bookingPanel).toContainText('€10.00 / allocated room / night');
   await expect(bookingPanel).toContainText('Manual Calendar');
   await expect(bookingPanel).toContainText('BLOCKED');
+  await expect(bookingPanel).toContainText('Complete the dedicated legacy pricing Review before H3 shadow pricing can be ready.');
   await expect(bookingPanel).toContainText('Review and save 7 Kamares check-in 14:00 in Overview.');
   await expect(bookingPanel).toContainText('Review and save 7 Kamares check-out 11:00 in Overview.');
   await expect(bookingPanel).toContainText('Add reviewed partner bank-transfer instructions before H3 shadow booking can be operational.');
@@ -2398,6 +2684,9 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
   expect(saved.configuration.allocation_rules.map((rule: any) => [rule.min_guest_count, rule.max_guest_count])).toEqual([
     [1, 4], [5, 5], [6, 6], [7, 7], [8, 8],
   ]);
+  expect(saved.configuration.allocation_rules.slice(1).map((rule: any) => (
+    rule.items.map((item: any) => item.pricing_guest_count)
+  ))).toEqual([[null, null], [null, null], [null, null], [null, null]]);
   expect(saved.configuration.payment_policies[0].terms).toEqual([
     expect.objectContaining({ due_event: 'after_partner_acceptance', amount_mode: 'percent_total', amount_value: 50, payment_methods: ['bank_transfer'] }),
     expect.objectContaining({ due_event: 'on_arrival', amount_mode: 'remaining_balance', payment_methods: ['card', 'cash'] }),
@@ -2413,6 +2702,9 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
     .every((source: any) => source.is_enabled === false)).toBe(true);
   expect(saved.receipt.plan.operations.find((operation: any) => operation.entity === 'property_configuration'))
     .toMatchObject({ id: HOTEL_ID, expected_version: 0, payload: { minimum_stay_nights: 2 } });
+  expect(saved.receipt.plan.operations.filter((operation: any) => operation.entity === 'allocation_rule')
+    .flatMap((operation: any) => operation.payload.items)
+    .every((item: any) => item.pricing_guest_count == null)).toBe(true);
   expect(JSON.stringify(saved.receipt.plan)).not.toMatch(/architecture_version|is_published|hotel_rooms_v2_enabled/);
   expect(saved).toMatchObject({
     legacyRuleCount: 63, architecture: 'legacy', published: true,
@@ -2438,4 +2730,195 @@ test('H3.1 saves reviewed 7 Kamares booking setup atomically while public legacy
       .filter((call: any) => call.name === 'hotel_v2_admin_apply_h3_1_configuration').length,
   }));
   expect(staleAudit).toEqual({ receiptCount: 1, minimumStay: 2, applyCalls: 2 });
+});
+
+test('H3.1P reviews exact legacy pricing parity, rebases one stale save, and stays public-inert', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await prepareSevenKamaresPricingPromotionFixture(page);
+
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator(`[data-hotel-open-workspace="${HOTEL_ID}"]`).click();
+  await openRoomsTab(page);
+  const panel = page.locator('#hotelWorkspaceActivePanel');
+
+  // Missing RPC/schema is fail-closed: the action cannot synthesize a browser
+  // price preview or expose Review from raw legacy fields.
+  await expect(panel.locator('[data-seven-kamares-pricing-promotion-card]')).toContainText(
+    'Legacy pricing Review unavailable',
+  );
+  await expect(panel.locator('[data-seven-kamares-pricing-promotion-card]')).toContainText('FAIL CLOSED');
+  await expect(panel.locator('[data-review-seven-kamares-pricing]')).toHaveCount(0);
+  await expect(page.locator('[data-legacy-pricing-promotion-preview]')).toHaveCount(0);
+  const missingFoundationAudit = await page.evaluate(() => ({
+    previewCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_get_legacy_pricing_promotion_preview').length,
+    applyCalls: (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_apply_legacy_pricing_promotion').length,
+  }));
+  expect(missingFoundationAudit).toEqual({ previewCalls: 1, applyCalls: 0 });
+
+  await page.evaluate(() => { (window as any).__installPricingPromotionHandlers(); });
+  await page.evaluate(async (hotelId) => {
+    await (window as any).HotelsV2Workspace.openWorkspace(hotelId, { tab: 'rooms' });
+  }, HOTEL_ID);
+  const prePromotionState = await page.evaluate(() => {
+    const configuration = (window as any).__h2aE2eStore.h3_configuration;
+    return {
+      roomScheduleCode: configuration.pricing_schedules[0].code,
+      partyPreviewStatus: configuration.pricing_schedules[1].review_status,
+      allocationCodes: configuration.allocation_rules.map((rule: any) => rule.code),
+      bundlePricingCounts: configuration.allocation_rules.slice(1).map((rule: any) => (
+        rule.items.map((item: any) => item.pricing_guest_count)
+      )),
+    };
+  });
+  expect(prePromotionState).toEqual({
+    roomScheduleCode: 'shared-apartment-occupancy-los',
+    partyPreviewStatus: 'requires_review',
+    allocationCodes: [
+      'guests-1-4-choice',
+      'guests-5-bundle',
+      'guests-6-bundle',
+      'guests-7-bundle',
+      'guests-8-bundle',
+    ],
+    bundlePricingCounts: [[null, null], [null, null], [null, null], [null, null]],
+  });
+  const action = panel.locator('[data-review-seven-kamares-pricing]');
+  await expect(action).toHaveText('Review legacy → H3 pricing');
+  await action.click();
+  let promotionModal = page.locator('.hotel-pricing-promotion-modal');
+  await expect(promotionModal).toBeVisible();
+  await expect(promotionModal.locator('[data-pricing-source-rule-count]')).toHaveText('63');
+  await expect(promotionModal.locator('[data-pricing-target-tier-count]')).toHaveText('27');
+  await expect(promotionModal.locator('[data-pricing-parity-mismatch-count]')).toHaveText('0');
+  await expect(promotionModal.locator('[data-pricing-allocation-preview]')).toContainText(
+    'Upper Floor Apartment: 1 physical → 2 pricing',
+  );
+  await expect(promotionModal.locator('[data-pricing-allocation-preview]')).toContainText(
+    'Upper Floor Apartment: 3 physical → 2 pricing',
+  );
+  await expect(promotionModal.locator('[data-pricing-allocation-preview]')).toContainText(
+    'Ground Floor Apartment: 3 physical → 4 pricing',
+  );
+  await expect(promotionModal).toContainText('70-case parity replay');
+  await expect(promotionModal).toContainText('7208ab4ecc0e47abd64d87ca1ac53a03');
+  await expect(promotionModal).toContainText('Legacy pricing, public pages, booking payloads, bookings and fulfillments are not mutation targets.');
+  const acknowledgement = promotionModal.locator('[data-pricing-occupancy-ack]');
+  const buildReview = promotionModal.locator('[data-pricing-promotion-review]');
+  await expect(buildReview).toBeDisabled();
+  await acknowledgement.check();
+  await expect(buildReview).toBeEnabled();
+  await buildReview.click();
+
+  promotionModal = page.locator('.hotel-pricing-promotion-modal');
+  await expect(promotionModal).toContainText('Final Review · legacy → H3 pricing');
+  await expect(promotionModal).toContainText('Reviewed normalized fields only');
+  await expect(promotionModal).toContainText('Room schedule review status');
+  await expect(promotionModal).toContainText('Legacy pricing, public pages, booking payloads, bookings and fulfillments are not mutation targets.');
+  await expect(promotionModal.locator('[data-pricing-occupancy-ack]')).toBeChecked();
+  await page.evaluate(() => { (window as any).__promotionFailNextApply = true; });
+  await promotionModal.locator('[data-pricing-promotion-save]').click();
+
+  // A PT409 fetches fresh exact fingerprints and constructs a new plan, but
+  // does not submit it. The Admin must explicitly inspect and click Save again.
+  promotionModal = page.locator('.hotel-pricing-promotion-modal');
+  await expect(promotionModal).toContainText('Review fresh 7 Kamares pricing values');
+  await expect(promotionModal).toContainText('Nothing was retried; inspect this Review and click Save explicitly again.');
+  await expect(promotionModal.locator('[data-pricing-occupancy-ack]')).toBeChecked();
+  const afterStale = await page.evaluate((scheduleId) => {
+    const calls = (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_apply_legacy_pricing_promotion');
+    const store = (window as any).__h2aE2eStore;
+    return {
+      applyCalls: calls.length,
+      receipts: store.promotion_receipts.length,
+      firstExpectedVersion: calls[0]?.params?.p_plan?.expected?.room_schedule_version,
+      firstSnapshot: calls[0]?.params?.p_plan?.snapshot_token,
+      currentScheduleVersion: store.pricing_schedules.find((row: any) => row.id === scheduleId).version,
+      bundlePricingCounts: store.h3_configuration.allocation_rules.slice(1).map((rule: any) => (
+        rule.items.map((item: any) => item.pricing_guest_count)
+      )),
+    };
+  }, SEVEN_ARCHES_SCHEDULE_ID);
+  expect(afterStale).toEqual({
+    applyCalls: 1,
+    receipts: 0,
+    firstExpectedVersion: 4,
+    firstSnapshot: 'pricing-promotion-v4',
+    currentScheduleVersion: 5,
+    bundlePricingCounts: [[null, null], [null, null], [null, null], [null, null]],
+  });
+
+  await promotionModal.locator('[data-pricing-promotion-save]').click();
+  await expect(promotionModal).toBeHidden();
+  await expect(panel.locator('[data-review-seven-kamares-pricing]')).toHaveText('View pricing mapping');
+
+  const finalState = await page.evaluate((scheduleId) => {
+    const store = (window as any).__h2aE2eStore;
+    const calls = (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_admin_apply_legacy_pricing_promotion');
+    const schedule = store.pricing_schedules.find((row: any) => row.id === scheduleId);
+    return {
+      applyCalls: calls.length,
+      expectedVersions: calls.map((call: any) => call.params.p_plan.expected.room_schedule_version),
+      snapshotTokens: calls.map((call: any) => call.params.p_plan.snapshot_token),
+      receiptCount: store.promotion_receipts.length,
+      schedule: { review_status: schedule.review_status, is_active: schedule.is_active, version: schedule.version },
+      roomCount: store.room_types.length,
+      ratePlanActive: store.rate_plans[0].is_active,
+      roomRatesActive: store.room_rates.map((row: any) => row.is_active),
+      pricingGuestCounts: store.h3_configuration.allocation_rules.slice(1).map((rule: any) => (
+        rule.items.map((item: any) => item.pricing_guest_count)
+      )),
+      legacyUnchanged: JSON.stringify(store.property.pricing_tiers) === store.promotion_legacy_baseline,
+      architecture: store.property.architecture_version,
+      flagsOff: Object.values(store.flags).every((value) => value === false),
+    };
+  }, SEVEN_ARCHES_SCHEDULE_ID);
+  expect(finalState).toEqual({
+    applyCalls: 2,
+    expectedVersions: [4, 5],
+    snapshotTokens: ['pricing-promotion-v4', 'pricing-promotion-v5'],
+    receiptCount: 1,
+    schedule: { review_status: 'reviewed', is_active: false, version: 6 },
+    roomCount: 2,
+    ratePlanActive: false,
+    roomRatesActive: [false, false],
+    pricingGuestCounts: [[2, 2], [3, 3], [4, 4], [4, 4]],
+    legacyUnchanged: true,
+    architecture: 'legacy',
+    flagsOff: true,
+  });
+
+  // CURRENT==reviewed is display-only. It exposes the mapping but no second
+  // mutation control, duplicate operation or automatic promotion.
+  await panel.locator('[data-review-seven-kamares-pricing]').click();
+  promotionModal = page.locator('.hotel-pricing-promotion-modal');
+  await expect(promotionModal).toContainText('Reviewed legacy → H3 pricing mapping');
+  await expect(promotionModal.locator('[data-pricing-promotion-save]')).toHaveCount(0);
+  await expect(promotionModal.locator('[data-pricing-occupancy-ack]')).toHaveCount(0);
+  await promotionModal.locator('footer [data-hotel-modal-close]').click();
+
+  // Once the dedicated receipt exists, generic Booking setup may display and
+  // preserve the exact mapping, but it remains read-only there.
+  await page.locator('[data-hotel-workspace-tab="booking_setup"]').click();
+  await page.locator('#hotelWorkspaceActivePanel [data-edit-h3-configuration]').click();
+  const reviewedSetup = page.locator('#hotelH3ConfigurationForm');
+  await expect(reviewedSetup).toContainText('Pricing occupancy is reviewed and locked.');
+  const reviewedFiveGuestPricing = reviewedSetup.locator(
+    '[data-rule-code="guests-5-bundle"] [data-h3-room-pricing-guests]',
+  );
+  await expect(reviewedFiveGuestPricing).toHaveCount(2);
+  await expect(reviewedFiveGuestPricing.nth(0)).toHaveValue('2');
+  await expect(reviewedFiveGuestPricing.nth(1)).toHaveValue('2');
+  await expect(reviewedFiveGuestPricing.nth(0)).toHaveAttribute('readonly', '');
 });

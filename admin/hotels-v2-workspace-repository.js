@@ -20,6 +20,8 @@
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
     h3Configuration: 'hotel_v2_admin_get_h3_1_configuration',
     applyH3Configuration: 'hotel_v2_admin_apply_h3_1_configuration',
+    legacyPricingPromotionPreview: 'hotel_v2_admin_get_legacy_pricing_promotion_preview',
+    applyLegacyPricingPromotion: 'hotel_v2_admin_apply_legacy_pricing_promotion',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -34,6 +36,15 @@
 
   function reviewedShadowUserMessage(message) {
     const key = String(message || '').trim().toLowerCase();
+    if (/hotels_v2_h3_pricing_promotion_stale_review/.test(key)) {
+      return 'The legacy source, shadow pricing schedule or reviewed allocation changed after Review. Fresh exact values are required before an explicit second Save.';
+    }
+    if (/hotels_v2_h3_pricing_promotion_already_reviewed/.test(key)) {
+      return 'This exact shadow pricing schedule has already been reviewed. Refresh the workspace to see its current state.';
+    }
+    if (/hotels_v2_h3_pricing_promotion_(?:pricing_occupancy_ack|required_ack)/.test(key)) {
+      return 'Explicitly acknowledge the reviewed physical-allocation and pricing-occupancy mapping before saving.';
+    }
     if (/hotels_v2_h3_1_(?:stale|version|children_fingerprint|property_changed)/.test(key)) {
       return 'This booking configuration changed after Review. Fresh exact values are required before you can review and save it again.';
     }
@@ -89,7 +100,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3_1)_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -391,6 +402,39 @@
     return { ...payload, correlation_id: payload.correlation_id || correlation, configuration };
   }
 
+  async function getLegacyPricingPromotionPreview(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id) throw new Error('A valid property ID is required.');
+    const data = await runRpc(RPC.legacyPricingPromotionPreview, {
+      p_hotel_id: id,
+    }, 'Load legacy-to-H3 pricing preparation');
+    const preview = Core.validateLegacyPricingPromotionPreview(data);
+    if (preview.hotel_id !== id) throw new Error('Pricing preparation returned a different property ID.');
+    return preview;
+  }
+
+  async function applyLegacyPricingPromotion(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    if (id !== Core.SEVEN_ARCHES_PROPERTY_ID
+        || reviewedPlan?.decision !== 'promote_room_schedule_to_reviewed'
+        || reviewedPlan?.acknowledge_pricing_occupancy_mapping !== true
+        || !Core.asText(reviewedPlan?.snapshot_token)
+        || !Object.keys(Core.asObject(reviewedPlan?.expected)).length) {
+      throw new Error('A reviewed exact 7 Kamares pricing-promotion plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyLegacyPricingPromotion, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed legacy-to-H3 pricing preparation');
+    const payload = Core.asObject(data);
+    if (payload.hotel_id && Core.normalizeUuid(payload.hotel_id) !== id) {
+      throw new Error('Saved pricing preparation returned a different property ID.');
+    }
+    return { ...payload, correlation_id: payload.correlation_id || correlation };
+  }
+
   async function uploadRoomGallery(propertySlug, roomId, files) {
     const optimizedUploader = typeof window !== 'undefined' && window.HotelsV2AdminMedia?.uploadRoomGallery;
     if (typeof optimizedUploader === 'function') {
@@ -433,6 +477,8 @@
     prepareLegacyShadowRooms,
     getH3Configuration,
     applyH3ConfigurationPlan,
+    getLegacyPricingPromotionPreview,
+    applyLegacyPricingPromotion,
     uploadRoomGallery,
   });
 });

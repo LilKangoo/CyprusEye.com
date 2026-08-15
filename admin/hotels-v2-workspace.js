@@ -14,6 +14,8 @@
     workspace: null,
     h3Configuration: null,
     h3ConfigurationError: null,
+    pricingPromotionPreview: null,
+    pricingPromotionError: null,
     activeTab: 'overview',
     modal: null,
     pendingReview: null,
@@ -528,10 +530,19 @@
       state.workspace = await Repository.getWorkspace(id);
       state.h3Configuration = null;
       state.h3ConfigurationError = null;
+      state.pricingPromotionPreview = null;
+      state.pricingPromotionError = null;
       try {
         state.h3Configuration = await Repository.getH3Configuration(id);
       } catch (error) {
         state.h3ConfigurationError = error;
+      }
+      if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
+        try {
+          state.pricingPromotionPreview = await Repository.getLegacyPricingPromotionPreview(id);
+        } catch (error) {
+          state.pricingPromotionError = error;
+        }
       }
       state.calendar = {
         loading: false,
@@ -566,6 +577,8 @@
     state.workspace = null;
     state.h3Configuration = null;
     state.h3ConfigurationError = null;
+    state.pricingPromotionPreview = null;
+    state.pricingPromotionError = null;
     state.calendar.data = null;
     if (workspaceElement) {
       workspaceElement.hidden = true;
@@ -985,6 +998,283 @@
     });
   }
 
+  function pricingPromotionRoomLabel(preview, roomTypeId) {
+    const room = Core.asArray(preview?.target?.rooms).find((entry) => (
+      Core.normalizeUuid(entry?.id || entry?.room_type_id) === Core.normalizeUuid(roomTypeId)
+    ));
+    if (room) return Core.i18nText(room.name_i18n || room.name, 'en', room.code || roomTypeId);
+    const workspaceRoom = state.workspace?.room_types?.find((entry) => entry.id === Core.normalizeUuid(roomTypeId));
+    return Core.i18nText(workspaceRoom?.name_i18n, 'en', workspaceRoom?.code || roomTypeId);
+  }
+
+  function pricingPromotionFingerprint(label, value) {
+    return `<div><dt>${escapeHtml(label)}</dt><dd><code>${escapeHtml(value || 'Missing')}</code></dd></div>`;
+  }
+
+  function pricingPromotionTierRows(tiers, currency) {
+    return Core.asArray(tiers).map((tier) => `<tr>
+      <td>${Number(tier.guest_count)}</td><td>${Number(tier.threshold_nights)}</td>
+      <td>${escapeHtml(formatMoney(tier.nightly_rate, currency))}</td>
+    </tr>`).join('');
+  }
+
+  function pricingPromotionAllocationRows(preview) {
+    return preview.allocation_previews.flatMap((entry) => entry.options.map((option, optionIndex) => {
+      const resolved = option.nightly_comparisons[0] || {};
+      const allocation = option.allocation.map((item) => {
+        const room = pricingPromotionRoomLabel(preview, item.room_type_id);
+        const physical = item.allocated_guest_count == null ? resolved.requested_guest_count : item.allocated_guest_count;
+        const pricing = item.pricing_guest_count == null ? resolved.priced_occupancy : item.pricing_guest_count;
+        return `${room}: ${physical} physical → ${pricing} pricing`;
+      }).join(' + ');
+      return `<tr><td>${entry.guest_count}</td><td>${escapeHtml(entry.allocation_mode === 'customer_choice' ? `Customer choice ${optionIndex + 1}` : 'Required bundle')}</td><td>${escapeHtml(allocation)}</td></tr>`;
+    })).join('');
+  }
+
+  function pricingPromotionComparisonRows(preview) {
+    return preview.allocation_previews.flatMap((entry) => entry.options.flatMap((option, optionIndex) => (
+      option.nightly_comparisons.map((comparison) => {
+        const roomRates = comparison.room_nightly_rates.map((rate) => formatMoney(
+          rate && typeof rate === 'object' ? rate.nightly_rate : rate,
+          comparison.currency,
+        )).join(' + ');
+        const delta = Number(comparison.room_rate_sum) - Number(comparison.legacy_nightly_rate);
+        return `<tr><td>${entry.guest_count}</td><td>${entry.allocation_mode === 'customer_choice' ? optionIndex + 1 : 'Bundle'}</td><td>${comparison.nights}</td><td>${escapeHtml(roomRates)}</td><td>${escapeHtml(formatMoney(comparison.room_rate_sum, comparison.currency))}</td><td>${escapeHtml(formatMoney(comparison.legacy_nightly_rate, comparison.currency))}</td><td class="${Math.abs(delta) < 0.000001 ? 'is-zero' : 'is-mismatch'}">${escapeHtml(formatMoney(delta, comparison.currency))}</td></tr>`;
+      })
+    ))).join('');
+  }
+
+  function pricingPromotionTargetSummary(preview) {
+    const plan = Core.asObject(preview.target.rate_plan);
+    const schedule = preview.target.room_schedule;
+    const planName = Core.i18nText(plan.name_i18n || plan.name, 'en', plan.code || 'Standard');
+    return `<div class="hotel-pricing-promotion-target">
+      <section><span>Rate Plan</span><strong>${escapeHtml(planName)}</strong><small>${plan.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small><code>${escapeHtml(plan.id || '')}</code></section>
+      ${preview.target.room_rates.map((rate) => `<section><span>Room Rate</span><strong>${escapeHtml(pricingPromotionRoomLabel(preview, rate.room_type_id))} · ${escapeHtml(planName)}</strong><small>${rate.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small><code>${escapeHtml(rate.id || '')}</code></section>`).join('')}
+      <section><span>Shared Room schedule</span><strong>${schedule.tier_count} occupancy × LOS tiers</strong><small>${escapeHtml(schedule.review_status)} · ${schedule.is_active ? 'active' : 'inactive'}</small><code>${escapeHtml(schedule.id || '')}</code></section>
+    </div>`;
+  }
+
+  function pricingPromotionDetailsMarkup(preview, options = {}) {
+    const schedule = preview.target.room_schedule;
+    const flags = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
+    const statusBefore = Core.asText(schedule.review_status) || 'requires_review';
+    const notice = options.notice
+      ? `<p class="hotel-pricing-promotion-notice" role="status">${escapeHtml(options.notice)}</p>`
+      : '';
+    return `<div class="hotel-pricing-promotion-review" data-legacy-pricing-promotion-preview>
+      ${notice}
+      <section class="hotel-review-summary hotel-pricing-promotion-summary">
+        <p>This Admin-only preparation reviews the exact legacy source and its inert normalized pricing representation. It does not copy browser-supplied prices or change public Hotel behavior.</p>
+        <dl><div><dt>Property</dt><dd><code>${escapeHtml(preview.hotel_id)}</code></dd></div><div><dt>Legacy rules</dt><dd data-pricing-source-rule-count="${preview.source.rule_count}">${preview.source.rule_count}</dd></div><div><dt>Room tiers</dt><dd data-pricing-target-tier-count="${schedule.tier_count}">${schedule.tier_count}</dd></div><div><dt>Parity cases</dt><dd>${preview.parity.total_case_count}</dd></div><div><dt>Parity mismatches</dt><dd data-pricing-parity-mismatch-count="${preview.parity.total_mismatch_count}">${preview.parity.total_mismatch_count}</dd></div><div><dt>Public change</dt><dd>${preview.public_change ? 'YES — BLOCKED' : 'No'}</dd></div></dl>
+      </section>
+      <section class="hotel-pricing-promotion-section"><header><div><span class="hotel-workspace-eyebrow">Current authoritative source</span><h4>Legacy property pricing · ${preview.source.rule_count} rules</h4></div><span class="hotel-workspace-status hotel-workspace-status--warning">UNCHANGED</span></header>
+        <p>Pricing model: <strong>${escapeHtml(preview.source.pricing_model || 'legacy tiers')}</strong> · currency ${escapeHtml(preview.source.currency)}. The source remains authoritative while architecture is legacy.</p>
+        <dl class="hotel-pricing-promotion-fingerprints">${pricingPromotionFingerprint('Legacy pricing fingerprint', preview.source.pricing_fingerprint)}${pricingPromotionFingerprint('Legacy tier fingerprint', preview.source.tier_fingerprint)}${pricingPromotionFingerprint('63-tier property-party preview', preview.source.property_party_preview.tier_fingerprint)}</dl>
+        <details><summary>Inspect all ${preview.source.rule_count} legacy rules</summary><div class="hotel-pricing-promotion-table-wrap"><table><thead><tr><th>Guests</th><th>From nights</th><th>Nightly rate</th></tr></thead><tbody>${pricingPromotionTierRows(preview.source.tiers, preview.source.currency)}</tbody></table></div></details>
+      </section>
+      <section class="hotel-pricing-promotion-section"><header><div><span class="hotel-workspace-eyebrow">Prepared normalized target</span><h4>Standard plan · two Room Rates · ${schedule.tier_count} shared tiers</h4></div><span class="hotel-workspace-status hotel-workspace-status--warning">INACTIVE</span></header>
+        ${pricingPromotionTargetSummary(preview)}
+        <dl class="hotel-pricing-promotion-fingerprints">${pricingPromotionFingerprint('Room tier fingerprint', schedule.tier_fingerprint)}${pricingPromotionFingerprint('Allocation fingerprint', preview.target.allocation_fingerprint)}${pricingPromotionFingerprint('Pricing occupancy mapping', preview.pricing_occupancy_mapping_fingerprint)}${pricingPromotionFingerprint('70-case parity replay', preview.parity.fingerprint)}${pricingPromotionFingerprint('Target fingerprint', preview.target.target_fingerprint)}</dl>
+        <details><summary>Inspect all ${schedule.tier_count} shared Room tiers</summary><div class="hotel-pricing-promotion-table-wrap"><table><thead><tr><th>Pricing occupancy</th><th>From nights</th><th>Nightly rate</th></tr></thead><tbody>${pricingPromotionTierRows(schedule.tiers, schedule.currency)}</tbody></table></div></details>
+      </section>
+      <section class="hotel-pricing-promotion-section" data-pricing-allocation-preview><header><div><span class="hotel-workspace-eyebrow">Physical allocation ≠ pricing occupancy</span><h4>Reviewed guest mapping</h4></div><span class="hotel-workspace-status hotel-workspace-status--success">ZERO MISMATCH</span></header>
+        <p>Physical guests describe who sleeps in each apartment. Pricing occupancy selects an existing 2–4 guest Room tier. One guest uses the real two-guest tier; no one-person price is fabricated.</p>
+        <div class="hotel-pricing-promotion-table-wrap"><table><thead><tr><th>Party</th><th>Allocation</th><th>Exact reviewed mapping</th></tr></thead><tbody>${pricingPromotionAllocationRows(preview)}</tbody></table></div>
+        <details><summary>Inspect authoritative nightly replay</summary><div class="hotel-pricing-promotion-table-wrap"><table><thead><tr><th>Party</th><th>Option</th><th>Nights</th><th>Room rates</th><th>Room sum</th><th>Legacy</th><th>Delta</th></tr></thead><tbody>${pricingPromotionComparisonRows(preview)}</tbody></table></div></details>
+      </section>
+      <section class="hotel-pricing-promotion-section"><header><div><span class="hotel-workspace-eyebrow">Before → after</span><h4>Reviewed normalized fields only</h4></div></header><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
+        <tr><th>5 guests · physical 3+2</th><td>Pricing occupancy: NULL / current exact snapshot</td><td>Pricing occupancy: 2+2</td></tr><tr><th>6 guests · physical 3+3</th><td>Pricing occupancy: NULL / current exact snapshot</td><td>Pricing occupancy: 3+3</td></tr><tr><th>7 guests · physical 4+3</th><td>Pricing occupancy: NULL / current exact snapshot</td><td>Pricing occupancy: 4+4</td></tr><tr><th>8 guests · physical 4+4</th><td>Pricing occupancy: NULL / current exact snapshot</td><td>Pricing occupancy: 4+4</td></tr><tr><th>Physical guest allocation</th><td>5: 3+2 · 6: 3+3 · 7: 4+3 · 8: 4+4</td><td>Unchanged</td></tr><tr><th>Room schedule review status</th><td>${escapeHtml(statusBefore)}</td><td>reviewed</td></tr><tr><th>Room schedule active</th><td>${schedule.is_active ? 'Yes' : 'No'}</td><td>${schedule.is_active ? 'Yes' : 'No'} · unchanged</td></tr><tr><th>Rate Plan active</th><td>No</td><td>No · unchanged</td></tr><tr><th>Two Room Rates active</th><td>No</td><td>No · unchanged</td></tr><tr><th>Legacy pricing</th><td>Authoritative</td><td>Authoritative · unchanged</td></tr><tr><th>Architecture</th><td>${escapeHtml(preview.property.architecture_version)}</td><td>${escapeHtml(preview.property.architecture_version)} · unchanged</td></tr><tr><th>Public change</th><td>No</td><td>No</td></tr>
+      </tbody></table></div></section>
+      <section class="hotel-pricing-promotion-section hotel-pricing-promotion-safety"><header><div><span class="hotel-workspace-eyebrow">Safety guard</span><h4>Public runtime remains inert</h4></div></header><ul>${flags.map((flag) => `<li><span>${escapeHtml(flag)}</span><strong>${preview.flags[flag] === false ? 'OFF' : 'NOT OFF — BLOCKED'}</strong></li>`).join('')}</ul><p>Legacy pricing, public pages, booking payloads, bookings and fulfillments are not mutation targets.</p></section>
+    </div>`;
+  }
+
+  async function refreshLegacyPricingPromotionPreview() {
+    const preview = await Repository.getLegacyPricingPromotionPreview(state.workspace.property.id);
+    state.pricingPromotionPreview = preview;
+    state.pricingPromotionError = null;
+    return preview;
+  }
+
+  function pricingPromotionConflictMessage(conflicts) {
+    const labels = Core.asArray(conflicts).map((field) => String(field).replaceAll('_', ' '));
+    return `The exact legacy source or prepared pricing mapping changed after this review opened: ${labels.join(', ')}. Fresh values are shown; acknowledge and review them again.`;
+  }
+
+  async function openLegacyPricingPromotionPreparation(options = {}) {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) {
+      toast('This reviewed pricing preparation is restricted to the exact 7 Kamares property.', 'error');
+      return;
+    }
+    let preview;
+    try {
+      preview = options.preview
+        ? Core.validateLegacyPricingPromotionPreview(options.preview)
+        : await refreshLegacyPricingPromotionPreview();
+    } catch (error) {
+      state.pricingPromotionError = error;
+      toast(error?.userMessage || error?.message || 'Legacy pricing preparation could not be loaded.', 'error');
+      return;
+    }
+    const alreadyReviewed = preview.target.room_schedule.review_status === 'reviewed';
+    openModal({
+      title: alreadyReviewed ? 'Reviewed legacy → H3 pricing mapping' : 'Prepare legacy → H3 pricing Review',
+      className: 'hotel-workspace-modal--wide hotel-pricing-promotion-modal',
+      body: `${pricingPromotionDetailsMarkup(preview, { notice: options.notice })}${alreadyReviewed ? '' : `<label class="hotel-pricing-promotion-ack"><input type="checkbox" data-pricing-occupancy-ack /><span><strong>I reviewed the physical allocation and Pricing occupancy mapping.</strong><small>I understand that pricing occupancy can differ from physical guests only to select existing tiers and preserve the accepted legacy total.</small></span></label>`}`,
+      footer: alreadyReviewed
+        ? '<button class="btn-secondary" type="button" data-hotel-modal-close>Close</button>'
+        : '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="button" data-pricing-promotion-review disabled>Build final Review</button>',
+      onReady(overlay) {
+        if (alreadyReviewed) return;
+        const acknowledge = overlay.querySelector('[data-pricing-occupancy-ack]');
+        const reviewButton = overlay.querySelector('[data-pricing-promotion-review]');
+        acknowledge?.addEventListener('change', () => { reviewButton.disabled = !acknowledge.checked; });
+        reviewButton?.addEventListener('click', async () => {
+          if (!acknowledge.checked) return;
+          reviewButton.disabled = true;
+          reviewButton.textContent = 'Refreshing exact fingerprints…';
+          try {
+            const fresh = await refreshLegacyPricingPromotionPreview();
+            const reconciliation = Core.reconcileLegacyPricingPromotion(preview, fresh);
+            closeModal({ restoreFocus: false, skipCleanup: true });
+            if (!reconciliation.safe) {
+              await openLegacyPricingPromotionPreparation({
+                preview: fresh,
+                notice: pricingPromotionConflictMessage(reconciliation.conflicts),
+              });
+              return;
+            }
+            openLegacyPricingPromotionFinalReview(fresh, { acknowledged: true });
+          } catch (error) {
+            reviewButton.disabled = false;
+            reviewButton.textContent = 'Build final Review';
+            toast(error?.userMessage || error?.message || 'Fresh pricing Review could not be prepared.', 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function openLegacyPricingPromotionFinalReview(previewValue, options = {}) {
+    const preview = Core.validateLegacyPricingPromotionPreview(previewValue);
+    if (preview.target.room_schedule.review_status === 'reviewed') {
+      void openLegacyPricingPromotionPreparation({ preview, notice: options.notice });
+      return;
+    }
+    const plan = Core.buildLegacyPricingPromotionPlan(preview, options.acknowledged === true);
+    openModal({
+      title: options.notice ? 'Review fresh 7 Kamares pricing values' : 'Final Review · legacy → H3 pricing',
+      className: 'hotel-workspace-modal--wide hotel-pricing-promotion-modal',
+      body: `${pricingPromotionDetailsMarkup(preview, { notice: options.notice })}<label class="hotel-pricing-promotion-ack"><input type="checkbox" data-pricing-occupancy-ack ${options.acknowledged ? 'checked' : ''} /><span><strong>I confirm this exact physical-allocation and Pricing occupancy mapping.</strong><small>Save stores the reviewed bundle pricing occupancies and marks the inactive Room schedule reviewed. No mutation is retried automatically after a stale response.</small></span></label>`,
+      footer: '<button class="btn-secondary" type="button" data-pricing-promotion-back>Back</button><button class="btn-primary" type="button" data-pricing-promotion-save>Save reviewed pricing preparation</button>',
+      onReady(overlay) {
+        const acknowledge = overlay.querySelector('[data-pricing-occupancy-ack]');
+        const saveButton = overlay.querySelector('[data-pricing-promotion-save]');
+        saveButton.disabled = !acknowledge.checked;
+        acknowledge.addEventListener('change', () => { saveButton.disabled = !acknowledge.checked; });
+        overlay.querySelector('[data-pricing-promotion-back]')?.addEventListener('click', () => {
+          closeModal({ restoreFocus: false, skipCleanup: true });
+          void openLegacyPricingPromotionPreparation({ preview });
+        });
+        saveButton.addEventListener('click', async () => {
+          if (!acknowledge.checked) return;
+          saveButton.disabled = true;
+          saveButton.textContent = 'Saving reviewed preparation…';
+          setModalSaving(overlay, true);
+          try {
+            await Repository.applyLegacyPricingPromotion(plan);
+            const [workspace, configuration, savedPreview] = await Promise.all([
+              Repository.getWorkspace(preview.hotel_id),
+              Repository.getH3Configuration(preview.hotel_id),
+              Repository.getLegacyPricingPromotionPreview(preview.hotel_id),
+            ]);
+            state.workspace = workspace;
+            state.h3Configuration = configuration;
+            state.h3ConfigurationError = null;
+            state.pricingPromotionPreview = savedPreview;
+            state.pricingPromotionError = null;
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            renderWorkspace();
+            toast('Legacy pricing preparation reviewed. All pricing products remain inactive and public behavior is unchanged.', 'success');
+          } catch (error) {
+            if (error?.isStale) {
+              try {
+                const fresh = await refreshLegacyPricingPromotionPreview();
+                const reconciliation = Core.reconcileLegacyPricingPromotion(preview, fresh);
+                setModalSaving(overlay, false);
+                closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+                if (reconciliation.safe) {
+                  openLegacyPricingPromotionFinalReview(fresh, {
+                    acknowledged: true,
+                    notice: 'The stale Save was stopped. Fresh exact versions and fingerprints are shown. Nothing was retried; inspect this Review and click Save explicitly again.',
+                  });
+                } else {
+                  void openLegacyPricingPromotionPreparation({
+                    preview: fresh,
+                    notice: pricingPromotionConflictMessage(reconciliation.conflicts),
+                  });
+                }
+                toast('Stale pricing Save stopped safely. Fresh values require an explicit new Review and Save.', 'warning');
+                return;
+              } catch (refreshError) {
+                error = refreshError;
+              }
+            }
+            setModalSaving(overlay, false);
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save reviewed pricing preparation';
+            toast(error?.userMessage || error?.message || 'Reviewed pricing preparation was rejected. No partial save was kept.', error?.isAmbiguousOutcome ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function pricingPromotionWorkspaceState() {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return null;
+    if (!state.pricingPromotionPreview) return {
+      available: false,
+      error: state.pricingPromotionError,
+      schedule: null,
+      reviewStatus: 'unavailable',
+      reviewed: false,
+      tierCount: 0,
+    };
+    const previewSchedule = state.pricingPromotionPreview.target.room_schedule;
+    const schedule = state.workspace.pricing_schedules.find((entry) => (
+      Core.normalizeUuid(entry?.id) === Core.SEVEN_ARCHES_SHADOW_IDS.pricing_schedule
+    ));
+    const reviewStatus = Core.asText(previewSchedule?.review_status || schedule?.review_status) || 'requires_review';
+    return {
+      available: true,
+      schedule,
+      reviewStatus,
+      reviewed: reviewStatus === 'reviewed',
+      tierCount: Number(previewSchedule?.tier_count || 0),
+    };
+  }
+
+  function pricingPromotionCardMarkup() {
+    const pricingState = pricingPromotionWorkspaceState();
+    if (!pricingState) return '';
+    if (!pricingState.available) {
+      return `<section class="hotel-workspace-card hotel-pricing-promotion-card" data-seven-kamares-pricing-promotion-card>
+        <header><div><span class="hotel-workspace-eyebrow">H3.1 pricing preparation</span><h4>Legacy pricing Review unavailable</h4></div><span class="hotel-workspace-status hotel-workspace-status--warning">FAIL CLOSED</span></header>
+        <p>${escapeHtml(pricingState.error?.isFoundationMissing ? 'Apply and verify the approved pricing-promotion database contract before exposing this Admin action.' : (pricingState.error?.userMessage || pricingState.error?.message || 'The exact server preview could not be validated.'))}</p>
+      </section>`;
+    }
+    const status = pricingState.reviewed ? 'REVIEWED' : 'REVIEW REQUIRED';
+    const tone = pricingState.reviewed ? 'success' : 'warning';
+    const action = pricingState.reviewed ? 'View pricing mapping' : 'Review legacy → H3 pricing';
+    return `<section class="hotel-workspace-card hotel-pricing-promotion-card" data-seven-kamares-pricing-promotion-card>
+      <header><div><span class="hotel-workspace-eyebrow">Legacy → H3 pricing preparation</span><h4>63 legacy rules → 27 shared Room tiers</h4></div><span class="hotel-workspace-status hotel-workspace-status--${tone}">${status}</span></header>
+      <p>Review the exact Standard plan, two inactive Room Rates, physical room allocation and separate pricing occupancy used to preserve all accepted 7 Kamares totals.</p>
+      <dl><div><dt>Legacy source</dt><dd>63 rules · authoritative</dd></div><div><dt>Room schedule</dt><dd>${pricingState.tierCount || 27} tiers · inactive</dd></div><div><dt>Public change</dt><dd>No</dd></div></dl>
+      <button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>
+    </section>`;
+  }
+
   function renderRoomsPanel(panel) {
     const workspace = state.workspace;
     const migration = Core.migrationPreview(workspace);
@@ -1004,6 +1294,7 @@
             ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
             : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
       </section>` : ''}
+      ${pricingPromotionCardMarkup()}
       <div class="hotel-rooms-layout">
         <section>
           <div class="hotel-workspace-section-title"><div><h4>Normalized Room Types</h4><p>One Room Type may use several Rate Plans.</p></div><span>${rooms.length}</span></div>
@@ -1018,6 +1309,7 @@
     panel.querySelector('[data-add-rate-plan]')?.addEventListener('click', () => openRatePlanEditor());
     panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(migration));
     panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
+    panel.querySelector('[data-review-seven-kamares-pricing]')?.addEventListener('click', openLegacyPricingPromotionPreparation);
     bindRoomPanelActions(panel);
   }
 
@@ -2986,23 +3278,25 @@
           ...(current || {}), id: h3ExactId(current), room_type_id: allocation.room_type_id,
           units_required: allocation.units_required || 1,
           allocated_guest_count: allocation.allocated_guest_count ?? null,
+          pricing_guest_count: allocation.pricing_guest_count ?? null,
           sort_order: (index + 1) * 100,
         };
       }),
     };
   }
 
-  function sevenKamaresH3Template(configuration) {
+  function sevenKamaresH3Template(configuration, options = {}) {
     const base = Core.normalizeH3Configuration(configuration);
+    const pricingPromotionReviewed = options.pricingPromotionReviewed === true;
     const upperId = Core.SEVEN_ARCHES_SHADOW_IDS.upper_room_type;
     const groundId = Core.SEVEN_ARCHES_SHADOW_IDS.ground_room_type;
     const choiceRooms = [
-      { room_type_id: upperId, units_required: 1, allocated_guest_count: null },
-      { room_type_id: groundId, units_required: 1, allocated_guest_count: null },
+      { room_type_id: upperId, units_required: 1, allocated_guest_count: null, pricing_guest_count: null },
+      { room_type_id: groundId, units_required: 1, allocated_guest_count: null, pricing_guest_count: null },
     ];
-    const split = (upperGuests, groundGuests) => [
-      { room_type_id: upperId, units_required: 1, allocated_guest_count: upperGuests },
-      { room_type_id: groundId, units_required: 1, allocated_guest_count: groundGuests },
+    const split = (upperGuests, groundGuests, upperPricingGuests, groundPricingGuests) => [
+      { room_type_id: upperId, units_required: 1, allocated_guest_count: upperGuests, pricing_guest_count: pricingPromotionReviewed ? upperPricingGuests : null },
+      { room_type_id: groundId, units_required: 1, allocated_guest_count: groundGuests, pricing_guest_count: pricingPromotionReviewed ? groundPricingGuests : null },
     ];
     const paymentCode = 'seven-kamares-request-confirmation';
     const payment = base.payment_policies.find((entry) => entry.code === paymentCode);
@@ -3020,10 +3314,10 @@
       })),
       allocation_rules: [
         sevenKamaresAllocationRule(base, 'guests-1-4-choice', 1, 4, 'customer_choice', choiceRooms, 100),
-        sevenKamaresAllocationRule(base, 'guests-5-bundle', 5, 5, 'required_bundle', split(3, 2), 200),
-        sevenKamaresAllocationRule(base, 'guests-6-bundle', 6, 6, 'required_bundle', split(3, 3), 300),
-        sevenKamaresAllocationRule(base, 'guests-7-bundle', 7, 7, 'required_bundle', split(4, 3), 400),
-        sevenKamaresAllocationRule(base, 'guests-8-bundle', 8, 8, 'required_bundle', split(4, 4), 500),
+        sevenKamaresAllocationRule(base, 'guests-5-bundle', 5, 5, 'required_bundle', split(3, 2, 2, 2), 200),
+        sevenKamaresAllocationRule(base, 'guests-6-bundle', 6, 6, 'required_bundle', split(3, 3, 3, 3), 300),
+        sevenKamaresAllocationRule(base, 'guests-7-bundle', 7, 7, 'required_bundle', split(4, 3, 4, 4), 400),
+        sevenKamaresAllocationRule(base, 'guests-8-bundle', 8, 8, 'required_bundle', split(4, 4, 4, 4), 500),
       ],
       payment_policies: [{
         ...(payment || {}), id: h3ExactId(payment), hotel_id: base.hotel_id, code: paymentCode,
@@ -3069,12 +3363,15 @@
     const normalized = Core.normalizeH3Configuration(configuration);
     const useTemplate = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
       && (options.forceTemplate === true || !h3ConfigurationHasReviewedRows(normalized));
-    return useTemplate ? sevenKamaresH3Template(normalized) : normalized;
+    const pricingPromotionReviewed = state.pricingPromotionPreview?.promotion?.status === 'reviewed';
+    return useTemplate ? sevenKamaresH3Template(normalized, { pricingPromotionReviewed }) : normalized;
   }
 
   function h3AllocationRuleEditorMarkup(rule) {
     const rooms = state.workspace.room_types.filter((room) => room.status !== 'disabled');
     const itemMap = new Map(rule.items.map((item) => [item.room_type_id, item]));
+    const pricingLocked = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID;
+    const pricingReviewed = state.pricingPromotionPreview?.promotion?.status === 'reviewed';
     return `<section class="hotel-h3-allocation-rule" data-h3-allocation-rule data-rule-id="${escapeAttr(rule.id)}" data-rule-code="${escapeAttr(rule.code)}">
       <header><div><span class="hotel-workspace-eyebrow">Guest allocation</span><strong>${escapeHtml(rule.code)}</strong></div><button class="btn-secondary hotel-danger-action" type="button" data-remove-h3-rule>${rule.created_at ? 'Disable rule' : 'Remove draft'}</button></header>
       <div class="hotel-workspace-form-grid">
@@ -3088,7 +3385,8 @@
         return `<div class="hotel-h3-room-allocation" data-h3-room-allocation data-room-id="${escapeAttr(room.id)}" data-item-id="${escapeAttr(item?.id || Core.newUuid())}">
           <label class="admin-checkbox-field"><input data-h3-room-selected type="checkbox" ${item ? 'checked' : ''} /><span>${escapeHtml(h3RoomName(room))}</span></label>
           <label class="admin-form-field"><span>Units</span><input data-h3-room-units type="number" min="1" max="${Math.max(1, room.base_inventory_count)}" step="1" value="${item?.units_required || 1}" /></label>
-          <label class="admin-form-field" data-h3-allocated-guests-field><span>Guests assigned</span><input data-h3-room-guests type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.allocated_guest_count ?? ''}" /></label>
+          <label class="admin-form-field" data-h3-allocated-guests-field><span>Physical guests</span><input data-h3-room-guests type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.allocated_guest_count ?? ''}" /></label>
+          <label class="admin-form-field" data-h3-pricing-guests-field><span>Pricing occupancy</span><input data-h3-room-pricing-guests ${pricingLocked ? 'data-h3-pricing-locked="1" readonly aria-readonly="true"' : ''} type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.pricing_guest_count ?? ''}" placeholder="${pricingLocked && !pricingReviewed ? 'Dedicated Review pending' : ''}" /><small>${pricingLocked ? (pricingReviewed ? 'Preserved from the dedicated 70-case pricing Review.' : 'Set only by the dedicated legacy pricing Review; Booking setup cannot promote it.') : 'May differ from the physical split only when explicitly reviewed for legacy parity.'}</small></label>
           <small>Capacity ${room.effective_max_occupancy} · inventory ${room.base_inventory_count}</small>
         </div>`;
       }).join('')}</div>
@@ -3118,6 +3416,7 @@
     const updateRuleMode = (ruleElement) => {
       const bundle = ruleElement.querySelector('[data-h3-rule-mode]')?.value === 'required_bundle';
       ruleElement.querySelectorAll('[data-h3-allocated-guests-field]').forEach((field) => { field.hidden = !bundle; });
+      ruleElement.querySelectorAll('[data-h3-pricing-guests-field]').forEach((field) => { field.hidden = !bundle; });
     };
     form.querySelectorAll('[data-h3-allocation-rule]').forEach((rule) => {
       if (rule.dataset.h3Bound === '1') return;
@@ -3157,17 +3456,27 @@
     }));
     const editedAllocationRules = Array.from(form.querySelectorAll('[data-h3-allocation-rule]')).map((rule, index) => {
       const mode = rule.querySelector('[data-h3-rule-mode]').value;
-      const items = Array.from(rule.querySelectorAll('[data-h3-room-allocation]'))
-        .filter((row) => row.querySelector('[data-h3-room-selected]').checked)
-        .map((row, itemIndex) => ({
-          id: Core.normalizeUuid(row.dataset.itemId) || Core.newUuid(),
-          room_type_id: Core.normalizeUuid(row.dataset.roomId),
-          units_required: Number(row.querySelector('[data-h3-room-units]').value),
-          allocated_guest_count: mode === 'required_bundle' ? Number(row.querySelector('[data-h3-room-guests]').value) : null,
-          sort_order: (itemIndex + 1) * 100,
-        }));
       const existing = next.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
       const persistedRule = persisted.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
+      const items = Array.from(rule.querySelectorAll('[data-h3-room-allocation]'))
+        .filter((row) => row.querySelector('[data-h3-room-selected]').checked)
+        .map((row, itemIndex) => {
+          const roomTypeId = Core.normalizeUuid(row.dataset.roomId);
+          const pricingInput = row.querySelector('[data-h3-room-pricing-guests]');
+          const existingItem = existing?.items.find((item) => item.room_type_id === roomTypeId);
+          return {
+            id: Core.normalizeUuid(row.dataset.itemId) || Core.newUuid(),
+            room_type_id: roomTypeId,
+            units_required: Number(row.querySelector('[data-h3-room-units]').value),
+            allocated_guest_count: mode === 'required_bundle' ? Number(row.querySelector('[data-h3-room-guests]').value) : null,
+            pricing_guest_count: mode !== 'required_bundle'
+              ? null
+              : pricingInput?.dataset.h3PricingLocked === '1'
+                ? existingItem?.pricing_guest_count ?? null
+                : Number(pricingInput?.value),
+            sort_order: (itemIndex + 1) * 100,
+          };
+        });
       const isActive = rule.querySelector('[data-h3-rule-active]').checked;
       return {
         ...(existing || {}), id: Core.normalizeUuid(rule.dataset.ruleId) || Core.newUuid(), hotel_id: next.hotel_id,
@@ -3248,7 +3557,7 @@
     if (!reconciliation.safe) throw h3ConflictError(reconciliation.conflicts);
     const plan = Core.buildH3ConfigurationPlan(fresh, target, workspace);
     const sevenKamaresPrerequisite = workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
-      ? ` Future customer pricing will sum the exact allocated Room Rates using the room_occupancy schedule; the inactive property_booking_party schedule is legacy preview only and never customer pricing. Separately review ${Core.SEVEN_ARCHES_CHECK_IN_FROM} check-in and ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL} check-out in Overview; add real partner bank-transfer instructions before operational readiness. Those prerequisites are not part of this plan.`
+      ? ` Future customer pricing will sum the exact allocated Room Rates using the room_occupancy schedule; the inactive property_booking_party schedule is legacy preview only and never customer pricing. This generic plan cannot promote or change the legacy pricing-occupancy mapping; only the dedicated 70-case pricing Review may do that. Separately review ${Core.SEVEN_ARCHES_CHECK_IN_FROM} check-in and ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL} check-out in Overview; add real partner bank-transfer instructions before operational readiness. Those prerequisites are not part of this plan.`
       : '';
     return {
       title: 'Review Hotel booking setup', entity: 'h3_booking_configuration',
@@ -3273,6 +3582,7 @@
     const proposedTemplate = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
       && (options.forceTemplate === true || !h3ConfigurationHasReviewedRows(original));
     const isSevenKamares = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID;
+    const pricingPromotionReviewed = state.pricingPromotionPreview?.promotion?.status === 'reviewed';
     const currentCheckIn = String(state.workspace.property.check_in_from || 'Not configured').slice(0, 5);
     const currentCheckOut = String(state.workspace.property.check_out_until || 'Not configured').slice(0, 5);
     const payment = draft.payment_policies.find((entry) => entry.is_active) || draft.payment_policies[0] || {
@@ -3287,7 +3597,7 @@
       title: 'Configure booking setup',
       className: 'hotel-workspace-modal--wide hotel-h3-configuration-modal',
       body: `<form id="hotelH3ConfigurationForm" class="hotel-workspace-form">
-        ${proposedTemplate ? `<section class="hotel-h3-template-banner"><span class="hotel-workspace-eyebrow">Reviewed 7 Kamares template</span><h4>Proposed only · no automatic write</h4><p>2-night minimum; one guest billed at the 2-person tier; choice for 1–4 guests; exact apartment bundles for 5–8; taxes and cleaning included; 50% after acceptance; balance on arrival; €10 commission per allocated apartment per night; manual Calendar.</p><p><strong>Separate readiness step:</strong> Review ${Core.SEVEN_ARCHES_CHECK_IN_FROM} check-in and ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL} check-out in Overview. Add confirmed partner bank-transfer instructions below; the template does not invent account details.</p></section>` : ''}
+        ${proposedTemplate ? `<section class="hotel-h3-template-banner"><span class="hotel-workspace-eyebrow">Reviewed 7 Kamares template</span><h4>Proposed only · no automatic write</h4><p>2-night minimum; one guest billed at the 2-person tier; choice for 1–4 guests; exact apartment bundles for 5–8; taxes and cleaning included; 50% after acceptance; balance on arrival; €10 commission per allocated apartment per night; manual Calendar.</p><p><strong>Pricing occupancy:</strong> ${pricingPromotionReviewed ? 'the exact reviewed mapping is preserved.' : 'left pending here. Only the dedicated 70-case legacy pricing Review may write it.'}</p><p><strong>Separate readiness step:</strong> Review ${Core.SEVEN_ARCHES_CHECK_IN_FROM} check-in and ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL} check-out in Overview. Add confirmed partner bank-transfer instructions below; the template does not invent account details.</p></section>` : ''}
         <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Stay rules</span><h4>Minimums and inclusions</h4></div></header>
           ${isSevenKamares ? '<p class="hotel-workspace-safety-note"><strong>Pricing provenance:</strong> Future customer pricing is the sum of exact allocated Room Rates using the room_occupancy schedule. The inactive 63-tier property_booking_party schedule remains a legacy parity preview only and is never customer pricing.</p>' : ''}
           <div class="hotel-workspace-form-grid">
@@ -3300,7 +3610,7 @@
             return `<fieldset><legend>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code || 'Rate Plan'))} inclusions</legend><div class="hotel-h3-method-grid">${Core.HOTEL_PRICE_INCLUSIONS.map((value) => `<label class="admin-checkbox-field"><input data-h3-inclusion-plan="${plan.id}" type="checkbox" value="${value}" ${plan.price_inclusions.includes(value) ? 'checked' : ''} /><span>${value === 'taxes' ? 'Taxes included' : 'Cleaning included'}</span></label>`).join('')}</div>${preserved.length ? `<small>Preserved custom inclusions: ${escapeHtml(preserved.join(', '))}</small>` : ''}</fieldset>`;
           }).join('')}</div>
         </section>
-        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Guest → Room Type</span><h4>Allocation rules</h4></div><button class="btn-secondary" type="button" data-add-h3-rule>+ Allocation rule</button></header><p>Choice rules let the customer select one exact Room Type. Bundle rules allocate exact rooms and an exact guest split. Persisted rules are disabled, not deleted.</p><div data-h3-allocation-rules>${draft.allocation_rules.filter((rule) => rule.review_status !== 'disabled').map(h3AllocationRuleEditorMarkup).join('')}</div></section>
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Guest → Room Type</span><h4>Allocation rules</h4></div><button class="btn-secondary" type="button" data-add-h3-rule>+ Allocation rule</button></header><p>Choice rules let the customer select one exact Room Type. Bundle rules allocate exact rooms and an exact guest split. Persisted rules are disabled, not deleted.</p>${isSevenKamares ? `<p class="hotel-workspace-safety-note"><strong>Pricing occupancy is ${pricingPromotionReviewed ? 'reviewed and locked' : 'pending and locked'}.</strong> This generic setup preserves it; only the dedicated legacy pricing Review can promote the mapping.</p>` : ''}<div data-h3-allocation-rules>${draft.allocation_rules.filter((rule) => rule.review_status !== 'disabled').map(h3AllocationRuleEditorMarkup).join('')}</div></section>
         <section class="hotel-h3-editor-section" data-h3-payment-policy data-policy-id="${escapeAttr(payment.id)}" data-policy-code="${escapeAttr(payment.code)}"><header><div><span class="hotel-workspace-eyebrow">Customer payment</span><h4>Reviewed payment terms</h4></div><button class="btn-secondary" type="button" data-add-h3-term>+ Payment step</button></header>
           ${i18nFields('h3_payment_policy_name', 'Policy label', payment.name_i18n)}<label class="admin-checkbox-field"><input name="payment_policy_active" type="checkbox" ${payment.is_active ? 'checked' : ''} /><span>Use these terms in future shadow quotes</span></label><div data-h3-payment-terms>${payment.terms.map(h3PaymentTermMarkup).join('')}</div>
           <p class="hotel-workspace-safety-note">These terms do not collect money, accept a booking, change central Deposit Settings or create a payout.</p>
@@ -3372,6 +3682,7 @@
     const templateReady = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID && !h3ConfigurationHasReviewedRows(configuration);
     const setupActions = `<div class="hotel-workspace-panel-actions">${state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID ? '<button class="btn-secondary" type="button" data-apply-seven-kamares-h3-template>Review 7 Kamares template</button>' : ''}<button class="btn-primary" type="button" data-edit-h3-configuration>Configure & Review</button></div>`;
     panel.innerHTML = `${workspacePanelHeader('Booking setup', 'Review exact stay rules, room allocation, customer payment terms, commission and availability source.', setupActions)}
+      ${pricingPromotionCardMarkup()}
       ${templateReady ? `<section class="hotel-h3-template-banner"><span class="hotel-workspace-eyebrow">7 Kamares reviewed business template</span><h4>Ready to prepare — not saved</h4><p>The editor prefills the approved 1–8 guest allocation, 2-night stay, minimum 2-person billing, inclusions, payment, commission and manual Calendar. Admin must inspect Review and explicitly Save.</p><p>Operational readiness also requires separately reviewed ${Core.SEVEN_ARCHES_CHECK_IN_FROM} check-in, ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL} check-out and confirmed partner bank-transfer instructions.</p></section>` : ''}
       <div class="hotel-h3-dashboard">
         <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Stay & price basis</span><h4>${configuration.property.minimum_stay_nights || '—'} night minimum</h4><dl><div><dt>Pricing schedules</dt><dd>${configuration.pricing_schedules.length}</dd></div><div><dt>Minimum billable guests</dt><dd>${configuration.pricing_schedules.map((entry) => entry.minimum_billable_occupancy || '—').join(', ') || 'Not configured'}</dd></div><div><dt>Rate inclusions</dt><dd>${Array.from(new Set(configuration.rate_plans.flatMap((entry) => entry.price_inclusions))).join(', ') || 'Not reviewed'}</dd></div></dl>${state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID ? '<p><strong>Future price:</strong> sum of exact allocated Room Rates · room_occupancy schedule. The 63-tier property_booking_party schedule remains legacy preview only.</p>' : ''}</section>
@@ -3384,6 +3695,7 @@
       <section class="hotel-workspace-card hotel-workspace-safety-note"><strong>Shadow/request-confirmation only</strong><p>Architecture is ${escapeHtml(state.workspace.property.architecture_version)}. Public Hotels V2 flags stay OFF. This cannot publish, change legacy prices, create a booking, collect payment or accept for a partner.</p></section>`;
     panel.querySelector('[data-edit-h3-configuration]')?.addEventListener('click', () => openH3ConfigurationEditor());
     panel.querySelector('[data-apply-seven-kamares-h3-template]')?.addEventListener('click', () => openH3ConfigurationEditor({ forceTemplate: true }));
+    panel.querySelector('[data-review-seven-kamares-pricing]')?.addEventListener('click', openLegacyPricingPromotionPreparation);
   }
 
   function renderBookingsPanel(panel) {

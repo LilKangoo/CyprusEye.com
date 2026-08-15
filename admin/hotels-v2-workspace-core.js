@@ -36,6 +36,8 @@
     property_party_preview: '443065c0-984a-5de3-a22a-d03042c41107',
   });
   const SEVEN_ARCHES_SOURCE_CONTRACT = 'seven_arches_two_apartments_v1';
+  const SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT = 'seven_kamares_legacy_to_h3_pricing_v1';
+  const SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT = '7208ab4ecc0e47abd64d87ca1ac53a03';
   const SEVEN_ARCHES_ROOM_DEFINITIONS = Object.freeze([
     Object.freeze({
       id: SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
@@ -198,6 +200,9 @@
       allocated_guest_count: source.allocated_guest_count == null
         ? null
         : asInteger(source.allocated_guest_count, 1),
+      pricing_guest_count: source.pricing_guest_count == null
+        ? null
+        : asInteger(source.pricing_guest_count, 1),
       sort_order: asInteger(source.sort_order, 1000),
     };
   }
@@ -343,6 +348,453 @@
       calendar_sources: asArray(source.calendar_sources || source.calendar_source_configs).map(normalizeH31CalendarSource),
       flags: clone(flags),
       snapshot_token: asText(source.snapshot_token) || null,
+    };
+  }
+
+  function normalizePricingPromotionTier(value) {
+    const source = asObject(value);
+    const guestCount = asInteger(source.guest_count ?? source.persons ?? source.occupancy, 0);
+    const thresholdNights = asInteger(source.threshold_nights ?? source.min_nights ?? source.nights, 0);
+    const nightlyRate = asNumber(source.nightly_rate ?? source.price_per_night ?? source.rate, null);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id) || null,
+      schedule_id: normalizeUuid(source.schedule_id || source.pricing_schedule_id) || null,
+      guest_count: guestCount,
+      threshold_nights: thresholdNights,
+      nightly_rate: nightlyRate,
+      is_active: source.is_active !== false,
+      version: source.version == null ? null : Math.max(1, asInteger(source.version, 1)),
+    };
+  }
+
+  function normalizePricingPromotionSchedule(value, fallbackTiers = []) {
+    const source = asObject(value);
+    const tiers = asArray(source.tiers || source.occupancy_tiers || fallbackTiers)
+      .map(normalizePricingPromotionTier)
+      .filter((tier) => tier.guest_count > 0 && tier.threshold_nights > 0 && tier.nightly_rate != null);
+    return {
+      ...clone(source),
+      id: normalizeUuid(source.id || source.schedule_id) || null,
+      code: asText(source.code),
+      name_i18n: normalizeI18n(source.name_i18n || source.name),
+      application_scope: asText(source.application_scope || source.scope),
+      currency: (asText(source.currency) || 'EUR').toUpperCase(),
+      maximum_party_size: asInteger(source.maximum_party_size, 0),
+      minimum_billable_occupancy: source.minimum_billable_occupancy == null
+        ? null
+        : asInteger(source.minimum_billable_occupancy, 0),
+      is_active: source.is_active === true,
+      review_status: asText(source.review_status) || 'requires_review',
+      version: source.version == null ? null : Math.max(1, asInteger(source.version, 1)),
+      tier_count: asInteger(source.tier_count, tiers.length),
+      tier_fingerprint: asText(source.tier_fingerprint || source.tiers_fingerprint || source.fingerprint) || null,
+      tiers,
+    };
+  }
+
+  function normalizePricingPromotionAllocationItem(value) {
+    const source = asObject(value);
+    return {
+      room_type_id: normalizeUuid(source.room_type_id || source.id) || null,
+      room_rate_id: normalizeUuid(source.room_rate_id) || null,
+      room_name: asText(source.room_name || source.name || source.code),
+      allocated_guest_count: source.allocated_guest_count == null
+        ? null
+        : asInteger(source.allocated_guest_count, 0),
+      pricing_guest_count: source.pricing_guest_count == null
+        ? null
+        : asInteger(source.pricing_guest_count, 0),
+      units_required: Math.max(1, asInteger(source.units_required, 1)),
+    };
+  }
+
+  function normalizePricingPromotionNightlyRate(value) {
+    if (value == null || typeof value !== 'object' || Array.isArray(value)) return asNumber(value, null);
+    const source = asObject(value);
+    return {
+      ...clone(source),
+      room_type_id: normalizeUuid(source.room_type_id) || null,
+      room_rate_id: normalizeUuid(source.room_rate_id) || null,
+      pricing_guest_count: asInteger(source.pricing_guest_count ?? source.priced_occupancy, 0),
+      nightly_rate: asNumber(source.nightly_rate ?? source.rate, null),
+    };
+  }
+
+  function normalizePricingPromotionComparison(value, currency = 'EUR') {
+    const source = asObject(value);
+    const legacyNightly = asNumber(source.legacy_nightly_rate, null);
+    const targetNightly = asNumber(source.room_rate_sum, null);
+    return {
+      ...clone(source),
+      nights: asInteger(source.nights ?? source.threshold_nights, 0),
+      threshold_nights: asInteger(source.threshold_nights ?? source.nights, 0),
+      requested_guest_count: asInteger(source.requested_guest_count ?? source.guest_count, 0),
+      priced_occupancy: source.priced_occupancy == null && source.pricing_guest_count == null
+        ? null
+        : asInteger(source.priced_occupancy ?? source.pricing_guest_count, 0),
+      room_nightly_rates: asArray(source.room_nightly_rates).map(normalizePricingPromotionNightlyRate),
+      legacy_nightly_rate: legacyNightly,
+      room_rate_sum: targetNightly,
+      stay_total: asNumber(source.stay_total, null),
+      currency: (asText(source.currency || currency) || 'EUR').toUpperCase(),
+    };
+  }
+
+  function normalizePricingPromotionOption(value, currency = 'EUR') {
+    const source = asObject(value);
+    return {
+      ...clone(source),
+      allocation: asArray(source.allocation || source.rooms || source.items)
+        .map(normalizePricingPromotionAllocationItem)
+        .filter((item) => item.room_type_id),
+      nightly_comparisons: asArray(source.nightly_comparisons || source.comparisons || source.stays)
+        .map((entry) => normalizePricingPromotionComparison(entry, currency))
+        .filter((comparison) => comparison.nights > 0),
+    };
+  }
+
+  function normalizePricingPromotionAllocation(value, currency = 'EUR') {
+    const source = asObject(value);
+    return {
+      ...clone(source),
+      guest_count: asInteger(source.guest_count ?? source.guests, 0),
+      allocation_mode: asText(source.allocation_mode || source.mode),
+      options: asArray(source.options).map((entry) => normalizePricingPromotionOption(entry, currency)),
+    };
+  }
+
+  function normalizeLegacyPricingPromotionPreview(value) {
+    const outer = asObject(value);
+    const source = asObject(outer.preview || outer.pricing_promotion || outer);
+    const property = asObject(source.property);
+    const legacy = asObject(source.source || source.legacy_source || source.legacy);
+    const target = asObject(source.target || source.v2_target || source.prepared_target);
+    const roomSchedule = normalizePricingPromotionSchedule(
+      target.room_schedule || target.pricing_schedule || source.room_schedule,
+      target.tiers || source.target_tiers,
+    );
+    const partySchedule = normalizePricingPromotionSchedule(
+      legacy.property_party_preview || source.property_party_preview,
+      legacy.tiers,
+    );
+    const legacyRules = asArray(legacy.tiers || legacy.rules || legacy.pricing_rules)
+      .map(normalizePricingPromotionTier)
+      .filter((tier) => tier.guest_count > 0 && tier.threshold_nights > 0 && tier.nightly_rate != null);
+    const flags = clone(asObject(source.flags || source.feature_flags));
+    const currency = (asText(legacy.currency || source.currency) || 'EUR').toUpperCase();
+    const paritySource = asObject(source.parity);
+    const parity = {
+      threshold_case_count: asInteger(paritySource.threshold_case_count, 0),
+      threshold_mismatch_count: asInteger(paritySource.threshold_mismatch_count, -1),
+      long_stay_case_count: asInteger(paritySource.long_stay_case_count, 0),
+      long_stay_mismatch_count: asInteger(paritySource.long_stay_mismatch_count, -1),
+      total_case_count: asInteger(paritySource.total_case_count, 0),
+      total_mismatch_count: asInteger(paritySource.total_mismatch_count, -1),
+      fingerprint: asText(paritySource.fingerprint) || null,
+    };
+    return {
+      hotel_id: normalizeUuid(source.hotel_id || property.id),
+      contract_version: asText(source.contract_version || source.source_contract)
+        || SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT,
+      supported: source.supported === true,
+      public_change: source.public_change === true,
+      property: {
+        ...clone(property),
+        id: normalizeUuid(property.id || source.hotel_id),
+        architecture_version: asText(property.architecture_version) || 'legacy',
+        updated_at: property.updated_at || source.expected_property_updated_at || null,
+      },
+      flags,
+      source: {
+        ...clone(legacy),
+        pricing_model: asText(legacy.pricing_model || source.pricing_model),
+        currency,
+        rule_count: asInteger(legacy.rule_count || source.legacy_rule_count, legacyRules.length),
+        pricing_fingerprint: asText(
+          legacy.pricing_fingerprint || legacy.fingerprint || source.legacy_pricing_fingerprint,
+        ) || null,
+        tier_fingerprint: asText(legacy.tier_fingerprint) || null,
+        tiers: legacyRules,
+        property_party_preview: partySchedule,
+      },
+      target: {
+        ...clone(target),
+        rate_plan: clone(asObject(target.rate_plan || source.rate_plan)),
+        rooms: asArray(target.rooms).map((entry) => clone(asObject(entry))),
+        room_rates: asArray(target.room_rates || source.room_rates).map((entry) => clone(asObject(entry))),
+        room_schedule: roomSchedule,
+        allocation_fingerprint: asText(target.allocation_fingerprint) || null,
+        target_fingerprint: asText(target.target_fingerprint || target.fingerprint) || null,
+      },
+      allocation_previews: asArray(
+        source.allocation_previews || source.allocation_preview || source.bundle_previews,
+      ).map((entry) => normalizePricingPromotionAllocation(entry, currency)).filter((entry) => entry.guest_count > 0),
+      pricing_occupancy_mapping_fingerprint: asText(source.pricing_occupancy_mapping_fingerprint) || null,
+      parity,
+      parity_mismatch_count: parity.total_mismatch_count,
+      expected: clone(asObject(source.expected)),
+      snapshot_token: asText(source.snapshot_token) || null,
+      promotion: clone(asObject(source.promotion)),
+      safety: clone(asObject(source.safety)),
+      blockers: asArray(source.blockers).map(asText).filter(Boolean),
+    };
+  }
+
+  function validateLegacyPricingPromotionPreview(value) {
+    const preview = normalizeLegacyPricingPromotionPreview(value);
+    if (preview.hotel_id !== SEVEN_ARCHES_PROPERTY_ID || preview.property.id !== SEVEN_ARCHES_PROPERTY_ID) {
+      throw new Error('Legacy pricing promotion is restricted to the exact 7 Kamares property.');
+    }
+    if (preview.contract_version !== SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT || !preview.supported) {
+      throw new Error('The server did not return the supported 7 Kamares pricing-promotion contract.');
+    }
+    if (preview.property.architecture_version !== 'legacy' || preview.public_change !== false) {
+      throw new Error('Pricing promotion must remain shadow-only on the legacy architecture.');
+    }
+    const requiredOffFlags = [
+      'hotel_rooms_v2_enabled',
+      'hotel_external_sync_enabled',
+      'hotel_instant_booking_enabled',
+      'hotel_stripe_connect_enabled',
+    ];
+    const unsafeFlags = requiredOffFlags.filter((flag) => preview.flags[flag] !== false);
+    if (unsafeFlags.length) {
+      throw new Error(`Pricing promotion requires every Hotels V2 flag OFF: ${unsafeFlags.join(', ')}.`);
+    }
+    if (preview.blockers.length) throw new Error(`Pricing promotion is blocked: ${preview.blockers.join(' ')}`);
+    if (preview.source.rule_count !== 63 || preview.source.tiers.length !== 63
+        || !preview.source.pricing_fingerprint || !preview.source.tier_fingerprint) {
+      throw new Error('The exact 63-rule legacy pricing source or its fingerprint is missing.');
+    }
+    if (preview.source.pricing_fingerprint !== SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT) {
+      throw new Error('The legacy pricing source no longer matches the accepted 7 Kamares fingerprint.');
+    }
+    if (preview.target.room_schedule.tier_count !== 27
+        || preview.target.room_schedule.tiers.length !== 27
+        || !preview.target.room_schedule.tier_fingerprint) {
+      throw new Error('The reviewed Room pricing target must contain exactly 27 fingerprinted tiers.');
+    }
+    if (preview.source.property_party_preview.tier_count !== 63
+        || preview.source.property_party_preview.tiers.length !== 63
+        || !preview.source.property_party_preview.tier_fingerprint) {
+      throw new Error('The property-party legacy preview must preserve exactly 63 fingerprinted tiers.');
+    }
+    const planId = normalizeUuid(preview.target.rate_plan.id);
+    const rateIds = preview.target.room_rates.map((rate) => normalizeUuid(rate.id)).filter(Boolean);
+    if (planId !== SEVEN_ARCHES_SHADOW_IDS.rate_plan
+        || asText(preview.target.rate_plan.code).toLowerCase() !== 'standard'
+        || rateIds.length !== 2
+        || rateIds[0] !== SEVEN_ARCHES_SHADOW_IDS.upper_room_rate
+        || rateIds[1] !== SEVEN_ARCHES_SHADOW_IDS.ground_room_rate) {
+      throw new Error('The target must preserve the exact Standard Rate Plan and two Room Rate identities.');
+    }
+    if (preview.target.rate_plan.is_active === true
+        || preview.target.room_rates.some((rate) => rate.is_active === true)
+        || preview.target.room_schedule.is_active === true) {
+      throw new Error('The reviewed Rate Plan, Room Rates and shared Room schedule must remain inactive.');
+    }
+    if (!['requires_review', 'reviewed'].includes(preview.target.room_schedule.review_status)) {
+      throw new Error('The shared Room schedule is not eligible for this reviewed pricing preparation.');
+    }
+    if (preview.target.room_schedule.id !== SEVEN_ARCHES_SHADOW_IDS.pricing_schedule
+        || preview.source.property_party_preview.id !== SEVEN_ARCHES_SHADOW_IDS.property_party_preview) {
+      throw new Error('The preview returned an unexpected pricing schedule identity.');
+    }
+    const thresholds = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const replayDurations = [...thresholds, 14];
+    const exactTierKeys = (tiers) => tiers.map((tier) => `${tier.guest_count}:${tier.threshold_nights}`).sort();
+    const expectedTierKeys = (guests) => guests.flatMap((guest) => thresholds.map((nights) => `${guest}:${nights}`)).sort();
+    if (JSON.stringify(exactTierKeys(preview.source.tiers)) !== JSON.stringify(expectedTierKeys([2, 3, 4, 5, 6, 7, 8]))) {
+      throw new Error('The legacy source must contain every exact 2–8 guest × 2–10 night threshold once.');
+    }
+    if (JSON.stringify(exactTierKeys(preview.source.property_party_preview.tiers))
+        !== JSON.stringify(expectedTierKeys([2, 3, 4, 5, 6, 7, 8]))) {
+      throw new Error('The property-party preview must contain every exact 2–8 guest × 2–10 night threshold once.');
+    }
+    if (JSON.stringify(exactTierKeys(preview.target.room_schedule.tiers))
+        !== JSON.stringify(expectedTierKeys([2, 3, 4]))) {
+      throw new Error('The shared Room schedule must contain every exact 2–4 pricing occupancy × 2–10 night threshold once.');
+    }
+    const tierRateMap = (tiers) => new Map(tiers.map((tier) => (
+      [`${tier.guest_count}:${tier.threshold_nights}`, tier.nightly_rate]
+    )));
+    const sourceRates = tierRateMap(preview.source.tiers);
+    const partyRates = tierRateMap(preview.source.property_party_preview.tiers);
+    const roomRatesByTier = tierRateMap(preview.target.room_schedule.tiers);
+    if (Array.from(sourceRates.entries()).some(([key, rate]) => {
+      const matched = partyRates.get(key);
+      return !Number.isFinite(rate) || !Number.isFinite(matched) || Math.abs(rate - matched) > 0.000001;
+    })) {
+      throw new Error('The 63-tier property-party preview no longer reproduces the exact legacy source rates.');
+    }
+    if (Array.from(roomRatesByTier.entries()).some(([key, rate]) => {
+      const matched = sourceRates.get(key);
+      return !Number.isFinite(rate) || !Number.isFinite(matched) || Math.abs(rate - matched) > 0.000001;
+    })) {
+      throw new Error('The 27 shared Room tiers no longer reproduce the exact legacy 2–4 guest rates.');
+    }
+    const targetRoomIds = preview.target.rooms.map((room) => normalizeUuid(room.id || room.room_type_id));
+    if (targetRoomIds.length !== 2
+        || targetRoomIds[0] !== SEVEN_ARCHES_SHADOW_IDS.upper_room_type
+        || targetRoomIds[1] !== SEVEN_ARCHES_SHADOW_IDS.ground_room_type) {
+      throw new Error('The target Room Types must be the exact ordered Upper and Ground apartments.');
+    }
+    const expectedRoomRateIds = new Map([
+      [SEVEN_ARCHES_SHADOW_IDS.upper_room_type, SEVEN_ARCHES_SHADOW_IDS.upper_room_rate],
+      [SEVEN_ARCHES_SHADOW_IDS.ground_room_type, SEVEN_ARCHES_SHADOW_IDS.ground_room_rate],
+    ]);
+    preview.target.room_rates.forEach((rate) => {
+      if (expectedRoomRateIds.get(normalizeUuid(rate.room_type_id)) !== normalizeUuid(rate.id)
+          || normalizeUuid(rate.rate_plan_id) !== SEVEN_ARCHES_SHADOW_IDS.rate_plan
+          || normalizeUuid(rate.pricing_schedule_id) !== SEVEN_ARCHES_SHADOW_IDS.pricing_schedule) {
+        throw new Error('A target Room Rate does not preserve its exact Room, Rate Plan and schedule relationship.');
+      }
+    });
+    const previewGuestCounts = preview.allocation_previews.map((entry) => entry.guest_count);
+    if (previewGuestCounts.join(',') !== '1,2,3,4,5,6,7,8') {
+      throw new Error('The allocation replay must contain each exact requested party size from 1 through 8 in order.');
+    }
+    const validateComparisonCoverage = (row, option) => {
+      const durations = option.nightly_comparisons.map((comparison) => comparison.nights);
+      if (durations.join(',') !== replayDurations.join(',')) {
+        throw new Error(`The ${row.guest_count}-guest allocation option must replay exact stays 2–10 nights and 14 nights.`);
+      }
+      option.nightly_comparisons.forEach((comparison) => {
+        if (comparison.requested_guest_count !== row.guest_count) {
+          throw new Error(`The ${row.guest_count}-guest pricing replay returned a different requested guest count.`);
+        }
+        const expectedThreshold = comparison.nights >= 10 ? 10 : comparison.nights;
+        const roomRates = comparison.room_nightly_rates.map((rate) => (
+          rate && typeof rate === 'object' ? rate.nightly_rate : rate
+        ));
+        if (comparison.threshold_nights !== expectedThreshold
+            || roomRates.length !== option.allocation.length
+            || roomRates.some((rate) => !Number.isFinite(rate))
+            || !Number.isFinite(comparison.room_rate_sum)
+            || !Number.isFinite(comparison.legacy_nightly_rate)
+            || Math.abs(roomRates.reduce((sum, rate) => sum + rate, 0) - comparison.room_rate_sum) > 0.000001
+            || Math.abs(comparison.room_rate_sum - comparison.legacy_nightly_rate) > 0.000001
+            || !Number.isFinite(comparison.stay_total)
+            || Math.abs(comparison.stay_total - comparison.room_rate_sum * comparison.nights) > 0.000001) {
+          throw new Error('The pricing occupancy mapping does not reproduce the legacy 70-case totals exactly.');
+        }
+      });
+    };
+    [1, 2, 3, 4].forEach((guests) => {
+      const row = preview.allocation_previews[guests - 1];
+      const expectedPricing = Math.max(2, guests);
+      if (row.allocation_mode !== 'customer_choice' || row.options.length !== 2) {
+        throw new Error(`The ${guests}-guest allocation preview must offer the exact two-apartment customer choice.`);
+      }
+      row.options.forEach((option, index) => {
+        const item = option.allocation[0];
+        const expectedRoomId = index === 0
+          ? SEVEN_ARCHES_SHADOW_IDS.upper_room_type
+          : SEVEN_ARCHES_SHADOW_IDS.ground_room_type;
+        const expectedRateId = index === 0
+          ? SEVEN_ARCHES_SHADOW_IDS.upper_room_rate
+          : SEVEN_ARCHES_SHADOW_IDS.ground_room_rate;
+        if (option.allocation.length !== 1 || item.room_type_id !== expectedRoomId
+            || item.room_rate_id !== expectedRateId || item.allocated_guest_count != null
+            || item.pricing_guest_count != null) {
+          throw new Error(`The ${guests}-guest customer-choice option does not preserve its exact Room Rate and pricing occupancy.`);
+        }
+        option.nightly_comparisons.forEach((comparison) => {
+          if (comparison.priced_occupancy !== expectedPricing) {
+            throw new Error(`The ${guests}-guest customer-choice replay returned a different pricing occupancy.`);
+          }
+        });
+        validateComparisonCoverage(row, option);
+      });
+    });
+    const requiredBundles = new Map([
+      [5, { physical: [3, 2], pricing: [2, 2] }],
+      [6, { physical: [3, 3], pricing: [3, 3] }],
+      [7, { physical: [4, 3], pricing: [4, 4] }],
+      [8, { physical: [4, 4], pricing: [4, 4] }],
+    ]);
+    requiredBundles.forEach((counts, guests) => {
+      const row = preview.allocation_previews.find((entry) => entry.guest_count === guests);
+      const option = row?.options[0];
+      const physical = option?.allocation.map((item) => item.allocated_guest_count);
+      const pricing = option?.allocation.map((item) => item.pricing_guest_count);
+      if (!row || row.allocation_mode !== 'required_bundle'
+          || row.options.length !== 1 || option.allocation.length !== 2
+          || option.allocation[0].room_type_id !== SEVEN_ARCHES_SHADOW_IDS.upper_room_type
+          || option.allocation[0].room_rate_id !== SEVEN_ARCHES_SHADOW_IDS.upper_room_rate
+          || option.allocation[1].room_type_id !== SEVEN_ARCHES_SHADOW_IDS.ground_room_type
+          || option.allocation[1].room_rate_id !== SEVEN_ARCHES_SHADOW_IDS.ground_room_rate
+          || physical?.join(',') !== counts.physical.join(',')
+          || pricing?.join(',') !== counts.pricing.join(',')) {
+        throw new Error(`The ${guests}-guest allocation preview does not match the reviewed two-apartment bundle.`);
+      }
+      validateComparisonCoverage(row, option);
+    });
+    if (preview.parity.threshold_case_count !== 63 || preview.parity.threshold_mismatch_count !== 0
+        || preview.parity.long_stay_case_count !== 7 || preview.parity.long_stay_mismatch_count !== 0
+        || preview.parity.total_case_count !== 70 || preview.parity.total_mismatch_count !== 0
+        || !preview.parity.fingerprint || !preview.pricing_occupancy_mapping_fingerprint) {
+      throw new Error('The server must prove zero mismatch across all 63 thresholds and seven 14-night continuation cases.');
+    }
+    if (!preview.snapshot_token || !Object.keys(preview.expected).length
+        || !preview.target.target_fingerprint) {
+      throw new Error('The exact optimistic pricing fingerprints are incomplete.');
+    }
+    return preview;
+  }
+
+  function legacyPricingPromotionSnapshot(value) {
+    const preview = normalizeLegacyPricingPromotionPreview(value);
+    return {
+      source_pricing_fingerprint: preview.source.pricing_fingerprint,
+      room_schedule_tier_fingerprint: preview.target.room_schedule.tier_fingerprint,
+      property_party_tier_fingerprint: preview.source.property_party_preview.tier_fingerprint,
+      target_fingerprint: preview.target.target_fingerprint,
+      allocation_fingerprint: preview.target.allocation_fingerprint,
+      pricing_occupancy_mapping_fingerprint: preview.pricing_occupancy_mapping_fingerprint,
+      parity_fingerprint: preview.parity.fingerprint,
+      allocation_preview: preview.allocation_previews.map((entry) => ({
+        guest_count: entry.guest_count,
+        allocation_mode: entry.allocation_mode,
+        options: entry.options.map((option) => ({
+          allocation: option.allocation.map((item) => ({
+            room_type_id: item.room_type_id,
+            room_rate_id: item.room_rate_id,
+            allocated_guest_count: item.allocated_guest_count,
+            pricing_guest_count: item.pricing_guest_count,
+          })),
+          nightly_comparisons: option.nightly_comparisons.map((comparison) => ({
+            nights: comparison.nights,
+            requested_guest_count: comparison.requested_guest_count,
+            priced_occupancy: comparison.priced_occupancy,
+            legacy_nightly_rate: comparison.legacy_nightly_rate,
+            room_rate_sum: comparison.room_rate_sum,
+          })),
+        })),
+      })),
+    };
+  }
+
+  function reconcileLegacyPricingPromotion(originalValue, currentValue) {
+    const original = legacyPricingPromotionSnapshot(originalValue);
+    const current = legacyPricingPromotionSnapshot(currentValue);
+    const conflicts = Object.keys(original).filter((field) => JSON.stringify(original[field]) !== JSON.stringify(current[field]));
+    return { safe: conflicts.length === 0, conflicts, current: normalizeLegacyPricingPromotionPreview(currentValue) };
+  }
+
+  function buildLegacyPricingPromotionPlan(value, acknowledgePricingOccupancyMapping) {
+    const preview = validateLegacyPricingPromotionPreview(value);
+    if (acknowledgePricingOccupancyMapping !== true) {
+      throw new Error('Explicitly acknowledge the reviewed physical-allocation and pricing-occupancy mapping.');
+    }
+    return {
+      hotel_id: preview.hotel_id,
+      reviewed_at: new Date().toISOString(),
+      snapshot_token: preview.snapshot_token,
+      expected: clone(preview.expected),
+      decision: 'promote_room_schedule_to_reviewed',
+      acknowledge_pricing_occupancy_mapping: true,
     };
   }
 
@@ -1512,6 +1964,7 @@
           room_type_id: item.room_type_id,
           units_required: item.units_required,
           allocated_guest_count: item.allocated_guest_count,
+          pricing_guest_count: item.pricing_guest_count,
           sort_order: item.sort_order,
         })),
       })),
@@ -1625,8 +2078,9 @@
         if (rule.allocation_mode === 'customer_choice' && item.units_required !== 1) {
           throw new Error('A customer-choice option must represent one exact Room Type.');
         }
-        if (rule.allocation_mode === 'customer_choice' && item.allocated_guest_count != null) {
-          throw new Error('Customer-choice options use the requested occupancy and must not store a fixed guest split.');
+        if (rule.allocation_mode === 'customer_choice'
+            && (item.allocated_guest_count != null || item.pricing_guest_count != null)) {
+          throw new Error('Customer-choice options use the requested occupancy and must not store a fixed physical or pricing split.');
         }
         if (!Number.isInteger(item.sort_order) || item.sort_order < 0) throw new Error('Allocation item order cannot be negative.');
         if (room && rule.is_active) {
@@ -1646,6 +2100,12 @@
           if (rule.items.some((item) => !Number.isInteger(item.allocated_guest_count) || item.allocated_guest_count < 1)) {
             throw new Error('Every required bundle item needs an exact allocated guest count.');
           }
+          const pricingOccupancies = rule.items.map((item) => item.pricing_guest_count);
+          const pricingPending = pricingOccupancies.every((value) => value == null);
+          const pricingReviewed = pricingOccupancies.every((value) => Number.isInteger(value) && value >= 1);
+          if (!pricingPending && !pricingReviewed) {
+            throw new Error('Required bundle pricing occupancy must be entirely pending or entirely reviewed.');
+          }
           const allocatedGuests = rule.items.reduce((total, item) => total + item.allocated_guest_count, 0);
           if (rule.review_status === 'reviewed' && allocatedGuests !== rule.min_guest_count) {
             throw new Error('Required bundle guest allocations must equal the exact rule guest count.');
@@ -1654,6 +2114,10 @@
             item.allocated_guest_count > (roomMap.get(item.room_type_id)?.effective_max_occupancy || 0) * item.units_required
           ));
           if (overCapacity) throw new Error('A required bundle allocates more guests than a Room Type can hold.');
+          const pricingOverCapacity = pricingReviewed && rule.items.some((item) => (
+            item.pricing_guest_count > (roomMap.get(item.room_type_id)?.effective_max_occupancy || 0) * item.units_required
+          ));
+          if (pricingOverCapacity) throw new Error('A required bundle pricing occupancy exceeds a Room Type capacity.');
           const capacity = rule.items.reduce((total, item) => (
             total + (roomMap.get(item.room_type_id)?.effective_max_occupancy || 0) * item.units_required
           ), 0);
@@ -1853,6 +2317,7 @@
         room_type_id: item.room_type_id,
         units_required: item.units_required,
         allocated_guest_count: item.allocated_guest_count,
+        pricing_guest_count: item.pricing_guest_count,
         sort_order: item.sort_order,
       })),
     }), 'items_fingerprint');
@@ -1956,6 +2421,12 @@
       blockers.push('Review minimum billable occupancy for every pricing schedule.');
     }
     if (!normalized.allocation_rules.some((rule) => rule.is_active)) blockers.push('Configure reviewed guest-to-room allocation rules.');
+    if (normalized.allocation_rules.some((rule) => (
+      rule.is_active && rule.allocation_mode === 'required_bundle'
+      && rule.items.some((item) => item.pricing_guest_count == null)
+    ))) {
+      blockers.push('Complete the dedicated legacy pricing Review before H3 shadow pricing can be ready.');
+    }
     const ranges = normalized.allocation_rules.filter((rule) => rule.is_active)
       .map((rule) => [rule.min_guest_count, rule.max_guest_count]).sort((a, b) => a[0] - b[0]);
     if (ranges.length && ranges[0][0] !== 1) blockers.push('Guest allocation must begin at one guest.');
@@ -2094,6 +2565,8 @@
     SEVEN_ARCHES_CHECK_OUT_UNTIL,
     SEVEN_ARCHES_SHADOW_IDS,
     SEVEN_ARCHES_SOURCE_CONTRACT,
+    SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT,
+    SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT,
     SEVEN_ARCHES_ROOM_DEFINITIONS,
     BED_TYPES,
     BED_LABELS,
@@ -2119,6 +2592,11 @@
     buildH3ConfigurationPlan: buildH31ConfigurationPlan,
     deriveH3Readiness: deriveH31Readiness,
     h3BusinessState: h31BusinessState,
+    normalizeLegacyPricingPromotionPreview,
+    validateLegacyPricingPromotionPreview,
+    legacyPricingPromotionSnapshot,
+    reconcileLegacyPricingPromotion,
+    buildLegacyPricingPromotionPlan,
     normalizeBedConfiguration,
     formatBedConfiguration,
     normalizeCancellationPolicy,

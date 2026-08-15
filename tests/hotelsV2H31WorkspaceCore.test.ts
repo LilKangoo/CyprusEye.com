@@ -139,10 +139,17 @@ function currentConfiguration(): any {
 }
 
 function allocationRules(): any[] {
-  const rule = (offset: number, min: number, max: number, mode: string, split?: number[]) => ({
+  const rule = (
+    offset: number,
+    min: number,
+    max: number,
+    mode: string,
+    split?: number[],
+    pricingSplit?: number[],
+  ) => ({
     id: ids[offset],
     hotel_id: HOTEL,
-    code: mode === 'customer_choice' ? 'customer-choice-1-4' : `required-bundle-${min}`,
+    code: mode === 'customer_choice' ? 'guests-1-4-choice' : `guests-${min}-bundle`,
     min_guest_count: min,
     max_guest_count: max,
     allocation_mode: mode,
@@ -155,15 +162,16 @@ function allocationRules(): any[] {
       room_type_id: roomId,
       units_required: 1,
       allocated_guest_count: split?.[itemIndex] ?? null,
+      pricing_guest_count: pricingSplit?.[itemIndex] ?? null,
       sort_order: (itemIndex + 1) * 10,
     })),
   });
   return [
     rule(0, 1, 4, 'customer_choice'),
-    rule(1, 5, 5, 'required_bundle', [3, 2]),
-    rule(2, 6, 6, 'required_bundle', [3, 3]),
-    rule(3, 7, 7, 'required_bundle', [4, 3]),
-    rule(4, 8, 8, 'required_bundle', [4, 4]),
+    rule(1, 5, 5, 'required_bundle', [3, 2], [2, 2]),
+    rule(2, 6, 6, 'required_bundle', [3, 3], [3, 3]),
+    rule(3, 7, 7, 'required_bundle', [4, 3], [4, 4]),
+    rule(4, 8, 8, 'required_bundle', [4, 4], [4, 4]),
   ];
 }
 
@@ -244,13 +252,45 @@ describe('Hotels V2 H3.1 workspace core', () => {
       .toEqual([UPPER, GROUND]);
     expect(reviewed.allocation_rules.slice(1).map((rule: any) => ({
       guests: rule.min_guest_count,
-      split: rule.items.map((item: any) => item.allocated_guest_count),
+      physical: rule.items.map((item: any) => item.allocated_guest_count),
+      pricing: rule.items.map((item: any) => item.pricing_guest_count),
     }))).toEqual([
-      { guests: 5, split: [3, 2] },
-      { guests: 6, split: [3, 3] },
-      { guests: 7, split: [4, 3] },
-      { guests: 8, split: [4, 4] },
+      { guests: 5, physical: [3, 2], pricing: [2, 2] },
+      { guests: 6, physical: [3, 3], pricing: [3, 3] },
+      { guests: 7, physical: [4, 3], pricing: [4, 4] },
+      { guests: 8, physical: [4, 4], pricing: [4, 4] },
     ]);
+  });
+
+  test('keeps bundle pricing occupancy wholly pending until the dedicated pricing Review', () => {
+    const pending = reviewedConfiguration();
+    pending.allocation_rules.slice(1).forEach((rule: any) => {
+      rule.items.forEach((item: any) => { item.pricing_guest_count = null; });
+    });
+
+    const validated = Core.validateH3Configuration(pending, workspace());
+    expect(validated.allocation_rules.slice(1).map((rule: any) => (
+      rule.items.map((item: any) => item.pricing_guest_count)
+    ))).toEqual([[null, null], [null, null], [null, null], [null, null]]);
+    expect(Core.deriveH3Readiness(validated, workspace()).blockers).toContain(
+      'Complete the dedicated legacy pricing Review before H3 shadow pricing can be ready.',
+    );
+
+    const plan = Core.buildH3ConfigurationPlan(
+      currentConfiguration(),
+      pending,
+      workspace(),
+      { reviewedAt: '2026-08-15T08:05:00.000Z' },
+    );
+    expect(plan.operations.filter((operation: any) => operation.entity === 'allocation_rule')
+      .flatMap((operation: any) => operation.payload.items)
+      .every((item: any) => item.pricing_guest_count == null)).toBe(true);
+
+    const partial = JSON.parse(JSON.stringify(pending));
+    partial.allocation_rules[1].items[0].pricing_guest_count = 2;
+    expect(() => Core.validateH3Configuration(partial, workspace())).toThrow(
+      'Required bundle pricing occupancy must be entirely pending or entirely reviewed.',
+    );
   });
 
   test('keeps payment, commission and inclusions separate while operational activation remains blocked', () => {
@@ -423,7 +463,18 @@ describe('Hotels V2 H3.1 workspace core', () => {
       'min_guest_count', 'review_status', 'sort_order',
     ]);
     expect(Object.keys(allocation.payload.items[0]).sort()).toEqual([
-      'allocated_guest_count', 'id', 'room_type_id', 'sort_order', 'units_required',
+      'allocated_guest_count', 'id', 'pricing_guest_count', 'room_type_id', 'sort_order', 'units_required',
+    ]);
+    expect(plan.operations.filter((operation: any) => operation.entity === 'allocation_rule').map((operation: any) => ({
+      code: operation.payload.code,
+      physical: operation.payload.items.map((item: any) => item.allocated_guest_count),
+      pricing: operation.payload.items.map((item: any) => item.pricing_guest_count),
+    }))).toEqual([
+      { code: 'guests-1-4-choice', physical: [null, null], pricing: [null, null] },
+      { code: 'guests-5-bundle', physical: [3, 2], pricing: [2, 2] },
+      { code: 'guests-6-bundle', physical: [3, 3], pricing: [3, 3] },
+      { code: 'guests-7-bundle', physical: [4, 3], pricing: [4, 4] },
+      { code: 'guests-8-bundle', physical: [4, 4], pricing: [4, 4] },
     ]);
     const payment = plan.operations.find((operation: any) => operation.entity === 'payment_policy');
     expect(Object.keys(payment.payload).sort()).toEqual([
@@ -453,7 +504,10 @@ describe('Hotels V2 H3.1 workspace core', () => {
     overlapping.allocation_rules[1].min_guest_count = 4;
     overlapping.allocation_rules[1].max_guest_count = 4;
     overlapping.allocation_rules[1].allocation_mode = 'customer_choice';
-    overlapping.allocation_rules[1].items.forEach((item: any) => { item.allocated_guest_count = null; });
+    overlapping.allocation_rules[1].items.forEach((item: any) => {
+      item.allocated_guest_count = null;
+      item.pricing_guest_count = null;
+    });
     expect(() => Core.validateH3Configuration(overlapping, workspace()))
       .toThrow('Active guest allocation ranges cannot overlap.');
 
