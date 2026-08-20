@@ -268,7 +268,8 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(core).toContain('capacity_adults: 0');
     expect(core).toContain('base_inventory_count: 0');
     expect(ui).toContain('Select after confirmation');
-    expect(ui).toContain("status: isLegacyPreparation ? 'draft'");
+    expect(ui).toContain("status: existing ? String(fd.get('status')) : 'draft'");
+    expect(ui).toContain("? '<label class=\"admin-form-field\"><span>Status</span><input name=\"status\" value=\"draft\" readonly");
     expect(ui).toContain("...(isLegacyPreparation ? fd.getAll('legacy_property_photo') : [])");
     expect(ui).toContain('Property amenities are not copied.');
     expect(ui).toContain('Pricing migration is separate');
@@ -329,7 +330,8 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(ui).toContain('This is Admin readiness only. It never means the property is publicly live.');
     expect(ui).toContain('Migration preview · read only');
     expect(ui).toContain('Not migrated');
-    expect(repository).not.toContain('hotel_rooms_v2_enabled');
+    expect(repository).toContain("requiredOffFlags.some((key) => featureFlags[key] !== false)");
+    expect(repository).not.toMatch(/hotel_rooms_v2_enabled\s*:\s*true/);
     expect(repository).not.toContain('site_settings');
     expect(repository).not.toContain('is_published: true');
     expect(publicFiles).not.toContain('hotels-v2-workspace');

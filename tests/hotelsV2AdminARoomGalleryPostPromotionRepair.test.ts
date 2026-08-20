@@ -174,7 +174,8 @@ describe('Hotels V2 ADMIN-A post-H3.1P Room Type gallery repair', () => {
     for (const principal of ['anon', 'non-admin', 'partner']) {
       expect(postgrestGate).toContain(principal);
     }
-    expect(postgrestGate).toContain("assert.equal(prepareRequestCount, 7, 'Conflict triggered an unexpected automatic retry')");
+    expect(postgrestGate).toContain('const prepareRequestCountBeforeConflict = prepareRequestCount');
+    expect(postgrestGate).toContain('prepareRequestCountBeforeConflict + 1');
     expect(postgrestGate).toContain('const conflictRefresh = await workspace()');
     expect(postgrestGate).toContain('p_plan: reviewedPlan(conflictRefresh, approved)');
     expect(postgrestGate).toContain('const recovered = await rpc(');
@@ -182,7 +183,11 @@ describe('Hotels V2 ADMIN-A post-H3.1P Room Type gallery repair', () => {
     expect(postgrestGate).toContain('recovered.payload.activity[0].entity_id, UPPER');
     expect(postgrestGate).toContain('recovered.payload.activity[0].before_state.gallery, concurrentGallery');
     expect(postgrestGate).toContain('recovered.payload.activity[0].after_state.gallery, approved.upper');
-    expect(postgrestGate).toContain("assert.equal(prepareRequestCount, 8");
+    expect(postgrestGate).toContain('prepareRequestCountBeforeConflict + 2');
+    for (const rejection of [
+      'foreignHotel.status, 400', 'foreignRoom.status, 400',
+      'topLevelSmuggling.status, 400', 'nestedSmuggling.status, 400',
+    ]) expect(postgrestGate).toContain(rejection);
     expect(postgrestGate).toContain('upperInitialVersion + 4');
     expect(postgrestGate).toContain('groundInitialVersion');
   });

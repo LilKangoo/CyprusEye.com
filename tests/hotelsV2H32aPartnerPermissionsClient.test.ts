@@ -223,10 +223,10 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(html).toContain('id="partnerAssignedHotelsCard"');
     expect(html).toContain('Foundation only');
     expect(html).not.toContain('data-assigned-hotel-workspace');
-    expect(dashboard).toContain('/admin/admin.css?v=20260815_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260815_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260815_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260815_1');
+    expect(dashboard).toContain('/admin/admin.css?v=20260820_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260820_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260820_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260820_1');
     expect(html).toContain('/js/partners.js?v=37');
   });
 });

@@ -19,6 +19,9 @@ const PARTY = '443065c0-984a-5de3-a22a-d03042c41107';
 let prepareRequestCount = 0;
 
 async function request(path, { token, method = 'GET', body } = {}) {
+  if (path === '/rpc/hotel_v2_admin_prepare_legacy_shadow_rooms') {
+    prepareRequestCount += 1;
+  }
   const headers = { Accept: 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -37,9 +40,6 @@ async function request(path, { token, method = 'GET', body } = {}) {
 }
 
 function rpc(name, token, body = {}) {
-  if (name === 'hotel_v2_admin_prepare_legacy_shadow_rooms') {
-    prepareRequestCount += 1;
-  }
   return request(`/rpc/${name}`, { token, method: 'POST', body });
 }
 
@@ -196,6 +196,63 @@ const approved = {
 const upperInitialVersion = version(initial.room_types, UPPER);
 const groundInitialVersion = version(initial.room_types, GROUND);
 
+async function rejectedPrepare(plan, correlationId) {
+  return request('/rpc/hotel_v2_admin_prepare_legacy_shadow_rooms', {
+    token: TOKENS.admin,
+    method: 'POST',
+    body: { p_plan: plan, p_correlation_id: correlationId },
+  });
+}
+
+const foreignHotelPlan = reviewedPlan(initial, approved);
+foreignHotelPlan.hotel_id = 'f9fbaa61-fdce-4418-8579-ddb2b0a75fb1';
+const foreignHotel = await rejectedPrepare(
+  foreignHotelPlan,
+  'a3320000-0000-4000-8000-000000000091',
+);
+assert.equal(foreignHotel.status, 400, JSON.stringify(foreignHotel.payload));
+assert.equal(foreignHotel.payload?.code, '22023');
+assert.equal(foreignHotel.payload?.message, 'hotels_v2_h2b1_invalid_shadow_plan');
+
+const foreignRoomPlan = reviewedPlan(initial, approved);
+foreignRoomPlan.rooms[0].id = 'f9fbaa61-fdce-4418-8579-ddb2b0a75fb1';
+const foreignRoom = await rejectedPrepare(
+  foreignRoomPlan,
+  'a3320000-0000-4000-8000-000000000092',
+);
+assert.equal(foreignRoom.status, 400, JSON.stringify(foreignRoom.payload));
+assert.equal(foreignRoom.payload?.code, '22023');
+assert.equal(
+  foreignRoom.payload?.message,
+  'hotels_v2_h2b1_shadow_rooms_exact_set_required',
+);
+
+const topLevelSmugglingPlan = reviewedPlan(initial, approved);
+topLevelSmugglingPlan.commission = 0;
+const topLevelSmuggling = await rejectedPrepare(
+  topLevelSmugglingPlan,
+  'a3320000-0000-4000-8000-000000000093',
+);
+assert.equal(topLevelSmuggling.status, 400, JSON.stringify(topLevelSmuggling.payload));
+assert.equal(topLevelSmuggling.payload?.code, '22023');
+assert.equal(
+  topLevelSmuggling.payload?.message,
+  'hotels_v2_h2b1_invalid_shadow_plan',
+);
+
+const nestedSmugglingPlan = reviewedPlan(initial, approved);
+nestedSmugglingPlan.rooms[0].commission = 0;
+const nestedSmuggling = await rejectedPrepare(
+  nestedSmugglingPlan,
+  'a3320000-0000-4000-8000-000000000094',
+);
+assert.equal(nestedSmuggling.status, 400, JSON.stringify(nestedSmuggling.payload));
+assert.equal(nestedSmuggling.payload?.code, '22023');
+assert.equal(
+  nestedSmuggling.payload?.message,
+  'hotels_v2_h2b1_invalid_shadow_room',
+);
+
 const restored = await rpc(
   'hotel_v2_admin_prepare_legacy_shadow_rooms', TOKENS.admin,
   {
@@ -260,6 +317,7 @@ const concurrent = await rpc(
 );
 assert.equal(concurrent.status, 200, JSON.stringify(concurrent.payload));
 
+const prepareRequestCountBeforeConflict = prepareRequestCount;
 const trueConflict = await rpc(
   'hotel_v2_admin_prepare_legacy_shadow_rooms', TOKENS.admin,
   {
@@ -280,9 +338,17 @@ assert.deepEqual(detail.original, secondTarget.upper);
 assert.deepEqual(detail.current, concurrentGallery);
 assert.deepEqual(detail.target, approved.upper);
 
-assert.equal(prepareRequestCount, 7, 'Conflict triggered an unexpected automatic retry');
+assert.equal(
+  prepareRequestCount,
+  prepareRequestCountBeforeConflict + 1,
+  'Conflict triggered an unexpected automatic retry',
+);
 const conflictRefresh = await workspace();
-assert.equal(prepareRequestCount, 7, 'Workspace refresh triggered a prepare mutation');
+assert.equal(
+  prepareRequestCount,
+  prepareRequestCountBeforeConflict + 1,
+  'Workspace refresh triggered a prepare mutation',
+);
 assert.deepEqual(
   conflictRefresh.room_types.find((room) => room.id === UPPER).gallery,
   concurrentGallery,
@@ -331,7 +397,11 @@ assert.deepEqual(finalState.room_rates, protectedGraph.rates);
 assert.deepEqual(finalState.pricing_schedules, protectedGraph.schedules);
 assert.deepEqual(finalState.pricing_schedule_tiers, protectedGraph.tiers);
 assert.deepEqual(finalState.feature_flags, protectedGraph.flags);
-assert.equal(prepareRequestCount, 8, 'Unexpected automatic prepare request/retry occurred');
+assert.equal(
+  prepareRequestCount,
+  prepareRequestCountBeforeConflict + 2,
+  'Unexpected automatic prepare request/retry occurred',
+);
 
 console.log(JSON.stringify({
   ok: true,
@@ -342,6 +412,10 @@ console.log(JSON.stringify({
   recovered_status: recovered.status,
   conflict_field: detail.field,
   prepare_request_count: prepareRequestCount,
+  foreign_hotel_status: foreignHotel.status,
+  foreign_room_status: foreignRoom.status,
+  top_level_smuggling_status: topLevelSmuggling.status,
+  nested_smuggling_status: nestedSmuggling.status,
   legacy_architecture: finalState.property.architecture_version,
   public_flags_off: Object.values(finalState.feature_flags).every((value) => value === false),
 }));

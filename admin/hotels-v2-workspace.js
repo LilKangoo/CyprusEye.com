@@ -12,6 +12,8 @@
     loading: false,
     properties: [],
     workspace: null,
+    contentControl: null,
+    contentControlError: null,
     h3Configuration: null,
     h3ConfigurationError: null,
     pricingPromotionPreview: null,
@@ -362,11 +364,29 @@
   }
 
   function handleGlobalKeydown(event) {
-    if (event.key !== 'Escape') return;
     if (state.modal) {
-      closeModal();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(state.modal.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
       return;
     }
+    if (event.key !== 'Escape') return;
     if (state.workspace) closeWorkspace();
   }
 
@@ -547,6 +567,8 @@
       state.workspace = await Repository.getWorkspace(id);
       state.h3Configuration = null;
       state.h3ConfigurationError = null;
+      state.contentControl = null;
+      state.contentControlError = null;
       state.pricingPromotionPreview = null;
       state.pricingPromotionError = null;
       state.partnerPermissions = null;
@@ -555,6 +577,11 @@
         state.h3Configuration = await Repository.getH3Configuration(id);
       } catch (error) {
         state.h3ConfigurationError = error;
+      }
+      try {
+        state.contentControl = await Repository.getContentControl(id);
+      } catch (error) {
+        state.contentControlError = error;
       }
       if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
         try {
@@ -601,6 +628,8 @@
     state.workspace = null;
     state.h3Configuration = null;
     state.h3ConfigurationError = null;
+    state.contentControl = null;
+    state.contentControlError = null;
     state.pricingPromotionPreview = null;
     state.pricingPromotionError = null;
     state.partnerPermissions = null;
@@ -639,15 +668,35 @@
       </header>
       <nav class="hotel-workspace-tabs" role="tablist" aria-label="Property Workspace sections">
         ${WORKSPACE_TABS.map(([key, label]) => `
-          <button type="button" role="tab" data-hotel-workspace-tab="${key}" aria-selected="${state.activeTab === key}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(label)}</button>
+          <button type="button" role="tab" id="hotelWorkspaceTab-${key}" data-hotel-workspace-tab="${key}" aria-controls="hotelWorkspaceActivePanel" aria-selected="${state.activeTab === key}" tabindex="${state.activeTab === key ? '0' : '-1'}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(label)}</button>
         `).join('')}
       </nav>
-      <div class="hotel-workspace-panel" id="hotelWorkspaceActivePanel" role="tabpanel"></div>`;
+      <div class="hotel-workspace-panel" id="hotelWorkspaceActivePanel" role="tabpanel" aria-labelledby="hotelWorkspaceTab-${escapeAttr(state.activeTab)}" tabindex="0"></div>`;
     container.querySelector('[data-hotel-workspace-back]')?.addEventListener('click', closeWorkspace);
+    const activateTab = (key, options = {}) => {
+      state.activeTab = key;
+      renderWorkspace();
+      if (options.focus === true) {
+        byId(`hotelWorkspaceTab-${key}`)?.focus();
+      }
+    };
     container.querySelectorAll('[data-hotel-workspace-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        state.activeTab = button.dataset.hotelWorkspaceTab;
-        renderWorkspace();
+      button.addEventListener('click', () => activateTab(button.dataset.hotelWorkspaceTab));
+      button.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const keys = WORKSPACE_TABS.map(([key]) => key);
+        const currentIndex = keys.indexOf(button.dataset.hotelWorkspaceTab);
+        const rtl = document.documentElement?.dir === 'rtl' || button.closest('[dir="rtl"]');
+        let nextIndex = currentIndex;
+        if (event.key === 'Home') nextIndex = 0;
+        else if (event.key === 'End') nextIndex = keys.length - 1;
+        else {
+          const visualStep = event.key === 'ArrowRight' ? 1 : -1;
+          const step = rtl ? -visualStep : visualStep;
+          nextIndex = (currentIndex + step + keys.length) % keys.length;
+        }
+        event.preventDefault();
+        activateTab(keys[nextIndex], { focus: true });
       });
     });
     renderActivePanel();
@@ -675,12 +724,15 @@
     return `<header class="hotel-workspace-panel-header"><div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${actions}</header>`;
   }
 
-  function i18nFields(prefix, label, values, type = 'input') {
+  function i18nFields(prefix, label, values, type = 'input', maxLength = null) {
     const normalized = Core.normalizeI18n(values);
+    const maxLengthAttribute = Number.isInteger(Number(maxLength)) && Number(maxLength) > 0
+      ? ` maxlength="${Number(maxLength)}"`
+      : '';
     return `<fieldset class="hotel-workspace-i18n"><legend>${escapeHtml(label)}</legend><div class="hotel-workspace-i18n-grid">
       ${Core.LANGUAGES.map((language) => `<label class="admin-form-field"><span>${escapeHtml(language.toUpperCase())}</span>${type === 'textarea'
-        ? `<textarea name="${escapeAttr(prefix)}_${language}" rows="3" dir="${language === 'he' ? 'rtl' : 'ltr'}">${escapeHtml(normalized[language] || '')}</textarea>`
-        : `<input name="${escapeAttr(prefix)}_${language}" type="text" value="${escapeAttr(normalized[language] || '')}" dir="${language === 'he' ? 'rtl' : 'ltr'}" />`}</label>`).join('')}
+        ? `<textarea name="${escapeAttr(prefix)}_${language}" rows="3" dir="${language === 'he' ? 'rtl' : 'ltr'}"${maxLengthAttribute}>${escapeHtml(normalized[language] || '')}</textarea>`
+        : `<input name="${escapeAttr(prefix)}_${language}" type="text" value="${escapeAttr(normalized[language] || '')}" dir="${language === 'he' ? 'rtl' : 'ltr'}"${maxLengthAttribute} />`}</label>`).join('')}
     </div></fieldset>`;
   }
 
@@ -860,7 +912,8 @@
           <label class="admin-form-field"><span>Room policy</span><select name="children_policy_override">${childPolicyOptions(room.children_policy_override, { allowInherit: true })}</select></label>
           <label class="admin-form-field"><span>Minimum child age</span><input name="minimum_child_age_override" type="number" min="${Core.CHILD_AGE_MIN}" max="${Core.CHILD_AGE_MAX}" step="1" value="${escapeAttr(room.minimum_child_age_override ?? '')}" /></label>
         </div>
-        <div class="hotel-workspace-locked-fields"><div><span>Property default</span><strong>${escapeHtml(childPolicyText(state.workspace.property.children_policy, state.workspace.property.minimum_child_age))}</strong></div><div><span>Exact Room Type</span><code>${escapeHtml(room.id)}</code></div></div>
+        <div class="hotel-workspace-locked-fields"><div><span>Property default</span><strong>${escapeHtml(childPolicyText(state.workspace.property.children_policy, state.workspace.property.minimum_child_age))}</strong></div></div>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(room.id)}</code></details>
       </form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomChildPolicyForm">Review override</button>',
       onReady(overlay) {
@@ -884,7 +937,8 @@
           await openReview({
             title: 'Review Room Type children policy', entity: 'room_children_policy', before, after,
             onConfirm: () => Repository.applyGuestPolicyPlan(plan),
-            contextMessage: `Exact Room Type ${room.id}. This override does not alter pricing, inventory, publication or the property default.`,
+            contextMessage: `${Core.i18nText(room.name_i18n, 'en', room.code)} receives this exact override. It does not alter pricing, inventory, publication or the property default.`,
+            diagnostics: [{ label: 'Room Type ID', value: room.id }],
             successMessage: 'Room Type children-policy override saved.',
           });
         });
@@ -892,12 +946,179 @@
     });
   }
 
+  function propertyControlViewFor(workspace, contentControl) {
+    const property = Core.clone(workspace?.property || {});
+    const profile = Core.asObject(contentControl?.operational_profile);
+    if (!contentControl || !Object.keys(profile).length) return property;
+    return {
+      ...property,
+      maximum_stay_nights: profile.maximum_stay_nights == null ? null : Number(profile.maximum_stay_nights),
+      guest_instructions_i18n: Core.normalizeI18n(profile.guest_instructions_i18n),
+      check_in_instructions_i18n: Core.normalizeI18n(profile.check_in_instructions_i18n),
+      check_out_instructions_i18n: Core.normalizeI18n(profile.check_out_instructions_i18n),
+      internal_operational_notes: Core.asNullableText(profile.internal_operational_notes),
+      operational_profile_version: Number(profile.version || 0),
+    };
+  }
+
+  function propertyControlView() {
+    return propertyControlViewFor(state.workspace, state.contentControl);
+  }
+
+  function propertyControlReviewOptions(currentWorkspace, currentContentControl, requestedProperty, options = {}) {
+    const currentProperty = propertyControlViewFor(currentWorkspace, currentContentControl);
+    const requestedState = Core.propertyControlBusinessState(requestedProperty);
+    const validated = { ...Core.clone(currentProperty), ...requestedState };
+    const profileVersion = Number(currentContentControl?.operational_profile?.version);
+    const buildPlan = () => Core.buildPropertyControlPlan(currentWorkspace, validated, {
+      currentProperty,
+      expectedOperationalProfileVersion: profileVersion,
+    });
+    const correlationId = Core.newUuid();
+    const reviewedPropertyFields = Core.PROPERTY_CONTROL_BUSINESS_FIELDS.filter((field) => (
+      JSON.stringify(Core.propertyControlBusinessState(currentProperty)[field])
+        !== JSON.stringify(Core.propertyControlBusinessState(validated)[field])
+    ));
+    const reconcileFreshProperty = async ({ acceptMatchingTarget = false } = {}) => {
+      const propertyId = currentWorkspace.property.id;
+      const [freshWorkspace, freshContentControl] = await Promise.all([
+        Repository.getWorkspace(propertyId),
+        Repository.getContentControl(propertyId),
+      ]);
+      const freshProperty = propertyControlViewFor(freshWorkspace, freshContentControl);
+      state.workspace = freshWorkspace;
+      state.contentControl = freshContentControl;
+      state.contentControlError = null;
+      const freshBusinessState = Core.propertyControlBusinessState(freshProperty);
+      const targetBusinessState = Core.propertyControlBusinessState(validated);
+      if (acceptMatchingTarget && reviewedPropertyFields.every((field) => (
+        JSON.stringify(freshBusinessState[field]) === JSON.stringify(targetBusinessState[field])
+      ))) {
+        return {
+          matched: true,
+          workspace: freshWorkspace,
+          content_control: freshContentControl,
+          message: 'The database now matches the reviewed property changes. The interrupted response was reconciled without retrying the mutation.',
+        };
+      }
+      const reconciliation = Core.reconcilePropertyControl(currentProperty, freshProperty, validated);
+      if (!reconciliation.safe) {
+        const conflict = new Error(`Property fields changed concurrently: ${reconciliation.conflicts.map((item) => reviewFieldLabel(item.field)).join(', ')}.`);
+        conflict.userMessage = 'A genuine property conflict was stopped. Compare the original, current and requested values; nothing was saved or retried.';
+        conflict.closeReviewAfterStale = true;
+        conflict.openPropertyControlConflict = {
+          freshWorkspace,
+          freshContentControl,
+          currentProperty: freshProperty,
+          requestedProperty: validated,
+          originalProperty: currentProperty,
+          reconciliation,
+          onCancel: options.onCancel || null,
+          onApplyError: options.onApplyError || null,
+          closeOnApplyError: options.closeOnApplyError === true,
+          successMessage: options.successMessage || 'Property controls updated.',
+        };
+        throw conflict;
+      }
+      return {
+        review: propertyControlReviewOptions(freshWorkspace, freshContentControl, reconciliation.merged, {
+          ...options,
+          afterStale: true,
+        }),
+      };
+    };
+    return {
+      title: options.afterStale ? 'Review fresh property changes' : (options.title || 'Review property changes'),
+      entity: 'property',
+      before: currentProperty,
+      after: validated,
+      operation: Core.operationForEntity('property', validated, currentProperty),
+      onCancel: options.onCancel || null,
+      onApplyError: options.onApplyError || null,
+      onAmbiguousReview: () => reconcileFreshProperty({ acceptMatchingTarget: true }),
+      closeOnApplyError: options.closeOnApplyError === true,
+      contextMessage: options.afterStale
+        ? 'The previous save was stopped. This fresh explicit Review combines the current public property timestamp and private operational-profile version. Nothing was retried automatically.'
+        : (options.contextMessage || 'Taxes and cleaning remain Rate Plan inclusions. Operational assignment and historical fulfillment routing are not changed by this property-content save.'),
+      reReviewMessage: 'A stale property save was stopped. Non-overlapping values were rebased onto the fresh public and private property snapshots; inspect this Review and explicitly Save again.',
+      successMessage: options.successMessage || 'Property controls updated.',
+      async onConfirm() {
+        const result = await Repository.applyPropertyControlPlan(buildPlan(), correlationId);
+        state.workspace = result.workspace;
+        state.contentControl = result.content_control;
+        state.contentControlError = null;
+        return result;
+      },
+      async onStaleReview() { return (await reconcileFreshProperty()).review; },
+    };
+  }
+
+  function openPropertyControlConflict(conflictState) {
+    const {
+      freshWorkspace, freshContentControl, currentProperty, requestedProperty, originalProperty,
+      reconciliation, onCancel, onApplyError, closeOnApplyError, successMessage,
+    } = conflictState;
+    state.workspace = freshWorkspace;
+    state.contentControl = freshContentControl;
+    state.contentControlError = null;
+    const rows = reconciliation.conflicts.map((conflict) => `<article class="hotel-room-control-conflict">
+      <header><strong>${escapeHtml(reviewFieldLabel(conflict.field))}</strong><span>Concurrent edit</span></header>
+      <div><section><small>Originally reviewed</small>${reviewValueMarkup(conflict.original, conflict.field)}</section><section><small>Current database value</small>${reviewValueMarkup(conflict.current, conflict.field)}</section><section><small>Your reviewed value</small>${reviewValueMarkup(conflict.requested, conflict.field)}</section></div>
+    </article>`).join('');
+    openModal({
+      title: 'Resolve property conflict',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--review',
+      body: `<section class="hotel-room-control-conflicts"><div class="hotel-review-summary"><p>A real overlapping property edit occurred after Review. No mutation was retried.</p><dl><div><dt>Property</dt><dd>${escapeHtml(propertyTitle(currentProperty))}</dd></div><div><dt>Conflicting fields</dt><dd>${reconciliation.conflicts.length}</dd></div></dl></div>${rows}<p class="hotel-workspace-safety-note">Keep current discards this pending edit. “Use my reviewed values” only builds another Review against the fresh public and private versions; it does not save automatically.</p></section>`,
+      footer: '<button class="btn-secondary" type="button" data-property-conflict-keep>Keep current</button><button class="btn-primary" type="button" data-property-conflict-use-reviewed>Use my reviewed values</button>',
+      onClose: onCancel,
+      onReady(overlay) {
+        overlay.querySelector('[data-property-conflict-keep]')?.addEventListener('click', async () => {
+          try { await onCancel?.(); } catch (error) { console.error('Failed to clean pending property media:', error); }
+          closeModal({ skipCleanup: true, force: true });
+          renderWorkspace();
+          toast('Current property values kept. The pending edit was not saved.', 'info');
+        });
+        overlay.querySelector('[data-property-conflict-use-reviewed]')?.addEventListener('click', async () => {
+          const requestedState = Core.propertyControlBusinessState(requestedProperty);
+          const originalState = Core.propertyControlBusinessState(originalProperty);
+          const resolved = { ...Core.clone(currentProperty) };
+          Core.PROPERTY_CONTROL_BUSINESS_FIELDS.forEach((field) => {
+            if (JSON.stringify(requestedState[field]) !== JSON.stringify(originalState[field])) {
+              resolved[field] = Core.clone(requestedState[field]);
+            }
+          });
+          closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+          await openReview(propertyControlReviewOptions(freshWorkspace, freshContentControl, resolved, {
+            afterStale: true,
+            onCancel,
+            onApplyError,
+            closeOnApplyError,
+            successMessage,
+          }));
+        });
+      },
+    });
+  }
+
   function renderOverviewPanel(panel) {
-    const property = state.workspace.property;
+    const property = propertyControlView();
+    const hasContentControl = Boolean(state.contentControl?.operational_profile);
     const readiness = Core.deriveWorkspaceReadiness(state.workspace);
     const preview = Core.migrationPreview(state.workspace);
     const legacySummary = property.architecture_version === 'legacy' ? legacyPricingSummary(property) : null;
-    const partnerOptions = state.workspace.partners.map((partner) => `
+    const normalizedH3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
+    const ratePlansWithInclusions = normalizedH3?.rate_plans || [];
+    const taxesIncluded = ratePlansWithInclusions.length > 0 && ratePlansWithInclusions.every((plan) => plan.price_inclusions.includes('taxes'));
+    const cleaningIncluded = ratePlansWithInclusions.length > 0 && ratePlansWithInclusions.every((plan) => plan.price_inclusions.includes('cleaning'));
+    const eligibleOwnerPartners = state.workspace.partners.filter((partner) => (
+      String(partner.status || '').toLowerCase() === 'active' && partner.can_manage_hotels === true
+    ));
+    const currentOwner = Core.asObject(property.owner_partner);
+    const grandfatheredOwnerOption = property.owner_partner_id
+      && !eligibleOwnerPartners.some((partner) => partner.id === property.owner_partner_id)
+      ? `<option value="${escapeAttr(property.owner_partner_id)}" selected disabled>${escapeHtml(currentOwner.name || property.owner_partner_id)} · current ineligible owner (retain only)</option>`
+      : '';
+    const partnerOptions = eligibleOwnerPartners.map((partner) => `
       <option value="${escapeAttr(partner.id)}" ${partner.id === property.owner_partner_id ? 'selected' : ''}>${escapeHtml(partner.name || partner.company_name || partner.id)}</option>
     `).join('');
     panel.innerHTML = `
@@ -905,35 +1126,42 @@
       <div class="hotel-workspace-overview-grid">
         <form id="hotelWorkspaceOverviewForm" class="hotel-workspace-card hotel-workspace-form">
           <input type="hidden" name="property_id" value="${escapeAttr(property.id)}" />
-          ${i18nFields('title', 'Property name', property.title_i18n || property.title)}
-          ${i18nFields('description', 'Property description', property.description_i18n || property.description, 'textarea')}
+          ${i18nFields('title', 'Property name', property.title_i18n || property.title, 'input', 240)}
+          ${i18nFields('description', 'Property description', property.description_i18n || property.description, 'textarea', 12000)}
           <div class="hotel-workspace-form-grid">
-            <label class="admin-form-field"><span>Address</span><input name="address_line" value="${escapeAttr(property.address_line || '')}" /></label>
-            <label class="admin-form-field"><span>City</span><input name="city" value="${escapeAttr(property.city || '')}" required /></label>
-            <label class="admin-form-field"><span>District / area</span><input name="district" value="${escapeAttr(property.district || '')}" /></label>
-            <label class="admin-form-field"><span>Postcode</span><input name="postal_code" value="${escapeAttr(property.postal_code || '')}" /></label>
-            <label class="admin-form-field"><span>Country</span><input name="country" value="${escapeAttr(property.country || 'Cyprus')}" /></label>
+            <label class="admin-form-field"><span>Address</span><input name="address_line" maxlength="500" value="${escapeAttr(property.address_line || '')}" /></label>
+            <label class="admin-form-field"><span>City</span><input name="city" maxlength="200" value="${escapeAttr(property.city || '')}" required /></label>
+            <label class="admin-form-field"><span>District / area</span><input name="district" maxlength="200" value="${escapeAttr(property.district || '')}" /></label>
+            <label class="admin-form-field"><span>Postcode</span><input name="postal_code" maxlength="40" value="${escapeAttr(property.postal_code || '')}" /></label>
+            <label class="admin-form-field"><span>Country</span><input name="country" maxlength="100" value="${escapeAttr(property.country || '')}" placeholder="Enter reviewed country" /></label>
             <label class="admin-form-field"><span>Latitude</span><input name="latitude" type="number" step="any" value="${escapeAttr(property.latitude ?? '')}" /></label>
             <label class="admin-form-field"><span>Longitude</span><input name="longitude" type="number" step="any" value="${escapeAttr(property.longitude ?? '')}" /></label>
-            <label class="admin-form-field"><span>Google Maps URL</span><input name="google_maps_url" type="url" value="${escapeAttr(property.google_maps_url || '')}" /></label>
+            <label class="admin-form-field"><span>Google Maps URL</span><input name="google_maps_url" type="url" maxlength="2048" value="${escapeAttr(property.google_maps_url || '')}" /></label>
             <label class="admin-form-field"><span>Check-in from</span><input name="check_in_from" type="time" value="${escapeAttr(String(property.check_in_from || '').slice(0, 5))}" /></label>
             <label class="admin-form-field"><span>Check-out until</span><input name="check_out_until" type="time" value="${escapeAttr(String(property.check_out_until || '').slice(0, 5))}" /></label>
-            <label class="admin-form-field"><span>Timezone</span><input name="timezone" value="${escapeAttr(property.timezone || 'Europe/Nicosia')}" required /></label>
-            <label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(property.currency || 'EUR')}" required /></label>
+            <label class="admin-form-field"><span>Minimum stay (nights)</span><input name="minimum_stay_nights" type="number" min="1" max="365" step="1" value="${escapeAttr(property.minimum_stay_nights ?? '')}" /></label>
+            <label class="admin-form-field"><span>Maximum stay (nights)</span><input name="maximum_stay_nights" type="number" min="1" max="365" step="1" value="${escapeAttr(property.maximum_stay_nights ?? '')}" ${hasContentControl ? '' : 'disabled'} /><small>${hasContentControl ? 'Leave empty when there is no property-wide maximum.' : 'Apply the reviewed ADMIN-B content-control foundation to configure this private field.'}</small></label>
+            <label class="admin-form-field"><span>Timezone</span><input name="timezone" maxlength="100" value="${escapeAttr(property.timezone || '')}" placeholder="Europe/Nicosia" /></label>
+            <label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(property.currency || '')}" placeholder="EUR" required /></label>
             <label class="admin-form-field"><span>Booking mode</span><select name="booking_mode">
-              ${Core.BOOKING_MODES.map((mode) => `<option value="${mode}" ${property.booking_mode === mode ? 'selected' : ''}>${escapeHtml(bookingModeLabel(mode))}</option>`).join('')}
+              <option value="" ${property.booking_mode ? '' : 'selected'}>Choose reviewed booking mode</option>${Core.BOOKING_MODES.map((mode) => `<option value="${mode}" ${property.booking_mode === mode ? 'selected' : ''}>${escapeHtml(bookingModeLabel(mode))}</option>`).join('')}
             </select></label>
-            <label class="admin-form-field"><span>Commercial owner</span><select name="owner_partner_id"><option value="">Not assigned</option>${partnerOptions}</select></label>
+            <label class="admin-form-field"><span>Commercial owner</span><select name="owner_partner_id"><option value="">Not assigned</option>${grandfatheredOwnerOption}${partnerOptions}</select><small>Only active Partners allowed to manage Hotels may be selected. The current ineligible owner can be retained but not reselected.</small></label>
           </div>
+          ${hasContentControl ? `${i18nFields('guest_instructions', 'Guest information', property.guest_instructions_i18n, 'textarea', 8000)}
+          ${i18nFields('check_in_instructions', 'Check-in instructions', property.check_in_instructions_i18n, 'textarea', 8000)}
+          ${i18nFields('check_out_instructions', 'Check-out instructions', property.check_out_instructions_i18n, 'textarea', 8000)}
+          <label class="admin-form-field"><span>Internal operational notes</span><textarea name="internal_operational_notes" rows="4" maxlength="5000">${escapeHtml(property.internal_operational_notes || '')}</textarea><small>Admin-only operational context. Never shown on the public Hotel page or returned by Partner/customer APIs.</small></label>` : `<section class="hotel-workspace-card hotel-property-empty--error"><strong>Private content control unavailable</strong><p>${escapeHtml(state.contentControlError?.message || 'The reviewed ADMIN-B SQL foundation is required before instructions or internal notes can be edited.')}</p></section>`}
           <fieldset><legend>Property amenities</legend>${amenitiesMarkup(property.amenities, 'property_amenity')}</fieldset>
           <div class="hotel-workspace-locked-fields">
             <div><span>Architecture</span><strong>${escapeHtml(architectureLabel(property.architecture_version))}</strong><small>Changes only through a future reviewed activation.</small></div>
             <div><span>Public state</span><strong>${property.is_published ? 'Published legacy page' : 'Not published'}</strong><small>Rooms V2 publishing is disabled in H2A.</small></div>
-            <div><span>Exact property ID</span><code>${escapeHtml(property.id)}</code></div>
           </div>
+          <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(property.id)}</code></details>
         </form>
         <aside class="hotel-workspace-side-stack">
           ${renderPropertyGuestPolicyCard(property)}
+          <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Price inclusions · per Rate Plan</span><h4>${ratePlansWithInclusions.length ? `${ratePlansWithInclusions.length} reviewed Rate Plan${ratePlansWithInclusions.length === 1 ? '' : 's'}` : 'Not reviewed'}</h4><dl><div><dt>Taxes included</dt><dd>${taxesIncluded ? 'Yes' : 'No / mixed'}</dd></div><div><dt>Cleaning included</dt><dd>${cleaningIncluded ? 'Yes' : 'No / mixed'}</dd></div></dl><p>These commercial inclusions belong to each normalized Rate Plan and are not duplicated as property booleans.</p><button class="btn-secondary" type="button" data-open-rate-inclusions>Configure Rate Plan inclusions</button></section>
           ${legacySummary ? `<section class="hotel-workspace-card hotel-legacy-live">
             <span class="hotel-workspace-eyebrow">Current live legacy product</span>
             <h4>${legacyPublicPriceMarkup(legacySummary)}</h4>
@@ -971,6 +1199,7 @@
     panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(preview));
     panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
     panel.querySelector('[data-edit-property-child-policy]')?.addEventListener('click', openPropertyChildrenPolicyEditor);
+    panel.querySelector('[data-open-rate-inclusions]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
   }
 
   function renderReadinessCard(readiness) {
@@ -990,7 +1219,9 @@
     event.preventDefault();
     const form = event.currentTarget;
     const fd = new FormData(form);
-    const before = Core.clone(state.workspace.property);
+    const before = propertyControlView();
+    const hasContentControl = Boolean(state.contentControl?.operational_profile);
+    if (!hasContentControl) return toast('Secure ADMIN-B content control is unavailable. Nothing was prepared for save.', 'error');
     const after = {
       ...before,
       title_i18n: readI18n(fd, 'title'),
@@ -999,29 +1230,62 @@
       city: String(fd.get('city') || '').trim(),
       district: String(fd.get('district') || '').trim() || null,
       postal_code: String(fd.get('postal_code') || '').trim() || null,
-      country: String(fd.get('country') || '').trim() || 'Cyprus',
+      country: String(fd.get('country') || '').trim() || null,
       latitude: Core.asNumber(fd.get('latitude'), null),
       longitude: Core.asNumber(fd.get('longitude'), null),
       google_maps_url: String(fd.get('google_maps_url') || '').trim() || null,
       check_in_from: String(fd.get('check_in_from') || '').trim() || null,
       check_out_until: String(fd.get('check_out_until') || '').trim() || null,
+      minimum_stay_nights: fd.get('minimum_stay_nights') === '' ? null : Number(fd.get('minimum_stay_nights')),
+      ...(hasContentControl ? {
+        maximum_stay_nights: fd.get('maximum_stay_nights') === '' ? null : Number(fd.get('maximum_stay_nights')),
+      } : {}),
       timezone: String(fd.get('timezone') || '').trim(),
       currency: String(fd.get('currency') || '').trim().toUpperCase(),
       booking_mode: String(fd.get('booking_mode') || '').trim(),
-      owner_partner_id: Core.normalizeUuid(fd.get('owner_partner_id')) || null,
+      owner_partner_id: Core.normalizeUuid(form.elements.owner_partner_id?.value) || null,
+      ...(hasContentControl ? {
+        guest_instructions_i18n: readI18n(fd, 'guest_instructions'),
+        check_in_instructions_i18n: readI18n(fd, 'check_in_instructions'),
+        check_out_instructions_i18n: readI18n(fd, 'check_out_instructions'),
+        internal_operational_notes: String(fd.get('internal_operational_notes') || '').trim() || null,
+      } : {}),
       amenities: fd.getAll('property_amenity'),
     };
     if (!Core.i18nText(after.title_i18n, 'en')) return toast('English property name is required.', 'error');
     if (!after.city) return toast('City is required.', 'error');
+    if (after.country !== before.country && !after.country) return toast('Country cannot be cleared without a reviewed replacement.', 'error');
     if (!/^[A-Z]{3}$/.test(after.currency)) return toast('Currency must be a three-letter code.', 'error');
     if (!Core.BOOKING_MODES.includes(after.booking_mode)) return toast('Booking mode is invalid.', 'error');
-    await openReview({
-      title: 'Review property changes',
-      entity: 'property',
-      before,
-      after,
-      operation: Core.operationForEntity('property', after, before),
-    });
+    if (after.latitude != null && (after.latitude < -90 || after.latitude > 90)) return toast('Latitude must be between -90 and 90.', 'error');
+    if (after.longitude != null && (after.longitude < -180 || after.longitude > 180)) return toast('Longitude must be between -180 and 180.', 'error');
+    if (after.google_maps_url && after.google_maps_url !== before.google_maps_url) {
+      try {
+        const mapsUrl = new URL(after.google_maps_url);
+        const host = mapsUrl.hostname.toLowerCase().replace(/^www\./, '');
+        const googleHost = host.replace(/^maps\./, '');
+        const supported = mapsUrl.protocol === 'https:' && !mapsUrl.username && !mapsUrl.password && !mapsUrl.port && (
+          (host === 'maps.app.goo.gl' && mapsUrl.pathname !== '/')
+          || (host === 'goo.gl' && /^\/maps(?:\/|$)/.test(mapsUrl.pathname))
+          || (/^google\.(?:com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$/.test(googleHost)
+            && (host.startsWith('maps.google.') || /^\/maps(?:\/|$)/.test(mapsUrl.pathname)))
+        );
+        if (!supported) throw new Error('Unsupported Google Maps host');
+      } catch (_error) { return toast('Google Maps URL must use a supported Google Maps domain.', 'error'); }
+    }
+    if (after.timezone !== before.timezone) {
+      if (!after.timezone) return toast('Timezone cannot be cleared without a reviewed replacement.', 'error');
+      try { new Intl.DateTimeFormat('en', { timeZone: after.timezone }).format(); }
+      catch (_error) { return toast('Timezone must be a valid IANA timezone such as Europe/Nicosia.', 'error'); }
+    }
+    if (after.minimum_stay_nights != null && (!Number.isInteger(after.minimum_stay_nights) || after.minimum_stay_nights < 1 || after.minimum_stay_nights > 365)) return toast('Minimum stay must be a whole number from 1 to 365.', 'error');
+    if (after.maximum_stay_nights != null && (!Number.isInteger(after.maximum_stay_nights) || after.maximum_stay_nights < 1 || after.maximum_stay_nights > 365)) return toast('Maximum stay must be a whole number from 1 to 365.', 'error');
+    if (after.minimum_stay_nights != null && after.maximum_stay_nights != null && after.maximum_stay_nights < after.minimum_stay_nights) return toast('Maximum stay cannot be shorter than minimum stay.', 'error');
+    try {
+      await openReview(propertyControlReviewOptions(state.workspace, state.contentControl, after));
+    } catch (error) {
+      toast(error?.userMessage || error?.message || 'Property changes could not be prepared for Review.', 'error');
+    }
   }
 
   function pricingPromotionRoomLabel(preview, roomTypeId) {
@@ -1075,10 +1339,10 @@
     const schedule = preview.target.room_schedule;
     const planName = Core.i18nText(plan.name_i18n || plan.name, 'en', plan.code || 'Standard');
     return `<div class="hotel-pricing-promotion-target">
-      <section><span>Rate Plan</span><strong>${escapeHtml(planName)}</strong><small>${plan.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small><code>${escapeHtml(plan.id || '')}</code></section>
-      ${preview.target.room_rates.map((rate) => `<section><span>Room Rate</span><strong>${escapeHtml(pricingPromotionRoomLabel(preview, rate.room_type_id))} · ${escapeHtml(planName)}</strong><small>${rate.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small><code>${escapeHtml(rate.id || '')}</code></section>`).join('')}
-      <section><span>Shared Room schedule</span><strong>${schedule.tier_count} occupancy × LOS tiers</strong><small>${escapeHtml(schedule.review_status)} · ${schedule.is_active ? 'active' : 'inactive'}</small><code>${escapeHtml(schedule.id || '')}</code></section>
-    </div>`;
+      <section><span>Rate Plan</span><strong>${escapeHtml(planName)}</strong><small>${plan.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small></section>
+      ${preview.target.room_rates.map((rate) => `<section><span>Room Rate</span><strong>${escapeHtml(pricingPromotionRoomLabel(preview, rate.room_type_id))} · ${escapeHtml(planName)}</strong><small>${rate.is_active === true ? 'ACTIVE — unsafe for this checkpoint' : 'Inactive shadow product'}</small></section>`).join('')}
+      <section><span>Shared Room schedule</span><strong>${schedule.tier_count} occupancy × LOS tiers</strong><small>${escapeHtml(schedule.review_status)} · ${schedule.is_active ? 'active' : 'inactive'}</small></section>
+    </div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(plan.id || '')}</code>${preview.target.room_rates.map((rate) => `<code>${escapeHtml(rate.id || '')}</code>`).join('')}<code>${escapeHtml(schedule.id || '')}</code></details>`;
   }
 
   function pricingPromotionDetailsMarkup(preview, options = {}) {
@@ -1092,7 +1356,7 @@
       ${notice}
       <section class="hotel-review-summary hotel-pricing-promotion-summary">
         <p>This Admin-only preparation reviews the exact legacy source and its inert normalized pricing representation. It does not copy browser-supplied prices or change public Hotel behavior.</p>
-        <dl><div><dt>Property</dt><dd><code>${escapeHtml(preview.hotel_id)}</code></dd></div><div><dt>Legacy rules</dt><dd data-pricing-source-rule-count="${preview.source.rule_count}">${preview.source.rule_count}</dd></div><div><dt>Room tiers</dt><dd data-pricing-target-tier-count="${schedule.tier_count}">${schedule.tier_count}</dd></div><div><dt>Parity cases</dt><dd>${preview.parity.total_case_count}</dd></div><div><dt>Parity mismatches</dt><dd data-pricing-parity-mismatch-count="${preview.parity.total_mismatch_count}">${preview.parity.total_mismatch_count}</dd></div><div><dt>Public change</dt><dd>${preview.public_change ? 'YES — BLOCKED' : 'No'}</dd></div></dl>
+        <dl><div><dt>Property</dt><dd>Exact reviewed Hotel</dd></div><div><dt>Legacy rules</dt><dd data-pricing-source-rule-count="${preview.source.rule_count}">${preview.source.rule_count}</dd></div><div><dt>Room tiers</dt><dd data-pricing-target-tier-count="${schedule.tier_count}">${schedule.tier_count}</dd></div><div><dt>Parity cases</dt><dd>${preview.parity.total_case_count}</dd></div><div><dt>Parity mismatches</dt><dd data-pricing-parity-mismatch-count="${preview.parity.total_mismatch_count}">${preview.parity.total_mismatch_count}</dd></div><div><dt>Public change</dt><dd>${preview.public_change ? 'YES — BLOCKED' : 'No'}</dd></div></dl><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(preview.hotel_id)}</code></details>
       </section>
       <section class="hotel-pricing-promotion-section"><header><div><span class="hotel-workspace-eyebrow">Current authoritative source</span><h4>Legacy property pricing · ${preview.source.rule_count} rules</h4></div><span class="hotel-workspace-status hotel-workspace-status--warning">UNCHANGED</span></header>
         <p>Pricing model: <strong>${escapeHtml(preview.source.pricing_model || 'legacy tiers')}</strong> · currency ${escapeHtml(preview.source.currency)}. The source remains authoritative while architecture is legacy.</p>
@@ -1353,6 +1617,11 @@
     const capacityLabel = room.max_occupancy != null
       ? `Max ${room.max_occupancy} guests · adult/child split not confirmed`
       : `${room.capacity_adults} adults · ${room.capacity_children} children`;
+    const floorLabel = Core.i18nText(room.floor_label_i18n, 'en', 'Floor not specified');
+    const outdoorLabels = [
+      room.amenities.includes('balcony') ? 'Balcony' : '',
+      room.amenities.includes('terrace') ? 'Terrace' : '',
+    ].filter(Boolean);
     let childPolicy;
     try {
       const resolved = Core.resolveChildrenPolicy(state.workspace.property, room);
@@ -1362,7 +1631,7 @@
     }
     return `<article class="hotel-room-card" data-room-id="${escapeAttr(room.id)}">
       <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(room.code)}</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4><p>${escapeHtml(capacityLabel)} · ${escapeHtml(inventoryLabel)}</p></div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(room.status === 'active' ? 'READY' : room.status === 'disabled' ? 'BLOCKED' : 'DRAFT')}">${escapeHtml(room.status.toUpperCase())}</span></header>
-      <div class="hotel-room-card__details"><span>${escapeHtml(Core.formatBedConfiguration(room.bed_configuration))}</span><span>${room.bathrooms == null ? 'Bathrooms not specified' : `${room.bathrooms} bathroom(s)`}</span><span>${room.size_sqm == null ? 'Size not specified' : `${room.size_sqm} m²`}</span></div>
+      <div class="hotel-room-card__details"><span>${escapeHtml(Core.formatBedConfiguration(room.bed_configuration))}</span><span>${room.bathrooms == null ? 'Bathrooms not specified' : `${room.bathrooms} bathroom(s)`}</span><span>${room.size_sqm == null ? 'Size not specified' : `${room.size_sqm} m²`}</span><span>${escapeHtml(floorLabel)}</span><span>${escapeHtml(outdoorLabels.join(' · ') || 'No balcony/terrace configured')}</span><span>${room.gallery.length} photo${room.gallery.length === 1 ? '' : 's'}</span></div>
       <div class="hotel-room-card__guest-policy"><span>Children</span><strong>${escapeHtml(childPolicy)}</strong><button class="btn-secondary" type="button" data-edit-room-child-policy="${escapeAttr(room.id)}">Edit</button></div>
       <div class="hotel-room-card__rates">${roomRates.length ? roomRates.map(renderRoomRateLine).join('') : '<p>No Rate Plans connected.</p>'}</div>
       ${room.inventory_mode === 'unitized' ? `<details class="hotel-room-card__units"><summary>${units.length} physical units</summary>${units.length ? units.map(renderUnitLine).join('') : '<p>No units configured.</p>'}<button class="btn-secondary" type="button" data-add-unit="${escapeAttr(room.id)}">Add unit</button></details>` : ''}
@@ -1461,23 +1730,65 @@
     if (options.restoreFocus !== false) state.lastFocused?.focus?.();
   }
 
-  function displayReviewValue(value) {
-    if (value == null || value === '') return 'Not specified';
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (typeof value === 'object') return JSON.stringify(value, null, 2);
-    return String(value);
+  function reviewFieldLabel(value) {
+    return String(value || 'value').replaceAll('_', ' ').replace(/\bi18n\b/gi, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function reviewValueMarkup(value, field = '', depth = 0) {
+    if (value == null || value === '') return '<span class="hotel-review-empty">Not specified</span>';
+    if (typeof value === 'boolean') return `<span>${value ? 'Yes' : 'No'}</span>`;
+    if (typeof value === 'number') return `<span>${escapeHtml(value)}</span>`;
+    if (typeof value === 'string') {
+      if (/^https?:\/\//i.test(value) && /(gallery|photo|image|cover)/i.test(field)) {
+        return `<span class="hotel-review-media-value"><img src="${escapeAttr(value)}" alt="" loading="lazy" /><span>${escapeHtml(mediaFileLabel(value))}</span></span>`;
+      }
+      return `<span dir="auto">${escapeHtml(value)}</span>`;
+    }
+    if (Array.isArray(value)) {
+      if (!value.length) return '<span class="hotel-review-empty">None</span>';
+      if (value.every((entry) => typeof entry === 'string' && /^https?:\/\//i.test(entry))) {
+        return `<div class="hotel-review-media-list">${value.map((url, index) => `<figure><img src="${escapeAttr(url)}" alt="Reviewed image ${index + 1}" loading="lazy" /><figcaption>${index + 1}. ${escapeHtml(mediaFileLabel(url))}</figcaption></figure>`).join('')}</div>`;
+      }
+      return `<ol class="hotel-review-value-list">${value.map((entry) => `<li>${reviewValueMarkup(entry, field, depth + 1)}</li>`).join('')}</ol>`;
+    }
+    const entries = Object.entries(Core.asObject(value)).filter(([key]) => !['created_at', 'updated_at', 'version'].includes(key));
+    if (!entries.length) return '<span class="hotel-review-empty">None</span>';
+    return `<dl class="hotel-review-value-map">${entries.map(([key, item]) => `<div><dt>${escapeHtml(reviewFieldLabel(key).toUpperCase())}</dt><dd>${reviewValueMarkup(item, `${field}.${key}`, depth + 1)}</dd></div>`).join('')}</dl>`;
+  }
+
+  function reviewDiagnosticsMarkup(entries) {
+    return Core.asArray(entries).map((entry) => {
+      const raw = entry?.values ?? entry?.value;
+      const values = Array.isArray(raw) ? raw : (raw == null ? [] : [raw]);
+      return `<div><span>${escapeHtml(entry?.label || 'Value')}</span>${values.map((value) => `<code>${escapeHtml(value)}</code>`).join('') || '<code>None</code>'}</div>`;
+    }).join('');
   }
 
   async function applyReviewedOperations(operations, options = {}) {
     const reviewedOperations = Core.asArray(operations);
     const isExactRoomTypeSave = reviewedOperations.length === 1 && reviewedOperations[0]?.entity === 'room_type';
+    const isPropertyControlSave = reviewedOperations.length === 1 && reviewedOperations[0]?.entity === 'property';
     const plan = isExactRoomTypeSave
       ? Core.buildRoomTypePlan(state.workspace, reviewedOperations[0])
-      : Core.buildWorkspacePlan(state.workspace, reviewedOperations);
+      : isPropertyControlSave
+        ? Core.buildPropertyControlPlan(state.workspace, {
+          ...propertyControlView(),
+          ...Core.asObject(reviewedOperations[0]?.payload),
+        }, {
+          currentProperty: propertyControlView(),
+          expectedOperationalProfileVersion: Number(state.contentControl?.operational_profile?.version),
+        })
+        : Core.buildWorkspacePlan(state.workspace, reviewedOperations);
     const result = isExactRoomTypeSave
-      ? await Repository.applyRoomTypePlan(plan)
-      : await Repository.applyWorkspacePlan(plan);
+      ? await Repository.applyRoomControlPlan(plan)
+      : isPropertyControlSave
+        ? await Repository.applyPropertyControlPlan(plan)
+        : await Repository.applyWorkspacePlan(plan);
     state.workspace = result.workspace;
+    if (isPropertyControlSave) {
+      state.contentControl = result.content_control;
+      state.contentControlError = null;
+    }
     closeModal({ restoreFocus: false, skipCleanup: true, force: true });
     renderWorkspace();
     void loadPropertyList().catch(() => {});
@@ -1485,30 +1796,73 @@
     return result;
   }
 
-  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, onStaleReview, closeOnApplyError = false, successMessage, contextMessage = '' }) {
+  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, onStaleReview, onAmbiguousReview, closeOnApplyError = false, successMessage, contextMessage = '', diagnostics = [] }) {
     const reviewedOperations = Array.isArray(operations) ? operations : [operation];
     const rows = Core.buildReviewRows(entity, before, after);
     if (!rows.length) {
       toast('There are no changes to review.', 'info');
-      return;
+      return false;
     }
     state.pendingReview = { reviewedOperations };
     openModal({
       title,
       className: 'hotel-workspace-modal--review',
-      body: `<div class="hotel-review-summary"><p>One atomic exact-property operation will be applied only after all version and relationship checks pass.</p><dl><div><dt>Property ID</dt><dd><code>${escapeHtml(state.workspace.property.id)}</code></dd></div><div><dt>Entity</dt><dd>${escapeHtml(entity.replaceAll('_', ' '))}</dd></div><div><dt>Changes</dt><dd>${rows.length}</dd></div></dl></div>
+      body: `<div class="hotel-review-summary"><p>One atomic exact-property operation will be applied only after all version and relationship checks pass.</p><dl><div><dt>Property</dt><dd>${escapeHtml(propertyTitle(state.workspace.property))}</dd></div><div><dt>Entity</dt><dd>${escapeHtml(entity.replaceAll('_', ' '))}</dd></div><div><dt>Changes</dt><dd>${rows.length}</dd></div></dl><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(state.workspace.property.id)}</code>${reviewDiagnosticsMarkup(diagnostics)}</details></div>
         ${contextMessage ? `<p class="hotel-workspace-safety-note">${escapeHtml(contextMessage)}</p>` : ''}
-        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.before))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.after))}</pre></td></tr>`).join('') || '<tr><td colspan="3">The exact reviewed operation has no scalar field diff.</td></tr>'}</tbody></table></div>
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.before, row.field)}</td><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('') || '<tr><td colspan="3">The exact reviewed operation has no semantic field diff.</td></tr>'}</tbody></table></div>
         <p class="hotel-workspace-safety-note">Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.</p>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-hotel-review-confirm>Save reviewed changes</button>',
       onClose: onCancel,
       onReady(overlay) {
+        let ambiguousPending = false;
+        const reconcileAmbiguousOutcome = async (button) => {
+          if (typeof onAmbiguousReview !== 'function') return false;
+          try {
+            const resolution = await onAmbiguousReview();
+            if (resolution?.matched) {
+              if (resolution.workspace) state.workspace = resolution.workspace;
+              if (resolution.content_control) {
+                state.contentControl = resolution.content_control;
+                state.contentControlError = null;
+              }
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              void loadPropertyList().catch(() => {});
+              toast(resolution.message || 'The current database state matches the reviewed changes. No mutation was retried.', 'success');
+              return true;
+            }
+            if (resolution?.review) {
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              await openReview(resolution.review);
+              toast('The interrupted save did not reach the reviewed target. Fresh values are ready for one explicit Save; nothing was retried automatically.', 'warning');
+              return true;
+            }
+          } catch (recoveryError) {
+            if (recoveryError?.closeReviewAfterStale === true) throw recoveryError;
+            ambiguousPending = true;
+            overlay.hotelWorkspaceOnClose = null;
+            // The original write outcome is still unknown. Keep the Review
+            // non-dismissible so its closure remains the only recoverable
+            // reference to newly uploaded objects. The sole enabled action is
+            // a read-only reconciliation check; it never resends the plan.
+            setModalSaving(overlay, true);
+            button.disabled = false;
+            button.textContent = 'Check current state';
+            toast('The save result and current database state could not yet be confirmed. Uploaded media remains preserved. Use “Check current state”; no mutation will be retried.', 'warning');
+            return true;
+          }
+          return false;
+        };
         overlay.querySelector('[data-hotel-review-confirm]')?.addEventListener('click', async (event) => {
           const button = event.currentTarget;
           button.disabled = true;
-          button.textContent = 'Saving…';
+          button.textContent = ambiguousPending ? 'Checking…' : 'Saving…';
           setModalSaving(overlay, true);
           try {
+            if (ambiguousPending) {
+              await reconcileAmbiguousOutcome(button);
+              return;
+            }
             if (typeof onConfirm === 'function') {
               const result = await onConfirm();
               if (result?.workspace) state.workspace = result.workspace;
@@ -1539,7 +1893,21 @@
                 }
               }
             }
-            try { await onApplyError?.(failure); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
+            if (failure?.isAmbiguousOutcome && typeof onAmbiguousReview === 'function') {
+              try {
+                if (await reconcileAmbiguousOutcome(button)) return;
+              } catch (recoveryConflict) {
+                failure = recoveryConflict;
+              }
+            }
+            // A controlled Room conflict hands the same reviewed media draft
+            // to an explicit conflict-resolution screen. Cleanup happens only
+            // if Admin keeps current/cancels or a later terminal save rejects;
+            // deleting now would leave the fresh Review pointing at removed
+            // objects.
+            if (!failure?.isAmbiguousOutcome && !failure?.openRoomControlConflict && !failure?.openPropertyControlConflict) {
+              try { await onApplyError?.(failure); } catch (cleanupError) { console.error('Failed to clean up reviewed Hotel media upload:', cleanupError); }
+            }
             if (failure?.diagnosticContext) {
               console.error('Reviewed Hotel save rejected.', {
                 code: failure.code || null,
@@ -1553,6 +1921,12 @@
               renderWorkspace();
               if (failure.openSevenArchesConflictReview) {
                 openSevenArchesConflictReview(failure.openSevenArchesConflictReview);
+              } else if (failure.openRoomControlConflict) {
+                openRoomControlConflict(failure.openRoomControlConflict);
+              } else if (failure.openPropertyControlConflict) {
+                openPropertyControlConflict(failure.openPropertyControlConflict);
+              } else if (failure.openOperationalAssignmentConflict) {
+                operationalAssignmentConflict(failure.openOperationalAssignmentConflict);
               } else if (failure.reopenSevenArchesPreparation) {
                 openSevenArchesPreparation(failure.reopenSevenArchesPreparation);
               }
@@ -1560,7 +1934,7 @@
               return;
             }
             setModalSaving(overlay, false);
-            if (closeOnApplyError) closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            if (closeOnApplyError && !failure?.isAmbiguousOutcome) closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             button.disabled = false;
             button.textContent = 'Save reviewed changes';
             const message = failure?.userMessage
@@ -1576,6 +1950,7 @@
         });
       },
     });
+    return true;
   }
 
   function slugify(value) {
@@ -1588,14 +1963,16 @@
       title: 'Create Rooms V2 property draft',
       body: `<p class="hotel-workspace-intro">Create one unpublished top-level property. Rooms, rates and calendar are configured inside its workspace.</p>
         <form id="hotelNewPropertyForm" class="hotel-workspace-form">
-          <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Exact property ID</span><input value="${escapeAttr(exactId)}" readonly /></label><label class="admin-form-field"><span>Internal slug</span><input name="slug" pattern="[a-z0-9][a-z0-9-]*" required /></label></div>
-          ${i18nFields('title', 'Property name', {})}
-          ${i18nFields('description', 'Property description', {}, 'textarea')}
+          <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal slug</span><input name="slug" pattern="[a-z0-9](?:[a-z0-9]|-)*" required /></label></div>
+          <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(exactId)}</code></details>
+          ${i18nFields('title', 'Property name', {}, 'input', 240)}
+          ${i18nFields('description', 'Property description', {}, 'textarea', 12000)}
           <div class="hotel-workspace-form-grid">
-            <label class="admin-form-field"><span>City</span><input name="city" required /></label>
-            <label class="admin-form-field"><span>Address</span><input name="address_line" /></label>
-            <label class="admin-form-field"><span>Timezone</span><input name="timezone" value="Europe/Nicosia" required /></label>
-            <label class="admin-form-field"><span>Currency</span><input name="currency" value="EUR" maxlength="3" required /></label>
+            <label class="admin-form-field"><span>City</span><input name="city" maxlength="200" required /></label>
+            <label class="admin-form-field"><span>Country</span><input name="country" maxlength="100" placeholder="Enter reviewed country" required /></label>
+            <label class="admin-form-field"><span>Address</span><input name="address_line" maxlength="500" /></label>
+            <label class="admin-form-field"><span>Timezone</span><input name="timezone" maxlength="100" placeholder="IANA timezone, for example Europe/Nicosia" required /></label>
+            <label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" placeholder="ISO code, for example EUR" required /></label>
           </div>
           <div class="hotel-workspace-locked-fields"><div><span>Architecture</span><strong>Rooms V2 draft</strong></div><div><span>Booking mode</span><strong>Request confirmation</strong></div><div><span>Public state</span><strong>Unpublished</strong></div></div>
         </form>`,
@@ -1616,12 +1993,16 @@
             title_i18n: readI18n(fd, 'title'),
             description_i18n: readI18n(fd, 'description'),
             city: String(fd.get('city') || '').trim(),
+            country: String(fd.get('country') || '').trim(),
             address_line: String(fd.get('address_line') || '').trim() || null,
-            timezone: String(fd.get('timezone') || '').trim() || 'Europe/Nicosia',
-            currency: String(fd.get('currency') || 'EUR').trim().toUpperCase(),
+            timezone: String(fd.get('timezone') || '').trim(),
+            currency: String(fd.get('currency') || '').trim().toUpperCase(),
           };
-          if (!payload.slug || !Core.i18nText(payload.title_i18n, 'en') || !payload.city || !/^[A-Z]{3}$/.test(payload.currency)) {
-            toast('Slug, English name, city and valid currency are required.', 'error');
+          let timezoneValid = false;
+          try { new Intl.DateTimeFormat('en', { timeZone: payload.timezone }).format(); timezoneValid = true; } catch (_error) {}
+          if (!payload.slug || !Core.i18nText(payload.title_i18n, 'en') || !payload.city || !payload.country
+              || !timezoneValid || !/^[A-Z]{3}$/.test(payload.currency)) {
+            toast('Slug, English name, city, country, valid IANA timezone and currency are required.', 'error');
             return;
           }
           closeModal({ restoreFocus: false });
@@ -1630,7 +2011,7 @@
           const rows = Core.buildReviewRows('property', before, after);
           openModal({
             title: 'Review new property draft',
-            body: `<div class="hotel-review-summary"><p>The property will be created as an inert Rooms V2 draft. No feature flag or public page is enabled.</p><code>${escapeHtml(exactId)}</code></div><div class="hotel-review-table-wrap"><table class="hotel-review-table"><tbody>${rows.map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.after))}</pre></td></tr>`).join('')}</tbody></table></div>`,
+            body: `<div class="hotel-review-summary"><p>The property will be created as an inert Rooms V2 draft. No feature flag or public page is enabled.</p><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(exactId)}</code></details></div><div class="hotel-review-table-wrap"><table class="hotel-review-table"><tbody>${rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('')}</tbody></table></div>`,
             footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="button" data-create-property-confirm>Create draft</button>',
             onReady(reviewOverlay) {
               reviewOverlay.querySelector('[data-create-property-confirm]')?.addEventListener('click', async (confirmEvent) => {
@@ -1671,7 +2052,7 @@
     return `<div class="hotel-bed-row">
       <label class="admin-form-field"><span>Bed type</span><select data-bed-type>${Core.BED_TYPES.map((candidate) => `<option value="${candidate}" ${candidate === type ? 'selected' : ''}>${escapeHtml(Core.BED_LABELS[candidate])}</option>`).join('')}</select></label>
       <label class="admin-form-field"><span>Quantity</span><input data-bed-quantity type="number" min="1" max="20" step="1" value="${escapeAttr(bed.quantity || 1)}" /></label>
-      <label class="admin-form-field hotel-bed-other"><span>Other bed label (EN)</span><input data-bed-label value="${escapeAttr(Core.i18nText(bed.label, 'en'))}" /></label>
+      <label class="admin-form-field hotel-bed-other" ${type === 'other' ? '' : 'hidden'}><span>Other bed label (EN)</span><input data-bed-label value="${escapeAttr(Core.i18nText(bed.label, 'en'))}" ${type === 'other' ? '' : 'disabled'} /></label>
       <button class="btn-secondary" type="button" data-remove-bed aria-label="Remove bed row">Remove</button>
     </div>`;
   }
@@ -1695,12 +2076,147 @@
     return `<div class="hotel-amenity-picker"><label class="admin-form-field"><span>Search amenities</span><input type="search" data-amenity-search placeholder="Search by name or category" /></label><div class="hotel-amenity-groups">${groupHtml || '<p>No active amenity catalogue entries.</p>'}</div>${custom.length ? `<section class="hotel-amenity-group"><h5>Preserved custom values</h5><div>${custom.map((code) => `<label><input type="checkbox" name="${escapeAttr(inputName)}" value="${escapeAttr(code)}" checked /><span>${escapeHtml(code)}</span></label>`).join('')}</div></section>` : ''}</div>`;
   }
 
+  const HOTEL_ADMIN_IMAGE_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+  const HOTEL_ADMIN_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+
+  function mediaFileLabel(url, fallback = 'Hotel image') {
+    try {
+      const pathname = decodeURIComponent(new URL(String(url || '')).pathname);
+      return pathname.split('/').filter(Boolean).pop() || fallback;
+    } catch (_error) {
+      return fallback;
+    }
+  }
+
+  function validateSelectedImages(files, options = {}) {
+    const rows = Array.from(files || []);
+    const maximum = Number(options.maximum || 30);
+    if (rows.length > maximum) throw new Error(`Select no more than ${maximum} images in one reviewed save.`);
+    rows.forEach((file) => {
+      if (!HOTEL_ADMIN_IMAGE_TYPES.includes(String(file?.type || '').toLowerCase())) {
+        throw new Error(`${file?.name || 'A selected file'} is not a supported JPEG, PNG, WebP or AVIF image.`);
+      }
+      if (!Number.isFinite(Number(file?.size)) || Number(file.size) <= 0 || Number(file.size) > HOTEL_ADMIN_IMAGE_MAX_BYTES) {
+        throw new Error(`${file?.name || 'A selected file'} must be a non-empty image no larger than 20 MB.`);
+      }
+    });
+    return rows;
+  }
+
+  function galleryItemMarkup(url, inputName, index) {
+    return `<article class="hotel-gallery-editor__item" data-gallery-item data-gallery-url="${escapeAttr(url)}">
+      <img src="${escapeAttr(url)}" alt="${escapeAttr(mediaFileLabel(url, `Hotel image ${index + 1}`))}" loading="lazy" />
+      <input type="hidden" name="${escapeAttr(inputName)}" value="${escapeAttr(url)}" />
+      <div class="hotel-gallery-editor__meta"><strong data-gallery-position>Image ${index + 1}</strong><small>${escapeHtml(mediaFileLabel(url))}</small></div>
+      <div class="hotel-gallery-editor__actions">
+        <button class="btn-secondary" type="button" data-gallery-move="-1" aria-label="Move image ${index + 1} earlier">↑</button>
+        <button class="btn-secondary" type="button" data-gallery-move="1" aria-label="Move image ${index + 1} later">↓</button>
+        <button class="btn-secondary hotel-danger-action" type="button" data-gallery-remove aria-pressed="false">Remove</button>
+      </div>
+    </article>`;
+  }
+
+  function orderedGalleryMarkup(galleryValue, inputName) {
+    const gallery = Core.normalizeGallery(galleryValue);
+    return `<div class="hotel-gallery-editor__ordered" data-gallery-editor>
+      <div class="hotel-gallery-editor__grid" data-gallery-list>${gallery.map((url, index) => galleryItemMarkup(url, inputName, index)).join('')}</div>
+      <p class="hotel-gallery-editor__empty" data-gallery-empty ${gallery.length ? 'hidden' : ''}>No images are currently attached.</p>
+      <p class="hotel-gallery-editor__status" data-gallery-status role="status" aria-live="polite"></p>
+    </div>`;
+  }
+
+  function bindOrderedGalleryEditor(form) {
+    form.querySelectorAll('[data-gallery-editor]').forEach((editor) => {
+      const list = editor.querySelector('[data-gallery-list]');
+      const empty = editor.querySelector('[data-gallery-empty]');
+      const status = editor.querySelector('[data-gallery-status]');
+      const refresh = (message = '') => {
+        const items = Array.from(list.querySelectorAll('[data-gallery-item]'));
+        const retained = items.filter((item) => item.dataset.removed !== 'true');
+        items.forEach((item) => {
+          const retainedIndex = retained.indexOf(item);
+          const removed = item.dataset.removed === 'true';
+          const position = item.querySelector('[data-gallery-position]');
+          if (position) position.textContent = removed ? 'Removed in this Review' : `Image ${retainedIndex + 1}`;
+          item.querySelectorAll('[data-gallery-move]').forEach((button) => { button.disabled = removed; });
+        });
+        empty.hidden = retained.length > 0;
+        status.textContent = message;
+      };
+      list.addEventListener('click', (event) => {
+        const item = event.target.closest('[data-gallery-item]');
+        if (!item) return;
+        const remove = event.target.closest('[data-gallery-remove]');
+        if (remove) {
+          const removed = item.dataset.removed !== 'true';
+          item.dataset.removed = removed ? 'true' : 'false';
+          item.classList.toggle('is-removed', removed);
+          item.querySelector('input[type="hidden"]').disabled = removed;
+          remove.textContent = removed ? 'Restore' : 'Remove';
+          remove.setAttribute('aria-pressed', removed ? 'true' : 'false');
+          refresh(removed ? 'Image removed from the reviewed gallery. You can restore it before Review.' : 'Image restored.');
+          return;
+        }
+        const move = event.target.closest('[data-gallery-move]');
+        if (!move || item.dataset.removed === 'true') return;
+        const direction = Number(move.dataset.galleryMove);
+        const retained = Array.from(list.querySelectorAll('[data-gallery-item]')).filter((candidate) => candidate.dataset.removed !== 'true');
+        const currentIndex = retained.indexOf(item);
+        const target = retained[currentIndex + direction];
+        if (!target) return;
+        if (direction < 0) list.insertBefore(item, target);
+        else list.insertBefore(target, item);
+        refresh(`Image moved to position ${currentIndex + direction + 1}.`);
+      });
+      refresh();
+    });
+  }
+
+  function bindImagePreview(form, inputName) {
+    const input = form.elements[inputName];
+    const preview = form.querySelector(`[data-file-preview="${inputName}"]`);
+    if (!input || !preview) return () => {};
+    let objectUrls = [];
+    const clear = () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL?.(url));
+      objectUrls = [];
+      preview.innerHTML = '';
+    };
+    input.addEventListener('change', () => {
+      clear();
+      try {
+        const files = validateSelectedImages(input.files);
+        preview.innerHTML = files.map((file, index) => {
+          const objectUrl = URL.createObjectURL(file);
+          objectUrls.push(objectUrl);
+          return `<figure><img src="${escapeAttr(objectUrl)}" alt="Preview of ${escapeAttr(file.name)}" /><figcaption>${escapeHtml(file.name)} · ${Math.ceil(file.size / 1024)} KB</figcaption></figure>`;
+        }).join('');
+      } catch (error) {
+        input.value = '';
+        toast(error.message, 'error');
+      }
+    });
+    return clear;
+  }
+
+  function roomPropertyPhotoPicker(room) {
+    const roomGallery = new Set(Core.normalizeGallery(room.gallery));
+    const photos = Core.normalizeGallery(state.workspace?.property?.photos);
+    if (!photos.length) return '<p class="hotel-gallery-editor__empty">This property has no shared photos to select.</p>';
+    return `<details class="hotel-property-photo-picker"><summary>Select existing property photos</summary>
+      <p>Only select a shared property image when it genuinely shows this exact Room Type. The property gallery remains unchanged.</p>
+      <div class="hotel-legacy-photo-picker__grid">${photos.map((url, index) => `<label class="${roomGallery.has(url) ? 'is-selected' : ''}"><img src="${escapeAttr(url)}" alt="Property image ${index + 1}" loading="lazy" /><span><input type="checkbox" name="property_gallery_photo" value="${escapeAttr(url)}" ${roomGallery.has(url) ? 'checked disabled' : ''} /> ${roomGallery.has(url) ? 'Already in room gallery' : 'Add to room gallery'}</span></label>`).join('')}</div>
+    </details>`;
+  }
+
   function galleryEditorMarkup(room) {
-    const gallery = Core.normalizeGallery(room.gallery);
     return `<fieldset class="hotel-gallery-editor"><legend>Room gallery</legend>
-      ${gallery.length ? `<div class="hotel-gallery-editor__grid">${gallery.map((url) => `<label><img src="${escapeAttr(url)}" alt="" loading="lazy" /><span><input type="checkbox" name="remove_gallery_url" value="${escapeAttr(url)}" /> Remove</span></label>`).join('')}</div>` : '<p>No room-specific images yet.</p>'}
-      <label class="admin-form-field"><span>Add room photos</span><input type="file" name="room_gallery_files" accept="image/*" multiple ${room.created_at ? '' : 'disabled'} /></label>
-      <small>${room.created_at ? 'Images are optimized to WebP and stored under this exact Room Type ID.' : 'Create the Room Type first, then edit it to upload files to its exact ID.'}</small>
+      <p>Reorder or detach exact Room Type media here. Nothing changes until the reviewed save succeeds.</p>
+      ${orderedGalleryMarkup(room.gallery, 'room_gallery_url')}
+      ${roomPropertyPhotoPicker(room)}
+      <label class="admin-form-field"><span>Add room photos</span><input type="file" name="room_gallery_files" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" multiple ${room.created_at ? '' : 'disabled'} /></label>
+      <div class="hotel-gallery-file-preview" data-file-preview="room_gallery_files"></div>
+      <small>${room.created_at ? 'JPEG, PNG, WebP or AVIF · 20 MB maximum each. Images are optimized to WebP and stored under this exact Room Type ID.' : 'Create the Room Type first, then edit it to upload files to its exact ID.'}</small>
     </fieldset>`;
   }
 
@@ -1948,7 +2464,8 @@
     });
     const [upper, ground] = preparedRooms;
     const roomMarkup = (room, index, locationFacts) => `<section class="hotel-seven-arches-room" data-seven-arches-room="${escapeAttr(room.id)}">
-      <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact shadow Room Type</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div><code>${escapeHtml(room.id)}</code></header>
+      <header><div><span class="hotel-workspace-eyebrow">Room ${index + 1} · exact shadow Room Type</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4></div></header>
+      <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(room.id)}</code></details>
       ${i18nFields(`seven_room_${index}_name`, 'Editable room name', room.name_i18n)}
       <div class="hotel-seven-arches-facts">
         <div><span>Floor</span><strong>${escapeHtml(locationFacts.floor)}</strong></div>
@@ -2053,6 +2570,133 @@
     openRoomEditor(null, { legacyPreparation: freshPreview });
   }
 
+  function roomControlReviewOptions(currentRoom, requestedRoom, options = {}) {
+    const validated = Core.validateRoomType(requestedRoom, state.workspace);
+    const operation = Core.operationForEntity('room_type', validated, currentRoom, options.operationType || null);
+    const reviewWorkspace = Core.clone(state.workspace);
+    const buildPlan = () => Core.buildRoomTypePlan(reviewWorkspace, operation);
+    const correlationId = Core.newUuid();
+    const reviewedRoomFields = Core.ROOM_CONTROL_BUSINESS_FIELDS.filter((field) => (
+      JSON.stringify(Core.roomControlBusinessState(currentRoom)[field])
+        !== JSON.stringify(Core.roomControlBusinessState(validated)[field])
+    ));
+    const reconcileFreshRoom = async ({ acceptMatchingTarget = false } = {}) => {
+      const freshWorkspace = await Repository.getWorkspace(reviewWorkspace.property.id);
+      const freshRoom = freshWorkspace.room_types.find((room) => room.id === currentRoom.id);
+      state.workspace = freshWorkspace;
+      if (!freshRoom) {
+        const missing = new Error('The exact Room Type no longer exists in this property.');
+        missing.closeReviewAfterStale = true;
+        missing.isDefinitiveFailure = true;
+        throw missing;
+      }
+      const freshBusinessState = Core.roomControlBusinessState(freshRoom);
+      const targetBusinessState = Core.roomControlBusinessState(validated);
+      if (acceptMatchingTarget && reviewedRoomFields.every((field) => (
+        JSON.stringify(freshBusinessState[field]) === JSON.stringify(targetBusinessState[field])
+      ))) {
+        return {
+          matched: true,
+          workspace: freshWorkspace,
+          message: 'The database now matches the reviewed Room Type changes. The interrupted response was reconciled without retrying the mutation.',
+        };
+      }
+      const reconciliation = Core.reconcileRoomControl(currentRoom, freshRoom, validated);
+      if (!reconciliation.safe) {
+        const conflict = new Error(`Room Type fields changed concurrently: ${reconciliation.conflicts.map((item) => reviewFieldLabel(item.field)).join(', ')}.`);
+        conflict.userMessage = 'A genuine Room Type conflict was stopped. Compare the original, current and requested values; nothing was saved or retried.';
+        conflict.closeReviewAfterStale = true;
+        conflict.openRoomControlConflict = {
+          freshWorkspace,
+          currentRoom: freshRoom,
+          requestedRoom: validated,
+          originalRoom: currentRoom,
+          reconciliation,
+          onCancel: options.onCancel || null,
+          onApplyError: options.onApplyError || null,
+          reviewOptions: {
+            operationType: options.operationType || null,
+            contextMessage: options.contextMessage || '',
+            successMessage: options.successMessage || '',
+          },
+        };
+        throw conflict;
+      }
+      return {
+        review: roomControlReviewOptions(freshRoom, reconciliation.merged, {
+          ...options,
+          afterStale: true,
+        }),
+      };
+    };
+    return {
+      title: options.afterStale ? 'Review fresh Room Type changes' : 'Review Room Type changes',
+      entity: 'room_type',
+      before: currentRoom,
+      after: validated,
+      operation,
+      onCancel: options.onCancel || null,
+      onApplyError: options.onApplyError || null,
+      onAmbiguousReview: () => reconcileFreshRoom({ acceptMatchingTarget: true }),
+      closeOnApplyError: options.closeOnApplyError === true,
+      contextMessage: options.afterStale
+        ? 'The previous save was stopped. This is a fresh explicit Review built from the current property and Room Type versions. Nothing was retried automatically.'
+        : (options.contextMessage || 'This exact normalized Room Type changes independently from the legacy preparation wizard and public Hotel data.'),
+      reReviewMessage: 'A stale Room Type save was stopped. Non-overlapping values were rebased onto the fresh exact Room Type; inspect this Review and explicitly Save again.',
+      successMessage: options.successMessage || 'Room Type updated.',
+      async onConfirm() {
+        const result = await Repository.applyRoomControlPlan(buildPlan(), correlationId);
+        state.workspace = result.workspace;
+        return result;
+      },
+      onStaleReview: async () => (await reconcileFreshRoom()).review,
+    };
+  }
+
+  function openRoomControlConflict(conflictState) {
+    const {
+      freshWorkspace, currentRoom, requestedRoom, originalRoom, reconciliation, onCancel, onApplyError, reviewOptions,
+    } = conflictState;
+    state.workspace = freshWorkspace;
+    const rows = reconciliation.conflicts.map((conflict) => `<article class="hotel-room-control-conflict">
+      <header><strong>${escapeHtml(reviewFieldLabel(conflict.field))}</strong><span>Concurrent edit</span></header>
+      <div><section><small>Originally reviewed</small>${reviewValueMarkup(conflict.original, conflict.field)}</section><section><small>Current database value</small>${reviewValueMarkup(conflict.current, conflict.field)}</section><section><small>Your reviewed value</small>${reviewValueMarkup(conflict.requested, conflict.field)}</section></div>
+    </article>`).join('');
+    openModal({
+      title: 'Resolve Room Type conflict',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--review',
+      body: `<section class="hotel-room-control-conflicts"><div class="hotel-review-summary"><p>A real overlapping Room Type edit occurred after Review. No mutation was retried.</p><dl><div><dt>Room Type</dt><dd>${escapeHtml(Core.i18nText(currentRoom.name_i18n, 'en', currentRoom.code))}</dd></div><div><dt>Conflicting fields</dt><dd>${reconciliation.conflicts.length}</dd></div></dl></div>${rows}<p class="hotel-workspace-safety-note">Keep current discards this pending edit. “Use my reviewed values” only builds another Review against the fresh version; it does not save automatically.</p></section>`,
+      footer: '<button class="btn-secondary" type="button" data-room-conflict-keep>Keep current</button><button class="btn-primary" type="button" data-room-conflict-use-reviewed>Use my reviewed values</button>',
+      onClose: onCancel,
+      onReady(overlay) {
+        overlay.querySelector('[data-room-conflict-keep]')?.addEventListener('click', async () => {
+          try { await onCancel?.(); } catch (error) { console.error('Failed to clean pending Room Type media:', error); }
+          closeModal({ skipCleanup: true, force: true });
+          renderWorkspace();
+          toast('Current Room Type values kept. The pending edit was not saved.', 'info');
+        });
+        overlay.querySelector('[data-room-conflict-use-reviewed]')?.addEventListener('click', async () => {
+          const requestedState = Core.roomControlBusinessState(requestedRoom);
+          const originalState = Core.roomControlBusinessState(originalRoom);
+          const resolved = { ...Core.clone(currentRoom) };
+          Core.ROOM_CONTROL_BUSINESS_FIELDS.forEach((field) => {
+            if (JSON.stringify(requestedState[field]) !== JSON.stringify(originalState[field])) {
+              resolved[field] = Core.clone(requestedState[field]);
+            }
+          });
+          closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+          await openReview(roomControlReviewOptions(currentRoom, resolved, {
+            afterStale: true,
+            onCancel,
+            onApplyError,
+            closeOnApplyError: Boolean(onApplyError),
+            ...Core.asObject(reviewOptions),
+          }));
+        });
+      },
+    });
+  }
+
   function openRoomEditor(roomId = null, options = {}) {
     const existing = roomId ? state.workspace.room_types.find((room) => room.id === roomId) : null;
     const legacyPreparation = !existing ? Core.asObject(options.legacyPreparation) : {};
@@ -2062,6 +2706,7 @@
       : Core.normalizeRoomType({
       id: Core.newUuid(), hotel_id: state.workspace.property.id, code: '', name_i18n: {}, description_i18n: {},
       gallery: [], capacity_adults: 2, capacity_children: 0, max_occupancy: null, bed_configuration: [], amenities: [],
+      floor_label_i18n: {},
       inventory_mode: 'pooled', base_inventory_count: 1, status: 'draft', sort_order: 1000, version: 1,
     }));
     const adultsValue = isLegacyPreparation ? '' : (room.capacity_adults ?? '');
@@ -2079,25 +2724,27 @@
           <div><span>${legacyPreparation.legacy_pricing_rule_count} legacy pricing rules</span><span>Legacy booking maximum ${legacyPreparation.legacy_product.max_persons || 'not specified'}</span><span>${legacyPreparation.property_gallery_count} property photos</span></div>
           <p>The source is a property-level accommodation product, not a normalized Room Type. Enter and confirm every room-specific value below. Pricing is not copied in this operation.</p>
         </section>` : ''}
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" value="${escapeAttr(room.code)}" required pattern="[a-z0-9][a-z0-9_-]*" /></label><label class="admin-form-field"><span>Exact Room Type ID</span><input value="${escapeAttr(room.id)}" readonly /></label></div>
-        ${i18nFields('name', 'Room name', room.name_i18n)}
-        ${i18nFields('description', 'Room description', room.description_i18n, 'textarea')}
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" maxlength="80" value="${escapeAttr(room.code)}" required pattern="[a-z0-9](?:[a-z0-9_]|-)*" /></label></div>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(room.id)}</code></details>
+        ${i18nFields('name', 'Room name', room.name_i18n, 'input', 240)}
+        ${i18nFields('description', 'Room description', room.description_i18n, 'textarea', 12000)}
+        ${i18nFields('floor_label', 'Floor / location label', room.floor_label_i18n, 'input', 160)}
         <fieldset><legend>Capacity & inventory</legend><div class="hotel-workspace-form-grid">
           <label class="admin-form-field"><span>Capacity detail</span><select name="capacity_contract"><option value="split" ${capacityContract === 'split' ? 'selected' : ''}>Adults and children confirmed</option><option value="total_only" ${capacityContract === 'total_only' ? 'selected' : ''}>Maximum total only · split not confirmed</option></select></label>
           <label class="admin-form-field" data-capacity-split><span>Adults</span><input name="capacity_adults" type="number" min="1" max="50" step="1" value="${adultsValue}" /></label>
           <label class="admin-form-field" data-capacity-split><span>Children</span><input name="capacity_children" type="number" min="0" max="50" step="1" value="${childrenValue}" /></label>
           <label class="admin-form-field" data-capacity-total><span>Maximum total guests</span><input name="max_occupancy" type="number" min="1" max="50" step="1" value="${totalValue}" /><small>Use only when the adult/child split is genuinely not confirmed.</small></label>
           <label class="admin-form-field"><span>Inventory model</span><select name="inventory_mode" required>${isLegacyPreparation ? '<option value="" selected disabled>Select after confirmation</option>' : ''}<option value="pooled" ${!isLegacyPreparation && room.inventory_mode === 'pooled' ? 'selected' : ''}>Pooled inventory</option><option value="unitized" ${!isLegacyPreparation && room.inventory_mode === 'unitized' ? 'selected' : ''}>Individual units</option></select></label>
-          <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="${isLegacyPreparation ? '1' : '0'}" step="1" value="${inventoryValue}" ${isLegacyPreparation ? 'required' : ''} /></label>
-          <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" /></label>
-          <label class="admin-form-field"><span>Size m²</span><input name="size_sqm" type="number" min="0.01" step="0.01" value="${escapeAttr(room.size_sqm ?? '')}" /></label>
-          ${isLegacyPreparation
+          <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="${isLegacyPreparation ? '1' : '0'}" max="10000" step="1" value="${inventoryValue}" ${isLegacyPreparation ? 'required' : ''} /></label>
+          <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" max="100" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" /></label>
+          <label class="admin-form-field"><span>Size m²</span><input name="size_sqm" type="number" min="0.01" max="100000" step="0.01" value="${escapeAttr(room.size_sqm ?? '')}" /></label>
+          ${!existing
             ? '<label class="admin-form-field"><span>Status</span><input name="status" value="draft" readonly /><small>Shadow preparation is always inert.</small></label>'
-            : `<label class="admin-form-field"><span>Status</span><select name="status">${Core.ROOM_STATUSES.map((status) => `<option value="${status}" ${status === room.status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label>`}
-          <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${room.sort_order}" /></label>
+            : `<label class="admin-form-field"><span>Status</span><select name="status" required>${room.status === 'disabled' ? '<option value="" selected disabled>Disabled · choose a reviewed reactivation state</option>' : ''}${Core.ROOM_STATUSES.filter((status) => status !== 'disabled').map((status) => `<option value="${status}" ${status === room.status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select><small>${room.status === 'disabled' ? 'Choose draft or active explicitly. Keeping disabled while editing is blocked; disabling always uses the dependency-aware action.' : 'Use the separate Disable action for dependency-aware removal from operation.'}</small></label>`}
+          <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" max="1000000" step="1" value="${room.sort_order}" /></label>
         </div><p class="hotel-inventory-mode-note" data-inventory-note></p></fieldset>
         <fieldset><legend>Bed configuration</legend><div data-bed-rows>${room.bed_configuration.map(bedRowMarkup).join('')}</div><button class="btn-secondary" type="button" data-add-bed>+ Add bed</button></fieldset>
-        <fieldset><legend>Room amenities</legend>${isLegacyPreparation ? '<p>Property amenities are not copied. Select only amenities confirmed for this exact accommodation.</p>' : ''}${amenitiesMarkup(room.amenities)}</fieldset>
+        <fieldset><legend>Room amenities</legend>${isLegacyPreparation ? '<p>Property amenities are not copied. Select only amenities confirmed for this exact accommodation.</p>' : ''}<p>Balcony and terrace are exact Room amenity capabilities; they are not inferred from photos or duplicated as separate flags.</p>${amenitiesMarkup(room.amenities)}</fieldset>
         ${galleryEditorMarkup(room)}
         ${isLegacyPreparation ? legacyPropertyPhotoSelectionMarkup(legacyPreparation) : ''}
         ${isLegacyPreparation ? '<p class="hotel-workspace-safety-note">This operation creates one draft Room Type only. It does not create a Rate Plan, Room Rate, Calendar row, booking, or pricing conversion.</p>' : ''}
@@ -2105,9 +2752,21 @@
       footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomEditorForm">Review ${existing ? 'changes' : isLegacyPreparation ? 'shadow Room Type' : 'new Room Type'}</button>`,
       onReady(overlay) {
         const form = overlay.querySelector('#hotelRoomEditorForm');
+        bindOrderedGalleryEditor(form);
+        const clearRoomFilePreview = bindImagePreview(form, 'room_gallery_files');
+        const previousRoomEditorClose = overlay.hotelWorkspaceOnClose;
+        overlay.hotelWorkspaceOnClose = async () => {
+          clearRoomFilePreview();
+          await previousRoomEditorClose?.();
+        };
         const beds = form.querySelector('[data-bed-rows]');
         const syncBedRows = () => beds.querySelectorAll('.hotel-bed-row').forEach((row) => {
-          row.classList.toggle('is-other', row.querySelector('[data-bed-type]')?.value === 'other');
+          const isOther = row.querySelector('[data-bed-type]')?.value === 'other';
+          const label = row.querySelector('.hotel-bed-other');
+          const input = row.querySelector('[data-bed-label]');
+          row.classList.toggle('is-other', isOther);
+          if (label) label.hidden = !isOther;
+          if (input) input.disabled = !isOther;
         });
         beds.addEventListener('change', syncBedRows);
         beds.addEventListener('click', (event) => {
@@ -2171,6 +2830,7 @@
             code: String(fd.get('code') || '').trim().toLowerCase(),
             name_i18n: readI18n(fd, 'name'),
             description_i18n: readI18n(fd, 'description'),
+            floor_label_i18n: readI18n(fd, 'floor_label'),
             capacity_adults: fd.get('capacity_contract') === 'total_only' ? null : Number(fd.get('capacity_adults')),
             capacity_children: fd.get('capacity_contract') === 'total_only' ? null : Number(fd.get('capacity_children')),
             max_occupancy: fd.get('capacity_contract') === 'total_only' ? Number(fd.get('max_occupancy')) : null,
@@ -2178,60 +2838,88 @@
             base_inventory_count: fd.get('inventory_mode') === 'unitized' ? 0 : Number(fd.get('base_inventory_count')),
             bathrooms: fd.get('bathrooms') === '' ? null : Number(fd.get('bathrooms')),
             size_sqm: fd.get('size_sqm') === '' ? null : Number(fd.get('size_sqm')),
-            status: isLegacyPreparation ? 'draft' : String(fd.get('status')),
+            status: existing ? String(fd.get('status')) : 'draft',
             sort_order: Number(fd.get('sort_order')),
             bed_configuration: bedConfiguration,
             amenities: fd.getAll('room_amenity'),
             gallery: Core.normalizeGallery([
-              ...room.gallery.filter((url) => !fd.getAll('remove_gallery_url').includes(url)),
+              ...fd.getAll('room_gallery_url'),
+              ...fd.getAll('property_gallery_photo'),
               ...(isLegacyPreparation ? fd.getAll('legacy_property_photo') : []),
             ]),
           };
           let validated;
           try { validated = Core.validateRoomType(candidate, state.workspace); }
           catch (error) { toast(error.message, 'error'); return; }
-          const files = Array.from(form.elements.room_gallery_files?.files || []);
-          closeModal({ restoreFocus: false });
+          let files;
+          try { files = validateSelectedImages(form.elements.room_gallery_files?.files || []); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const roomUploader = window.HotelsV2AdminMedia?.uploadRoomGallery;
+          if (files.length && typeof roomUploader !== 'function') {
+            toast('Optimized room-image uploader is unavailable. Your editor values remain open.', 'error');
+            return;
+          }
+          const allowedPropertyPhotos = new Set(Core.normalizeGallery(state.workspace.property.photos));
+          if (fd.getAll('property_gallery_photo').some((url) => !allowedPropertyPhotos.has(String(url)))) {
+            toast('A selected shared photo is no longer in this exact property gallery. Refresh before Review.', 'error');
+            return;
+          }
+          const propertySlug = state.workspace.property.slug;
+          const roomSubmit = overlay.querySelector('button[form="hotelRoomEditorForm"]');
           let uploadedUrls = [];
           if (files.length) {
-            const uploader = window.HotelsV2AdminMedia?.uploadRoomGallery;
-            if (typeof uploader !== 'function') {
-              toast('Optimized room-image uploader is unavailable.', 'error');
-              return;
-            }
+            roomSubmit.disabled = true;
+            roomSubmit.textContent = 'Optimizing photos…';
+            setModalSaving(overlay, true);
             try {
-              uploadedUrls = await uploader(state.workspace.property.slug, validated.id, files);
+              uploadedUrls = await roomUploader(propertySlug, validated.id, files);
               validated = {
                 ...validated,
                 gallery: Core.normalizeGallery([...validated.gallery, ...uploadedUrls]),
               };
             } catch (error) {
+              setModalSaving(overlay, false);
+              roomSubmit.disabled = false;
+              roomSubmit.textContent = `Review ${existing ? 'changes' : isLegacyPreparation ? 'shadow Room Type' : 'new Room Type'}`;
               toast(error?.message || 'Room gallery upload failed before Review.', 'error');
               return;
             }
           }
+          clearRoomFilePreview();
+          setModalSaving(overlay, false);
+          closeModal({ restoreFocus: false });
           const cleanupUploaded = async () => {
             if (!uploadedUrls.length) return;
-            await window.HotelsV2AdminMedia?.removeRoomGalleryUploads?.(uploadedUrls);
+            await window.HotelsV2AdminMedia?.removeRoomGalleryUploads?.(propertySlug, validated.id, uploadedUrls);
             uploadedUrls = [];
           };
           const cleanupRejectedUpload = async (error) => {
             if (error?.isDefinitiveFailure) await cleanupUploaded();
           };
-          await openReview({
-            title: existing ? 'Review Room Type changes' : isLegacyPreparation ? 'Review legacy → shadow Room Type' : 'Review new Room Type',
-            entity: 'room_type',
-            before: existing,
-            after: validated,
-            operation: Core.operationForEntity('room_type', validated, existing),
-            onCancel: files.length ? cleanupUploaded : null,
-            onApplyError: files.length ? cleanupRejectedUpload : null,
-            closeOnApplyError: files.length > 0,
-            contextMessage: isLegacyPreparation
-              ? 'The exact legacy property remains live and unchanged. This reviewed operation creates one draft Room Type only; pricing migration stays separate.'
-              : '',
-            successMessage: existing ? 'Room Type updated.' : isLegacyPreparation ? 'Existing accommodation prepared as one inert draft Room Type.' : 'Room Type created as an inert configuration.',
-          });
+          try {
+            const reviewOpened = existing
+              ? await openReview(roomControlReviewOptions(existing, validated, {
+                onCancel: files.length ? cleanupUploaded : null,
+                onApplyError: files.length ? cleanupRejectedUpload : null,
+                closeOnApplyError: files.length > 0,
+              }))
+              : await openReview({
+                title: isLegacyPreparation ? 'Review legacy → shadow Room Type' : 'Review new Room Type',
+                entity: 'room_type', before: existing, after: validated,
+                operation: Core.operationForEntity('room_type', validated, existing),
+                onCancel: files.length ? cleanupUploaded : null,
+                onApplyError: files.length ? cleanupRejectedUpload : null,
+                closeOnApplyError: files.length > 0,
+                contextMessage: isLegacyPreparation
+                  ? 'The exact legacy property remains live and unchanged. This reviewed operation creates one draft Room Type only; pricing migration stays separate.'
+                  : 'A new Room Type is always created as draft unless an Admin explicitly reviewed another inert configuration status.',
+                successMessage: isLegacyPreparation ? 'Existing accommodation prepared as one inert draft Room Type.' : 'Room Type created as an inert configuration.',
+              });
+            if (reviewOpened === false) await cleanupUploaded();
+          } catch (error) {
+            try { await cleanupUploaded(); } catch (cleanupError) { console.error('Failed to clean Room media after Review preparation was rejected:', cleanupError); }
+            toast(error?.userMessage || error?.message || 'Room changes could not be prepared for Review. Pending uploads were removed.', 'error');
+          }
         });
       },
     });
@@ -2249,9 +2937,10 @@
     openModal({
       title: existing ? 'Edit physical unit' : `Add unit to ${Core.i18nText(room.name_i18n, 'en', room.code)}`,
       body: `<form id="hotelUnitEditorForm" class="hotel-workspace-form">
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Unit code</span><input name="code" value="${escapeAttr(unit.code)}" required pattern="[a-z0-9][a-z0-9_-]*" /></label><label class="admin-form-field"><span>Status</span><select name="status">${Core.UNIT_STATUSES.map((status) => `<option value="${status}" ${unit.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label></div>
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Unit code</span><input name="code" value="${escapeAttr(unit.code)}" required pattern="[a-z0-9](?:[a-z0-9_]|-)*" /></label><label class="admin-form-field"><span>Status</span><select name="status">${Core.UNIT_STATUSES.map((status) => `<option value="${status}" ${unit.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select></label></div>
         ${i18nFields('name', 'Optional display name', unit.name_i18n)}
-        <div class="hotel-workspace-locked-fields"><div><span>Room Type</span><strong>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</strong></div><div><span>Exact unit ID</span><code>${escapeHtml(unit.id)}</code></div></div>
+        <div class="hotel-workspace-locked-fields"><div><span>Room Type</span><strong>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</strong></div></div>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(unit.id)}</code></details>
       </form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelUnitEditorForm">Review unit</button>',
       onReady(overlay) {
@@ -2313,12 +3002,13 @@
       title: existing ? 'Edit Rate Plan' : 'Add Rate Plan',
       className: 'hotel-workspace-modal--wide',
       body: `<form id="hotelRatePlanEditorForm" class="hotel-workspace-form">
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" value="${escapeAttr(plan.code)}" required pattern="[a-z0-9][a-z0-9_-]*" /></label><label class="admin-form-field"><span>Meal plan code</span><input name="meal_plan_code" value="${escapeAttr(plan.meal_plan_code || '')}" placeholder="room_only, breakfast…" /></label></div>
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" value="${escapeAttr(plan.code)}" required pattern="[a-z0-9](?:[a-z0-9_]|-)*" /></label><label class="admin-form-field"><span>Meal plan code</span><input name="meal_plan_code" value="${escapeAttr(plan.meal_plan_code || '')}" placeholder="room_only, breakfast…" /></label></div>
         ${i18nFields('name', 'Rate Plan name', plan.name_i18n)}
         ${i18nFields('description', 'Rate Plan description', plan.description_i18n, 'textarea')}
         ${cancellationFields(plan.cancellation_policy)}
         <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Booking-mode override</span><select name="booking_mode_override"><option value="">Use property booking mode</option>${Core.BOOKING_MODES.map((mode) => `<option value="${mode}" ${plan.booking_mode_override === mode ? 'selected' : ''}>${escapeHtml(bookingModeLabel(mode))}</option>`).join('')}</select></label><label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${plan.sort_order}" /></label><label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${plan.is_active ? 'checked' : ''} /><span>Active configuration</span></label></div>
-        <div class="hotel-workspace-locked-fields"><div><span>Exact Rate Plan ID</span><code>${escapeHtml(plan.id)}</code></div><div><span>Scope</span><strong>This property only</strong></div></div>
+        <div class="hotel-workspace-locked-fields"><div><span>Scope</span><strong>This property only</strong></div></div>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(plan.id)}</code></details>
       </form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRatePlanEditorForm">Review Rate Plan</button>',
       onReady(overlay) {
@@ -2383,7 +3073,7 @@
           <h4>${escapeHtml(Core.i18nText(schedule?.name_i18n, 'en', 'Shared apartment pricing'))}</h4>
           <p>This exact product uses a reusable ${tierCount}-tier occupancy × length-of-stay schedule. Its base rate is not an executable €0 price.</p>
           <p>Generic Room Rate editing is locked until H3 adds allocation-aware detach/clone and authoritative public resolution.</p>
-          <div class="hotel-workspace-locked-fields"><div><span>Exact product ID</span><code>${escapeHtml(existing.id)}</code></div><div><span>Schedule ID</span><code>${escapeHtml(existing.pricing_schedule_id)}</code></div></div>
+          <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(existing.id)}</code><code>${escapeHtml(existing.pricing_schedule_id)}</code></details>
         </section>`,
       });
       return;
@@ -2397,7 +3087,7 @@
         <label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(rate.currency)}" required /></label>
         <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${rate.sort_order}" /></label>
         <label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${rate.is_active ? 'checked' : ''} /><span>Active sellable configuration</span></label>
-      </div><div class="hotel-workspace-locked-fields"><div><span>Exact product ID</span><code>${escapeHtml(rate.id)}</code></div><div><span>Public effect</span><strong>None while V2 flags are off</strong></div></div></form>`,
+      </div><div class="hotel-workspace-locked-fields"><div><span>Public effect</span><strong>None while V2 flags are off</strong></div></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(rate.id)}</code></details></form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomRateEditorForm">Review product</button>',
       onReady(overlay) {
         overlay.querySelector('#hotelRoomRateEditorForm')?.addEventListener('submit', async (event) => {
@@ -2438,19 +3128,41 @@
     closeModal({ restoreFocus: false });
     await openReview({
       title: 'Review Room Type duplicate', entity: 'room_type', before: source, after: duplicate, operation,
-      successMessage: 'Room Type duplicated as a draft. Units and Rate products were not copied.',
+      contextMessage: 'The duplicate is always an inert draft with pooled inventory set to 0. Exact source-Room uploads, units, daily inventory, bookings and Room Rate products are not copied; only photos also present in this exact property gallery may be retained.',
+      successMessage: 'Room Type duplicated as an inert draft. Exact Room media, inventory, units, bookings and Rate products were not copied.',
     });
   }
 
   async function disableRoom(roomId) {
     const room = state.workspace.room_types.find((candidate) => candidate.id === roomId);
     if (!room) return;
+    const linkedRates = state.workspace.room_rates.filter((rate) => rate.room_type_id === room.id);
+    const activeRates = linkedRates.filter((rate) => rate.is_active === true);
+    const activeUnits = state.workspace.units.filter((unit) => unit.room_type_id === room.id && unit.status === 'active');
+    const allocationRules = Core.asArray(state.h3Configuration?.allocation_rules).filter((rule) => (
+      (rule.is_active === true || String(rule.review_status || '').toLowerCase() === 'reviewed')
+      && Core.asArray(rule.items).some((item) => Core.normalizeUuid(item.room_type_id) === room.id)
+    ));
+    const exactInventoryRows = Math.max(0, Number(state.workspace.counts?.daily_inventory_by_room?.[room.id] || 0));
+    const blockers = [
+      ...(activeRates.length ? [`${activeRates.length} active linked Room Rate product${activeRates.length === 1 ? '' : 's'}`] : []),
+      ...(activeUnits.length ? [`${activeUnits.length} active physical unit${activeUnits.length === 1 ? '' : 's'}`] : []),
+      ...(allocationRules.length ? [`${allocationRules.length} active/reviewed allocation rule${allocationRules.length === 1 ? '' : 's'}`] : []),
+      ...(exactInventoryRows ? [`${exactInventoryRows} exact-date inventory row${exactInventoryRows === 1 ? '' : 's'}`] : []),
+    ];
+    if (blockers.length) {
+      openModal({
+        title: 'Room Type cannot be disabled yet',
+        body: `<section class="hotel-workspace-card hotel-property-empty--error"><span class="hotel-workspace-eyebrow">Dependency-safe lifecycle</span><h4>Resolve linked operational state first</h4><ul class="hotel-readiness-list hotel-readiness-list--blockers">${blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul><p>Disable or detach these exact dependencies through their own reviewed workflows, then reopen this Room Type. Nothing was changed.</p><details class="hotel-review-diagnostics"><summary>Exact Room diagnostics</summary><code>${escapeHtml(room.id)}</code>${linkedRates.map((rate) => `<code>${escapeHtml(rate.id)}</code>`).join('')}</details></section>`,
+      });
+      return;
+    }
     const after = { ...room, status: 'disabled' };
-    await openReview({
-      title: 'Review Room Type disable', entity: 'room_type', before: room, after,
-      operation: Core.operationForEntity('room_type', after, room, 'disable'),
-      successMessage: 'Room Type disabled. No rows were deleted.',
-    });
+    await openReview(roomControlReviewOptions(room, after, {
+      operationType: 'disable',
+      contextMessage: `${linkedRates.length} inactive linked Room Rate product${linkedRates.length === 1 ? '' : 's'} will remain unchanged and inert. The server will recheck exact allocations, units, inventory, calendars and future booking dependencies before disabling; no row is deleted or cascaded.`,
+      successMessage: 'Room Type disabled. No linked rows were deleted or changed.',
+    }));
   }
 
   function calendarProducts(calendar = state.calendar.data) {
@@ -2863,7 +3575,7 @@
   }
 
   function calendarReviewRows(rows) {
-    return Core.asArray(rows).map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.before))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.after))}</pre></td></tr>`).join('');
+    return Core.asArray(rows).map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.before, row.field)}</td><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('');
   }
 
   function calendarReviewState(entity, row) {
@@ -2925,7 +3637,7 @@
     openModal({
       title,
       className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
-      body: `<div class="hotel-review-summary"><p>One exact-property Calendar transaction will apply only if every reviewed version still matches.</p><dl><div><dt>Property ID</dt><dd><code>${escapeHtml(plan.hotel_id)}</code></dd></div><div><dt>Operations</dt><dd>${plan.operations.length}</dd></div><div><dt>Range</dt><dd>${escapeHtml(plan.from)} → ${escapeHtml(plan.to)}</dd></div><div><dt>Concurrency</dt><dd>Exact row versions</dd></div></dl></div>
+      body: `<div class="hotel-review-summary"><p>One exact-property Calendar transaction will apply only if every reviewed version still matches.</p><dl><div><dt>Property</dt><dd>${escapeHtml(propertyTitle(state.workspace.property))}</dd></div><div><dt>Operations</dt><dd>${plan.operations.length}</dd></div><div><dt>Range</dt><dd>${escapeHtml(plan.from)} → ${escapeHtml(plan.to)}</dd></div><div><dt>Concurrency</dt><dd>Exact row versions</dd></div></dl><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(plan.hotel_id)}</code></details></div>
         <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Change</th><th>Before</th><th>After</th></tr></thead><tbody>${calendarReviewRows(rows)}</tbody></table></div>
         <p class="hotel-workspace-safety-note">This remains inert V2 configuration. It does not publish the property, alter legacy prices, migrate bookings or enable a Hotels feature flag.</p>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-calendar-review-confirm>Save reviewed Calendar changes</button>',
@@ -3588,7 +4300,8 @@
     return {
       title: 'Review Hotel booking setup', entity: 'h3_booking_configuration',
       before: Core.h3BusinessState(fresh), after: Core.h3BusinessState(target),
-      contextMessage: `Exact property ${workspace.property.id}. One atomic, version-checked plan updates only H3.1 Admin configuration. Architecture remains ${workspace.property.architecture_version}; all Hotels V2 flags and current public booking remain unchanged.${sevenKamaresPrerequisite}`,
+      contextMessage: `One atomic, version-checked plan updates only this exact property's H3.1 Admin configuration. Architecture remains ${workspace.property.architecture_version}; all Hotels V2 flags and current public booking remain unchanged.${sevenKamaresPrerequisite}`,
+      diagnostics: [{ label: 'Property ID', value: workspace.property.id }],
       onConfirm: async () => {
         await Repository.applyH3ConfigurationPlan(plan);
         const saved = await refreshH3Configuration();
@@ -3777,67 +4490,92 @@
   }
 
   function openPropertyMediaEditor() {
-    const property = state.workspace.property;
+    const property = propertyControlView();
+    if (!state.contentControl?.operational_profile) {
+      toast('Secure ADMIN-B content control is unavailable. Property media cannot be reviewed safely.', 'error');
+      return;
+    }
     const photos = Core.normalizeGallery(property.photos);
     openModal({
       title: 'Edit property gallery',
+      className: 'hotel-workspace-modal--wide',
       body: `<form id="hotelPropertyMediaForm" class="hotel-workspace-form">
-        <p class="hotel-workspace-intro">Property photos stay shared at property level. Room-specific photos belong in each Room Type.</p>
-        ${photos.length ? `<div class="hotel-gallery-editor__grid">${photos.map((url) => `<label><img src="${escapeAttr(url)}" alt="" loading="lazy" /><span><input type="checkbox" name="remove_property_gallery_url" value="${escapeAttr(url)}" /> Remove</span><span><input type="radio" name="property_cover_url" value="${escapeAttr(url)}" ${url === property.cover_image_url ? 'checked' : ''} /> Cover</span></label>`).join('')}</div>` : '<p>No property gallery images yet.</p>'}
-        <label class="admin-form-field"><span>Add property photos</span><input type="file" name="property_gallery_files" accept="image/*" multiple /></label>
-        <label class="admin-form-field"><span>Cover image URL</span><input name="cover_image_url" type="url" value="${escapeAttr(property.cover_image_url || '')}" placeholder="Selected gallery photo or existing trusted URL" /></label>
+        <p class="hotel-workspace-intro">Reorder or detach shared property photos here. Existing Room Type references are not silently removed. Room-specific photos stay in each exact Room editor.</p>
+        ${orderedGalleryMarkup(photos, 'property_gallery_url')}
+        ${photos.length ? `<fieldset><legend>Cover image</legend><div class="hotel-property-cover-options">${photos.map((url, index) => `<label><img src="${escapeAttr(url)}" alt="Property image ${index + 1}" loading="lazy" /><span><input type="radio" name="property_cover_url" value="${escapeAttr(url)}" ${url === property.cover_image_url ? 'checked' : ''} /> Use as cover</span></label>`).join('')}</div>${property.cover_image_url && !photos.includes(property.cover_image_url) ? `<p class="hotel-workspace-safety-note">The current grandfathered legacy cover is outside the structured gallery. It will be preserved unless you explicitly select a gallery image. Its technical URL is available in diagnostics only.</p><details class="hotel-review-diagnostics"><summary>Current legacy cover diagnostics</summary><code>${escapeHtml(property.cover_image_url)}</code></details>` : ''}</fieldset>` : ''}
+        <label class="admin-form-field"><span>Add property photos</span><input type="file" name="property_gallery_files" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" multiple /></label>
+        <div class="hotel-gallery-file-preview" data-file-preview="property_gallery_files"></div>
+        <small>JPEG, PNG, WebP or AVIF · 20 MB maximum each. New files are optimized before the final Review.</small>
       </form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPropertyMediaForm">Review media changes</button>',
       onReady(overlay) {
         const form = overlay.querySelector('#hotelPropertyMediaForm');
-        form?.querySelectorAll('[name="property_cover_url"]').forEach((radio) => radio.addEventListener('change', () => {
-          form.elements.cover_image_url.value = radio.value;
-        }));
+        bindOrderedGalleryEditor(form);
+        const clearPropertyFilePreview = bindImagePreview(form, 'property_gallery_files');
+        const previousPropertyMediaClose = overlay.hotelWorkspaceOnClose;
+        overlay.hotelWorkspaceOnClose = async () => {
+          clearPropertyFilePreview();
+          await previousPropertyMediaClose?.();
+        };
         form?.addEventListener('submit', async (event) => {
           event.preventDefault();
           const fd = new FormData(form);
-          const removed = fd.getAll('remove_property_gallery_url').map(String);
-          const retained = photos.filter((url) => !removed.includes(url));
-          const files = Array.from(form.elements.property_gallery_files?.files || []);
+          const retained = fd.getAll('property_gallery_url').map(String);
+          const removed = photos.filter((url) => !retained.includes(url));
+          let files;
+          try { files = validateSelectedImages(form.elements.property_gallery_files?.files || []); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const propertyUploader = window.HotelsV2AdminMedia?.uploadPropertyGallery;
+          if (files.length && typeof propertyUploader !== 'function') {
+            toast('Optimized property-image uploader is unavailable. Your editor values remain open.', 'error');
+            return;
+          }
+          const propertySlug = property.slug;
+          const propertySubmit = overlay.querySelector('button[form="hotelPropertyMediaForm"]');
           let uploadedUrls = [];
-          closeModal({ restoreFocus: false });
           if (files.length) {
-            const uploader = window.HotelsV2AdminMedia?.uploadPropertyGallery;
-            if (typeof uploader !== 'function') {
-              toast('Optimized property-image uploader is unavailable.', 'error');
-              return;
-            }
+            propertySubmit.disabled = true;
+            propertySubmit.textContent = 'Optimizing photos…';
+            setModalSaving(overlay, true);
             try {
-              uploadedUrls = await uploader(property.slug, files);
+              uploadedUrls = await propertyUploader(propertySlug, files);
             } catch (error) {
+              setModalSaving(overlay, false);
+              propertySubmit.disabled = false;
+              propertySubmit.textContent = 'Review media changes';
               toast(error?.message || 'Property gallery upload failed before Review.', 'error');
               return;
             }
           }
+          clearPropertyFilePreview();
+          setModalSaving(overlay, false);
+          closeModal({ restoreFocus: false });
           const nextPhotos = Core.normalizeGallery([...retained, ...uploadedUrls]);
-          let coverImageUrl = String(fd.get('cover_image_url') || '').trim() || null;
+          let coverImageUrl = String(fd.get('property_cover_url') || '').trim() || property.cover_image_url || null;
           if (coverImageUrl && removed.includes(coverImageUrl)) coverImageUrl = nextPhotos[0] || null;
           if (!coverImageUrl && nextPhotos.length) coverImageUrl = nextPhotos[0];
           const next = { ...property, photos: nextPhotos, cover_image_url: coverImageUrl };
           const cleanupUploaded = async () => {
             if (!uploadedUrls.length) return;
-            await window.HotelsV2AdminMedia?.removePropertyGalleryUploads?.(uploadedUrls);
+            await window.HotelsV2AdminMedia?.removePropertyGalleryUploads?.(propertySlug, uploadedUrls);
             uploadedUrls = [];
           };
           const cleanupRejectedUpload = async (error) => {
             if (error?.isDefinitiveFailure) await cleanupUploaded();
           };
-          await openReview({
-            title: 'Review property media changes',
-            entity: 'property',
-            before: property,
-            after: next,
-            operation: Core.operationForEntity('property', next, property),
-            onCancel: files.length ? cleanupUploaded : null,
-            onApplyError: files.length ? cleanupRejectedUpload : null,
-            closeOnApplyError: files.length > 0,
-            successMessage: 'Property gallery updated without changing publication.',
-          });
+          try {
+            const reviewOpened = await openReview(propertyControlReviewOptions(state.workspace, state.contentControl, next, {
+              title: 'Review property media changes',
+              onCancel: files.length ? cleanupUploaded : null,
+              onApplyError: files.length ? cleanupRejectedUpload : null,
+              closeOnApplyError: files.length > 0,
+              successMessage: 'Property gallery updated without changing publication.',
+            }));
+            if (reviewOpened === false) await cleanupUploaded();
+          } catch (error) {
+            try { await cleanupUploaded(); } catch (cleanupError) { console.error('Failed to clean property media after Review preparation was rejected:', cleanupError); }
+            toast(error?.userMessage || error?.message || 'Property media could not be prepared for Review. Pending uploads were removed.', 'error');
+          }
         });
       },
     });
@@ -3898,8 +4636,9 @@
     openModal({
       title: 'Partner access changed before Review',
       body: `<p class="hotel-workspace-safety-note">This exact assignment changed in a different way after the editor opened. Nothing was saved. Compare the fresh values and reopen the editor before preparing another Review.</p>
-        <dl class="hotel-workspace-key-values"><div><dt>Assignment</dt><dd><code>${escapeHtml(assignment?.assignment_id || '')}</code></dd></div><div><dt>Partner</dt><dd>${escapeHtml(assignment?.partner?.name || assignment?.partner_id || '')}</dd></div></dl>
-        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Originally loaded</th><th>Current</th><th>Requested</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(row.field)}</th><td><pre>${escapeHtml(displayReviewValue(row.original))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.current))}</pre></td><td><pre>${escapeHtml(displayReviewValue(row.target))}</pre></td></tr>`).join('')}</tbody></table></div>`,
+        <dl class="hotel-workspace-key-values"><div><dt>Partner</dt><dd>${escapeHtml(assignment?.partner?.name || 'Assigned partner')}</dd></div><div><dt>Status</dt><dd>${escapeHtml(assignment?.partner?.status || 'unknown')}</dd></div></dl>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(assignment?.assignment_id || '')}</code><code>${escapeHtml(assignment?.partner_id || '')}</code></details>
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Originally loaded</th><th>Current</th><th>Requested</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.original, row.field)}</td><td>${reviewValueMarkup(row.current, row.field)}</td><td>${reviewValueMarkup(row.target, row.field)}</td></tr>`).join('')}</tbody></table></div>`,
       footer: '<button class="btn-primary" type="button" data-hotel-modal-close>Close and use fresh values</button>',
     });
   }
@@ -3970,7 +4709,8 @@
       title: `Access for ${assignment.partner.name || 'Hotel partner'}`,
       className: 'hotel-workspace-modal--wide',
       body: `<p class="hotel-workspace-intro">Choose explicit capabilities for this exact existing operational assignment. A missing permission row starts with every capability OFF.</p>
-        <dl class="hotel-workspace-key-values"><div><dt>Assignment ID</dt><dd><code>${escapeHtml(assignment.assignment_id)}</code></dd></div><div><dt>Partner ID</dt><dd><code>${escapeHtml(assignment.partner_id)}</code></dd></div><div><dt>Current version</dt><dd>${assignment.permission.version}</dd></div></dl>
+        <dl class="hotel-workspace-key-values"><div><dt>Current version</dt><dd>${assignment.permission.version}</dd></div></dl>
+        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(assignment.assignment_id)}</code><code>${escapeHtml(assignment.partner_id)}</code></details>
         ${otherWriter ? `<p class="hotel-workspace-safety-note">${escapeHtml(otherWriter.partner.name || 'Another assignment')} currently holds mutation access. This assignment may keep status-only access, but mutation access must first be disabled through a separate reviewed save.</p>` : ''}
         ${assignmentCannotReceiveCapability ? '<p class="hotel-workspace-safety-note">This assignment or partner is inactive, suspended, or no longer allowed to manage Hotels. Existing capabilities may be removed, but no capability can be granted or restored.</p>' : ''}
         <form id="hotelPartnerPermissionForm" class="hotel-workspace-form">
@@ -4033,10 +4773,257 @@
     });
   }
 
+  function operationalAssignmentPartner(partnerId, assignment = null) {
+    const exactId = Core.normalizeUuid(partnerId);
+    const workspacePartner = state.workspace.partners.find((partner) => Core.normalizeUuid(partner.id) === exactId);
+    const embedded = Core.asObject(assignment?.partner);
+    return {
+      id: exactId,
+      name: workspacePartner?.name || workspacePartner?.company_name || embedded.name
+        || assignment?.partner_name || assignment?.name || exactId,
+      status: workspacePartner?.status || embedded.status || assignment?.partner_status || assignment?.status || 'unknown',
+      can_manage_hotels: workspacePartner?.can_manage_hotels ?? embedded.can_manage_hotels
+        ?? assignment?.can_manage_hotels ?? false,
+    };
+  }
+
+  function operationalAssignmentReviewState(type, assignmentId, partner, staffScopeCount = 0, permissionExists = false, capabilities = {}) {
+    const enabledCapabilities = enabledPartnerCapabilities(capabilities).map(partnerCapabilityLabel);
+    return {
+      action: type === 'assign' ? 'Assign operational Partner' : 'Remove operational Partner',
+      partner: partner.name,
+      assignment_status: type === 'assign' ? 'Will be assigned' : 'Will be removed',
+      staff_hotel_scopes: type === 'assign' ? 'No scope granted automatically' : `${staffScopeCount} exact Hotel staff scope${staffScopeCount === 1 ? '' : 's'} will be revoked`,
+      capability_permission: type === 'assign'
+        ? 'No capability row or capability is granted automatically'
+        : (permissionExists
+          ? `The exact H3.2A permission row will be removed · ${enabledCapabilities.length ? enabledCapabilities.join(', ') : 'all capabilities currently OFF'}`
+          : 'No H3.2A permission row exists'),
+      historical_fulfillment_routing: 'Unchanged',
+      exact_assignment_id: assignmentId,
+      exact_partner_id: partner.id,
+    };
+  }
+
+  function operationalAssignmentConflict(errorState) {
+    const { type, operation, current, partner, freshContentControl, reviewedCapabilities } = errorState;
+    state.contentControl = freshContentControl;
+    state.contentControlError = null;
+    const canReviewFreshRemoval = type === 'remove' && current?.partner_id === operation.partner_id;
+    openModal({
+      title: 'Operational assignment changed before Save',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--review',
+      body: `<div class="hotel-review-summary"><p>A real assignment or cascade-scope change occurred after Review. Nothing was removed, assigned or retried.</p><dl><div><dt>Partner</dt><dd>${escapeHtml(partner.name)}</dd></div><div><dt>Status</dt><dd>${escapeHtml(partner.status || 'unknown')}</dd></div></dl></div>
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Originally reviewed</th><th>Current</th></tr></thead><tbody>
+          <tr><th>Staff Hotel scopes</th><td>${Number(operation.expected_staff_scope_count)}</td><td>${current ? Number(current.staff_scope_count || 0) : 'Assignment removed'}</td></tr>
+          <tr><th>H3.2A permission row</th><td>${operation.expected_permission_exists ? 'Present · removal reviewed' : 'Absent'}</td><td>${current ? (current.permission_exists ? 'Present' : 'Absent') : 'Assignment removed'}</td></tr>
+          <tr><th>Enabled capabilities</th><td>${enabledPartnerCapabilities(reviewedCapabilities).map(partnerCapabilityLabel).map(escapeHtml).join(', ') || 'None'}</td><td>${current ? (enabledPartnerCapabilities(current.permission?.capabilities).map(partnerCapabilityLabel).map(escapeHtml).join(', ') || 'None') : 'Assignment removed'}</td></tr>
+        </tbody></table></div><details class="hotel-review-diagnostics"><summary>Exact cascade diagnostics</summary><div><span>Assignment and Partner IDs</span><code>${escapeHtml(operation.assignment_id)}</code><code>${escapeHtml(operation.partner_id)}</code></div><div><span>Originally reviewed staff scope IDs</span>${Core.asArray(operation.expected_staff_scope_ids).map((id) => `<code>${escapeHtml(id)}</code>`).join('') || '<code>None</code>'}</div><div><span>Current staff scope IDs</span>${Core.asArray(current?.staff_scope_ids).map((id) => `<code>${escapeHtml(id)}</code>`).join('') || '<code>None</code>'}</div></details>
+        <p class="hotel-workspace-safety-note">Historical fulfillment routing is not rewritten. ${canReviewFreshRemoval ? 'Review current cascade builds a new explicit Review with the fresh staff-scope count; it does not save automatically.' : 'Close and use the fresh Partner & Access state.'}</p>`,
+      footer: `<button class="btn-secondary" type="button" data-assignment-conflict-keep>Keep current</button>${canReviewFreshRemoval ? '<button class="btn-primary" type="button" data-assignment-conflict-review>Review current cascade</button>' : ''}`,
+      onReady(overlay) {
+        overlay.querySelector('[data-assignment-conflict-keep]')?.addEventListener('click', () => {
+          closeModal({ force: true });
+          renderWorkspace();
+        });
+        overlay.querySelector('[data-assignment-conflict-review]')?.addEventListener('click', async () => {
+          closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+          await openReview(operationalAssignmentReviewOptions(freshContentControl, {
+            type: 'remove',
+            assignment_id: current.assignment_id,
+            partner_id: current.partner_id,
+          }, { afterStale: true }));
+        });
+      },
+    });
+  }
+
+  function operationalAssignmentReviewOptions(contentControl, operationValue, options = {}) {
+    const snapshot = Core.normalizeOperationalAssignmentSnapshot(contentControl, state.workspace.property.id);
+    const operation = {
+      type: String(operationValue.type || ''),
+      assignment_id: Core.normalizeUuid(operationValue.assignment_id),
+      partner_id: Core.normalizeUuid(operationValue.partner_id),
+    };
+    const current = snapshot.assignments.find((assignment) => assignment.assignment_id === operation.assignment_id);
+    const partner = operationalAssignmentPartner(operation.partner_id, current);
+    const plan = Core.buildOperationalAssignmentPlan(contentControl, operation, {
+      hotelId: state.workspace.property.id,
+    });
+    const correlationId = Core.newUuid();
+    const staffScopeCount = Number(plan.operation.expected_staff_scope_count || 0);
+    const permissionExists = plan.operation.expected_permission_exists === true;
+    const capabilities = current?.permission?.capabilities || {};
+    const enabledCapabilities = enabledPartnerCapabilities(capabilities).map(partnerCapabilityLabel);
+    const neutral = operationalAssignmentReviewState(operation.type, operation.assignment_id, partner, 0, false);
+    const changed = operationalAssignmentReviewState(operation.type, operation.assignment_id, partner, staffScopeCount, permissionExists, capabilities);
+    const beforeState = operation.type === 'assign'
+      ? {
+        ...neutral,
+        assignment_status: 'Not assigned',
+        staff_hotel_scopes: 'No operational assignment',
+        capability_permission: 'No operational assignment',
+      }
+      : {
+        ...changed,
+        assignment_status: 'Currently assigned',
+        staff_hotel_scopes: `${staffScopeCount} exact Hotel staff scope${staffScopeCount === 1 ? '' : 's'} currently attached`,
+        capability_permission: permissionExists
+          ? `Current enabled capabilities: ${enabledCapabilities.length ? enabledCapabilities.join(', ') : 'None (row exists with all capabilities OFF)'}`
+          : 'No H3.2A permission row exists',
+      };
+    return {
+      title: options.afterStale ? 'Review fresh operational assignment' : 'Review operational Partner assignment',
+      entity: 'operational_assignment',
+      before: beforeState,
+      after: changed,
+      operation: { entity: 'operational_assignment', type: 'review', id: operation.assignment_id },
+      contextMessage: operation.type === 'remove'
+        ? `Removal revokes exactly ${staffScopeCount} staff Hotel scope${staffScopeCount === 1 ? '' : 's'}${permissionExists ? ` and the assignment capability row (${enabledCapabilities.length ? enabledCapabilities.join(', ') : 'all capabilities OFF'})` : ''}. Historical bookings and fulfillment routing are never rewritten.`
+        : 'This creates only the exact operational assignment. Staff scope remains deny-by-default and every H3.2A capability remains OFF until separately reviewed.',
+      diagnostics: [
+        { label: 'Exact assignment ID', value: operation.assignment_id },
+        { label: 'Exact Partner ID', value: operation.partner_id },
+        { label: 'Exact staff scope IDs', values: plan.operation.expected_staff_scope_ids },
+        ...(current?.permission?.version ? [{ label: 'Capability permission version', value: current.permission.version }] : []),
+      ],
+      reReviewMessage: 'The stale assignment save was stopped. Fresh assignment scope is shown; inspect it and explicitly Save again. Nothing was retried automatically.',
+      successMessage: operation.type === 'assign' ? 'Operational Partner assigned with zero automatic capabilities.' : 'Operational Partner assignment removed without rewriting historical fulfillment routing.',
+      async onConfirm() {
+        const result = await Repository.applyOperationalAssignmentPlan(plan, correlationId);
+        state.contentControl = result.content_control;
+        state.contentControlError = null;
+        state.partnerPermissions = null;
+        state.partnerPermissionsError = null;
+        const refreshed = await Promise.allSettled([
+          Repository.getWorkspace(state.workspace.property.id),
+          Repository.getPartnerHotelPermissions(state.workspace.property.id),
+        ]);
+        if (refreshed[0].status === 'fulfilled') state.workspace = refreshed[0].value;
+        else console.warn('Operational assignment saved; Property Workspace refresh will be retried when reopened.', refreshed[0].reason);
+        if (refreshed[1].status === 'fulfilled') state.partnerPermissions = refreshed[1].value;
+        else {
+          state.partnerPermissionsError = refreshed[1].reason;
+          console.warn('Operational assignment saved; Partner permission snapshot refresh will be retried.', refreshed[1].reason);
+        }
+        return result;
+      },
+      async onStaleReview() {
+        const fresh = await Repository.getContentControl(state.workspace.property.id);
+        state.contentControl = fresh;
+        state.contentControlError = null;
+        const freshSnapshot = Core.normalizeOperationalAssignmentSnapshot(fresh, state.workspace.property.id);
+        const freshAssignment = freshSnapshot.assignments.find((assignment) => assignment.assignment_id === operation.assignment_id);
+        if (operation.type === 'assign') {
+          const partnerAssignment = freshSnapshot.assignments.find((assignment) => assignment.partner_id === operation.partner_id);
+          if (freshAssignment || partnerAssignment) {
+            const conflict = new Error('The selected Partner was assigned after Review.');
+            conflict.userMessage = 'A genuine operational-assignment conflict was stopped. Fresh assignments are shown; nothing was saved or retried.';
+            conflict.closeReviewAfterStale = true;
+            conflict.openOperationalAssignmentConflict = {
+              type: operation.type, operation: plan.operation, current: freshAssignment || partnerAssignment,
+              partner, freshContentControl: fresh, reviewedCapabilities: current?.permission?.capabilities || {},
+            };
+            throw conflict;
+          }
+        } else {
+          if (!freshAssignment) {
+            const removed = new Error('The exact operational assignment was already removed after Review. No retry was attempted.');
+            removed.userMessage = removed.message;
+            removed.closeReviewAfterStale = true;
+            throw removed;
+          }
+          const expectedScopeIds = Core.asArray(plan.operation.expected_staff_scope_ids).slice().sort();
+          const freshScopeIds = Core.asArray(freshAssignment.staff_scope_ids).slice().sort();
+          const originalCapabilities = Core.normalizeHotelPartnerCapabilities(current?.permission?.capabilities);
+          const freshCapabilities = Core.normalizeHotelPartnerCapabilities(freshAssignment.permission?.capabilities);
+          if (freshAssignment.partner_id !== operation.partner_id
+              || Number(freshAssignment.staff_scope_count || 0) !== staffScopeCount
+              || JSON.stringify(freshScopeIds) !== JSON.stringify(expectedScopeIds)
+              || (freshAssignment.permission_exists === true) !== permissionExists
+              || JSON.stringify(freshCapabilities) !== JSON.stringify(originalCapabilities)) {
+            const conflict = new Error('The exact assignment cascade changed after Review.');
+            conflict.userMessage = 'A genuine operational-assignment cascade conflict was stopped. Compare the fresh staff scopes and capability row before preparing another Save.';
+            conflict.closeReviewAfterStale = true;
+            conflict.openOperationalAssignmentConflict = {
+              type: operation.type, operation: plan.operation, current: freshAssignment,
+              partner: operationalAssignmentPartner(operation.partner_id, freshAssignment), freshContentControl: fresh,
+              reviewedCapabilities: current?.permission?.capabilities || {},
+            };
+            throw conflict;
+          }
+        }
+        return operationalAssignmentReviewOptions(fresh, operation, { afterStale: true });
+      },
+    };
+  }
+
+  function openOperationalAssignmentEditor() {
+    if (!state.contentControl?.assignment_snapshot) {
+      toast('Secure operational-assignment snapshot is unavailable.', 'error');
+      return;
+    }
+    const snapshot = Core.normalizeOperationalAssignmentSnapshot(state.contentControl, state.workspace.property.id);
+    const assignedPartners = new Set(snapshot.assignments.map((assignment) => assignment.partner_id));
+    const candidates = state.workspace.partners.filter((partner) => (
+      !assignedPartners.has(Core.normalizeUuid(partner.id))
+      && String(partner.status || '').toLowerCase() === 'active'
+      && partner.can_manage_hotels === true
+    ));
+    if (!candidates.length) {
+      toast('Every eligible Hotel Partner is already assigned, or no active Hotel Partner is available.', 'info');
+      return;
+    }
+    openModal({
+      title: 'Assign operational Partner',
+      body: `<form id="hotelOperationalAssignmentForm" class="hotel-workspace-form"><p class="hotel-workspace-intro">Choose one exact active Hotel Partner. Commercial ownership stays unchanged. No staff scope or capability is granted automatically.</p><label class="admin-form-field"><span>Operational Partner</span><select name="partner_id" required><option value="">Choose Partner</option>${candidates.map((partner) => `<option value="${escapeAttr(partner.id)}">${escapeHtml(partner.name || partner.company_name || partner.id)}</option>`).join('')}</select></label></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelOperationalAssignmentForm">Review assignment</button>',
+      onReady(overlay) {
+        overlay.querySelector('#hotelOperationalAssignmentForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const partnerId = Core.normalizeUuid(new FormData(event.currentTarget).get('partner_id'));
+          if (!partnerId) return toast('Choose an exact operational Partner.', 'error');
+          closeModal({ restoreFocus: false });
+          try {
+            await openReview(operationalAssignmentReviewOptions(state.contentControl, {
+              type: 'assign', assignment_id: Core.newUuid(), partner_id: partnerId,
+            }));
+          } catch (error) {
+            toast(error?.userMessage || error?.message || 'Operational assignment could not be prepared for Review.', 'error');
+          }
+        });
+      },
+    });
+  }
+
+  async function reviewOperationalAssignmentRemoval(assignmentId) {
+    try {
+      const fresh = await Repository.getContentControl(state.workspace.property.id);
+      state.contentControl = fresh;
+      state.contentControlError = null;
+      const snapshot = Core.normalizeOperationalAssignmentSnapshot(fresh, state.workspace.property.id);
+      const assignment = snapshot.assignments.find((entry) => entry.assignment_id === Core.normalizeUuid(assignmentId));
+      if (!assignment) throw new Error('The exact operational assignment no longer exists.');
+      await openReview(operationalAssignmentReviewOptions(fresh, {
+        type: 'remove', assignment_id: assignment.assignment_id, partner_id: assignment.partner_id,
+      }));
+    } catch (error) {
+      toast(error?.userMessage || error?.message || 'Operational assignment could not be prepared for Review.', 'error');
+    }
+  }
+
   function renderPartnerPanel(panel) {
     const property = state.workspace.property;
     const owner = Core.asObject(property.owner_partner);
-    const assignments = state.workspace.operational_partners;
+    let assignmentControl = null;
+    try {
+      assignmentControl = state.contentControl
+        ? Core.normalizeOperationalAssignmentSnapshot(state.contentControl, property.id)
+        : null;
+    } catch (error) {
+      state.contentControlError = error;
+    }
+    const assignments = assignmentControl?.assignments || [];
     const permissionSnapshot = state.partnerPermissions;
     const permissionsError = state.partnerPermissionsError;
     const permissionSection = permissionsError
@@ -4044,18 +5031,25 @@
       : permissionSnapshot
         ? `<section class="hotel-workspace-card hotel-workspace-card--wide"><span class="hotel-workspace-eyebrow">Reviewed exact-assignment capabilities</span><h4>${permissionSnapshot.assignments.length} exact assignment${permissionSnapshot.assignments.length === 1 ? '' : 's'}</h4><p>Capabilities are denied by default and attach only to the selected existing assignment. They never create or reroute an assignment.</p>${permissionSnapshot.assignments.length ? `<div class="hotel-partner-permission-list">${permissionSnapshot.assignments.map((assignment) => {
           const enabled = enabledPartnerCapabilities(assignment.permission.capabilities);
-          return `<article class="hotel-partner-permission-card"><div><strong>${escapeHtml(assignment.partner.name || assignment.partner_id)}</strong><small>${escapeHtml(assignment.partner.status)} · ${assignment.assignment_active ? 'Active assignment' : 'Inactive assignment'} · Permission v${assignment.permission.version}</small></div><div class="hotel-partner-capability-chips">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(partnerCapabilityLabel(key))}</span>`).join('') : '<span class="is-empty">All capabilities OFF</span>'}</div><button class="btn-secondary" type="button" data-edit-partner-permission="${escapeAttr(assignment.assignment_id)}">Review access</button></article>`;
+          return `<article class="hotel-partner-permission-card"><div><strong>${escapeHtml(assignment.partner.name || 'Assigned partner')}</strong><small>${escapeHtml(assignment.partner.status)} · ${assignment.assignment_active ? 'Active assignment' : 'Inactive assignment'} · Permission v${assignment.permission.version}</small></div><div class="hotel-partner-capability-chips">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(partnerCapabilityLabel(key))}</span>`).join('') : '<span class="is-empty">All capabilities OFF</span>'}</div><button class="btn-secondary" type="button" data-edit-partner-permission="${escapeAttr(assignment.assignment_id)}">Review access</button><details class="hotel-review-diagnostics"><summary>Assignment diagnostics</summary><code>${escapeHtml(assignment.assignment_id)}</code><code>${escapeHtml(assignment.partner_id)}</code></details></article>`;
         }).join('')}</div>` : '<div class="hotel-property-empty"><p>No active exact Hotel assignment is available for capability review.</p></div>'}<p class="hotel-workspace-safety-note">Partner access remains foundation-only. Public Hotels V2 and all four capability flags remain OFF.</p></section>`
         : '<section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Partner capabilities</span><h4>Loading secure snapshot…</h4><p>No capability editor is available until the exact assignment snapshot is verified.</p></section>';
     panel.innerHTML = `${workspacePanelHeader('Partner & Access', 'Commercial ownership, operational routing and reviewed exact-assignment capabilities remain separate.')}
-      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Commercial owner</span><h4>${escapeHtml(owner.name || 'Not assigned')}</h4><p>${owner.id ? `Status: ${escapeHtml(owner.status || 'unknown')}` : 'Assign an active commercial owner from Overview if required.'}</p>${owner.id ? `<code>${escapeHtml(owner.id)}</code>` : ''}</section>
-      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Operational assignments</span><h4>${assignments.length} assignment${assignments.length === 1 ? '' : 's'}</h4>${assignments.length ? `<ul class="hotel-simple-list">${assignments.map((entry) => `<li><span>${escapeHtml(entry.name || entry.partner_id)}</span><small>${entry.is_active ? 'Active' : 'Inactive'}</small></li>`).join('')}</ul>` : '<p>No operational partner assignment.</p>'}<small>Capability saves never backfill, transfer or reroute operational assignments or historical fulfillments.</small></section>
+      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Commercial owner</span><h4>${escapeHtml(owner.name || 'Not assigned')}</h4><p>${owner.id ? `Status: ${escapeHtml(owner.status || 'unknown')}` : 'Assign an active commercial owner from Overview if required.'}</p>${owner.id ? `<details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(owner.id)}</code></details>` : ''}</section>
+      <section class="hotel-workspace-card hotel-workspace-card--wide"><div class="hotel-workspace-card-heading"><div><span class="hotel-workspace-eyebrow">Operational assignments</span><h4>${assignmentControl ? `${assignments.length} assignment${assignments.length === 1 ? '' : 's'}` : 'Secure snapshot unavailable'}</h4></div>${assignmentControl ? '<button class="btn-primary" type="button" data-add-operational-assignment>Assign Partner</button>' : ''}</div>${assignmentControl ? (assignments.length ? `<div class="hotel-operational-assignment-list">${assignments.map((entry) => {
+        const partner = operationalAssignmentPartner(entry.partner_id, entry);
+        return `<article><div><strong>${escapeHtml(partner.name)}</strong><small>${escapeHtml(partner.status)} · ${Number(entry.staff_scope_count || 0)} staff Hotel scope${Number(entry.staff_scope_count || 0) === 1 ? '' : 's'} · ${entry.permission_exists ? 'Capability row present' : 'All capabilities default OFF'}</small></div><button class="btn-secondary" type="button" data-remove-operational-assignment="${escapeAttr(entry.assignment_id)}">Review removal</button><details class="hotel-review-diagnostics"><summary>Assignment diagnostics</summary><code>${escapeHtml(entry.assignment_id)}</code><code>${escapeHtml(entry.partner_id)}</code></details></article>`;
+      }).join('')}</div>` : '<div class="hotel-property-empty"><p>No operational Partner assignment.</p></div>') : `<p class="hotel-workspace-safety-note">${escapeHtml(state.contentControlError?.message || 'Apply the reviewed ADMIN-B content-control foundation before assignments can be managed.')}</p>`}<small>Commercial ownership is separate. Assignment saves are future-routing only and never rewrite historical fulfillment rows.</small></section>
       ${permissionSection}</div>`;
     panel.querySelector('[data-retry-partner-permissions]')?.addEventListener('click', () => {
       void refreshPartnerPermissions().catch((error) => toast(error?.userMessage || error?.message, 'error'));
     });
     panel.querySelectorAll('[data-edit-partner-permission]').forEach((button) => {
       button.addEventListener('click', () => openPartnerPermissionEditor(button.dataset.editPartnerPermission));
+    });
+    panel.querySelector('[data-add-operational-assignment]')?.addEventListener('click', openOperationalAssignmentEditor);
+    panel.querySelectorAll('[data-remove-operational-assignment]').forEach((button) => {
+      button.addEventListener('click', () => void reviewOperationalAssignmentRemoval(button.dataset.removeOperationalAssignment));
     });
   }
 
@@ -4072,8 +5066,8 @@
 
   function renderActivityPanel(panel) {
     const activity = state.workspace.activity;
-    panel.innerHTML = `${workspacePanelHeader('Activity', 'Immutable reviewed changes written through the H2A Admin transaction.')}
-      <section class="hotel-workspace-card">${activity.length ? `<ol class="hotel-activity-list">${activity.map((entry) => `<li><span><strong>${escapeHtml(String(entry.action || '').replaceAll('_', ' '))}</strong><small>${escapeHtml(entry.entity_type || 'entity')} · ${escapeHtml(entry.source || 'admin')}</small></span><time datetime="${escapeAttr(entry.created_at)}">${escapeHtml(new Date(entry.created_at).toLocaleString())}</time></li>`).join('')}</ol>` : renderEmptyState('No H2A activity yet', 'Reviewed normalized saves will appear here.')}</section>`;
+    panel.innerHTML = `${workspacePanelHeader('Activity', 'Immutable reviewed changes written through the Hotel Admin control plane.')}
+      <section class="hotel-workspace-card">${activity.length ? `<ol class="hotel-activity-list">${activity.map((entry) => `<li><span><strong>${escapeHtml(String(entry.action || '').replaceAll('_', ' '))}</strong><small>${escapeHtml(entry.entity_type || 'entity')} · ${escapeHtml(entry.source || 'admin')}</small></span><time datetime="${escapeAttr(entry.created_at)}">${escapeHtml(new Date(entry.created_at).toLocaleString())}</time></li>`).join('')}</ol>` : renderEmptyState('No reviewed Hotel activity yet', 'Reviewed normalized saves will appear here.')}</section>`;
   }
 
   return Object.freeze({

@@ -249,11 +249,12 @@ describe('Hotels H2B.1 children policy and 7 Arches shadow preparation', () => {
       minimum_child_age_override: null,
     });
     expect(Core.buildRoomTypePlan(workspace, operation, { reviewedAt: '2026-08-11T16:00:00.000Z' })).toEqual({
+      contract_version: 'hotels_v2_admin_b_room_control_v1',
       hotel_id: HOTEL_ID,
       expected_property_updated_at: '2026-08-11T15:00:00.000Z',
       reviewed_at: '2026-08-11T16:00:00.000Z',
       operation: {
-        type: 'create', id: UPPER_ID, expected_version: 0, payload: operation.payload,
+        type: 'create', id: UPPER_ID, expected_version: 0, expected_original: {}, payload: operation.payload,
       },
     });
   });

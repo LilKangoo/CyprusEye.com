@@ -74,6 +74,46 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
     await expect(Repository.getWorkspace(HOTEL_ID)).rejects.toThrow('Property Workspace returned a different property ID.');
   });
 
+  test('ADMIN-B content control rejects unknown private-profile and envelope fields', async () => {
+    let response: any;
+    const client = { async rpc() { return { data: response, error: null }; } };
+    const { Core, Repository } = loadRepository(client);
+    const snapshot = {
+      contract_version: Core.H3_2A_PARTNER_PERMISSIONS_CONTRACT,
+      property: {
+        id: HOTEL_ID, updated_at: '2026-08-20T08:00:00.000Z', architecture_version: 'legacy',
+        is_published: false, status: 'active',
+      },
+      feature_flags: {
+        hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+        hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
+      },
+      capability_catalog: [...Core.HOTEL_PARTNER_CAPABILITIES],
+      assignment_fingerprint: 'assignment-fingerprint', permissions_fingerprint: 'permissions-fingerprint',
+      snapshot_token: 'snapshot-token', assignments: [],
+    };
+    const valid = {
+      contract_version: 'hotels_v2_admin_b_content_control_v1', hotel_id: HOTEL_ID,
+      property_updated_at: '2026-08-20T08:00:00.000Z',
+      architecture_version: 'legacy', feature_flags: { ...snapshot.feature_flags },
+      commercial_owner: null,
+      operational_profile: {
+        exists: false, version: 0, updated_at: null, maximum_stay_nights: null,
+        guest_instructions_i18n: {}, check_in_instructions_i18n: {}, check_out_instructions_i18n: {},
+        internal_operational_notes: null,
+      },
+      assignment_snapshot: snapshot,
+    };
+    response = valid;
+    await expect(Repository.getContentControl(HOTEL_ID)).resolves.toMatchObject({
+      hotel_id: HOTEL_ID, operational_profile: { exists: false, version: 0 },
+    });
+    response = { ...valid, operational_profile: { ...valid.operational_profile, browser_visible_secret: 'no' } };
+    await expect(Repository.getContentControl(HOTEL_ID)).rejects.toThrow('unsupported or cross-property snapshot');
+    response = { ...valid, unexpected_envelope_field: true };
+    await expect(Repository.getContentControl(HOTEL_ID)).rejects.toThrow('unsupported or cross-property snapshot');
+  });
+
   test('applies one reviewed exact-property plan and preserves its concurrency snapshot', async () => {
     const calls: any[] = [];
     const client = {
@@ -347,8 +387,12 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
     };
     const { Repository } = loadRepository(client);
     const payload = {
+      slug: 'fixture-hotel',
       title_i18n: { en: 'Fixture Hotel', pl: 'Hotel testowy', he: 'מלון בדיקה' },
       city: 'Lefkara',
+      country: 'Cyprus',
+      timezone: 'Europe/Nicosia',
+      currency: 'EUR',
       booking_mode: 'request_confirmation',
       is_published: false,
     };

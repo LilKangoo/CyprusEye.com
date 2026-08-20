@@ -20,7 +20,7 @@ describe('Hotels H2B.1 Admin UX static safety', () => {
     expect(repository).toContain("applyGuestPolicy: 'hotel_v2_admin_apply_guest_policy_plan'");
     expect(repository).toContain("applyRoomType: 'hotel_v2_admin_apply_room_type_plan'");
     expect(ui).toContain('Core.buildRoomTypePlan(state.workspace, reviewedOperations[0])');
-    expect(ui).toContain('Repository.applyRoomTypePlan(plan)');
+    expect(ui).toContain('Repository.applyRoomControlPlan(buildPlan(), correlationId)');
     expect(ui).toContain('room_type_id: room.id, expected_version: room.version');
   });
 

@@ -3949,8 +3949,7 @@ function renderPartnerAssignmentsTable(type) {
           <td>${escapeHtml(title)}</td>
           <td>${escapeHtml(city)}</td>
           <td style="text-align: right; white-space: nowrap;">
-            <button class="btn-small btn-secondary" onclick="backfillPartnerResourceFulfillments('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Backfill</button>
-            <button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button>
+            <button class="btn-small btn-secondary" onclick="openHotelPartnerAccessControl('${escapeHtml(String(rid))}')">Open Partner &amp; Access</button>
           </td>
         </tr>
       `;
@@ -4020,6 +4019,30 @@ function renderPartnerAssignmentsShop() {
   renderPartnerAssignmentsTable('shop');
 }
 
+async function openHotelPartnerAccessControl(hotelId) {
+  const exactHotelId = String(hotelId || '').trim();
+  if (!exactHotelId) return;
+  const workspace = (typeof window !== 'undefined' && window.HotelsV2Workspace)
+    ? window.HotelsV2Workspace
+    : null;
+  if (typeof workspace?.openWorkspace !== 'function') {
+    showToast('Hotel Workspace is unavailable. No assignment was changed.', 'error');
+    return;
+  }
+  closePartnerForm();
+  switchView('hotels');
+  try {
+    await workspace.openWorkspace(exactHotelId);
+    workspace.state.activeTab = 'partner';
+    workspace.renderWorkspace();
+  } catch (error) {
+    console.error('Failed to open reviewed Hotel Partner & Access control:', error);
+    showToast(error?.message || 'Could not open Hotel Partner & Access.', 'error');
+  }
+}
+
+window.openHotelPartnerAccessControl = (hotelId) => void openHotelPartnerAccessControl(hotelId);
+
 async function loadShopVendorProducts(vendorId) {
   const client = ensureSupabase();
   if (!client) return;
@@ -4073,6 +4096,11 @@ async function removePartnerResourceAssignment(type, resourceId) {
   const t = String(type || '').trim();
   const rid = String(resourceId || '').trim();
   if (!pid || !t || !rid) return;
+  if (t === 'hotels') {
+    await openHotelPartnerAccessControl(rid);
+    showToast('Hotel assignments are Review-only in the Hotel Workspace. No raw assignment was removed.', 'info');
+    return;
+  }
 
   try {
     const { error } = await client
@@ -4099,6 +4127,11 @@ async function backfillPartnerResourceFulfillments(type, resourceId) {
   const rid = String(resourceId || '').trim();
   if (!rid) return;
   if (t !== 'trips' && t !== 'hotels' && t !== 'transport') return;
+  if (t === 'hotels') {
+    await openHotelPartnerAccessControl(rid);
+    showToast('Historical Hotel fulfillment routing is protected. Manage future operational assignment in Partner & Access.', 'info');
+    return;
+  }
 
   try {
     const { data, error } = await client.rpc('admin_backfill_partner_service_fulfillments_for_resource', {
@@ -4130,6 +4163,11 @@ async function addPartnerResourceAssignment(type) {
   const rid = String(select?.value || '').trim();
   if (!rid) {
     showToast('Select a resource first', 'error');
+    return;
+  }
+  if (t === 'hotels') {
+    await openHotelPartnerAccessControl(rid);
+    showToast('Review the exact operational Partner assignment in Hotel Workspace. No capability is granted automatically.', 'info');
     return;
   }
 
@@ -4354,6 +4392,10 @@ function bindPartnerAssignmentsUi() {
     const addId = partnerAssignFieldId('add', t);
     const addBtn = addId ? document.getElementById(addId) : null;
     if (addBtn) {
+      if (t === 'hotels') {
+        addBtn.textContent = 'Open Partner & Access';
+        addBtn.title = 'Hotel assignments require an exact reviewed save in Hotel Workspace.';
+      }
       addBtn.addEventListener('click', () => addPartnerResourceAssignment(t));
     }
   });
@@ -14408,8 +14450,14 @@ async function handleEditHotelSubmit(event, originalHotel) {
     }
     
     // Assign i18n fields
-    if (titleI18n) payload.title = titleI18n;
-    if (descriptionI18n) payload.description = descriptionI18n;
+    if (titleI18n) {
+      payload.title = titleI18n;
+      payload.title_i18n = titleI18n;
+    }
+    if (descriptionI18n) {
+      payload.description = descriptionI18n;
+      payload.description_i18n = descriptionI18n;
+    }
     payload.meta_description = metaDescriptionI18n || {};
     
     // Clean up legacy fields from payload
@@ -14636,8 +14684,14 @@ async function openNewHotelModal() {
           }
           
           // Assign i18n fields
-          if (titleI18n) payload.title = titleI18n;
-          if (descriptionI18n) payload.description = descriptionI18n;
+          if (titleI18n) {
+            payload.title = titleI18n;
+            payload.title_i18n = titleI18n;
+          }
+          if (descriptionI18n) {
+            payload.description = descriptionI18n;
+            payload.description_i18n = descriptionI18n;
+          }
           payload.meta_description = metaDescriptionI18n || {};
           
           // Clean up legacy fields from payload
@@ -25871,6 +25925,18 @@ function previewLocalImages(fileInput, container, max = 10) {
 async function uploadHotelPhotosBatch(slug, files, options = {}) {
   const client = ensureSupabase();
   if (!client) throw new Error('Database connection not available');
+  const reviewedFiles = Array.from(files || []);
+  const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+  const maximumBytes = 20 * 1024 * 1024;
+  if (reviewedFiles.length > 30) throw new Error('Select no more than 30 Hotel images in one reviewed save');
+  reviewedFiles.forEach((file) => {
+    if (!file || !allowedMimeTypes.has(String(file.type || '').toLowerCase())) {
+      throw new Error(`${file?.name || 'A selected file'} is not a supported JPEG, PNG, WebP or AVIF image`);
+    }
+    if (!Number.isFinite(Number(file.size)) || Number(file.size) <= 0 || Number(file.size) > maximumBytes) {
+      throw new Error(`${file?.name || 'A selected file'} must be a non-empty image no larger than 20 MB`);
+    }
+  });
   const safeSlug = String(slug || '')
     .trim()
     .toLowerCase()
@@ -25879,14 +25945,13 @@ async function uploadHotelPhotosBatch(slug, files, options = {}) {
   if (!safeSlug) throw new Error('A valid property slug is required for image upload');
 
   const roomTypeId = String(options?.roomTypeId || '').trim().toLowerCase();
-  if (roomTypeId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(roomTypeId)) {
+  if (roomTypeId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(roomTypeId)) {
     throw new Error('An exact Room Type ID is required for room gallery upload');
   }
   const storageFolder = roomTypeId ? `rooms/${roomTypeId}` : 'gallery';
   const results = [];
   try {
-    for (const file of files) {
-      if (!file || !file.type || !file.type.startsWith('image/')) continue;
+    for (const file of reviewedFiles) {
       const compressed = await compressToWebp(file, 3840, 2160, 0.9);
       const path = `hotels/${safeSlug}/${storageFolder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
       const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
@@ -25899,8 +25964,13 @@ async function uploadHotelPhotosBatch(slug, files, options = {}) {
       if (pub && pub.publicUrl) results.push(pub.publicUrl);
     }
   } catch (error) {
-    if (roomTypeId && results.length) {
-      try { await removeHotelRoomGalleryUploads(results); } catch (cleanupError) { console.error('Failed to clean partial Room Type uploads:', cleanupError); }
+    if (results.length) {
+      try {
+        if (roomTypeId) await removeHotelRoomGalleryUploads(safeSlug, roomTypeId, results);
+        else await removeHotelPropertyGalleryUploads(safeSlug, results);
+      } catch (cleanupError) {
+        console.error(`Failed to clean partial ${roomTypeId ? 'Room Type' : 'property'} uploads:`, cleanupError);
+      }
     }
     throw error;
   }
@@ -25915,37 +25985,47 @@ async function uploadHotelPropertyGallery(propertySlug, files) {
   return uploadHotelPhotosBatch(propertySlug, Array.from(files || []));
 }
 
-async function removeHotelRoomGalleryUploads(urls) {
-  const client = ensureSupabase();
-  if (!client) return;
-  const marker = '/storage/v1/object/public/poi-photos/';
-  const paths = Array.from(urls || []).map((value) => {
+function exactHotelMediaCleanupPaths(client, propertySlug, storageFolder, urls) {
+  const safeSlug = String(propertySlug || '').trim().toLowerCase();
+  if (!/^[a-z0-9](?:[a-z0-9_]|-)*$/.test(safeSlug)) return [];
+  const exactPrefix = `hotels/${safeSlug}/${storageFolder}/`;
+  const { data } = client.storage.from('poi-photos').getPublicUrl(exactPrefix);
+  let trustedPrefix;
+  try { trustedPrefix = new URL(String(data?.publicUrl || '')); }
+  catch (_error) { return []; }
+  if (trustedPrefix.protocol !== 'https:') return [];
+  const trustedPathPrefix = trustedPrefix.pathname.endsWith('/') ? trustedPrefix.pathname : `${trustedPrefix.pathname}/`;
+  return Array.from(urls || []).map((value) => {
     try {
-      const pathname = new URL(String(value || '')).pathname;
-      const offset = pathname.indexOf(marker);
-      return offset >= 0 ? decodeURIComponent(pathname.slice(offset + marker.length)) : '';
+      const candidate = new URL(String(value || ''));
+      if (candidate.protocol !== 'https:' || candidate.origin !== trustedPrefix.origin
+          || candidate.search || candidate.hash
+          || !candidate.pathname.startsWith(trustedPathPrefix)) return '';
+      const encodedName = candidate.pathname.slice(trustedPathPrefix.length);
+      const filename = decodeURIComponent(encodedName);
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,200}\.webp$/.test(filename)) return '';
+      return `${exactPrefix}${filename}`;
     } catch (_error) {
       return '';
     }
-  }).filter((path) => path.startsWith('hotels/') && path.includes('/rooms/'));
+  }).filter(Boolean);
+}
+
+async function removeHotelRoomGalleryUploads(propertySlug, roomTypeId, urls) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const exactRoomId = String(roomTypeId || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(exactRoomId)) return;
+  const paths = exactHotelMediaCleanupPaths(client, propertySlug, `rooms/${exactRoomId}`, urls);
   if (!paths.length) return;
   const { error } = await client.storage.from('poi-photos').remove(paths);
   if (error) throw error;
 }
 
-async function removeHotelPropertyGalleryUploads(urls) {
+async function removeHotelPropertyGalleryUploads(propertySlug, urls) {
   const client = ensureSupabase();
   if (!client) return;
-  const marker = '/storage/v1/object/public/poi-photos/';
-  const paths = Array.from(urls || []).map((value) => {
-    try {
-      const pathname = new URL(String(value || '')).pathname;
-      const offset = pathname.indexOf(marker);
-      return offset >= 0 ? decodeURIComponent(pathname.slice(offset + marker.length)) : '';
-    } catch (_error) {
-      return '';
-    }
-  }).filter((path) => path.startsWith('hotels/') && path.includes('/gallery/'));
+  const paths = exactHotelMediaCleanupPaths(client, propertySlug, 'gallery', urls);
   if (!paths.length) return;
   const { error } = await client.storage.from('poi-photos').remove(paths);
   if (error) throw error;

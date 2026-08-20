@@ -17,6 +17,10 @@
     resolveRate: 'hotel_v2_admin_resolve_rate',
     applyGuestPolicy: 'hotel_v2_admin_apply_guest_policy_plan',
     applyRoomType: 'hotel_v2_admin_apply_room_type_plan',
+    applyPropertyControl: 'hotel_v2_admin_apply_property_control_plan',
+    applyRoomControl: 'hotel_v2_admin_apply_room_control_plan',
+    applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
+    contentControl: 'hotel_v2_admin_get_content_control',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
     h3Configuration: 'hotel_v2_admin_get_h3_1_configuration',
     applyH3Configuration: 'hotel_v2_admin_apply_h3_1_configuration',
@@ -161,6 +165,95 @@
     return workspace;
   }
 
+  function normalizeContentControl(payloadValue, hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    const payload = Core.asObject(payloadValue);
+    const profile = Core.asObject(payload.operational_profile);
+    const envelopeKeys = [
+      'architecture_version', 'assignment_snapshot', 'commercial_owner', 'contract_version',
+      'feature_flags', 'hotel_id', 'operational_profile', 'property_updated_at',
+    ];
+    const profileKeys = [
+      'check_in_instructions_i18n', 'check_out_instructions_i18n', 'exists',
+      'guest_instructions_i18n', 'internal_operational_notes', 'maximum_stay_nights',
+      'updated_at', 'version',
+    ];
+    const profileVersion = Number(profile.version);
+    const profileExists = profile.exists === true;
+    const maximumStay = profile.maximum_stay_nights == null ? null : Number(profile.maximum_stay_nights);
+    const architectureVersion = String(payload.architecture_version || '').trim();
+    const featureFlags = Core.asObject(payload.feature_flags);
+    const commercialOwner = payload.commercial_owner == null ? null : Core.asObject(payload.commercial_owner);
+    const ownerKeys = ['can_manage_hotels', 'name', 'partner_id', 'status'];
+    const requiredOffFlags = [
+      'hotel_external_sync_enabled', 'hotel_instant_booking_enabled',
+      'hotel_rooms_v2_enabled', 'hotel_stripe_connect_enabled',
+    ];
+    const i18nFields = ['guest_instructions_i18n', 'check_in_instructions_i18n', 'check_out_instructions_i18n'];
+    if (JSON.stringify(Object.keys(payload).sort()) !== JSON.stringify(envelopeKeys)
+        || JSON.stringify(Object.keys(profile).sort()) !== JSON.stringify(profileKeys)
+        || payload.contract_version !== 'hotels_v2_admin_b_content_control_v1'
+        || Core.normalizeUuid(payload.hotel_id) !== id
+        || !String(payload.property_updated_at || '').trim()
+        || !['legacy', 'rooms_v2'].includes(architectureVersion)
+        || JSON.stringify(Object.keys(featureFlags).sort()) !== JSON.stringify(requiredOffFlags)
+        || requiredOffFlags.some((key) => featureFlags[key] !== false)
+        || (commercialOwner != null && (
+          JSON.stringify(Object.keys(commercialOwner).sort()) !== JSON.stringify(ownerKeys)
+          || !Core.normalizeUuid(commercialOwner.partner_id)
+          || typeof commercialOwner.name !== 'string'
+          || typeof commercialOwner.status !== 'string'
+          || typeof commercialOwner.can_manage_hotels !== 'boolean'
+        ))
+        || !payload.operational_profile || !payload.assignment_snapshot
+        || typeof profile.exists !== 'boolean'
+        || !Number.isInteger(profileVersion) || profileVersion < 0
+        || (profileExists ? profileVersion < 1 : profileVersion !== 0)
+        || (profileExists ? !String(profile.updated_at || '').trim() : profile.updated_at != null)
+        || (maximumStay != null && (!Number.isInteger(maximumStay) || maximumStay < 1 || maximumStay > 365))
+        || i18nFields.some((field) => !profile[field] || Array.isArray(profile[field]) || typeof profile[field] !== 'object'
+          || Object.keys(profile[field]).some((key) => !Core.LANGUAGES.includes(key))
+          || Object.values(profile[field]).some((value) => typeof value !== 'string' || value.length > 8000))
+        || (profile.internal_operational_notes != null
+          && (typeof profile.internal_operational_notes !== 'string' || profile.internal_operational_notes.length > 5000))) {
+      throw new Error('Admin content control returned an unsupported or cross-property snapshot.');
+    }
+    const assignmentSnapshot = Core.validatePartnerHotelPermissions(payload.assignment_snapshot, id);
+    if (assignmentSnapshot.property.architecture_version !== architectureVersion
+        || assignmentSnapshot.property.updated_at !== String(payload.property_updated_at)
+        || requiredOffFlags.some((key) => assignmentSnapshot.feature_flags[key] !== featureFlags[key])) {
+      throw new Error('Admin content control returned inconsistent architecture, flags or property snapshot values.');
+    }
+    return {
+      ...Core.clone(payload),
+      architecture_version: architectureVersion,
+      feature_flags: Core.clone(featureFlags),
+      commercial_owner: commercialOwner ? {
+        ...Core.clone(commercialOwner),
+        partner_id: Core.normalizeUuid(commercialOwner.partner_id),
+      } : null,
+      operational_profile: {
+        ...Core.clone(profile),
+        exists: profileExists,
+        version: profileVersion,
+        maximum_stay_nights: maximumStay,
+        guest_instructions_i18n: Core.normalizeI18n(profile.guest_instructions_i18n),
+        check_in_instructions_i18n: Core.normalizeI18n(profile.check_in_instructions_i18n),
+        check_out_instructions_i18n: Core.normalizeI18n(profile.check_out_instructions_i18n),
+        internal_operational_notes: Core.asNullableText(profile.internal_operational_notes),
+      },
+      assignment_snapshot: assignmentSnapshot,
+    };
+  }
+
+  async function getContentControl(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id) throw new Error('A valid property ID is required.');
+    return normalizeContentControl(await runRpc(RPC.contentControl, {
+      p_hotel_id: id,
+    }, 'Load Admin property content control'), id);
+  }
+
   async function applyWorkspacePlan(plan, correlationId) {
     const reviewedPlan = Core.clone(plan);
     const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
@@ -180,10 +273,19 @@
 
   async function createPropertyDraft(id, payload, correlationId) {
     const propertyId = Core.normalizeUuid(id) || Core.newUuid();
+    const reviewedPayload = Core.asObject(Core.clone(payload || {}));
+    const requiredText = ['slug', 'city', 'country', 'timezone', 'currency'];
+    if (requiredText.some((field) => !String(reviewedPayload[field] || '').trim())
+        || !Core.i18nText(reviewedPayload.title_i18n, 'en')
+        || !/^[A-Z]{3}$/.test(String(reviewedPayload.currency || '').trim().toUpperCase())) {
+      throw new Error('A reviewed slug, English name, city, country, timezone and ISO currency are required. No location value is inferred.');
+    }
+    try { new Intl.DateTimeFormat('en', { timeZone: String(reviewedPayload.timezone).trim() }).format(); }
+    catch (_error) { throw new Error('A valid reviewed IANA timezone is required.'); }
     const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
     const data = await runRpc(RPC.createProperty, {
       p_id: propertyId,
-      p_payload: Core.clone(payload || {}),
+      p_payload: reviewedPayload,
       p_correlation_id: correlation,
     }, 'Create Rooms V2 property draft');
     const response = Core.asObject(data);
@@ -315,6 +417,107 @@
     const workspace = Core.normalizeWorkspace(payload.workspace || payload);
     if (workspace.property.id !== id) throw new Error('Saved Room Type returned a different property ID.');
     return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
+  }
+
+  async function applyPropertyControlPlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    if (!id || reviewedPlan?.contract_version !== 'hotels_v2_admin_b_property_control_v1'
+        || !reviewedPlan?.expected_property_updated_at || !reviewedPlan?.reviewed_at
+        || !Number.isInteger(Number(reviewedPlan?.expected_operational_profile_version))
+        || Number(reviewedPlan.expected_operational_profile_version) < 0
+        || !reviewedPlan?.expected_original || typeof reviewedPlan.expected_original !== 'object'
+        || !reviewedPlan?.payload || typeof reviewedPlan.payload !== 'object'
+        || !Object.keys(reviewedPlan.payload).length
+        || JSON.stringify(Object.keys(reviewedPlan.expected_original).sort())
+          !== JSON.stringify(Object.keys(reviewedPlan.payload).sort())) {
+      throw new Error('A reviewed exact-property Admin control plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyPropertyControl, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed property control changes');
+    const payload = Core.asObject(data);
+    if (payload.contract_version !== 'hotels_v2_admin_b_property_control_v1'
+        || Core.normalizeUuid(payload.hotel_id) !== id) {
+      throw new Error('Saved property control returned an unsupported or cross-property result.');
+    }
+    const workspace = Core.normalizeWorkspace(payload.workspace || payload);
+    if (workspace.property.id !== id) throw new Error('Saved property control returned a different property ID.');
+    const contentControl = normalizeContentControl(payload.content_control, id);
+    return {
+      ...payload,
+      correlation_id: payload.correlation_id || correlation,
+      workspace,
+      content_control: contentControl,
+    };
+  }
+
+  async function applyRoomControlPlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const roomId = Core.normalizeUuid(reviewedPlan?.operation?.id);
+    if (!id || reviewedPlan?.contract_version !== 'hotels_v2_admin_b_room_control_v1'
+        || !roomId || !['create', 'update', 'disable', 'duplicate'].includes(Core.asText(reviewedPlan?.operation?.type))
+        || !reviewedPlan.operation.expected_original || typeof reviewedPlan.operation.expected_original !== 'object'
+        || !reviewedPlan.operation.payload || typeof reviewedPlan.operation.payload !== 'object') {
+      throw new Error('A reviewed exact Room Type Admin control plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const data = await runRpc(RPC.applyRoomControl, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed Room Type control changes');
+    const payload = Core.asObject(data);
+    if (payload.contract_version !== 'hotels_v2_admin_b_room_control_v1'
+        || Core.normalizeUuid(payload.hotel_id) !== id
+        || Core.normalizeUuid(payload.room_type_id) !== roomId) {
+      throw new Error('Saved Room Type control returned an unsupported or cross-property result.');
+    }
+    const workspace = Core.normalizeWorkspace(payload.workspace || payload);
+    if (workspace.property.id !== id) throw new Error('Saved Room Type control returned a different property ID.');
+    return { ...payload, correlation_id: payload.correlation_id || correlation, workspace };
+  }
+
+  async function applyOperationalAssignmentPlan(plan, correlationId) {
+    const reviewedPlan = Core.clone(plan);
+    const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
+    const operation = Core.asObject(reviewedPlan?.operation);
+    const assignmentId = Core.normalizeUuid(operation.assignment_id);
+    const partnerId = Core.normalizeUuid(operation.partner_id);
+    if (!id || reviewedPlan?.contract_version !== 'hotels_v2_admin_b_operational_assignment_v1'
+        || !reviewedPlan?.reviewed_at || !String(reviewedPlan?.snapshot_token || '').trim()
+        || !String(reviewedPlan?.expected_assignment_fingerprint || '').trim()
+        || !assignmentId || !partnerId || !['assign', 'remove'].includes(Core.asText(operation.type))
+        || !Number.isInteger(Number(operation.expected_staff_scope_count))
+        || Number(operation.expected_staff_scope_count) < 0
+        || !Array.isArray(operation.expected_staff_scope_ids)
+        || operation.expected_staff_scope_ids.some((scopeId) => !Core.normalizeUuid(scopeId))
+        || new Set(operation.expected_staff_scope_ids).size !== operation.expected_staff_scope_ids.length
+        || JSON.stringify([...operation.expected_staff_scope_ids].sort()) !== JSON.stringify(operation.expected_staff_scope_ids)
+        || operation.expected_staff_scope_ids.length !== Number(operation.expected_staff_scope_count)
+        || typeof operation.expected_permission_exists !== 'boolean') {
+      throw new Error('A reviewed exact operational-assignment plan is required.');
+    }
+    const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
+    const payload = Core.asObject(await runRpc(RPC.applyOperationalAssignment, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+    }, 'Save reviewed Hotel operational assignment'));
+    if (payload.contract_version !== 'hotels_v2_admin_b_operational_assignment_v1'
+        || Core.normalizeUuid(payload.hotel_id) !== id
+        || Core.normalizeUuid(payload.assignment_id) !== assignmentId
+        || Core.normalizeUuid(payload.partner_id) !== partnerId
+        || Core.asText(payload.operation) !== Core.asText(operation.type)) {
+      throw new Error('Operational-assignment save returned an unsupported or cross-property result.');
+    }
+    const contentControl = normalizeContentControl(payload.content_control, id);
+    return {
+      ...payload,
+      correlation_id: payload.correlation_id || correlation,
+      content_control: contentControl,
+    };
   }
 
   async function prepareLegacyShadowRooms(plan, correlationId) {
@@ -508,29 +711,13 @@
 
   async function uploadRoomGallery(propertySlug, roomId, files) {
     const optimizedUploader = typeof window !== 'undefined' && window.HotelsV2AdminMedia?.uploadRoomGallery;
-    if (typeof optimizedUploader === 'function') {
-      return optimizedUploader(propertySlug, roomId, files);
-    }
-    const client = getClient();
     const safeSlug = Core.asText(propertySlug).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '');
     const exactRoomId = Core.normalizeUuid(roomId);
     if (!safeSlug || !exactRoomId) throw new Error('Property slug and exact Room Type ID are required for upload.');
-
-    const imageFiles = Array.from(files || []).filter((file) => file?.type?.startsWith('image/'));
-    const urls = [];
-    for (const file of imageFiles) {
-      const extension = String(file.name || '').split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
-      const path = `hotels/${safeSlug}/rooms/${exactRoomId}/${Core.newUuid()}.${extension}`;
-      const { error } = await client.storage.from('poi-photos').upload(path, file, {
-        cacheControl: '31536000',
-        upsert: false,
-        contentType: file.type,
-      });
-      if (error) throw repositoryError(error, 'Upload room image');
-      const { data } = client.storage.from('poi-photos').getPublicUrl(path);
-      if (data?.publicUrl) urls.push(data.publicUrl);
+    if (typeof optimizedUploader !== 'function') {
+      throw new Error('The optimized exact Room Type media uploader is unavailable. No raw Storage upload was attempted.');
     }
-    return urls;
+    return optimizedUploader(safeSlug, exactRoomId, files);
   }
 
   return Object.freeze({
@@ -538,6 +725,7 @@
     getClient,
     listProperties,
     getWorkspace,
+    getContentControl,
     applyWorkspacePlan,
     createPropertyDraft,
     getCalendar,
@@ -545,6 +733,9 @@
     resolveRate,
     applyGuestPolicyPlan,
     applyRoomTypePlan,
+    applyPropertyControlPlan,
+    applyRoomControlPlan,
+    applyOperationalAssignmentPlan,
     prepareLegacyShadowRooms,
     getH3Configuration,
     applyH3ConfigurationPlan,

@@ -178,6 +178,36 @@
     return result;
   }
 
+  function assertI18nLength(value, maxLength, label, options = {}) {
+    const normalized = normalizeI18n(value);
+    if (options.requireEnglish === true && !normalized.en) {
+      throw new Error(`${label} in English is required.`);
+    }
+    const tooLong = LANGUAGES.find((language) => (normalized[language] || '').length > maxLength);
+    if (tooLong) throw new Error(`${label} (${tooLong.toUpperCase()}) must be ${maxLength} characters or fewer.`);
+    return normalized;
+  }
+
+  function assertTextLength(value, maxLength, label) {
+    const text = asNullableText(value);
+    if (text && text.length > maxLength) throw new Error(`${label} must be ${maxLength} characters or fewer.`);
+    return text;
+  }
+
+  function assertGalleryLimits(value, label) {
+    const gallery = normalizeGallery(value);
+    if (gallery.length > 50) throw new Error(`${label} may contain at most 50 photos.`);
+    if (gallery.some((url) => url.length > 2048)) throw new Error(`${label} contains an image URL longer than 2048 characters.`);
+    return gallery;
+  }
+
+  function assertAmenityLimits(value, label) {
+    const amenities = normalizeAmenities(value);
+    if (amenities.length > 200) throw new Error(`${label} may contain at most 200 amenities.`);
+    if (amenities.some((code) => code.length > 160)) throw new Error(`${label} contains an amenity code longer than 160 characters.`);
+    return amenities;
+  }
+
   function i18nText(value, language = 'en', fallback = '') {
     if (typeof value === 'string') return asText(value) || fallback;
     const source = normalizeI18n(value);
@@ -1526,6 +1556,7 @@
       bed_configuration: normalizeBedConfiguration(source.bed_configuration),
       bathrooms: asNumber(source.bathrooms, null),
       size_sqm: asNumber(source.size_sqm, null),
+      floor_label_i18n: normalizeI18n(source.floor_label_i18n),
       amenities: normalizeAmenities(source.amenities),
       inventory_mode: INVENTORY_MODES.includes(asText(source.inventory_mode)) ? asText(source.inventory_mode) : 'pooled',
       base_inventory_count: asInteger(source.base_inventory_count, 0),
@@ -1673,24 +1704,35 @@
     const source = asObject(value);
     const property = asObject(source.property);
     const ownerPartner = asObject(source.owner_partner);
+    const architectureVersion = asText(property.architecture_version) || 'legacy';
+    // While architecture is legacy, the established editor/public contract
+    // still owns title/description. Prefer those live columns so an older
+    // mirrored *_i18n snapshot can never mask a legitimate legacy edit.
+    const titleSource = architectureVersion === 'legacy'
+      ? (property.title || property.title_i18n)
+      : (property.title_i18n || property.title);
+    const descriptionSource = architectureVersion === 'legacy'
+      ? (property.description || property.description_i18n)
+      : (property.description_i18n || property.description);
     return {
       property: {
         ...clone(property),
         id: normalizeUuid(property.id),
-        architecture_version: asText(property.architecture_version) || 'legacy',
-        booking_mode: asText(property.booking_mode) || 'request_confirmation',
-        timezone: asText(property.timezone) || 'Europe/Nicosia',
-        currency: (asText(property.currency) || 'EUR').toUpperCase(),
+        architecture_version: architectureVersion,
+        booking_mode: BOOKING_MODES.includes(asText(property.booking_mode)) ? asText(property.booking_mode) : null,
+        timezone: asNullableText(property.timezone),
+        currency: asText(property.currency) ? asText(property.currency).toUpperCase() : null,
         children_policy: CHILDREN_POLICIES.includes(asText(property.children_policy))
           ? asText(property.children_policy)
           : null,
         minimum_child_age: asText(property.children_policy) === 'minimum_age'
           ? asInteger(property.minimum_child_age, -1)
           : null,
-        title: normalizeI18n(property.title_i18n || property.title),
-        title_i18n: normalizeI18n(property.title_i18n || property.title),
-        description: normalizeI18n(property.description_i18n || property.description),
-        description_i18n: normalizeI18n(property.description_i18n || property.description),
+        title: normalizeI18n(titleSource, { fallback: typeof titleSource === 'string' ? titleSource : '' }),
+        title_i18n: normalizeI18n(titleSource, { fallback: typeof titleSource === 'string' ? titleSource : '' }),
+        description: normalizeI18n(descriptionSource, { fallback: typeof descriptionSource === 'string' ? descriptionSource : '' }),
+        description_i18n: normalizeI18n(descriptionSource, { fallback: typeof descriptionSource === 'string' ? descriptionSource : '' }),
+        minimum_stay_nights: property.minimum_stay_nights == null ? null : Math.max(1, asInteger(property.minimum_stay_nights, 1)),
         amenities: normalizeAmenities(property.amenities),
         photos: normalizeGallery(property.photos),
         owner_partner: Object.keys(ownerPartner).length ? clone(ownerPartner) : clone(property.owner_partner || {}),
@@ -2010,7 +2052,22 @@
     room.id = room.id || newUuid();
     room.hotel_id = room.hotel_id || normalizeUuid(workspace?.property?.id);
     room.code = validateCode(room.code, 'Room code');
-    if (!i18nText(room.name_i18n, 'en')) throw new Error('Room name in English is required.');
+    room.name_i18n = assertI18nLength(room.name_i18n, 240, 'Room name', { requireEnglish: true });
+    room.description_i18n = assertI18nLength(room.description_i18n, 12000, 'Room description');
+    room.floor_label_i18n = assertI18nLength(room.floor_label_i18n, 160, 'Room floor label');
+    room.gallery = assertGalleryLimits(room.gallery, 'Room gallery');
+    room.amenities = assertAmenityLimits(room.amenities, 'Room amenities');
+    const rawBeds = asArray(value?.bed_configuration);
+    if (rawBeds.length > 30) throw new Error('Bed configuration may contain at most 30 rows.');
+    rawBeds.forEach((bedValue) => {
+      const bed = asObject(bedValue);
+      const type = asText(bed.type);
+      const quantity = asInteger(bed.quantity, -1);
+      if (!BED_TYPES.includes(type) || quantity < 1 || quantity > 20) {
+        throw new Error('Every bed row needs a supported type and a quantity from 1 to 20.');
+      }
+      if (type === 'other') assertI18nLength(bed.label, 160, 'Other bed label');
+    });
     if (!Number.isInteger(room.effective_max_occupancy) || room.effective_max_occupancy < 1 || room.effective_max_occupancy > 50) {
       throw new Error('Maximum total occupancy must be a whole number from 1 to 50.');
     }
@@ -2021,7 +2078,10 @@
       throw new Error('Adult and child capacities must stay unset when maximum total occupancy is used without a confirmed split.');
     }
     normalizeChildrenPolicy(room.children_policy_override, room.minimum_child_age_override, { allowInherit: true });
-    if (room.base_inventory_count < 0) throw new Error('Base inventory cannot be negative.');
+    if (room.base_inventory_count < 0 || room.base_inventory_count > 10000) throw new Error('Base inventory must be a whole number from 0 to 10000.');
+    if (room.bathrooms != null && (room.bathrooms < 0 || room.bathrooms > 100)) throw new Error('Bathrooms must be between 0 and 100.');
+    if (room.size_sqm != null && (room.size_sqm < 0.01 || room.size_sqm > 100000)) throw new Error('Room size must be between 0.01 and 100000 m².');
+    if (room.sort_order < 0 || room.sort_order > 1000000) throw new Error('Room sort order must be between 0 and 1000000.');
     const duplicate = normalizeWorkspace(workspace).room_types.find((candidate) => (
       candidate.id !== room.id && candidate.code.toLowerCase() === room.code.toLowerCase()
     ));
@@ -2099,15 +2159,17 @@
     const payloadFields = {
       property: [
         'title_i18n', 'description_i18n', 'city', 'address_line', 'district', 'postal_code',
-        'country', 'latitude', 'longitude', 'google_maps_url', 'google_place_id', 'amenities',
+        'country', 'latitude', 'longitude', 'google_maps_url', 'amenities',
         'check_in_from', 'check_out_until', 'timezone', 'currency', 'booking_mode',
-        'owner_partner_id', 'cover_image_url', 'photos', 'sort_order',
+        'owner_partner_id', 'cover_image_url', 'photos', 'minimum_stay_nights',
+        'maximum_stay_nights', 'guest_instructions_i18n', 'check_in_instructions_i18n',
+        'check_out_instructions_i18n', 'internal_operational_notes', 'children_policy', 'minimum_child_age',
       ],
       room_type: [
         'source_id', 'code', 'name_i18n', 'description_i18n', 'gallery', 'capacity_adults',
         'capacity_children', 'max_occupancy',
         'children_policy_override', 'minimum_child_age_override',
-        'bed_configuration', 'bathrooms', 'size_sqm', 'amenities',
+        'bed_configuration', 'bathrooms', 'size_sqm', 'floor_label_i18n', 'amenities',
         'inventory_mode', 'base_inventory_count', 'status', 'sort_order',
       ],
       unit: ['room_type_id', 'code', 'name_i18n', 'status'],
@@ -2149,6 +2211,275 @@
       expected_property_updated_at: options.expectedPropertyUpdatedAt || normalized.property.updated_at || null,
       reviewed_at: options.reviewedAt || new Date().toISOString(),
       operations: rows,
+    };
+  }
+
+  const PROPERTY_CONTROL_CONTRACT = 'hotels_v2_admin_b_property_control_v1';
+  const PROPERTY_CONTROL_BUSINESS_FIELDS = Object.freeze([
+    'title_i18n', 'description_i18n', 'address_line', 'city', 'district', 'postal_code',
+    'country', 'latitude', 'longitude', 'google_maps_url', 'timezone',
+    'currency', 'booking_mode', 'check_in_from', 'check_out_until', 'minimum_stay_nights',
+    'maximum_stay_nights', 'owner_partner_id', 'children_policy', 'minimum_child_age',
+    'amenities', 'cover_image_url', 'photos', 'guest_instructions_i18n',
+    'check_in_instructions_i18n', 'check_out_instructions_i18n', 'internal_operational_notes',
+  ]);
+  const PROPERTY_CONTROL_PRIVATE_FIELDS = Object.freeze([
+    'maximum_stay_nights', 'guest_instructions_i18n', 'check_in_instructions_i18n',
+    'check_out_instructions_i18n', 'internal_operational_notes',
+  ]);
+  const PROPERTY_CONTROL_MUTATION_FIELDS = Object.freeze(PROPERTY_CONTROL_BUSINESS_FIELDS.filter((field) => (
+    field !== 'children_policy' && field !== 'minimum_child_age'
+  )));
+
+  function buildPropertyControlPlan(workspace, nextPropertyValue, options = {}) {
+    const normalized = normalizeWorkspace(workspace);
+    const current = {
+      ...normalized.property,
+      ...clone(asObject(options.operationalProfile)),
+      ...clone(asObject(options.currentProperty)),
+    };
+    const requested = asObject(nextPropertyValue);
+    const currentState = propertyControlBusinessState(current);
+    const nextState = propertyControlBusinessState({ ...current, ...requested });
+    const propertyId = normalizeUuid(current.id);
+    if (!propertyId || normalizeUuid(requested.id || current.id) !== propertyId) throw new Error('A reviewed exact property is required.');
+    nextState.title_i18n = assertI18nLength(nextState.title_i18n, 240, 'Property name', { requireEnglish: true });
+    nextState.description_i18n = assertI18nLength(nextState.description_i18n, 12000, 'Property description');
+    nextState.guest_instructions_i18n = assertI18nLength(nextState.guest_instructions_i18n, 8000, 'Guest information');
+    nextState.check_in_instructions_i18n = assertI18nLength(nextState.check_in_instructions_i18n, 8000, 'Check-in instructions');
+    nextState.check_out_instructions_i18n = assertI18nLength(nextState.check_out_instructions_i18n, 8000, 'Check-out instructions');
+    assertTextLength(nextState.city, 200, 'City');
+    assertTextLength(nextState.address_line, 500, 'Address');
+    assertTextLength(nextState.district, 200, 'District / area');
+    assertTextLength(nextState.postal_code, 40, 'Postcode');
+    assertTextLength(nextState.country, 100, 'Country');
+    assertTextLength(nextState.google_maps_url, 2048, 'Google Maps URL');
+    assertTextLength(nextState.cover_image_url, 2048, 'Cover image URL');
+    assertTextLength(nextState.timezone, 100, 'Timezone');
+    assertTextLength(nextState.internal_operational_notes, 5000, 'Internal operational notes');
+    nextState.photos = assertGalleryLimits(nextState.photos, 'Property gallery');
+    nextState.amenities = assertAmenityLimits(nextState.amenities, 'Property amenities');
+    if (!asText(nextState.city)) throw new Error('City is required.');
+    if (JSON.stringify(nextState.country) !== JSON.stringify(currentState.country)
+        && !asText(nextState.country)) {
+      throw new Error('Country cannot be cleared once it is configured.');
+    }
+    if (JSON.stringify(nextState.timezone) !== JSON.stringify(currentState.timezone)
+        && !asText(nextState.timezone)) {
+      throw new Error('Timezone cannot be cleared once it is configured.');
+    }
+    if (!/^[A-Z]{3}$/.test(asText(nextState.currency))) throw new Error('Currency must be a three-letter code.');
+    if (!BOOKING_MODES.includes(asText(nextState.booking_mode))) throw new Error('Booking mode is invalid.');
+    if (nextState.latitude != null && (nextState.latitude < -90 || nextState.latitude > 90)) throw new Error('Latitude must be between -90 and 90.');
+    if (nextState.longitude != null && (nextState.longitude < -180 || nextState.longitude > 180)) throw new Error('Longitude must be between -180 and 180.');
+    if (JSON.stringify(nextState.google_maps_url) !== JSON.stringify(currentState.google_maps_url)
+        && nextState.google_maps_url && !isSupportedGoogleMapsUrl(nextState.google_maps_url)) {
+      throw new Error('Google Maps URL must use a supported Google Maps domain.');
+    }
+    if (nextState.minimum_stay_nights != null && (nextState.minimum_stay_nights < 1 || nextState.minimum_stay_nights > 365)) {
+      throw new Error('Minimum stay must be a whole number from 1 to 365.');
+    }
+    if (nextState.maximum_stay_nights != null && (nextState.maximum_stay_nights < 1 || nextState.maximum_stay_nights > 365)) {
+      throw new Error('Maximum stay must be a whole number from 1 to 365.');
+    }
+    if (nextState.minimum_stay_nights != null && nextState.maximum_stay_nights != null
+        && nextState.maximum_stay_nights < nextState.minimum_stay_nights) {
+      throw new Error('Maximum stay cannot be shorter than minimum stay.');
+    }
+    if (nextState.children_policy) normalizeChildrenPolicy(nextState.children_policy, nextState.minimum_child_age);
+    else if (nextState.minimum_child_age != null) throw new Error('A minimum child age requires a reviewed children policy.');
+    const payload = {};
+    const expectedOriginal = {};
+    PROPERTY_CONTROL_MUTATION_FIELDS.forEach((field) => {
+      if (JSON.stringify(nextState[field]) === JSON.stringify(currentState[field])) return;
+      payload[field] = clone(nextState[field]);
+      expectedOriginal[field] = clone(currentState[field]);
+    });
+    if (!Object.keys(payload).length) throw new Error('There are no property changes to review.');
+    const expectedProfileVersion = options.expectedOperationalProfileVersion == null
+      ? asInteger(current.operational_profile_version ?? current.version, -1)
+      : asInteger(options.expectedOperationalProfileVersion, -1);
+    if (PROPERTY_CONTROL_PRIVATE_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(payload, field))
+        && expectedProfileVersion < 0) {
+      throw new Error('The reviewed property plan is missing its private operational-profile version.');
+    }
+    return {
+      contract_version: PROPERTY_CONTROL_CONTRACT,
+      hotel_id: propertyId,
+      expected_property_updated_at: options.expectedPropertyUpdatedAt || normalized.property.updated_at || null,
+      expected_operational_profile_version: Math.max(0, expectedProfileVersion),
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      expected_original: expectedOriginal,
+      payload,
+    };
+  }
+
+  function isSupportedGoogleMapsUrl(value) {
+    try {
+      const url = new URL(asText(value));
+      if (url.protocol !== 'https:' || url.username || url.password || url.port) return false;
+      const host = url.hostname.toLowerCase().replace(/^www\./, '');
+      if (host === 'maps.app.goo.gl') return url.pathname !== '/';
+      if (host === 'goo.gl') return /^\/maps(?:\/|$)/.test(url.pathname);
+      const googleHost = host.replace(/^maps\./, '');
+      if (!/^google\.(?:com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$/.test(googleHost)) return false;
+      return host.startsWith('maps.google.') || /^\/maps(?:\/|$)/.test(url.pathname);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function propertyControlBusinessState(value) {
+    const source = asObject(value);
+    const state = {
+      title_i18n: normalizeI18n(source.title_i18n || source.title),
+      description_i18n: normalizeI18n(source.description_i18n || source.description),
+      address_line: asNullableText(source.address_line),
+      city: asText(source.city),
+      district: asNullableText(source.district),
+      postal_code: asNullableText(source.postal_code),
+      country: asNullableText(source.country),
+      latitude: asNumber(source.latitude, null),
+      longitude: asNumber(source.longitude, null),
+      google_maps_url: asNullableText(source.google_maps_url),
+      timezone: asText(source.timezone),
+      currency: asText(source.currency).toUpperCase(),
+      booking_mode: asText(source.booking_mode),
+      check_in_from: asNullableText(source.check_in_from)?.slice(0, 5) || null,
+      check_out_until: asNullableText(source.check_out_until)?.slice(0, 5) || null,
+      minimum_stay_nights: source.minimum_stay_nights == null ? null : asInteger(source.minimum_stay_nights, 0),
+      maximum_stay_nights: source.maximum_stay_nights == null ? null : asInteger(source.maximum_stay_nights, 0),
+      owner_partner_id: normalizeUuid(source.owner_partner_id) || null,
+      children_policy: asNullableText(source.children_policy),
+      minimum_child_age: source.minimum_child_age == null ? null : asInteger(source.minimum_child_age, -1),
+      amenities: normalizeAmenities(source.amenities),
+      cover_image_url: asNullableText(source.cover_image_url),
+      photos: normalizeGallery(source.photos),
+      guest_instructions_i18n: normalizeI18n(source.guest_instructions_i18n),
+      check_in_instructions_i18n: normalizeI18n(source.check_in_instructions_i18n),
+      check_out_instructions_i18n: normalizeI18n(source.check_out_instructions_i18n),
+      internal_operational_notes: asNullableText(source.internal_operational_notes),
+    };
+    return Object.fromEntries(PROPERTY_CONTROL_BUSINESS_FIELDS.map((field) => [field, clone(state[field])]));
+  }
+
+  function reconcilePropertyControl(originalValue, currentValue, requestedValue) {
+    const original = asObject(originalValue);
+    const current = asObject(currentValue);
+    const requested = asObject(requestedValue);
+    const id = normalizeUuid(original.id);
+    if (!id || normalizeUuid(current.id) !== id || normalizeUuid(requested.id) !== id) {
+      throw new Error('Property conflict reconciliation requires one exact property relationship.');
+    }
+    const originalState = propertyControlBusinessState(original);
+    const currentState = propertyControlBusinessState(current);
+    const requestedState = propertyControlBusinessState(requested);
+    const conflicts = [];
+    const requestedChanges = [];
+    const safeRebases = [];
+    const merged = { ...clone(current) };
+    PROPERTY_CONTROL_BUSINESS_FIELDS.forEach((field) => {
+      const originalJson = JSON.stringify(originalState[field]);
+      const currentJson = JSON.stringify(currentState[field]);
+      const requestedJson = JSON.stringify(requestedState[field]);
+      const changedByAdmin = requestedJson !== originalJson;
+      const changedInDatabase = currentJson !== originalJson;
+      if (changedByAdmin) requestedChanges.push(field);
+      if (changedByAdmin && changedInDatabase && requestedJson !== currentJson) {
+        conflicts.push({ field, original: clone(originalState[field]), current: clone(currentState[field]), requested: clone(requestedState[field]) });
+        return;
+      }
+      if (changedByAdmin) {
+        merged[field] = clone(requestedState[field]);
+        if (changedInDatabase) safeRebases.push(field);
+      }
+    });
+    return {
+      safe: conflicts.length === 0,
+      conflicts,
+      requested_changes: requestedChanges,
+      safe_rebases: safeRebases,
+      merged,
+    };
+  }
+
+  const OPERATIONAL_ASSIGNMENT_CONTRACT = 'hotels_v2_admin_b_operational_assignment_v1';
+
+  function normalizeOperationalAssignmentSnapshot(contentControlValue, expectedHotelId = null) {
+    const contentControl = asObject(contentControlValue);
+    const hotelId = normalizeUuid(contentControl.hotel_id);
+    const expected = normalizeUuid(expectedHotelId);
+    const source = asObject(contentControl.assignment_snapshot);
+    if (contentControl.contract_version !== 'hotels_v2_admin_b_content_control_v1'
+        || !hotelId || (expected && expected !== hotelId)
+        || !asText(source.snapshot_token) || !asText(source.assignment_fingerprint)) {
+      throw new Error('A fresh exact-property operational-assignment snapshot is required.');
+    }
+    const assignments = asArray(source.assignments).map((entryValue) => {
+      const entry = asObject(entryValue);
+      const assignmentId = normalizeUuid(entry.assignment_id || entry.id);
+      const partnerId = normalizeUuid(entry.partner_id || entry.partner?.id);
+      if (!assignmentId || !partnerId) throw new Error('Operational-assignment snapshot contains a foreign or invalid relationship.');
+      const rawStaffScopeIds = asArray(entry.staff_scope_ids);
+      const staffScopeIds = rawStaffScopeIds.map(normalizeUuid);
+      const staffScopeCount = asInteger(entry.staff_scope_count, -1);
+      if (staffScopeCount < 0 || staffScopeIds.some((id) => !id)
+          || new Set(staffScopeIds).size !== staffScopeIds.length
+          || JSON.stringify([...staffScopeIds].sort()) !== JSON.stringify(staffScopeIds)
+          || staffScopeIds.length !== staffScopeCount) {
+        throw new Error('Operational-assignment snapshot contains an invalid exact staff-scope set.');
+      }
+      return {
+        ...clone(entry),
+        assignment_id: assignmentId,
+        partner_id: partnerId,
+        staff_scope_count: staffScopeCount,
+        staff_scope_ids: staffScopeIds,
+        permission_exists: entry.permission_exists === true,
+      };
+    });
+    if (new Set(assignments.map((entry) => entry.assignment_id)).size !== assignments.length) {
+      throw new Error('Operational-assignment snapshot contains duplicate exact assignment IDs.');
+    }
+    return {
+      hotel_id: hotelId,
+      snapshot_token: asText(source.snapshot_token),
+      assignment_fingerprint: asText(source.assignment_fingerprint),
+      assignments,
+    };
+  }
+
+  function buildOperationalAssignmentPlan(contentControlValue, operationValue, options = {}) {
+    const snapshot = normalizeOperationalAssignmentSnapshot(contentControlValue, options.hotelId);
+    const operation = asObject(operationValue);
+    const type = asText(operation.type);
+    const assignmentId = normalizeUuid(operation.assignment_id);
+    const partnerId = normalizeUuid(operation.partner_id);
+    if (!['assign', 'remove'].includes(type) || !assignmentId || !partnerId) {
+      throw new Error('Choose an exact Partner and operational-assignment action.');
+    }
+    const current = snapshot.assignments.find((entry) => entry.assignment_id === assignmentId);
+    if (type === 'assign') {
+      if (current || snapshot.assignments.some((entry) => entry.partner_id === partnerId)) {
+        throw new Error('This Partner already has an exact operational assignment for the property.');
+      }
+    } else if (!current || current.partner_id !== partnerId) {
+      throw new Error('The exact operational assignment is no longer present in this property snapshot.');
+    }
+    return {
+      contract_version: OPERATIONAL_ASSIGNMENT_CONTRACT,
+      hotel_id: snapshot.hotel_id,
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      snapshot_token: snapshot.snapshot_token,
+      expected_assignment_fingerprint: snapshot.assignment_fingerprint,
+      operation: {
+        type,
+        assignment_id: assignmentId,
+        partner_id: partnerId,
+        expected_staff_scope_count: type === 'remove' ? current.staff_scope_count : 0,
+        expected_staff_scope_ids: type === 'remove' ? clone(current.staff_scope_ids).sort() : [],
+        expected_permission_exists: type === 'remove' ? current.permission_exists : false,
+      },
     };
   }
 
@@ -2686,7 +3017,39 @@
     if (expectedVersion < 0 || (reviewedOperation.type !== 'create' && expectedVersion < 1)) {
       throw new Error('The reviewed Room Type operation is missing its optimistic version.');
     }
+    const operationType = asText(reviewedOperation.type);
+    const originalRoom = operationType === 'create'
+      ? null
+      : normalized.room_types.find((room) => room.id === normalizeUuid(
+        operationType === 'duplicate' ? reviewedOperation.payload?.source_id : reviewedOperation.id,
+      ));
+    let payload = clone(reviewedOperation.payload || {});
+    let expectedOriginal = {};
+    if (operationType === 'update') {
+      if (!originalRoom) throw new Error('The reviewed exact Room Type no longer exists in this property snapshot.');
+      const originalState = roomControlBusinessState(originalRoom);
+      const requestedState = roomControlBusinessState({ ...originalRoom, ...payload });
+      payload = {};
+      ROOM_CONTROL_BUSINESS_FIELDS.forEach((field) => {
+        if (JSON.stringify(requestedState[field]) === JSON.stringify(originalState[field])) return;
+        payload[field] = clone(requestedState[field]);
+        expectedOriginal[field] = clone(originalState[field]);
+      });
+      const capacityFields = ['max_occupancy', 'capacity_adults', 'capacity_children'];
+      if (capacityFields.some((field) => Object.prototype.hasOwnProperty.call(payload, field))) {
+        capacityFields.forEach((field) => {
+          payload[field] = clone(requestedState[field]);
+          expectedOriginal[field] = clone(originalState[field]);
+        });
+      }
+      if (!Object.keys(payload).length) throw new Error('There are no Room Type changes to review.');
+    } else if (operationType === 'disable') {
+      if (!originalRoom) throw new Error('The reviewed exact Room Type no longer exists in this property snapshot.');
+      payload = {};
+      expectedOriginal = { status: originalRoom.status };
+    }
     return {
+      contract_version: 'hotels_v2_admin_b_room_control_v1',
       hotel_id: normalized.property.id,
       expected_property_updated_at: options.expectedPropertyUpdatedAt || normalized.property.updated_at || null,
       reviewed_at: options.reviewedAt || new Date().toISOString(),
@@ -2694,8 +3057,66 @@
         type: reviewedOperation.type,
         id: normalizeUuid(reviewedOperation.id),
         expected_version: expectedVersion,
-        payload: clone(reviewedOperation.payload || {}),
+        expected_original: expectedOriginal,
+        payload,
       },
+    };
+  }
+
+  const ROOM_CONTROL_BUSINESS_FIELDS = Object.freeze([
+    'code', 'name_i18n', 'description_i18n', 'gallery', 'capacity_adults', 'capacity_children',
+    'max_occupancy', 'children_policy_override', 'minimum_child_age_override', 'bed_configuration',
+    'bathrooms', 'size_sqm', 'floor_label_i18n', 'amenities', 'inventory_mode',
+    'base_inventory_count', 'status', 'sort_order',
+  ]);
+
+  function roomControlBusinessState(value) {
+    const room = normalizeRoomType(value);
+    return Object.fromEntries(ROOM_CONTROL_BUSINESS_FIELDS.map((field) => [field, clone(room[field])]));
+  }
+
+  function reconcileRoomControl(originalValue, currentValue, requestedValue) {
+    const original = normalizeRoomType(originalValue);
+    const current = normalizeRoomType(currentValue);
+    const requested = normalizeRoomType(requestedValue);
+    if (!original.id || current.id !== original.id || requested.id !== original.id
+        || current.hotel_id !== original.hotel_id || requested.hotel_id !== original.hotel_id) {
+      throw new Error('Room conflict reconciliation requires one exact Room Type relationship.');
+    }
+    const originalState = roomControlBusinessState(original);
+    const currentState = roomControlBusinessState(current);
+    const requestedState = roomControlBusinessState(requested);
+    const conflicts = [];
+    const requestedChanges = [];
+    const safeRebases = [];
+    const merged = { ...clone(current) };
+    ROOM_CONTROL_BUSINESS_FIELDS.forEach((field) => {
+      const originalJson = JSON.stringify(originalState[field]);
+      const currentJson = JSON.stringify(currentState[field]);
+      const requestedJson = JSON.stringify(requestedState[field]);
+      const changedByAdmin = requestedJson !== originalJson;
+      const changedInDatabase = currentJson !== originalJson;
+      if (changedByAdmin) requestedChanges.push(field);
+      if (changedByAdmin && changedInDatabase && requestedJson !== currentJson) {
+        conflicts.push({
+          field,
+          original: clone(originalState[field]),
+          current: clone(currentState[field]),
+          requested: clone(requestedState[field]),
+        });
+        return;
+      }
+      if (changedByAdmin) {
+        merged[field] = clone(requestedState[field]);
+        if (changedInDatabase) safeRebases.push(field);
+      }
+    });
+    return {
+      safe: conflicts.length === 0,
+      conflicts,
+      requested_changes: requestedChanges,
+      safe_rebases: safeRebases,
+      merged: normalizeRoomType(merged),
     };
   }
 
@@ -2729,6 +3150,7 @@
   function buildDuplicateRoom(room, workspace) {
     const original = normalizeRoomType(room);
     const normalized = normalizeWorkspace(workspace);
+    const propertyGallery = new Set(normalized.property.photos);
     let suffix = 1;
     let code = `${original.code}-copy`;
     while (normalized.room_types.some((candidate) => candidate.code === code)) {
@@ -2740,7 +3162,15 @@
       id: newUuid(),
       code,
       name_i18n: Object.fromEntries(Object.entries(original.name_i18n).map(([language, label]) => [language, `${label} copy`])),
+      // Exact Room uploads are owned by their source Room path. A duplicate may
+      // retain only media that is also an exact shared property photo; target-
+      // foreign Room objects, units and products are never copied implicitly.
+      gallery: original.gallery.filter((url) => propertyGallery.has(url)),
       status: 'draft',
+      // A duplicate is content/structure only. Inventory is operational state
+      // and must be configured explicitly for the new draft before activation.
+      inventory_mode: 'pooled',
+      base_inventory_count: 0,
       version: 1,
       created_at: null,
       updated_at: null,
@@ -2847,7 +3277,17 @@
     validateRoomRate,
     operationForEntity,
     buildWorkspacePlan,
+    buildPropertyControlPlan,
+    PROPERTY_CONTROL_BUSINESS_FIELDS,
+    propertyControlBusinessState,
+    reconcilePropertyControl,
+    OPERATIONAL_ASSIGNMENT_CONTRACT,
+    normalizeOperationalAssignmentSnapshot,
+    buildOperationalAssignmentPlan,
     buildRoomTypePlan,
+    ROOM_CONTROL_BUSINESS_FIELDS,
+    roomControlBusinessState,
+    reconcileRoomControl,
     buildReviewRows,
     buildDuplicateRoom,
     priceFrom,

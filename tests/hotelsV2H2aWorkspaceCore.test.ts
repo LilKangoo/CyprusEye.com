@@ -409,6 +409,7 @@ describe('Hotels V2 H2A Property Workspace core', () => {
       bed_configuration: [],
       bathrooms: null,
       size_sqm: null,
+      floor_label_i18n: {},
       amenities: [],
       inventory_mode: 'pooled',
       base_inventory_count: 0,
