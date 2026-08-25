@@ -55,6 +55,7 @@
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="/partners/hotels-v2-workspace.css?v=20260825_1" />
   <link rel="stylesheet" href="css/toast.css" />
   <link rel="stylesheet" href="css/modal-ios-fix.css" />
 
@@ -527,6 +528,8 @@
     </aside>
 
     <main class="admin-main">
+    <section id="partnerHotelWorkspaceView" class="partner-hotel-workspace" aria-labelledby="partnerHotelWorkspaceTitle" hidden></section>
+    <dialog id="partnerHotelWorkspaceReview" class="partner-hotel-workspace-review" aria-labelledby="partnerHotelWorkspaceReviewTitle"></dialog>
     <div id="partnerPortalView">
       <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
       <p class="muted" style="margin-top: 0;">Manage order confirmations and availability.</p>
@@ -631,6 +634,15 @@
 
           <div id="partnerTabFulfillments" style="margin-top: 10px;">
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
+
+            <section id="partnerAssignedHotelsCard" class="partner-assigned-hotels" aria-labelledby="partnerAssignedHotelsTitle" hidden>
+              <div class="partner-assigned-hotels__head">
+                <div><h3 id="partnerAssignedHotelsTitle">Assigned Hotels</h3><p>Open the capability-scoped workspace for an exact Hotel assignment.</p></div>
+                <span class="badge" style="background:#075985;">Reviewed workspace</span>
+              </div>
+              <div id="partnerAssignedHotelsStatus" class="muted small" aria-live="polite">Loading assigned Hotels…</div>
+              <div id="partnerAssignedHotelsList" class="partner-assigned-hotels__list"></div>
+            </section>
 
             <div class="admin-table-container" aria-label="Fulfillments">
             <table class="admin-table">
@@ -967,7 +979,12 @@
 
   <script src="js/i18n.js?v=20260509_profile_lang1" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=36" defer></script>
+  <script src="/admin/hotels-v2-workspace-core.js?v=20260825_1" defer></script>
+  <script src="/js/hotels-v2-partner-workspace-core.js?v=20260825_1" defer></script>
+  <script src="/js/hotels-v2-partner-workspace-repository.js?v=20260825_1" defer></script>
+  <script src="/js/hotels-v2-partner-media.js?v=20260825_1" defer></script>
+  <script src="/js/hotels-v2-partner-workspace.js?v=20260825_1" defer></script>
+  <script src="/js/partners.js?v=20260825_1" defer></script>
 
   <div
     id="auth-modal"

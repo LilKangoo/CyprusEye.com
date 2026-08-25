@@ -36,7 +36,7 @@ describe('Hotels V2 ADMIN-C independent frozen-package adversarial gate', () => 
       postAdmin: 'bba0c49a1ed7713094d670f6e2eb277c4745b34a9dad9638072b39057b4addd9',
       manualGate: 'de62b3e0f16bf9a86a289899e7d4874bb2f2f46aad217d3218a0e309350f143e',
       postgresGate: '39d9582692c1f78c9fa9259ea62d8ce83627a1710fe47be7f46a6e8a517689be',
-      postgrestBase: '2835c87fc28ae8575f896dbc9456939a8537d877381563734b2b727a2896f275',
+      postgrestBase: '95968b1a0ddb1b208420336011ff969b72b66ccadbd28e78423eece2a1081993',
       postgrestGate: 'aa4670a4ddc957cec777192907c68743dccf98e2323e68d8e3ac0598c7ec1ec1',
     });
   });

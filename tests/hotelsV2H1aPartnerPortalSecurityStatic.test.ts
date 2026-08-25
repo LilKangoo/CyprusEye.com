@@ -17,7 +17,10 @@ describe('Hotels H1A Partner Portal booking security compatibility', () => {
     expect(source).toContain("'partner_get_hotel_booking_operational_context'");
 
     const helperCalls = source.match(/loadPartnerHotelBookingOperationalContext\s*\(/g) || [];
-    expect(helperCalls.length).toBeGreaterThanOrEqual(5);
+    // H3.2B moved Hotel availability out of the legacy generic availability
+    // path into the reviewed normalized Hotel workspace. The secure helper remains
+    // required for the remaining Hotel booking operational-context flows.
+    expect(helperCalls.length).toBeGreaterThanOrEqual(4);
   });
 
   test('uses the redacted referral attribution bridge', () => {

@@ -208,7 +208,7 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(calls).toHaveLength(1);
   });
 
-  test('Admin and Partner foundation UI remain reviewed/inert with no raw Hotel fallback', () => {
+  test('H3.2A discovery remains exact while the reviewed H3.2B workspace is integrated without a raw fallback', () => {
     const admin = fs.readFileSync(path.join(process.cwd(), 'admin/hotels-v2-workspace.js'), 'utf8');
     const partner = fs.readFileSync(path.join(process.cwd(), 'js/partners.js'), 'utf8');
     const html = fs.readFileSync(path.join(process.cwd(), 'partners/index.html'), 'utf8');
@@ -221,12 +221,13 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(partner).toContain("hasExactKeys(source, ['contract_version', 'partner', 'foundation_only', 'workspace_available', 'properties'])");
     expect(partner).toContain("hasExactKeys(row, ['assignment_id', 'hotel_id', 'slug', 'name_i18n', 'city', 'cover_image_url'");
     expect(html).toContain('id="partnerAssignedHotelsCard"');
-    expect(html).toContain('Foundation only');
-    expect(html).not.toContain('data-assigned-hotel-workspace');
+    expect(html).toContain('Reviewed workspace');
+    expect(partner).toContain('data-assigned-hotel-workspace');
     expect(dashboard).toContain('/admin/admin.css?v=20260821_1');
     expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260821_1');
     expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260821_1');
     expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260821_1');
-    expect(html).toContain('/js/partners.js?v=37');
+    expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260825_1');
+    expect(html).toContain('/js/partners.js?v=20260825_1');
   });
 });

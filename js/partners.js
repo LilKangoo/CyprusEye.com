@@ -56,7 +56,7 @@
     transportFinancialSummaryByBookingId: {},
     blocks: [],
     calendar: {
-      resourcesByType: { shop: [], cars: [], trips: [], hotels: [], transport: [] },
+      resourcesByType: { shop: [], cars: [], trips: [], transport: [] },
       monthValue: '',
       monthBlocks: [],
       monthBusyRanges: [],
@@ -67,7 +67,6 @@
         shop: new Set(),
         cars: new Set(),
         trips: new Set(),
-        hotels: new Set(),
         transport: new Set(),
       },
     },
@@ -2024,7 +2023,9 @@
 
   function assignedHotelName(property) {
     const names = property?.name_i18n || {};
-    return String(names.en || names.pl || names.he || property?.slug || 'Assigned Hotel').trim();
+    const language = getPartnerUiLanguage();
+    const fallback = language === 'he' ? ['he', 'en', 'pl'] : (language === 'pl' ? ['pl', 'en', 'he'] : ['en', 'pl', 'he']);
+    return String(fallback.map((key) => names[key]).find((value) => String(value || '').trim()) || property?.slug || 'Assigned Hotel').trim();
   }
 
   function renderAssignedHotels() {
@@ -2034,7 +2035,7 @@
     setHidden(els.assignedHotelsCard, !visible);
     if (!visible) return;
     if (state.assignedHotels.loading) {
-      setText(els.assignedHotelsStatus, 'Loading exact assigned Hotels…');
+      setText(els.assignedHotelsStatus, window.HotelsV2PartnerWorkspace?.text?.('loadingAssignments') || 'Loading exact assigned Hotels…');
       setHtml(els.assignedHotelsList, '');
       return;
     }
@@ -2044,7 +2045,7 @@
       return;
     }
     const properties = state.assignedHotels.properties || [];
-    setText(els.assignedHotelsStatus, `${properties.length} exact assigned Hotel${properties.length === 1 ? '' : 's'} · workspace unavailable in H3.2A`);
+    setText(els.assignedHotelsStatus, `${properties.length} ${window.HotelsV2PartnerWorkspace?.text?.('assignedHotels') || 'exact assigned Hotels'}`);
     if (!properties.length) {
       setHtml(els.assignedHotelsList, '<div class="muted small">No Hotel property is available through this exact partner/staff assignment scope.</div>');
       return;
@@ -2053,9 +2054,17 @@
       const enabled = HOTEL_PARTNER_CAPABILITY_KEYS.filter((key) => property.permission.capabilities[key]);
       return `<article class="partner-assigned-hotel" data-assigned-hotel-id="${escapeHtml(property.hotel_id)}">
         ${property.cover_image_url ? `<img src="${escapeHtml(property.cover_image_url)}" alt="" loading="lazy" />` : '<div class="partner-assigned-hotel__placeholder" aria-hidden="true">⌂</div>'}
-        <div class="partner-assigned-hotel__body"><strong>${escapeHtml(assignedHotelName(property))}</strong><small>${escapeHtml(property.city || 'Location not specified')}</small><small>Foundation only · no workspace or actions</small><div class="partner-assigned-hotel__access">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(HOTEL_PARTNER_CAPABILITY_LABELS[key])}</span>`).join('') : '<span>All capabilities OFF</span>'}</div></div>
+        <div class="partner-assigned-hotel__body"><strong>${escapeHtml(assignedHotelName(property))}</strong><small>${escapeHtml(property.city || window.HotelsV2PartnerWorkspace?.text?.('locationUnknown') || 'Location not specified')}</small><div class="partner-assigned-hotel__access">${enabled.length ? enabled.map((key) => `<span>${escapeHtml(window.HotelsV2PartnerWorkspace?.capabilityText?.(key) || HOTEL_PARTNER_CAPABILITY_LABELS[key])}</span>`).join('') : `<span>${escapeHtml(window.HotelsV2PartnerWorkspace?.text?.('allOff') || 'All capabilities OFF')}</span>`}</div><button class="btn-sm primary" type="button" data-assigned-hotel-workspace="${escapeHtml(property.assignment_id)}">${escapeHtml(window.HotelsV2PartnerWorkspace?.text?.('openWorkspace') || 'Open workspace')}</button></div>
       </article>`;
     }).join(''));
+    els.assignedHotelsList?.querySelectorAll('[data-assigned-hotel-workspace]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const assignmentId = String(button.getAttribute('data-assigned-hotel-workspace') || '').trim();
+        const property = properties.find((entry) => entry.assignment_id === assignmentId) || null;
+        if (!property || !window.HotelsV2PartnerWorkspace?.open) return;
+        window.HotelsV2PartnerWorkspace.open({ partnerId: state.selectedPartnerId, assignment: property });
+      });
+    });
   }
 
   async function refreshAssignedHotels() {
@@ -2708,6 +2717,10 @@
   }
 
   function setMainView(view) {
+    const hotelWorkspace = document.getElementById('partnerHotelWorkspaceView');
+    if (hotelWorkspace && !hotelWorkspace.hidden) {
+      window.HotelsV2PartnerWorkspace?.close?.({ restorePortal: false });
+    }
     const isAnalytics = view === 'analytics';
     const isBlog = view === 'blog';
     const isProfile = view === 'profile';
@@ -6032,7 +6045,9 @@
   }
 
   function availabilityTypes() {
-    return ['shop', 'cars', 'trips', 'hotels', 'transport'];
+    // Normalized Hotel inventory belongs exclusively to the reviewed H3.2B
+    // workspace. The legacy generic block table remains for other services.
+    return ['shop', 'cars', 'trips', 'transport'];
   }
 
   function isAvailabilityType(value) {
@@ -6074,12 +6089,6 @@
     if (els.btnAvailabilityClearAll) els.btnAvailabilityClearAll.disabled = disabled;
     updateAvailabilitySelectionSummary();
     renderResourcePanels();
-  }
-
-  function allowedAvailabilityTypes() {
-    const opts = Array.from(els.blockResourceType?.options || []).map(o => String(o.value || '').trim()).filter(Boolean);
-    const allowed = opts.filter(isAvailabilityType);
-    return allowed.length ? allowed : availabilityTypes();
   }
 
   async function ensureResourcesLoadedForType(type) {
@@ -6339,23 +6348,6 @@
           (data || []).forEach((r) => {
             if (!r.start_date || !r.end_date) return;
             ranges.push({ start_date: r.start_date, end_date: r.end_date });
-          });
-        } catch (_e) {}
-      }
-
-      if (type === 'hotels') {
-        try {
-          const rows = await loadPartnerHotelBookingOperationalContext({
-            hotelIds: [resourceId],
-            startDate: startIso,
-            endDate: endIso,
-            limit: 500,
-          });
-          rows.forEach((r) => {
-            if (String(r.status || '').trim().toLowerCase() === 'cancelled') return;
-            if (!r.arrival_date || !r.departure_date) return;
-            if (String(r.arrival_date) > endIso || String(r.departure_date) < startIso) return;
-            ranges.push({ start_date: r.arrival_date, end_date: r.departure_date });
           });
         } catch (_e) {}
       }
@@ -11471,6 +11463,7 @@
       .from('partner_availability_blocks')
       .select('id, resource_type, resource_id, start_date, end_date, note, created_at')
       .eq('partner_id', state.selectedPartnerId)
+      .neq('resource_type', 'hotels')
       .order('start_date', { ascending: false })
       .limit(200);
 
@@ -13190,58 +13183,6 @@
       return Array.from(rowsMap.values());
     }
 
-    if (type === 'hotels') {
-      const assignedIds = await loadPartnerResourceIdsForType('hotels');
-      const rowsMap = new Map();
-
-      try {
-        const { data, error } = await state.sb
-          .from('hotels')
-          .select('id, slug, title, city')
-          .eq('owner_partner_id', partner.id)
-          .order('updated_at', { ascending: false })
-          .limit(500);
-        if (error) throw error;
-        (data || []).forEach((r) => {
-          if (!r?.id) return;
-          const title = normalizeTitleJson(r.title) || r.slug || r.id;
-          const city = r.city ? ` — ${r.city}` : '';
-          rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
-        });
-      } catch (_e) {}
-
-      if (assignedIds.length) {
-        try {
-          const { data, error } = await state.sb
-            .from('hotels')
-            .select('id, slug, title, city')
-            .in('id', assignedIds)
-            .order('updated_at', { ascending: false })
-            .limit(500);
-          if (error) throw error;
-          (data || []).forEach((r) => {
-            if (!r?.id) return;
-            const title = normalizeTitleJson(r.title) || r.slug || r.id;
-            const city = r.city ? ` — ${r.city}` : '';
-            rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
-          });
-        } catch (_e) {
-          assignedIds.forEach((id) => {
-            if (!id) return;
-            if (!rowsMap.has(id)) rowsMap.set(id, { id, label: `Hotel (${String(id).slice(0, 8)})` });
-          });
-        }
-      }
-
-      const fromBlocks = blockResourceIdsForType('hotels');
-      fromBlocks.forEach((id) => {
-        if (!id) return;
-        if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('hotels', id) });
-      });
-
-      return Array.from(rowsMap.values());
-    }
-
     if (type === 'transport') {
       const assignedIds = await loadPartnerResourceIdsForType('transport');
       const rowsMap = new Map();
@@ -13539,7 +13480,6 @@
     const canShop = Boolean(partner?.can_manage_shop && partner?.shop_vendor_id);
     const canCars = Boolean(partner?.can_manage_cars);
     const canTrips = Boolean(partner?.can_manage_trips);
-    const canHotels = Boolean(partner?.can_manage_hotels);
     const canTransport = Boolean(partner?.can_manage_transport);
 
     const blockTypes = new Set();
@@ -13564,13 +13504,14 @@
     if (canShop) allowed.push('shop');
     if (canCars) allowed.push('cars');
     if (canTrips) allowed.push('trips');
-    if (canHotels) allowed.push('hotels');
+    // Hotels are intentionally absent: H3.2B owns reviewed normalized
+    // availability and never writes partner_availability_blocks.
     if (canTransport) allowed.push('transport');
 
-    Array.from(blockTypes).forEach((t) => {
+    Array.from(blockTypes).filter((t) => t !== 'hotels').forEach((t) => {
       if (!allowed.includes(t)) allowed.push(t);
     });
-    Array.from(fulfillmentTypes).forEach((t) => {
+    Array.from(fulfillmentTypes).filter((t) => t !== 'hotels').forEach((t) => {
       if (!allowed.includes(t)) allowed.push(t);
     });
 
@@ -13578,7 +13519,6 @@
     if (allowed.includes('shop')) opts.push('<option value="shop">shop</option>');
     if (allowed.includes('cars')) opts.push('<option value="cars">cars</option>');
     if (allowed.includes('trips')) opts.push('<option value="trips">trips</option>');
-    if (allowed.includes('hotels')) opts.push('<option value="hotels">hotels</option>');
     if (allowed.includes('transport')) opts.push('<option value="transport">transport</option>');
 
     setHtml(select, opts.join(''));
@@ -13708,6 +13648,7 @@
   }
 
   async function handlePartnerChange(nextPartnerId) {
+    window.HotelsV2PartnerWorkspace?.close?.({ restorePortal: true });
     state.selectedPartnerId = nextPartnerId || null;
     state.assignedHotels = { loading: false, error: null, properties: [], partnerId: state.selectedPartnerId };
     state.partnerBlog.resourcesByType = {};
@@ -14054,6 +13995,7 @@
     els.partnerNavCars?.addEventListener('click', () => navToCategory('cars'));
     els.partnerNavTrips?.addEventListener('click', () => navToCategory('trips'));
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
+    window.addEventListener('ce:partner-hotel-bookings', () => navToCategory('hotels'));
     els.partnerNavTransport?.addEventListener('click', () => navToCategory('transport'));
     els.partnerNavBlog?.addEventListener('click', () => {
       void navToBlog();

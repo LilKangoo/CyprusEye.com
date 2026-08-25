@@ -1,4 +1,4 @@
-const PARTNERS_SW_URL = '/partners/sw.js?v=20260216_4';
+const PARTNERS_SW_URL = '/partners/sw.js?v=20260825_1';
 
 let deferredPrompt = null;
 let notifyInstallUi = null;
