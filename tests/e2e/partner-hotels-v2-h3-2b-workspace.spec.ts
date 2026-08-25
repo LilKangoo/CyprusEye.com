@@ -78,7 +78,7 @@ async function installHarness(page: Page, viewport: { width: number; height: num
       gallery: ['https://example.test/property-a.webp'], capacity_adults: null, capacity_children: null,
       max_occupancy: 4, bed_configuration: [], bathrooms: 1, size_sqm: 42, amenities: ['wifi'],
       inventory_mode: 'pooled', base_inventory_count: 1, status: 'active', sort_order: 10,
-      floor_label_i18n: { pl: 'Piętro', en: 'Upper floor', he: 'קומה עליונה' }, version: 3,
+      floor_label_i18n: {}, version: 3,
       updated_at: '2026-08-25T10:00:00Z',
     };
     const roomRate = {

@@ -174,6 +174,49 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     ).toBe(0);
   });
 
+  test('accepts the canonical empty optional Room floor label from ADMIN-B', () => {
+    const value = workspace();
+
+    value.rooms = [{
+      id: TARGET,
+      hotel_id: HOTEL,
+      code: 'upper',
+      name_i18n: { pl: 'Upper', en: 'Upper', he: 'Upper' },
+      description_i18n: { pl: '', en: '', he: '' },
+      gallery: [],
+      capacity_adults: null,
+      capacity_children: null,
+      max_occupancy: 4,
+      bed_configuration: [],
+      bathrooms: 1,
+      size_sqm: null,
+      amenities: [],
+      inventory_mode: 'pooled',
+      base_inventory_count: 1,
+      status: 'active',
+      sort_order: 10,
+      floor_label_i18n: {},
+      version: 1,
+      updated_at: '2026-08-25T12:00:00Z',
+    }];
+
+    const validated = Core.validateWorkspace(
+      value,
+      { partnerId: PARTNER, hotelId: HOTEL }
+    );
+
+    expect(Object.keys(validated.rooms[0].floor_label_i18n)).toHaveLength(0);
+
+    value.rooms[0].floor_label_i18n = { xx: 'Unsupported' };
+
+    expect(() =>
+      Core.validateWorkspace(
+        value,
+        { partnerId: PARTNER, hotelId: HOTEL }
+      )
+    ).toThrow('only exact PL/EN/HE strings');
+  });
+
   test('requires canonical supported UUIDs and all four Hotels V2 flags OFF', () => {
     expect(Core.requireCanonicalUuid(TARGET)).toBe(TARGET);
     expect(() => Core.requireCanonicalUuid('ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF')).toThrow('lowercase canonical UUID');

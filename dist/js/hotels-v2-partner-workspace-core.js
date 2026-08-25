@@ -258,7 +258,7 @@
     if (!['pooled', 'unitized'].includes(row.inventory_mode) || !['draft', 'active', 'disabled'].includes(row.status)) fail('Room lifecycle or inventory mode is invalid.');
     requireInteger(row.base_inventory_count, 'room.base_inventory_count', 0, 10000);
     requireInteger(row.sort_order, 'room.sort_order', 0, 1000000);
-    requireI18n(row.floor_label_i18n, 'room.floor_label_i18n', { maximum: 160 });
+    requireI18n(row.floor_label_i18n, 'room.floor_label_i18n', { partial: true, maximum: 160 });
     requireInteger(row.version, 'room.version', 1);
     requireTimestamp(row.updated_at, 'room.updated_at');
   }
