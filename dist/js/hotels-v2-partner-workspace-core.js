@@ -438,7 +438,7 @@
     if ((expected.partnerId && partnerId !== expected.partnerId) || (expected.hotelId && hotelId !== expected.hotelId)) fail('Partner Hotel workspace identity is mismatched.');
     requireString(value.partner.role, 'partner.role', { minimum: 1, maximum: 80 });
     requireExactKeys(value.assignment, ['id', 'permission_version', 'capabilities', 'access_snapshot_token'], 'Partner assignment');
-    requireCanonicalUuid(value.assignment.id, 'assignment.id'); requireInteger(value.assignment.permission_version, 'assignment.permission_version', 1); requireSnapshot(value.assignment.access_snapshot_token, 'assignment.access_snapshot_token');
+    requireCanonicalUuid(value.assignment.id, 'assignment.id'); requireInteger(value.assignment.permission_version, 'assignment.permission_version', 0); requireSnapshot(value.assignment.access_snapshot_token, 'assignment.access_snapshot_token');
     requireExactKeys(value.assignment.capabilities, CAPABILITIES, 'Partner capabilities');
     CAPABILITIES.forEach((key) => { if (typeof value.assignment.capabilities[key] !== 'boolean') fail(`Capability ${key} is invalid.`); });
     requireExactKeys(value.feature_flags, FEATURE_FLAGS, 'Hotel feature flags');

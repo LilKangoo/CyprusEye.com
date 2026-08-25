@@ -164,6 +164,16 @@ function pricingReview(Core: any, summary: any): { draft: any; preview: any } {
 describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
   const Core = loadCore();
 
+  test('allows an exact read-only workspace when no H3.2A permission row exists', () => {
+    const value = workspace();
+    value.assignment.permission_version = 0;
+
+    expect(
+      Core.validateWorkspace(value, { partnerId: PARTNER, hotelId: HOTEL })
+        .assignment.permission_version
+    ).toBe(0);
+  });
+
   test('requires canonical supported UUIDs and all four Hotels V2 flags OFF', () => {
     expect(Core.requireCanonicalUuid(TARGET)).toBe(TARGET);
     expect(() => Core.requireCanonicalUuid('ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF')).toThrow('lowercase canonical UUID');
