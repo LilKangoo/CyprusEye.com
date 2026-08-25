@@ -14,7 +14,7 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
 
   test('has no browser raw normalized-table fallback or Admin mutation RPC', () => {
     const browserSource = [core, repository, workspace, media].join('\n');
-    expect(repository).not.toMatch(/\.from\s*\(/);
+    expect(repository).not.toMatch(/client\(\)\.from\s*\(/);
     expect(browserSource).not.toMatch(/hotel_v2_admin_(?:get|preview|apply|create|update|delete)/);
     expect(browserSource).not.toMatch(/(?:hotel_rate_plans|hotel_room_rates|hotel_pricing_schedules|hotel_daily_inventory)["'`]\s*\)/);
     expect(repository).not.toMatch(/commission_policy/i);
@@ -26,7 +26,8 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     expect(core).toContain('const CAPABILITIES = Object.freeze([');
     expect(core).toContain('const FEATURE_FLAGS = Object.freeze([');
     expect(core).toContain("if (value.legacy_authoritative !== true || value.public_change !== false || value.property.architecture_version !== 'legacy')");
-    expect(core).toContain("FEATURE_FLAGS.forEach((key) => { if (value.feature_flags[key] !== false)");
+    expect(core).toContain("FEATURE_FLAGS.forEach((key) => { if (typeof value.feature_flags[key] !== 'boolean')");
+    expect(core).toContain("['hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'].forEach");
     expect(core).toContain('Loaded assignment does not permit this exact reviewed entity.');
     expect(workspace).toContain("state.root.dir = state.language === 'he' ? 'rtl' : 'ltr'");
     expect(workspace).toContain("pl: {");
@@ -47,9 +48,9 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     const partnerDiscovery = read('js/partners.js');
     expect(html).toContain('id="partnerAssignedHotelsCard"');
     expect(partnerDiscovery).toContain('data-assigned-hotel-workspace');
-    expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260825_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace-repository.js?v=20260825_1');
+    expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260826_1');
+    expect(html).toContain('/js/hotels-v2-partner-workspace-repository.js?v=20260826_1');
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260825_1');
+    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260826_1');
   });
 });

@@ -26,9 +26,9 @@ describe('Hotels V2 ADMIN-C pricing UI/static gate', () => {
     expect(repository).toContain("applyPricingControl: 'hotel_v2_admin_apply_pricing_control_plan'");
     expect(repository).toContain("previewPricingQuote: 'hotel_v2_admin_preview_pricing_quote'");
     expect(dashboard).toContain('/admin/admin.css?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260821_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260826_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260826_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260826_1');
     expect(repository).toContain('data.replayed !== true && data.activity.some');
     expect(repository).toContain('receiptActivityProbe.recent_activity = Core.clone(data.activity)');
     expect(repository).toContain('Core.validatePricingControl(receiptActivityProbe');

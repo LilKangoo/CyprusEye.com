@@ -16,11 +16,23 @@
     previewCommercialStay: 'hotel_v2_partner_preview_commercial_stay',
     previewAvailability: 'hotel_v2_partner_preview_availability_plan',
     applyAvailability: 'hotel_v2_partner_apply_availability_plan',
+    externalCalendarControl: 'hotel_v2_partner_get_external_calendar_control',
+    previewExternalCalendar: 'hotel_v2_partner_preview_external_calendar_plan',
+    applyExternalCalendar: 'hotel_v2_partner_apply_external_calendar_plan',
   });
 
   const reviewedPlans = new Map();
   const workspaceRanges = new Map();
   const currentWorkspaces = new Map();
+  const reviewedExternalCalendarPlans = new Map();
+
+  async function sha256Hex(value) {
+    if (typeof crypto === 'undefined' || !crypto.subtle || typeof TextEncoder === 'undefined') {
+      throw new Error('Secure external-calendar URL fingerprint validation is unavailable.');
+    }
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
 
   function getClient() {
     const client = typeof window !== 'undefined' && typeof window.getSupabase === 'function'
@@ -194,8 +206,80 @@
     return Core.validateCommercialStayPreview(value, clean);
   }
 
+  async function getExternalCalendarControl(partnerId, hotelId) {
+    const expectedPartnerId = exactUuid(partnerId, 'partner_id');
+    const expectedHotelId = exactUuid(hotelId, 'hotel_id');
+    const workspace = currentWorkspaces.get(`${expectedPartnerId}:${expectedHotelId}`);
+    if (!workspace || workspace.assignment.capabilities.manage_availability !== true) {
+      throw new Error('Load the exact Partner Hotel assignment with manage_availability before external calendars.');
+    }
+    const value = await call(RPC.externalCalendarControl, {
+      p_partner_id: expectedPartnerId,
+      p_hotel_id: expectedHotelId,
+    }, 'external_calendar');
+    return Core.normalizeExternalCalendarControl(value, {
+      partnerId: expectedPartnerId,
+      hotelId: expectedHotelId,
+      assignmentId: workspace.assignment.id,
+      permissionVersion: workspace.assignment.permission_version,
+      accessSnapshotToken: workspace.assignment.access_snapshot_token,
+    });
+  }
+
+  async function previewExternalCalendarPlan(draft, control) {
+    const cleanDraft = Core.buildExternalCalendarDraft(control, draft.intent);
+    if (stable(cleanDraft) !== stable(draft)) {
+      throw new Error('External calendar Review requires the exact loaded access and snapshot tokens.');
+    }
+    const secretUrl = cleanDraft.intent.entity === 'ical_secret'
+      && ['set', 'rotate'].includes(cleanDraft.intent.action)
+      ? cleanDraft.intent.payload.ical_url : null;
+    const value = await call(RPC.previewExternalCalendar, { p_draft: cleanDraft }, 'external_calendar');
+    const preview = Core.validateExternalCalendarPreview(value, cleanDraft, control);
+    reviewedExternalCalendarPlans.clear();
+    if (preview.reviewed_plan) {
+      if (secretUrl && await sha256Hex(secretUrl) !== preview.reviewed_plan.operations[0].payload.url_fingerprint) {
+        throw new Error('The server-reviewed calendar URL fingerprint differs from the exact transient URL.');
+      }
+      reviewedExternalCalendarPlans.set(preview.reviewed_plan.plan_fingerprint, {
+        bytes: stable(preview.reviewed_plan),
+        plan: preview.reviewed_plan,
+        secretUrl,
+      });
+    }
+    return preview;
+  }
+
+  async function applyExternalCalendarPlan(planValue, correlationId, idempotencyKey, icalUrl = null) {
+    const plan = planValue;
+    const correlation = exactUuid(correlationId, 'correlation_id');
+    const idempotency = exactUuid(idempotencyKey, 'idempotency_key');
+    const cache = reviewedExternalCalendarPlans.get(plan?.plan_fingerprint);
+    if (!cache || cache.plan !== planValue || cache.bytes !== stable(plan)) {
+      throw new Error('Only the exact unchanged server-reviewed external-calendar plan can be saved. Run Review again.');
+    }
+    const secretOperation = plan.operations?.[0]?.entity === 'ical_secret';
+    const secretWrite = secretOperation && ['set', 'rotate'].includes(plan.operations[0].action);
+    if ((secretWrite && (typeof icalUrl !== 'string' || icalUrl !== cache.secretUrl))
+        || (!secretWrite && icalUrl !== null)
+        || (secretWrite && await sha256Hex(icalUrl) !== plan.operations[0].payload.url_fingerprint)) {
+      throw new Error('The transient calendar URL changed after Review. Run Review again.');
+    }
+    reviewedExternalCalendarPlans.delete(plan.plan_fingerprint);
+    const value = await call(RPC.applyExternalCalendar, {
+      p_reviewed_plan: plan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+      p_ical_url: secretWrite ? icalUrl : null,
+    }, 'external_calendar');
+    return Core.validateExternalCalendarApplyResult(value, {
+      plan, correlationId: correlation, idempotencyKey: idempotency,
+    });
+  }
+
   function clearReviewedPlans() {
     reviewedPlans.clear();
+    reviewedExternalCalendarPlans.clear();
   }
 
   return Object.freeze({
@@ -208,6 +292,9 @@
     previewCommercialStay,
     previewAvailabilityPlan: (draft) => preview('availability', draft),
     applyAvailabilityPlan: (plan, correlationId, idempotencyKey) => apply('availability', plan, correlationId, idempotencyKey),
+    getExternalCalendarControl,
+    previewExternalCalendarPlan,
+    applyExternalCalendarPlan,
     clearReviewedPlans,
   });
 });

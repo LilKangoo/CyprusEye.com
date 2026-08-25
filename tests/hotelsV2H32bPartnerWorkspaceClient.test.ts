@@ -164,7 +164,7 @@ describe('Hotels V2 H3.2B Partner workspace client', () => {
     expect(media).toContain('MAX_WEBP_BYTES = 10 * 1024 * 1024');
     expect(media).toContain('webp.size > MAX_WEBP_BYTES');
     expect(media).not.toContain('.remove('); expect(media).not.toMatch(/retry/i);
-    expect(html).toContain('/admin/hotels-v2-workspace-core.js?v=20260825_1');
+    expect(html).toContain('/admin/hotels-v2-workspace-core.js?v=20260826_1');
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
   });
 

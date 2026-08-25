@@ -375,6 +375,18 @@ describe('Hotels V2 ADMIN-C pricing client contracts', () => {
       .toThrow(/property snapshot/i);
   });
 
+  test('keeps public pricing flags inert while accepting an authoritative External Calendar boolean', () => {
+    const externalActive = control();
+    externalActive.feature_flags.hotel_external_sync_enabled = true;
+    expect(Core.validatePricingControl(externalActive, HOTEL_ID).feature_flags.hotel_external_sync_enabled).toBe(true);
+    const unsafePublic = control();
+    unsafePublic.feature_flags.hotel_stripe_connect_enabled = true;
+    expect(() => Core.validatePricingControl(unsafePublic, HOTEL_ID)).toThrow('public Hotels V2 flags OFF');
+    const malformed = control();
+    malformed.feature_flags.hotel_external_sync_enabled = 'true';
+    expect(() => Core.validatePricingControl(malformed, HOTEL_ID)).toThrow('feature-flag snapshot is invalid');
+  });
+
   test('fails closed on frozen pricing snapshot and plan technical ceilings', () => {
     expect(Core.PRICING_CONTROL_READ_LIMITS).toEqual({
       rate_plans: 200,

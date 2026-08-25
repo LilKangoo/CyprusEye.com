@@ -91,7 +91,7 @@ function preview(): any {
 }
 
 describe('Hotels V2 H3.2B independent Partner workspace repository', () => {
-  test('exposes exactly the eight reviewed/authenticated RPC names', () => {
+  test('exposes the H3.2B RPCs plus the three reviewed Stage 2D external-calendar RPCs', () => {
     const repository = loadRepository({ rpc: jest.fn() });
     expect(repository.RPC).toEqual({
       workspace: 'hotel_v2_partner_get_workspace',
@@ -102,6 +102,9 @@ describe('Hotels V2 H3.2B independent Partner workspace repository', () => {
       previewCommercialStay: 'hotel_v2_partner_preview_commercial_stay',
       previewAvailability: 'hotel_v2_partner_preview_availability_plan',
       applyAvailability: 'hotel_v2_partner_apply_availability_plan',
+      externalCalendarControl: 'hotel_v2_partner_get_external_calendar_control',
+      previewExternalCalendar: 'hotel_v2_partner_preview_external_calendar_plan',
+      applyExternalCalendar: 'hotel_v2_partner_apply_external_calendar_plan',
     });
   });
 

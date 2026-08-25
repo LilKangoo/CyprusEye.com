@@ -217,14 +217,21 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     ).toThrow('only exact PL/EN/HE strings');
   });
 
-  test('requires canonical supported UUIDs and all four Hotels V2 flags OFF', () => {
+  test('requires canonical UUIDs, keeps public flags OFF, and accepts the authoritative External Calendar boolean', () => {
     expect(Core.requireCanonicalUuid(TARGET)).toBe(TARGET);
     expect(() => Core.requireCanonicalUuid('ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF')).toThrow('lowercase canonical UUID');
     expect(() => Core.requireCanonicalUuid('44444444-4444-6444-8444-444444444444')).toThrow('lowercase canonical UUID');
     expect(Core.validateWorkspace(workspace(), { partnerId: PARTNER, hotelId: HOTEL }).legacy_authoritative).toBe(true);
+    const externalActive = workspace();
+    externalActive.feature_flags.hotel_external_sync_enabled = true;
+    expect(Core.validateWorkspace(externalActive, { partnerId: PARTNER, hotelId: HOTEL })
+      .feature_flags.hotel_external_sync_enabled).toBe(true);
     expect(() => Core.validateWorkspace({
       ...workspace(), feature_flags: { ...workspace().feature_flags, hotel_rooms_v2_enabled: true },
     }, { partnerId: PARTNER, hotelId: HOTEL })).toThrow('must remain OFF');
+    expect(() => Core.validateWorkspace({
+      ...workspace(), feature_flags: { ...workspace().feature_flags, hotel_external_sync_enabled: 'true' },
+    }, { partnerId: PARTNER, hotelId: HOTEL })).toThrow('exact boolean');
   });
 
   test('binds the exact property-proposal GET projection and reviewed-field impact map', () => {

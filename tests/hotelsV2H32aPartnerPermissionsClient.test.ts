@@ -84,6 +84,18 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(Object.values(value.assignments[0].permission.capabilities)).toEqual(Array(12).fill(false));
   });
 
+  test('keeps public flags OFF while accepting an authoritative External Calendar boolean', () => {
+    const activated = snapshot();
+    activated.feature_flags.hotel_external_sync_enabled = true;
+    expect(Core.validatePartnerHotelPermissions(activated, HOTEL).feature_flags.hotel_external_sync_enabled).toBe(true);
+    const unsafePublic = snapshot();
+    unsafePublic.feature_flags.hotel_instant_booking_enabled = true;
+    expect(() => Core.validatePartnerHotelPermissions(unsafePublic, HOTEL)).toThrow('Rooms, Instant Booking and Stripe flags OFF');
+    const malformed = snapshot();
+    malformed.feature_flags.hotel_external_sync_enabled = 'true';
+    expect(() => Core.validatePartnerHotelPermissions(malformed, HOTEL)).toThrow('exact External Calendar boolean');
+  });
+
   test('builds the frozen one-assignment reviewed plan without owner, routing or public mutations', () => {
     const plan = Core.buildPartnerHotelPermissionsPlan(snapshot(), ASSIGNMENT, capabilities(['view_payment_status']), {
       hotelId: HOTEL,
@@ -224,10 +236,10 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(html).toContain('Reviewed workspace');
     expect(partner).toContain('data-assigned-hotel-workspace');
     expect(dashboard).toContain('/admin/admin.css?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260821_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260821_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260825_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260826_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260826_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260826_1');
+    expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260826_1');
     expect(html).toContain('/js/partners.js?v=20260825_1');
   });
 });

@@ -22,6 +22,11 @@
     commercialRequest: 'hotels_v2_h3_2b_commercial_stay_request_v1',
     commercialPreview: 'hotels_v2_h3_2b_commercial_stay_preview_v1',
     adminAvailability: 'hotels_v2_admin_d_availability_control_v1',
+    externalCalendarControl: 'hotels_v2_external_calendar_control_v1',
+    externalCalendarDraft: 'hotels_v2_external_calendar_draft_v1',
+    externalCalendarPreview: 'hotels_v2_external_calendar_preview_v1',
+    externalCalendarPlan: 'hotels_v2_external_calendar_plan_v1',
+    externalCalendarApply: 'hotels_v2_external_calendar_apply_result_v1',
   });
 
   const CAPABILITIES = Object.freeze([
@@ -446,7 +451,10 @@
     requireExactKeys(value.assignment.capabilities, CAPABILITIES, 'Partner capabilities');
     CAPABILITIES.forEach((key) => { if (typeof value.assignment.capabilities[key] !== 'boolean') fail(`Capability ${key} is invalid.`); });
     requireExactKeys(value.feature_flags, FEATURE_FLAGS, 'Hotel feature flags');
-    FEATURE_FLAGS.forEach((key) => { if (value.feature_flags[key] !== false) fail('Hotels V2 feature flags must remain OFF in the Partner workspace.'); });
+    FEATURE_FLAGS.forEach((key) => { if (typeof value.feature_flags[key] !== 'boolean') fail(`Hotel feature flag ${key} must be an exact boolean.`); });
+    ['hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'].forEach((key) => {
+      if (value.feature_flags[key] !== false) fail('Public Hotels V2 feature flags must remain OFF in the Partner workspace.');
+    });
     requireSnapshot(value.content_snapshot_token, 'content_snapshot_token');
     validateProperty(value.property, hotelId);
     validatePropertyDraft(value.property_draft);
@@ -910,10 +918,52 @@
     fail('Secure UUID generation is unavailable.');
   }
 
+  function requireExternalCalendarCore(name) {
+    if (!AdminCore || typeof AdminCore[name] !== 'function') {
+      fail('The shared strict external-calendar contract is unavailable.');
+    }
+    return AdminCore[name];
+  }
+
+  function normalizeExternalCalendarControl(value, expected = {}) {
+    return requireExternalCalendarCore('normalizeExternalCalendarControl')(value, {
+      ...expected,
+      actorType: 'partner',
+    });
+  }
+
+  function buildExternalCalendarDraft(control, intent) {
+    normalizeExternalCalendarControl(control, {
+      partnerId: control?.partner_id,
+      hotelId: control?.hotel_id,
+      assignmentId: control?.assignment_id,
+      permissionVersion: control?.permission_version,
+      accessSnapshotToken: control?.access_snapshot_token,
+    });
+    return requireExternalCalendarCore('buildExternalCalendarDraft')(control, intent);
+  }
+
+  function validateExternalCalendarPreview(value, draft, control) {
+    normalizeExternalCalendarControl(control, {
+      partnerId: draft?.partner_id,
+      hotelId: draft?.hotel_id,
+      assignmentId: draft?.assignment_id,
+      permissionVersion: draft?.permission_version,
+      accessSnapshotToken: draft?.access_snapshot_token,
+    });
+    return requireExternalCalendarCore('validateExternalCalendarPreview')(value, draft, control);
+  }
+
+  function validateExternalCalendarApplyResult(value, expected) {
+    return requireExternalCalendarCore('validateExternalCalendarApplyResult')(value, expected);
+  }
+
   return Object.freeze({
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS,
     hasExactKeys, requireCanonicalUuid, requireIsoDate, validateWorkspace, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
+    normalizeExternalCalendarControl, buildExternalCalendarDraft,
+    validateExternalCalendarPreview, validateExternalCalendarApplyResult,
   });
 });

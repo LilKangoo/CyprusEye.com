@@ -44,6 +44,14 @@
       commissionBasis: 'Commission basis', exampleBefore: 'Example stay before', exampleAfter: 'Example stay after',
       percentBooking: 'of booking total', perRoomNight: 'per allocated Room per rental night',
       mediaUnavailable: 'Partner Hotel media upload is unavailable.',
+      externalCalendars: 'External calendars', externalCalendarCreate: 'Add iCal source', externalCalendarEdit: 'Edit source',
+      configured: 'Configured (URL hidden)', notConfigured: 'Not configured', setUrl: 'Set URL', rotateUrl: 'Rotate URL', clearUrl: 'Clear URL',
+      enableSource: 'Enable', disableSource: 'Disable', triggerSync: 'Run manual sync', activationOff: 'Enable is unavailable while the global external-calendar flag is OFF.',
+      syncUnavailable: 'Manual sync requires an enabled source and global activation.',
+      intervalMinutes: 'Sync interval (minutes)', unitsPerEvent: 'Units per event', priority: 'Priority', health: 'Sanitized sync health',
+      attempts: 'Last attempt', success: 'Last success', failure: 'Last failure', events: 'Events', activeEvents: 'Active events', blocks: 'Blocks',
+      calendarUrl: 'Private HTTPS iCal URL', calendarUrlNeverShown: 'The URL is sent only for this reviewed Save and is never displayed again.',
+      never_synced: 'Never synced', healthy: 'Healthy', degraded: 'Degraded', syncing: 'Syncing',
       locationUnknown: 'Location not specified', allOff: 'All capabilities OFF', assignedHotels: 'exact assigned Hotels', loadingAssignments: 'Loading exact assigned Hotels…',
     },
     pl: {
@@ -85,6 +93,14 @@
       commissionBasis: 'Podstawa prowizji', exampleBefore: 'Przykładowy pobyt przed zmianą', exampleAfter: 'Przykładowy pobyt po zmianie',
       percentBooking: 'wartości rezerwacji', perRoomNight: 'za przydzielony pokój za noc pobytu',
       mediaUnavailable: 'Wysyłanie mediów hotelowych Partnera jest niedostępne.',
+      externalCalendars: 'Kalendarze zewnętrzne', externalCalendarCreate: 'Dodaj źródło iCal', externalCalendarEdit: 'Edytuj źródło',
+      configured: 'Skonfigurowano (URL ukryty)', notConfigured: 'Nie skonfigurowano', setUrl: 'Ustaw URL', rotateUrl: 'Obróć URL', clearUrl: 'Usuń URL',
+      enableSource: 'Włącz', disableSource: 'Wyłącz', triggerSync: 'Uruchom ręczną synchronizację', activationOff: 'Włączenie jest niedostępne, gdy globalna flaga kalendarza zewnętrznego jest WYŁĄCZONA.',
+      syncUnavailable: 'Ręczna synchronizacja wymaga włączonego źródła i globalnej aktywacji.',
+      intervalMinutes: 'Interwał synchronizacji (minuty)', unitsPerEvent: 'Jednostki na zdarzenie', priority: 'Priorytet', health: 'Oczyszczony stan synchronizacji',
+      attempts: 'Ostatnia próba', success: 'Ostatni sukces', failure: 'Ostatni błąd', events: 'Zdarzenia', activeEvents: 'Aktywne zdarzenia', blocks: 'Blokady',
+      calendarUrl: 'Prywatny adres HTTPS iCal', calendarUrlNeverShown: 'URL jest wysyłany tylko dla tego sprawdzonego zapisu i nigdy nie jest ponownie wyświetlany.',
+      never_synced: 'Nigdy nie synchronizowano', healthy: 'Prawidłowy', degraded: 'Pogorszony', syncing: 'Synchronizacja',
       locationUnknown: 'Nie podano lokalizacji', allOff: 'Wszystkie możliwości WYŁĄCZONE', assignedHotels: 'dokładnie przypisanych hoteli', loadingAssignments: 'Ładowanie dokładnie przypisanych hoteli…',
     },
     he: {
@@ -126,6 +142,14 @@
       commissionBasis: 'בסיס עמלה', exampleBefore: 'שהייה לדוגמה לפני השינוי', exampleAfter: 'שהייה לדוגמה אחרי השינוי',
       percentBooking: 'מסכום ההזמנה', perRoomNight: 'לכל חדר מוקצה לכל ליל שכירות',
       mediaUnavailable: 'העלאת מדיה למלון השותף אינה זמינה.',
+      externalCalendars: 'יומנים חיצוניים', externalCalendarCreate: 'הוספת מקור iCal', externalCalendarEdit: 'עריכת מקור',
+      configured: 'מוגדר (הכתובת מוסתרת)', notConfigured: 'לא מוגדר', setUrl: 'הגדרת כתובת', rotateUrl: 'החלפת כתובת', clearUrl: 'מחיקת כתובת',
+      enableSource: 'הפעלה', disableSource: 'השבתה', triggerSync: 'הפעלת סנכרון ידני', activationOff: 'אי אפשר להפעיל כל עוד הדגל הגלובלי של יומן חיצוני כבוי.',
+      syncUnavailable: 'סנכרון ידני דורש מקור פעיל והפעלה גלובלית.',
+      intervalMinutes: 'מרווח סנכרון (דקות)', unitsPerEvent: 'יחידות לאירוע', priority: 'עדיפות', health: 'מצב סנכרון מסונן',
+      attempts: 'ניסיון אחרון', success: 'הצלחה אחרונה', failure: 'כשל אחרון', events: 'אירועים', activeEvents: 'אירועים פעילים', blocks: 'חסימות',
+      calendarUrl: 'כתובת iCal פרטית ב-HTTPS', calendarUrlNeverShown: 'הכתובת נשלחת רק בשמירה שנבדקה ואינה מוצגת שוב.',
+      never_synced: 'טרם סונכרן', healthy: 'תקין', degraded: 'פגום', syncing: 'בסנכרון',
       locationUnknown: 'לא צוין מיקום', allOff: 'כל היכולות כבויות', assignedHotels: 'מלונות משויכים מדויקים', loadingAssignments: 'טוען מלונות משויכים מדויקים…',
     },
   });
@@ -135,6 +159,7 @@
     language: 'en', section: 'overview', loading: false, generation: 0, pending: null,
     opener: null, roomEditor: null, commercialPreview: null, commercialRequest: null,
     mediaDraft: { property: [], rooms: {} }, photoDraft: { property: null, rooms: {} },
+    externalCalendar: null, externalCalendarError: null,
   };
 
   function text(key) { return COPY[state.language]?.[key] || COPY.en[key] || key; }
@@ -346,12 +371,26 @@
     </section>`;
   }
 
+  function renderExternalCalendars() {
+    if (state.externalCalendarError) return `<section class="partner-hotel-workspace__form"><h3>${html(text('externalCalendars'))}</h3><div class="partner-hotel-workspace__status" data-tone="error">${html(state.externalCalendarError)}</div></section>`;
+    const control = state.externalCalendar;
+    if (!control) return `<section class="partner-hotel-workspace__form"><h3>${html(text('externalCalendars'))}</h3><p>${html(text('loading'))}</p></section>`;
+    const roomOptions = control.rooms.filter((room) => room.status === 'active')
+      .map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.id))}</option>`).join('');
+    const cards = control.sources.map((source) => {
+      const room = control.rooms.find((entry) => entry.id === source.room_type_id);
+      const health = source.health;
+      return `<article class="partner-hotel-workspace__card" data-phw-external-source="${source.id}"><h4>${html(source.code)}</h4><p>${html(localized(room?.name_i18n, source.room_type_id))} · ${html(source.secret_configured ? text('configured') : text('notConfigured'))}</p><p>${html(text('health'))}: ${html(text(health.status))}</p><dl><div><dt>${html(text('attempts'))}</dt><dd>${html(health.last_attempt_at || '—')}</dd></div><div><dt>${html(text('success'))}</dt><dd>${html(health.last_success_at || '—')}</dd></div><div><dt>${html(text('failure'))}</dt><dd>${html(health.last_error_code || health.last_error_message || '—')}</dd></div><div><dt>${html(text('events'))}</dt><dd>${health.last_event_count}</dd></div><div><dt>${html(text('activeEvents'))}</dt><dd>${health.last_active_event_count}</dd></div><div><dt>${html(text('blocks'))}</dt><dd>${health.last_block_count}</dd></div></dl><form class="partner-hotel-workspace__form" data-phw-external-source-form data-source-id="${source.id}"><h5>${html(text('externalCalendarEdit'))}</h5><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id">${roomOptions.replace(`value="${source.room_type_id}"`, `value="${source.room_type_id}" selected`)}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" value="${html(source.code)}" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source.sync_interval_minutes}" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="${source.units_per_event}" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="${source.priority}" required></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm" type="submit">${html(text('review'))}</button></form><div class="partner-hotel-workspace__actions"><button class="btn-sm" type="button" data-phw-external-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${source.id}" ${source.is_enabled ? 'disabled' : ''}>${html(text(source.secret_configured ? 'rotateUrl' : 'setUrl'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-secret="clear" data-source-id="${source.id}">${html(text('clearUrl'))}</button>` : ''}${source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-lifecycle="disable" data-source-id="${source.id}">${html(text('disableSource'))}</button>` : `<button class="btn-sm" type="button" data-phw-external-lifecycle="enable" data-source-id="${source.id}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${html(text('activationOff'))}"`}>${html(text('enableSource'))}</button>`}<button class="btn-sm" type="button" data-phw-external-sync data-source-id="${source.id}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${html(text('triggerSync'))}</button></div>${control.hotel_external_sync_enabled ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('activationOff'))}</p>`}${diagnostics(source.id)}</article>`;
+    }).join('');
+    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p><div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div><details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details></section>`;
+  }
+
   function renderAvailability() {
     const availability = state.workspace.availability;
     if (!availability) return '';
     const eligibleRooms = state.workspace.rooms.filter((room) => room.status === 'active');
     const minimumDate = availability.from > todayIso() ? availability.from : todayIso();
-    return `<section class="partner-hotel-workspace__panel" data-phw-panel="calendar_availability"><h2>${html(text('availability'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('publicOff'))}</p><form class="partner-hotel-workspace__form" data-phw-availability><h3>${html(text('dailyInventory'))}</h3><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" ${eligibleRooms.length ? '' : 'disabled'}>${eligibleRooms.map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('stayDate'))}<input name="stay_date" type="date" min="${minimumDate}" max="${availability.to}" value="${minimumDate}" required /></label><label class="partner-hotel-workspace__field">${html(text('sellableUnits'))}<select name="sellable_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set">${html(text('set'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('units'))}<input name="sellable_units" type="number" min="0" max="10000" /></label><label class="partner-hotel-workspace__field">${html(text('closure'))}<select name="closed_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set_closed">${html(text('closed'))}</option><option value="set_open">${html(text('open'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('expiry'))}<select name="expiry_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set">${html(text('set'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('futureExpiry'))}<input name="expires_at" type="datetime-local" /></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary" ${eligibleRooms.length ? '' : 'disabled'}>${html(text('review'))}</button></form></section>`;
+    return `<section class="partner-hotel-workspace__panel" data-phw-panel="calendar_availability"><h2>${html(text('availability'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('publicOff'))}</p><form class="partner-hotel-workspace__form" data-phw-availability><h3>${html(text('dailyInventory'))}</h3><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" ${eligibleRooms.length ? '' : 'disabled'}>${eligibleRooms.map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('stayDate'))}<input name="stay_date" type="date" min="${minimumDate}" max="${availability.to}" value="${minimumDate}" required /></label><label class="partner-hotel-workspace__field">${html(text('sellableUnits'))}<select name="sellable_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set">${html(text('set'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('units'))}<input name="sellable_units" type="number" min="0" max="10000" /></label><label class="partner-hotel-workspace__field">${html(text('closure'))}<select name="closed_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set_closed">${html(text('closed'))}</option><option value="set_open">${html(text('open'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('expiry'))}<select name="expiry_mode"><option value="no_change">${html(text('unchanged'))}</option><option value="set">${html(text('set'))}</option><option value="clear">${html(text('clear'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('futureExpiry'))}<input name="expires_at" type="datetime-local" /></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary" ${eligibleRooms.length ? '' : 'disabled'}>${html(text('review'))}</button></form>${renderExternalCalendars()}</section>`;
   }
 
   function renderExistingFlow(section) {
@@ -385,11 +424,15 @@
       && response.pricing.nightly_breakdown.some((night) => night.room_rate_id === roomRateId && night.stay_date === stayDate));
   }
   function availabilityDraft(intent) { return { contract_version: Core.CONTRACTS.availabilityDraft, partner_id: state.partnerId, hotel_id: state.workspace.hotel_id, access_snapshot_token: state.workspace.assignment.access_snapshot_token, from: state.workspace.availability.from, to: state.workspace.availability.to, availability_snapshot_token: state.workspace.availability.snapshot_token, intent }; }
+  function externalCalendarDraft(intent) { return Core.buildExternalCalendarDraft(state.externalCalendar, intent); }
 
   async function review(domain, draft, opener) {
     setStatus(text('loading'));
     try {
-      const preview = domain === 'content' ? await Repository.previewContentPlan(draft) : domain === 'pricing' ? await Repository.previewPricingPlan(draft) : await Repository.previewAvailabilityPlan(draft);
+      const preview = domain === 'content' ? await Repository.previewContentPlan(draft)
+        : domain === 'pricing' ? await Repository.previewPricingPlan(draft)
+          : domain === 'availability' ? await Repository.previewAvailabilityPlan(draft)
+            : await Repository.previewExternalCalendarPlan(draft, state.externalCalendar);
       if (!preview.changed) { setStatus(text('noChange'), 'success'); return; }
       state.pending = { domain, preview, opener };
       openReview();
@@ -409,11 +452,13 @@
     const { preview, domain } = state.pending;
     const impact = preview.impacts[0];
     state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
-    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${impact.affected_room_type_ids.map((id) => html(roomName(id))).join(', ')} ${impact.affected_room_rate_ids.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text('save'))}</button></footer></div>`;
+    const affectedRooms = impact.affected_room_type_ids || [];
+    const affectedRates = impact.affected_room_rate_ids || [];
+    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${affectedRooms.map((id) => html(roomName(id))).join(', ')} ${affectedRates.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${domain === 'external_calendar' ? `<p>${html(text('calendarUrlNeverShown'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text('save'))}</button></footer></div>`;
     state.dialog.showModal();
     focusables(state.dialog)[0]?.focus();
   }
-  function closeReview() { if (state.dialog?.open) state.dialog.close(); const opener = state.pending?.opener; state.pending = null; opener?.focus?.(); }
+  function closeReview() { if (state.dialog?.open) state.dialog.close(); const opener = state.pending?.opener; if (state.pending?.domain === 'external_calendar') Repository.clearReviewedPlans(); if (state.dialog) state.dialog.innerHTML = ''; state.pending = null; opener?.focus?.(); }
 
   async function saveReview(button) {
     if (!state.pending) return;
@@ -425,8 +470,11 @@
         ? await Repository.applyContentPlan(preview.reviewed_plan, correlation, idempotency)
         : domain === 'pricing'
           ? await Repository.applyPricingPlan(preview.reviewed_plan, correlation, idempotency)
-          : await Repository.applyAvailabilityPlan(preview.reviewed_plan, correlation, idempotency);
-      state.workspace = result.workspace;
+          : domain === 'availability'
+            ? await Repository.applyAvailabilityPlan(preview.reviewed_plan, correlation, idempotency)
+            : await Repository.applyExternalCalendarPlan(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
+      if (result.workspace) state.workspace = result.workspace;
+      if (domain === 'external_calendar') state.externalCalendar = result.control;
       if (domain === 'content') { state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} }; }
       if (domain === 'pricing') { state.commercialPreview = null; state.commercialRequest = null; }
       closeReview(); render(); setStatus(text('saved'), 'success');
@@ -434,6 +482,27 @@
       closeReview();
       setStatus(error.userMessage || error.message, error.isStale || error.saveSucceeded ? 'warning' : 'error');
     }
+  }
+
+  function openExternalCalendarAction(sourceId, entity, action, opener) {
+    const source = state.externalCalendar?.sources.find((row) => row.id === sourceId);
+    if (!source) return;
+    const secret = entity === 'ical_secret';
+    const secretInput = secret && action !== 'clear';
+    state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
+    state.dialog.innerHTML = `<form class="partner-hotel-workspace-review__shell" data-phw-external-action><header class="partner-hotel-workspace-review__header"><h2>${html(text(secret ? (action === 'rotate' ? 'rotateUrl' : action === 'clear' ? 'clearUrl' : 'setUrl') : action === 'trigger' ? 'triggerSync' : action === 'enable' ? 'enableSource' : 'disableSource'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel>×</button></header><div class="partner-hotel-workspace-review__body">${secretInput ? `<label class="partner-hotel-workspace__field">${html(text('calendarUrl'))}<input name="ical_url" type="password" inputmode="url" autocomplete="new-password" required minlength="1" maxlength="4096"></label><p>${html(text('calendarUrlNeverShown'))}</p>` : ''}<label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required autofocus></label></div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="submit">${html(text('review'))}</button></footer></form>`;
+    state.dialog.showModal();
+    focusables(state.dialog)[0]?.focus();
+    state.dialog.querySelector('[data-phw-external-action]')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      const payload = secret ? (action === 'clear' ? { source_id: source.id } : { source_id: source.id, ical_url: String(data.get('ical_url') || '') }) : entity === 'calendar_sync' ? { source_id: source.id } : {};
+      const expectedVersion = secret ? (source.binding_version || 0) : entity === 'calendar_sync' ? source.health.state_version : source.version;
+      const draft = externalCalendarDraft({ entity, action, id: source.id, expected_version: expectedVersion, payload, reason: String(data.get('reason') || '').trim() });
+      state.dialog.close();
+      await review('external_calendar', draft, opener);
+      if (state.pending?.domain === 'external_calendar') state.pending.secretUrl = secretInput ? payload.ical_url : null;
+    });
   }
 
   function syncPricingTargets() {
@@ -480,6 +549,14 @@
       const workspace = await Repository.getWorkspace(state.partnerId, state.assignment.hotel_id, from, to);
       if (generation !== state.generation) return;
       state.workspace = workspace;
+      state.externalCalendar = null; state.externalCalendarError = null;
+      if (workspace.assignment.capabilities.manage_availability === true) {
+        try {
+          state.externalCalendar = await Repository.getExternalCalendarControl(state.partnerId, workspace.hotel_id);
+        } catch (error) {
+          state.externalCalendarError = error.userMessage || error.message;
+        }
+      }
       if (state.commercialRequest?.pricing_snapshot_token !== workspace.pricing?.snapshot_token) { state.commercialRequest = null; state.commercialPreview = null; }
       state.loading = false; render();
     } catch (error) {
@@ -493,11 +570,11 @@
     state.partnerId = Core.requireCanonicalUuid(options.partnerId, 'partner_id');
     Core.requireCanonicalUuid(options.assignment?.assignment_id, 'assignment_id'); Core.requireCanonicalUuid(options.assignment?.hotel_id, 'hotel_id');
     state.assignment = options.assignment; state.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    state.language = initialLanguage(); state.section = 'overview'; state.workspace = null; state.commercialPreview = null; state.commercialRequest = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
+    state.language = initialLanguage(); state.section = 'overview'; state.workspace = null; state.commercialPreview = null; state.commercialRequest = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
     if (state.portal) state.portal.hidden = true; state.root.hidden = false; await load(); state.root.focus?.();
   }
   function close(options = {}) {
-    state.generation += 1; Repository?.clearReviewedPlans?.(); closeReview(); state.workspace = null; state.assignment = null; state.partnerId = null; state.commercialRequest = null; state.commercialPreview = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
+    state.generation += 1; Repository?.clearReviewedPlans?.(); closeReview(); state.workspace = null; state.assignment = null; state.partnerId = null; state.commercialRequest = null; state.commercialPreview = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
     if (state.root) { state.root.hidden = true; state.root.innerHTML = ''; }
     if (options.restorePortal !== false && state.portal) state.portal.hidden = false;
     state.opener?.focus?.(); state.opener = null;
@@ -513,6 +590,9 @@
       if (button.matches('[data-phw-room-edit]')) { state.roomEditor = { id: button.dataset.roomId, mode: button.dataset.phwRoomEdit }; render(); }
       if (button.matches('[data-phw-upload-property]')) { void uploadPhotos(button.closest('form'), null, button); return; }
       if (button.matches('[data-phw-upload-room]')) { void uploadPhotos(button.closest('form'), button.closest('form')?.dataset.roomId || null, button); }
+      if (button.matches('[data-phw-external-secret]')) { openExternalCalendarAction(button.dataset.sourceId, 'ical_secret', button.dataset.phwExternalSecret, button); return; }
+      if (button.matches('[data-phw-external-lifecycle]')) { openExternalCalendarAction(button.dataset.sourceId, 'calendar_source', button.dataset.phwExternalLifecycle, button); return; }
+      if (button.matches('[data-phw-external-sync]')) { openExternalCalendarAction(button.dataset.sourceId, 'calendar_sync', 'trigger', button); }
     });
     state.root.addEventListener('change', (event) => {
       if (event.target.matches('[data-phw-language]')) { capturePhotoDrafts(); state.language = event.target.value; render(); return; }
@@ -567,7 +647,23 @@
             payload.expires_at = new Date(instant).toISOString();
           }
         }
-        await review('availability', availabilityDraft({ entity: 'daily_inventory', action: 'upsert', id: null, payload, reason: String(data.get('reason') || '').trim() }), opener);
+        await review('availability', availabilityDraft({ entity: 'daily_inventory', action: 'upsert', id: null, payload, reason: String(data.get('reason') || '').trim() }), opener); return;
+      }
+      if (form.matches('[data-phw-external-create], [data-phw-external-source-form]')) {
+        const sourceId = form.dataset.sourceId || null;
+        const source = sourceId ? state.externalCalendar.sources.find((row) => row.id === sourceId) : null;
+        const payload = {
+          room_type_id: String(data.get('room_type_id') || ''),
+          code: String(data.get('code') || '').trim(),
+          sync_interval_minutes: Number(data.get('sync_interval_minutes')),
+          units_per_event: Number(data.get('units_per_event')),
+          priority: Number(data.get('priority')),
+        };
+        const draft = externalCalendarDraft({
+          entity: 'calendar_source', action: source ? 'update' : 'create', id: source?.id || null,
+          expected_version: source?.version || 0, payload, reason: String(data.get('reason') || '').trim(),
+        });
+        await review('external_calendar', draft, opener);
       }
     });
   }
