@@ -96,7 +96,7 @@ describe('Car Rental Multi-City Stage 2E static safety guards', () => {
   });
 
   test('only one shared availability adapter and one existing calculator implementation exist', () => {
-    const adapters = childProcess.execFileSync('rg', ['--files', 'js'], { encoding: 'utf8' })
+    const adapters = childProcess.execFileSync('git', ['ls-files', 'js'], { encoding: 'utf8' })
       .trim().split('\n').filter((file) => /car-rental-availability-adapter\.js$/.test(file));
     expect(adapters).toEqual(['js/car-rental-availability-adapter.js']);
     expect(adapter).toContain('calculateCarRentalQuote');

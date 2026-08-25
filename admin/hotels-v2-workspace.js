@@ -20,6 +20,13 @@
     pricingPromotionError: null,
     partnerPermissions: null,
     partnerPermissionsError: null,
+    pricingControl: null,
+    pricingControlError: null,
+    pricingControlLoading: false,
+    pricingSelection: {
+      room_rate_id: null,
+      section: null,
+    },
     activeTab: 'overview',
     modal: null,
     pendingReview: null,
@@ -42,6 +49,7 @@
   const WORKSPACE_TABS = Object.freeze([
     ['overview', 'Overview'],
     ['rooms', 'Rooms & Rates'],
+    ['pricing', 'Rates & Pricing'],
     ['calendar', 'Calendar'],
     ['booking_setup', 'Booking setup'],
     ['bookings', 'Bookings'],
@@ -51,6 +59,1525 @@
     ['distribution', 'Distribution & Sync'],
     ['activity', 'Activity'],
   ]);
+  const PRICING_UI_TEXT = Object.freeze({
+    en: Object.freeze({}),
+    pl: Object.freeze({
+      'Rates & Pricing': 'Ceny i plany taryfowe',
+      'Products': 'Produkty',
+      'Schedules': 'Harmonogramy',
+      'Rate Plans': 'Plany taryfowe',
+      'Calendar prices': 'Ceny kalendarzowe',
+      'Allocation': 'Przydział',
+      'Activity': 'Aktywność',
+      'Preview stay': 'Podgląd pobytu',
+      '+ Schedule': '+ Harmonogram',
+      '+ Rate Plan': '+ Plan taryfowy',
+      '+ Room Rate product': '+ Produkt stawki pokoju',
+      '+ Exact date': '+ Konkretna data',
+      '+ Range rule': '+ Reguła zakresu',
+      '+ Allocation rule': '+ Reguła przydziału',
+      'Rates and pricing sections': 'Sekcje cen i planów taryfowych',
+      'Rates & Pricing control plane': 'Panel sterowania cenami i planami taryfowymi',
+      'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.': 'Konfiguruj plany taryfowe, produkty pokoi, harmonogramy obłożenia / długości pobytu, ceny sezonowe, konkretne daty i przydział. Serwer pozostaje źródłem prawdy.',
+      'Loading the exact server pricing snapshot…': 'Ładowanie dokładnego serwerowego obrazu cen…',
+      'Loading pricing control…': 'Ładowanie panelu cen…',
+      'Pricing fails closed without the dedicated reviewed control plane.': 'Bez dedykowanego, sprawdzonego panelu sterowania ceny są bezpiecznie blokowane.',
+      'Pricing control unavailable': 'Panel cen jest niedostępny',
+      'Retry secure load': 'Ponów bezpieczne ładowanie',
+      'Shadow pricing safety': 'Bezpieczeństwo cen w konfiguracji równoległej',
+      'Legacy public pricing remains authoritative': 'Publiczne ceny legacy pozostają wiążące',
+      'Rooms V2 property remains inert and unpublished': 'Obiekt Rooms V2 pozostaje nieaktywny i nieopublikowany',
+      'Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.': 'Każda poniższa zmiana pozostaje w znormalizowanym grafie równoległym. Publiczne Hotels V2 pozostaje WYŁĄCZONE, a istniejące rezerwacje, płatności, prowizje, kupony i polecenia nie są zmieniane.',
+      'Accepted H3.1P boundary': 'Zatwierdzona granica H3.1P',
+      '7 Kamares pricing control is read-only': 'Panel cen 7 Kamares jest tylko do odczytu',
+      'Room Rate products': 'Produkty stawek pokoi',
+      'Reusable pricing schedules': 'Harmonogramy cen wielokrotnego użytku',
+      'Seasonal, weekday and exact-date prices': 'Ceny sezonowe, według dni tygodnia i dla konkretnych dat',
+      'Seasonal / weekday rules': 'Reguły sezonowe / dni tygodnia',
+      'Exact-date prices': 'Ceny dla konkretnych dat',
+      'Guest allocation': 'Przydział gości',
+      'Recent pricing activity': 'Ostatnia aktywność cenowa',
+      'Pricing source actually used': 'Rzeczywiście używane źródło ceny',
+      'Customer selling price': 'Cena sprzedaży dla klienta',
+      'Currency': 'Waluta',
+      'Review': 'Weryfikacja',
+      'Shared schedule authoritative': 'Wiążący harmonogram współdzielony',
+      'Independent schedule authoritative': 'Wiążący harmonogram niezależny',
+      'Independent tiers authoritative': 'Wiążące niezależne progi',
+      'Base nightly rate authoritative': 'Wiążąca bazowa stawka nocna',
+      'Property fallback authoritative': 'Wiążąca cena zapasowa obiektu',
+      'No authoritative price': 'Brak wiążącej ceny',
+      'Occupancy / LOS schedule': 'Harmonogram obłożenia / długości pobytu',
+      'Product tier schedule': 'Progi cenowe produktu',
+      'Fails closed': 'Bezpiecznie zablokowane',
+      'Edit product': 'Edytuj produkt',
+      'View protected product': 'Wyświetl chroniony produkt',
+      'Duplicate product': 'Duplikuj produkt',
+      'Occupancy / LOS tiers': 'Progi obłożenia / długości pobytu',
+      'View protected tiers': 'Wyświetl chronione progi',
+      'Clone schedule for this product': 'Sklonuj harmonogram dla tego produktu',
+      'Edit schedule': 'Edytuj harmonogram',
+      'View protected schedule': 'Wyświetl chroniony harmonogram',
+      'View read-only source': 'Wyświetl źródło tylko do odczytu',
+      'Clone as new manual draft': 'Sklonuj jako nową wersję roboczą',
+      'Edit': 'Edytuj',
+      'Duplicate': 'Duplikuj',
+      'View protected plan': 'Wyświetl chroniony plan',
+      'View protected': 'Wyświetl chronione',
+      'Add pricing safely': 'Dodaj cenę bezpiecznie',
+      'Edit allocation': 'Edytuj przydział',
+      'View protected allocation': 'Wyświetl chroniony przydział',
+      'Configure reviewed fallback': 'Skonfiguruj sprawdzoną cenę zapasową',
+      'Edit fallback': 'Edytuj cenę zapasową',
+      'View protected fallback': 'Wyświetl chronioną cenę zapasową',
+      'Precedence layer 5': 'Warstwa pierwszeństwa 5',
+      'Precedence layer 5 · property fallback': 'Warstwa pierwszeństwa 5 · cena zapasowa obiektu',
+      'No property fallback selling price': 'Brak zapasowej ceny sprzedaży obiektu',
+      'Preview server pricing': 'Podgląd cen obliczanych przez serwer',
+      'Check-in': 'Zameldowanie',
+      'Check-out': 'Wymeldowanie',
+      'Adults': 'Dorośli',
+      'Rate Plan': 'Plan taryfowy',
+      'Allocation rule': 'Reguła przydziału',
+      'Room choice': 'Wybór pokoju',
+      'Children': 'Dzieci',
+      '+ Child age': '+ Wiek dziecka',
+      'Child age': 'Wiek dziecka',
+      'Remove': 'Usuń',
+      'Close': 'Zamknij',
+      'Cancel': 'Anuluj',
+      'Back': 'Wstecz',
+      'Calculate shadow quote': 'Oblicz ofertę równoległą',
+      'Calculating…': 'Obliczanie…',
+      'Resolving exact server pricing…': 'Wyznaczanie dokładnej ceny na serwerze…',
+      'Server-authoritative shadow quote': 'Serwerowa oferta cenowa konfiguracji równoległej',
+      'Price not requestable': 'Cena niedostępna do zamówienia',
+      'CALCULATED': 'OBLICZONO',
+      'BLOCKED': 'ZABLOKOWANO',
+      'Public request': 'Żądanie publiczne',
+      'Architecture authority': 'Wiążąca architektura',
+      'Pricing order · highest precedence → fallback': 'Kolejność cen · od najwyższego priorytetu do wartości zapasowej',
+      'Quote blockers and safety notices': 'Blokady oferty i komunikaty bezpieczeństwa',
+      'Physical and pricing allocation': 'Przydział fizyczny i cenowy',
+      'Room products': 'Produkty pokoi',
+      'Nightly calculation': 'Kalkulacja nocna',
+      'Date': 'Data',
+      'Product': 'Produkt',
+      'Source': 'Źródło',
+      'Stay bounds': 'Zakres pobytu',
+      'Price': 'Cena',
+      'Preview stopped safely': 'Podgląd bezpiecznie zatrzymany',
+      'Review Rate Plan': 'Sprawdź plan taryfowy',
+      'Review product': 'Sprawdź produkt',
+      'Review schedule': 'Sprawdź harmonogram',
+      'Review complete tier set': 'Sprawdź pełny zestaw progów',
+      'Review clone': 'Sprawdź klon',
+      'Review atomic clone': 'Sprawdź klon atomowy',
+      'Review rule': 'Sprawdź regułę',
+      'Review exact date': 'Sprawdź konkretną datę',
+      'Review allocation': 'Sprawdź przydział',
+      'Review fallback price': 'Sprawdź cenę zapasową',
+      'Review new Rate Plan': 'Sprawdź nowy plan taryfowy',
+      'Review Rate Plan changes': 'Sprawdź zmiany planu taryfowego',
+      'Save reviewed changes': 'Zapisz sprawdzone zmiany',
+      'Saving…': 'Zapisywanie…',
+      'Checking…': 'Sprawdzanie…',
+      'Check current state': 'Sprawdź aktualny stan',
+      'Property': 'Obiekt',
+      'Entity': 'Element',
+      'Changes': 'Zmiany',
+      'Field': 'Pole',
+      'Before': 'Przed',
+      'After': 'Po',
+      'There are no changes to review.': 'Brak zmian do sprawdzenia.',
+      'The current database state already matches the reviewed target. No mutation was retried.': 'Aktualny stan bazy już odpowiada sprawdzonemu celowi. Nie ponowiono żadnej mutacji.',
+      'Technical diagnostics': 'Diagnostyka techniczna',
+      'Draft': 'Wersja robocza',
+      'Inactive': 'Nieaktywny',
+      'Active': 'Aktywny',
+      'Disabled': 'Wyłączony',
+      'Required': 'Wymagane',
+      'No pricing activity yet': 'Brak aktywności cenowej',
+      'No Room Rate products': 'Brak produktów stawek pokoi',
+      'No reusable schedule': 'Brak harmonogramu wielokrotnego użytku',
+      'No Rate Plans': 'Brak planów taryfowych',
+      'No range rules': 'Brak reguł zakresu',
+      'No exact-date price': 'Brak ceny dla konkretnej daty',
+      'No allocation rules': 'Brak reguł przydziału',
+      'Choose exact Room Type': 'Wybierz dokładny typ pokoju',
+      'Choose exact Rate Plan': 'Wybierz dokładny plan taryfowy',
+      'Choose an allocation rule first': 'Najpierw wybierz regułę przydziału',
+      'Select an exact Room Type': 'Wybierz dokładny typ pokoju',
+      'Enter adults': 'Podaj liczbę dorosłych',
+      'Age': 'Wiek',
+      'Edit property fallback price': 'Edytuj zapasową cenę obiektu',
+      'Configure property fallback price': 'Skonfiguruj zapasową cenę obiektu',
+      'Positive nightly selling price': 'Dodatnia nocna cena sprzedaży',
+      'Lifecycle': 'Cykl życia',
+      'Activation blockers': 'Blokady aktywacji',
+      'I explicitly reviewed activation.': 'Wyraźnie sprawdzono aktywację.',
+      'Edit Rate Plan': 'Edytuj plan taryfowy',
+      'Create Rate Plan draft': 'Utwórz wersję roboczą planu taryfowego',
+      'Internal code': 'Kod wewnętrzny',
+      'Meal plan code': 'Kod wyżywienia',
+      'Optional': 'Opcjonalne',
+      'Rate Plan name · Polish': 'Nazwa planu taryfowego · polski',
+      'Rate Plan name · English': 'Nazwa planu taryfowego · angielski',
+      'Rate Plan name · Hebrew': 'Nazwa planu taryfowego · hebrajski',
+      'Rate Plan description · Polish': 'Opis planu taryfowego · polski',
+      'Rate Plan description · English': 'Opis planu taryfowego · angielski',
+      'Rate Plan description · Hebrew': 'Opis planu taryfowego · hebrajski',
+      'Rate Plan name': 'Nazwa planu taryfowego',
+      'Rate Plan description': 'Opis planu taryfowego',
+      'Cancellation': 'Anulowanie',
+      'Policy': 'Zasady',
+      'Cancellation deadline (hours)': 'Termin anulowania (godziny)',
+      'Enter reviewed hours': 'Podaj sprawdzoną liczbę godzin',
+      'Penalty': 'Kara',
+      'Choose reviewed penalty': 'Wybierz sprawdzoną karę',
+      'None': 'Brak',
+      'Why terms are unresolved': 'Dlaczego warunki nie są rozstrzygnięte',
+      'Required before Review': 'Wymagane przed sprawdzeniem',
+      'Cancellation policy': 'Zasady anulowania',
+      'Flexible': 'Elastyczne',
+      'Non-refundable': 'Bezzwrotne',
+      'Custom': 'Niestandardowe',
+      'Requires review': 'Wymaga sprawdzenia',
+      'Deadline hours': 'Termin w godzinach',
+      'Penalty mode': 'Sposób kary',
+      'No penalty': 'Bez kary',
+      'Fixed amount': 'Stała kwota',
+      'Percentage': 'Procent',
+      'Penalty value': 'Wartość kary',
+      'Review reason': 'Powód wymagający sprawdzenia',
+      'Price inclusions': 'Składniki ceny',
+      'Taxes included': 'Podatki wliczone',
+      'Cleaning included': 'Sprzątanie wliczone',
+      'Reviewed inclusion code': 'Sprawdzony kod składnika',
+      'For example breakfast': 'Na przykład śniadanie',
+      '+ Reviewed inclusion': '+ Sprawdzony składnik',
+      'Taxes': 'Podatki',
+      'Cleaning': 'Sprzątanie',
+      'Custom inclusion code': 'Kod dodatkowego składnika',
+      'Add inclusion': 'Dodaj składnik',
+      'Booking-mode override': 'Nadpisanie trybu rezerwacji',
+      'Use property mode': 'Użyj trybu obiektu',
+      'Sort order': 'Kolejność sortowania',
+      'Connect Room Type to Rate Plan': 'Połącz typ pokoju z planem taryfowym',
+      'Edit Room Rate product': 'Edytuj produkt stawki pokoju',
+      'Room Type': 'Typ pokoju',
+      'Reusable pricing schedule': 'Harmonogram cen wielokrotnego użytku',
+      'No linked schedule': 'Brak połączonego harmonogramu',
+      'Stored base nightly rate': 'Zapisana bazowa stawka nocna',
+      'Customer currency': 'Waluta klienta',
+      'External HTTPS redirect': 'Zewnętrzne przekierowanie HTTPS',
+      'Shared schedule impact': 'Wpływ współdzielonego harmonogramu',
+      'I reviewed the exact schedule link impact.': 'Sprawdzono dokładny wpływ połączenia harmonogramu.',
+      'Duplicate Room Rate product': 'Duplikuj produkt stawki pokoju',
+      'Source product': 'Produkt źródłowy',
+      'Unused Room Type / Rate Plan pair': 'Nieużywana para typu pokoju i planu taryfowego',
+      'Choose exact unused pair': 'Wybierz dokładną nieużywaną parę',
+      'Edit pricing schedule': 'Edytuj harmonogram cen',
+      'Create pricing schedule draft': 'Utwórz wersję roboczą harmonogramu cen',
+      'Schedule name': 'Nazwa harmonogramu',
+      'Application scope': 'Zakres zastosowania',
+      'Room occupancy': 'Obłożenie pokoju',
+      'Maximum party size': 'Maksymalna liczba gości',
+      'Minimum billable occupancy': 'Minimalne rozliczane obłożenie',
+      'Schedule ownership': 'Własność harmonogramu',
+      'Shared · reusable by several products': 'Współdzielony · używany przez kilka produktów',
+      'Independent · one product only': 'Niezależny · tylko jeden produkt',
+      'Complete occupancy / LOS tiers': 'Pełne progi obłożenia / długości pobytu',
+      'Guest count': 'Liczba gości',
+      'Threshold nights': 'Próg liczby nocy',
+      'Nightly selling price': 'Nocna cena sprzedaży',
+      '+ Tier': '+ Próg',
+      'Independent occupancy / LOS tiers': 'Niezależne progi obłożenia / długości pobytu',
+      'Clone pricing schedule as draft': 'Sklonuj harmonogram cen jako wersję roboczą',
+      'Source schedule': 'Harmonogram źródłowy',
+      'New internal code': 'Nowy kod wewnętrzny',
+      'New schedule name': 'Nowa nazwa harmonogramu',
+      'New schedule ownership': 'Własność nowego harmonogramu',
+      'Choose shared or independent': 'Wybierz współdzielony lub niezależny',
+      'Selected Room Rate': 'Wybrana stawka pokoju',
+      'Source impact': 'Wpływ na źródło',
+      'Edit seasonal / weekday price': 'Edytuj cenę sezonową / dnia tygodnia',
+      'Add seasonal / weekday price': 'Dodaj cenę sezonową / dnia tygodnia',
+      'Exact Room Rate product': 'Dokładny produkt stawki pokoju',
+      'Choose exact Room Rate product': 'Wybierz dokładny produkt stawki pokoju',
+      'Valid from': 'Ważne od',
+      'Valid to': 'Ważne do',
+      'Priority': 'Priorytet',
+      'Minimum stay': 'Minimalny pobyt',
+      'Maximum stay': 'Maksymalny pobyt',
+      'Weekdays': 'Dni tygodnia',
+      'Enabled shadow rule': 'Włączona reguła równoległa',
+      'Calendar-owned restriction': 'Ograniczenie zarządzane przez Kalendarz',
+      'Edit exact-date price': 'Edytuj cenę dla konkretnej daty',
+      'Add exact-date price': 'Dodaj cenę dla konkretnej daty',
+      'Stay date': 'Data pobytu',
+      'No change': 'Bez zmiany',
+      'Set': 'Ustaw',
+      'Clear': 'Wyczyść',
+      'Audit reason': 'Powód audytowy',
+      'Pricing expiry': 'Wygaśnięcie ceny',
+      'Review clearing all price/stay overrides': 'Sprawdź wyczyszczenie wszystkich nadpisań ceny i pobytu',
+      'Edit guest allocation rule': 'Edytuj regułę przydziału gości',
+      'Create guest allocation rule': 'Utwórz regułę przydziału gości',
+      'Allocation behavior': 'Sposób przydziału',
+      'Choose allocation behavior': 'Wybierz sposób przydziału',
+      'Customer choice': 'Wybór klienta',
+      'Required bundle': 'Wymagany pakiet',
+      'Minimum guests': 'Minimalna liczba gości',
+      'Maximum guests': 'Maksymalna liczba gości',
+      'Allocation items': 'Elementy przydziału',
+      '+ Room allocation': '+ Przydział pokoju',
+      'Units required': 'Wymagane jednostki',
+      'Physical guests per unit': 'Fizyczni goście na jednostkę',
+      'Pricing guests per unit': 'Goście cenowi na jednostkę',
+      'Pricing conflict needs review': 'Konflikt cen wymaga sprawdzenia',
+      'Controlled stale conflict': 'Kontrolowany konflikt nieaktualnych danych',
+      'The same pricing field changed in two different ways': 'To samo pole cenowe zmieniono na dwa różne sposoby',
+      'At Review': 'W chwili sprawdzenia',
+      'Current': 'Aktualnie',
+      'Requested': 'Żądane',
+      'Return to fresh pricing': 'Wróć do aktualnych cen',
+      'Unavailable': 'Niedostępne',
+      'Blocked': 'Zablokowane',
+      'Not resolved': 'Nierozstrzygnięte',
+      'No exact allocation could be resolved.': 'Nie udało się wyznaczyć dokładnego przydziału.',
+      'No Room Rate product could be resolved.': 'Nie udało się wyznaczyć produktu stawki pokoju.',
+      'Nightly server pricing breakdown': 'Nocne zestawienie cen obliczonych przez serwer',
+      'The highlighted source is the price actually used. A linked schedule always outranks independent tiers; active independent tiers outrank the stored base rate.': 'Wyróżnione źródło to cena rzeczywiście używana. Połączony harmonogram ma zawsze pierwszeństwo przed niezależnymi progami, a aktywne niezależne progi przed zapisaną stawką bazową.',
+      'Shared schedules disclose every affected Room product before Save. Independent schedules can link to one product only.': 'Harmonogram współdzielony ujawnia przed zapisem każdy produkt pokoju, którego dotyczy. Harmonogram niezależny może łączyć się tylko z jednym produktem.',
+      'Names, inclusions, cancellation policy and booking-mode behavior are reviewed here.': 'Tutaj sprawdzane są nazwy, składniki ceny, zasady anulowania i zachowanie trybu rezerwacji.',
+      'Pricing edits live here. Calendar keeps only operational inventory and closure controls.': 'Edycja cen odbywa się tutaj. Kalendarz zachowuje wyłącznie operacyjne sterowanie dostępnością i zamknięciami.',
+      'Physical occupancy and pricing occupancy remain explicit and separate for multi-room bookings.': 'Fizyczne obłożenie i obłożenie cenowe pozostają jawne i rozdzielone przy rezerwacjach wielu pokoi.',
+      'Reviewed pricing actions only. Technical identities stay inside diagnostics.': 'Tylko sprawdzone działania cenowe. Identyfikatory techniczne pozostają w diagnostyce.',
+      'One atomic exact-property operation will be applied only after all version and relationship checks pass.': 'Jedna atomowa operacja dla dokładnego obiektu zostanie zastosowana dopiero po przejściu wszystkich kontroli wersji i relacji.',
+      'The exact reviewed operation has no semantic field diff.': 'Dokładnie sprawdzona operacja nie ma semantycznych różnic pól.',
+      'Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.': 'Publiczne Hotels V2 pozostaje wyłączone. Ten zapis niczego nie publikuje, nie konwertuje, nie rezerwuje ani nie zmienia rekordów historycznych.',
+      'The interrupted save did not reach the reviewed target. Fresh values are ready for one explicit Save; nothing was retried automatically.': 'Przerwany zapis nie osiągnął sprawdzonego celu. Aktualne wartości są gotowe do jednego jawnego zapisu; niczego nie ponowiono automatycznie.',
+      'Save stopped because this workspace changed. Fresh values are ready for review; nothing was retried automatically.': 'Zapis zatrzymano, ponieważ obszar roboczy się zmienił. Aktualne wartości są gotowe do sprawdzenia; niczego nie ponowiono automatycznie.',
+      'The database already matches the reviewed pricing target. No mutation was retried.': 'Baza danych już odpowiada sprawdzonemu celowi cenowemu. Nie ponowiono żadnej mutacji.',
+      'A valid exact-property pricing preview request is required.': 'Wymagane jest prawidłowe żądanie podglądu cen dla dokładnego obiektu.',
+      'Enter a positive selling price with no more than two decimal places.': 'Wprowadź dodatnią cenę sprzedaży z maksymalnie dwoma miejscami po przecinku.',
+      'Review the custom cancellation deadline and penalty.': 'Sprawdź niestandardowy termin anulowania i karę.',
+      'Explain why cancellation terms still require review.': 'Wyjaśnij, dlaczego warunki anulowania nadal wymagają sprawdzenia.',
+      'Custom inclusion codes may use lowercase letters, numbers, hyphen and underscore.': 'Niestandardowe kody składników mogą zawierać małe litery, cyfry, łącznik i podkreślenie.',
+      'Review the property currency before creating a Room Rate product.': 'Sprawdź walutę obiektu przed utworzeniem produktu stawki pokoju.',
+      'Detach and Save this product before attaching another schedule.': 'Odłącz i zapisz ten produkt przed podłączeniem innego harmonogramu.',
+      'Review and acknowledge the exact schedule link impact.': 'Sprawdź i potwierdź dokładny wpływ połączenia harmonogramu.',
+      'Review the stored base rate, currency, HTTPS redirect and sort order.': 'Sprawdź zapisaną stawkę bazową, walutę, przekierowanie HTTPS i kolejność sortowania.',
+      'Choose shared or independent schedule ownership.': 'Wybierz współdzieloną lub niezależną własność harmonogramu.',
+      'Review and acknowledge every linked Room Rate affected by this schedule edit.': 'Sprawdź i potwierdź każdą połączoną stawkę pokoju, której dotyczy edycja harmonogramu.',
+      'Review the English name, currency, party size, minimum billable occupancy and tier coverage.': 'Sprawdź nazwę angielską, walutę, liczbę gości, minimalne rozliczane obłożenie i pokrycie progów.',
+      'Choose an editable exact Room Rate product.': 'Wybierz edytowalny, dokładny produkt stawki pokoju.',
+      'Review the date range, weekdays, selling price, priority and stay limits.': 'Sprawdź zakres dat, dni tygodnia, cenę sprzedaży, priorytet i limity pobytu.',
+      'Configure at least one exact-date price or stay field before Review.': 'Przed sprawdzeniem skonfiguruj co najmniej jedno pole ceny lub pobytu dla konkretnej daty.',
+      'Maximum stay cannot be below minimum stay.': 'Maksymalny pobyt nie może być krótszy niż minimalny.',
+      'Pricing expiry must be a valid future date and time.': 'Wygaśnięcie ceny musi być prawidłową przyszłą datą i godziną.',
+      'Stay date, a concise audit reason and any future pricing expiry are required.': 'Wymagane są data pobytu, zwięzły powód audytowy i ewentualny przyszły termin wygaśnięcia ceny.',
+      'Choose an explicit allocation behavior.': 'Wybierz jawny sposób przydziału.',
+      'Review the guest range and sort order.': 'Sprawdź zakres liczby gości i kolejność sortowania.',
+      'Cancellation and inclusions affect this exact normalized Rate Plan only. Payment and commission policies are separate and unchanged.': 'Zasady anulowania i składniki ceny dotyczą wyłącznie tego dokładnego znormalizowanego planu taryfowego. Zasady płatności i prowizji pozostają oddzielne i bez zmian.',
+      'Rate Plan created as reviewed shadow configuration.': 'Plan taryfowy utworzono jako sprawdzoną konfigurację równoległą.',
+      'Rate Plan updated.': 'Plan taryfowy zaktualizowano.',
+      'Choose the exact stay and guest party. The server resolves physical allocation, pricing occupancy, precedence and totals from the current reviewed shadow snapshot.': 'Wybierz dokładny pobyt i skład gości. Serwer wyznacza fizyczny przydział, obłożenie cenowe, kolejność pierwszeństwa i sumy z aktualnego sprawdzonego obrazu konfiguracji równoległej.',
+      'Technical preview horizon: 365 nights. Hotel business min/max stay is evaluated separately and returned as a quote blocker.': 'Techniczny zakres podglądu wynosi 365 nocy. Biznesowe minimum i maksimum pobytu obiektu są oceniane oddzielnie i zwracane jako blokada oferty.',
+      'Auto only when exactly one active reviewed Plan exists': 'Automatycznie tylko wtedy, gdy istnieje dokładnie jeden aktywny sprawdzony plan',
+      'Auto only when exactly one active reviewed rule covers the party': 'Automatycznie tylko wtedy, gdy dokładnie jedna aktywna sprawdzona reguła obejmuje grupę',
+      'Required only for a customer-choice allocation. Bundles are server allocated.': 'Wymagane tylko dla przydziału wybieranego przez klienta. Pakiety przydziela serwer.',
+      'Add each exact age. No child age is inferred.': 'Dodaj dokładny wiek każdego dziecka. Wiek nie jest domyślany.',
+      'This is a read-only calculation. It cannot activate pricing, change legacy rules, check inventory, create a booking, calculate commission or collect payment.': 'To obliczenie jest tylko do odczytu. Nie może aktywować cen, zmieniać reguł legacy, sprawdzać zapasów, tworzyć rezerwacji, obliczać prowizji ani pobierać płatności.',
+      'This preview cannot create or price a public booking.': 'Ten podgląd nie może utworzyć ani wycenić publicznej rezerwacji.',
+      'Legacy': 'Legacy',
+      'Rooms V2 shadow': 'Konfiguracja równoległa Rooms V2',
+      'No public change.': 'Brak zmiany publicznej.',
+      'Server-derived only.': 'Wyłącznie dane wyznaczone przez serwer.',
+      'Physical / priced guests': 'Goście fizyczni / cenowi',
+      'Resolved pricing guests': 'Wyznaczona liczba gości cenowych',
+      'Base source': 'Źródło bazowe',
+      'Effective stay': 'Obowiązujący pobyt',
+      'Booking mode': 'Tryb rezerwacji',
+      'Includes': 'Obejmuje',
+      'No reviewed inclusions': 'Brak sprawdzonych składników ceny',
+      'No nightly rows were calculated. Resolve the blockers above; no fallback price was invented.': 'Nie obliczono wierszy nocnych. Rozwiąż powyższe blokady; nie wymyślono ceny zapasowej.',
+      'night': 'noc',
+      'nights': 'nocy',
+      'guest': 'gość',
+      'guests': 'gości',
+      'unit': 'jednostka',
+      'units': 'jednostki',
+      'physical': 'fizycznie',
+      'priced': 'cenowo',
+      'Min': 'Min.',
+      'Max': 'Maks.',
+      'exact date price': 'cena dla konkretnej daty',
+      'seasonal range rule': 'reguła zakresu sezonowego',
+      'weekday rule': 'reguła dnia tygodnia',
+      'pricing schedule tier': 'próg harmonogramu cen',
+      'independent occupancy tier': 'niezależny próg obłożenia',
+      'room rate base nightly rate': 'bazowa stawka nocna pokoju',
+      'property default': 'cena zapasowa obiektu',
+      'request confirmation': 'potwierdzenie na żądanie',
+      'No reviewed Room Rate pricing source is configured.': 'Nie skonfigurowano sprawdzonego źródła ceny produktu pokoju.',
+      'The property fallback exists but is not active and reviewed.': 'Cena zapasowa obiektu istnieje, ale nie jest aktywna i sprawdzona.',
+      'The property fallback currency does not match this Room product.': 'Waluta ceny zapasowej obiektu nie odpowiada walucie tego produktu pokoju.',
+      'A positive Room Rate pricing source is required.': 'Wymagane jest dodatnie źródło ceny produktu pokoju.',
+      'Legacy public pricing remains authoritative.': 'Publiczne ceny legacy pozostają wiążące.',
+      'Public Hotels V2 remains off.': 'Publiczne Hotels V2 pozostaje wyłączone.',
+      'The requested stay is below the effective business minimum.': 'Żądany pobyt jest krótszy niż obowiązujące minimum biznesowe.',
+      'The requested stay exceeds the effective business maximum.': 'Żądany pobyt przekracza obowiązujące maksimum biznesowe.',
+      'The linked schedule does not cover this occupancy and stay length.': 'Połączony harmonogram nie obejmuje tego obłożenia i długości pobytu.',
+      'The independent Room Rate tiers do not cover this occupancy and stay length.': 'Niezależne progi produktu pokoju nie obejmują tego obłożenia i długości pobytu.',
+    }),
+    he: Object.freeze({
+      'Rates & Pricing': 'תמחור ותוכניות מחיר',
+      'Products': 'מוצרים',
+      'Schedules': 'לוחות תמחור',
+      'Rate Plans': 'תוכניות מחיר',
+      'Calendar prices': 'מחירי לוח שנה',
+      'Allocation': 'הקצאה',
+      'Activity': 'פעילות',
+      'Preview stay': 'תצוגה מקדימה לשהייה',
+      '+ Schedule': '+ לוח תמחור',
+      '+ Rate Plan': '+ תוכנית מחיר',
+      '+ Room Rate product': '+ מוצר מחיר לחדר',
+      '+ Exact date': '+ תאריך מדויק',
+      '+ Range rule': '+ כלל טווח',
+      '+ Allocation rule': '+ כלל הקצאה',
+      'Rates and pricing sections': 'קטעי תמחור ותוכניות מחיר',
+      'Rates & Pricing control plane': 'מרכז הבקרה לתמחור ולתוכניות מחיר',
+      'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.': 'הגדירו תוכניות מחיר, מוצרי חדר, לוחות תפוסה / משך שהייה, מחירים עונתיים, תאריכים מדויקים והקצאה. השרת נשאר מקור הסמכות.',
+      'Loading the exact server pricing snapshot…': 'טוען תמונת תמחור מדויקת מהשרת…',
+      'Loading pricing control…': 'טוען את בקרת התמחור…',
+      'Pricing fails closed without the dedicated reviewed control plane.': 'ללא מרכז הבקרה הייעודי והמאושר התמחור נחסם באופן בטוח.',
+      'Pricing control unavailable': 'בקרת התמחור אינה זמינה',
+      'Retry secure load': 'נסה טעינה מאובטחת שוב',
+      'Shadow pricing safety': 'בטיחות תמחור במבנה הצל',
+      'Legacy public pricing remains authoritative': 'התמחור הציבורי הישן נשאר מקור הסמכות',
+      'Rooms V2 property remains inert and unpublished': 'נכס Rooms V2 נשאר לא פעיל ולא מפורסם',
+      'Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.': 'כל שינוי להלן נשאר בגרף הצל המנורמל. Hotels V2 הציבורי נשאר כבוי, ושום הזמנה, תשלום, עמלה, קופון או הפניה קיימים אינם משתנים.',
+      'Accepted H3.1P boundary': 'גבול H3.1P המאושר',
+      '7 Kamares pricing control is read-only': 'בקרת התמחור של 7 Kamares היא לקריאה בלבד',
+      'Room Rate products': 'מוצרי מחיר לחדר',
+      'Reusable pricing schedules': 'לוחות תמחור לשימוש חוזר',
+      'Seasonal, weekday and exact-date prices': 'מחירים עונתיים, לפי יום בשבוע ולתאריך מדויק',
+      'Seasonal / weekday rules': 'כללים עונתיים / לפי יום בשבוע',
+      'Exact-date prices': 'מחירים לתאריך מדויק',
+      'Guest allocation': 'הקצאת אורחים',
+      'Recent pricing activity': 'פעילות תמחור אחרונה',
+      'Pricing source actually used': 'מקור המחיר שבשימוש בפועל',
+      'Customer selling price': 'מחיר המכירה ללקוח',
+      'Currency': 'מטבע',
+      'Review': 'בדיקה',
+      'Shared schedule authoritative': 'לוח משותף הוא מקור הסמכות',
+      'Independent schedule authoritative': 'לוח עצמאי הוא מקור הסמכות',
+      'Independent tiers authoritative': 'מדרגות עצמאיות הן מקור הסמכות',
+      'Base nightly rate authoritative': 'מחיר הלילה הבסיסי הוא מקור הסמכות',
+      'Property fallback authoritative': 'מחיר ברירת המחדל של הנכס הוא מקור הסמכות',
+      'No authoritative price': 'אין מחיר מוסמך',
+      'Occupancy / LOS schedule': 'לוח תפוסה / משך שהייה',
+      'Product tier schedule': 'מדרגות מחיר למוצר',
+      'Fails closed': 'נחסם באופן בטוח',
+      'Edit product': 'ערוך מוצר',
+      'View protected product': 'הצג מוצר מוגן',
+      'Duplicate product': 'שכפל מוצר',
+      'Occupancy / LOS tiers': 'מדרגות תפוסה / משך שהייה',
+      'View protected tiers': 'הצג מדרגות מוגנות',
+      'Clone schedule for this product': 'שכפל לוח עבור מוצר זה',
+      'Edit schedule': 'ערוך לוח',
+      'View protected schedule': 'הצג לוח מוגן',
+      'View read-only source': 'הצג מקור לקריאה בלבד',
+      'Clone as new manual draft': 'שכפל כטיוטה ידנית חדשה',
+      'Edit': 'ערוך',
+      'Duplicate': 'שכפל',
+      'View protected plan': 'הצג תוכנית מוגנת',
+      'View protected': 'הצג מוגן',
+      'Add pricing safely': 'הוסף תמחור בבטחה',
+      'Edit allocation': 'ערוך הקצאה',
+      'View protected allocation': 'הצג הקצאה מוגנת',
+      'Configure reviewed fallback': 'הגדר מחיר ברירת מחדל מאושר',
+      'Edit fallback': 'ערוך מחיר ברירת מחדל',
+      'View protected fallback': 'הצג מחיר ברירת מחדל מוגן',
+      'Precedence layer 5': 'שכבת קדימות 5',
+      'Precedence layer 5 · property fallback': 'שכבת קדימות 5 · ברירת מחדל של הנכס',
+      'No property fallback selling price': 'אין מחיר מכירה כברירת מחדל לנכס',
+      'Preview server pricing': 'תצוגה מקדימה לתמחור השרת',
+      'Check-in': 'צ׳ק-אין',
+      'Check-out': 'צ׳ק-אאוט',
+      'Adults': 'מבוגרים',
+      'Rate Plan': 'תוכנית מחיר',
+      'Allocation rule': 'כלל הקצאה',
+      'Room choice': 'בחירת חדר',
+      'Children': 'ילדים',
+      '+ Child age': '+ גיל ילד',
+      'Child age': 'גיל ילד',
+      'Remove': 'הסר',
+      'Close': 'סגור',
+      'Cancel': 'ביטול',
+      'Back': 'חזרה',
+      'Calculate shadow quote': 'חשב הצעת מחיר במבנה הצל',
+      'Calculating…': 'מחשב…',
+      'Resolving exact server pricing…': 'מחשב תמחור מדויק בשרת…',
+      'Server-authoritative shadow quote': 'הצעת מחיר מוסמכת מהשרת במבנה הצל',
+      'Price not requestable': 'לא ניתן לבקש מחיר',
+      'CALCULATED': 'חושב',
+      'BLOCKED': 'חסום',
+      'Public request': 'בקשה ציבורית',
+      'Architecture authority': 'סמכות הארכיטקטורה',
+      'Pricing order · highest precedence → fallback': 'סדר תמחור · מהקדימות הגבוהה לברירת המחדל',
+      'Quote blockers and safety notices': 'חסמי הצעה והודעות בטיחות',
+      'Physical and pricing allocation': 'הקצאה פיזית והקצאת תמחור',
+      'Room products': 'מוצרי חדר',
+      'Nightly calculation': 'חישוב לפי לילה',
+      'Date': 'תאריך',
+      'Product': 'מוצר',
+      'Source': 'מקור',
+      'Stay bounds': 'גבולות שהייה',
+      'Price': 'מחיר',
+      'Preview stopped safely': 'התצוגה המקדימה נעצרה בבטחה',
+      'Review Rate Plan': 'בדוק תוכנית מחיר',
+      'Review product': 'בדוק מוצר',
+      'Review schedule': 'בדוק לוח',
+      'Review complete tier set': 'בדוק את כל המדרגות',
+      'Review clone': 'בדוק שכפול',
+      'Review atomic clone': 'בדוק שכפול אטומי',
+      'Review rule': 'בדוק כלל',
+      'Review exact date': 'בדוק תאריך מדויק',
+      'Review allocation': 'בדוק הקצאה',
+      'Review fallback price': 'בדוק מחיר ברירת מחדל',
+      'Review new Rate Plan': 'בדוק תוכנית מחיר חדשה',
+      'Review Rate Plan changes': 'בדוק שינויים בתוכנית המחיר',
+      'Save reviewed changes': 'שמור שינויים שנבדקו',
+      'Saving…': 'שומר…',
+      'Checking…': 'בודק…',
+      'Check current state': 'בדוק מצב נוכחי',
+      'Property': 'נכס',
+      'Entity': 'ישות',
+      'Changes': 'שינויים',
+      'Field': 'שדה',
+      'Before': 'לפני',
+      'After': 'אחרי',
+      'There are no changes to review.': 'אין שינויים לבדיקה.',
+      'The current database state already matches the reviewed target. No mutation was retried.': 'מצב מסד הנתונים כבר תואם ליעד שנבדק. לא בוצעה שוב שום מוטציה.',
+      'Technical diagnostics': 'אבחון טכני',
+      'Draft': 'טיוטה',
+      'Inactive': 'לא פעיל',
+      'Active': 'פעיל',
+      'Disabled': 'מושבת',
+      'Required': 'נדרש',
+      'No pricing activity yet': 'אין עדיין פעילות תמחור',
+      'No Room Rate products': 'אין מוצרי מחיר לחדר',
+      'No reusable schedule': 'אין לוח לשימוש חוזר',
+      'No Rate Plans': 'אין תוכניות מחיר',
+      'No range rules': 'אין כללי טווח',
+      'No exact-date price': 'אין מחיר לתאריך מדויק',
+      'No allocation rules': 'אין כללי הקצאה',
+      'Choose exact Room Type': 'בחר סוג חדר מדויק',
+      'Choose exact Rate Plan': 'בחר תוכנית מחיר מדויקת',
+      'Choose an allocation rule first': 'בחר תחילה כלל הקצאה',
+      'Select an exact Room Type': 'בחר סוג חדר מדויק',
+      'Enter adults': 'הזן מספר מבוגרים',
+      'Age': 'גיל',
+      'Edit property fallback price': 'ערוך מחיר ברירת מחדל של הנכס',
+      'Configure property fallback price': 'הגדר מחיר ברירת מחדל של הנכס',
+      'Positive nightly selling price': 'מחיר מכירה חיובי ללילה',
+      'Lifecycle': 'מחזור חיים',
+      'Activation blockers': 'חסמי הפעלה',
+      'I explicitly reviewed activation.': 'בדקתי במפורש את ההפעלה.',
+      'Edit Rate Plan': 'ערוך תוכנית מחיר',
+      'Create Rate Plan draft': 'צור טיוטת תוכנית מחיר',
+      'Internal code': 'קוד פנימי',
+      'Meal plan code': 'קוד תוכנית ארוחות',
+      'Optional': 'אופציונלי',
+      'Rate Plan name · Polish': 'שם תוכנית מחיר · פולנית',
+      'Rate Plan name · English': 'שם תוכנית מחיר · אנגלית',
+      'Rate Plan name · Hebrew': 'שם תוכנית מחיר · עברית',
+      'Rate Plan description · Polish': 'תיאור תוכנית מחיר · פולנית',
+      'Rate Plan description · English': 'תיאור תוכנית מחיר · אנגלית',
+      'Rate Plan description · Hebrew': 'תיאור תוכנית מחיר · עברית',
+      'Rate Plan name': 'שם תוכנית מחיר',
+      'Rate Plan description': 'תיאור תוכנית מחיר',
+      'Cancellation': 'ביטול',
+      'Policy': 'מדיניות',
+      'Cancellation deadline (hours)': 'מועד אחרון לביטול (שעות)',
+      'Enter reviewed hours': 'הזן מספר שעות שנבדק',
+      'Penalty': 'קנס',
+      'Choose reviewed penalty': 'בחר קנס שנבדק',
+      'None': 'ללא',
+      'Why terms are unresolved': 'מדוע התנאים אינם פתורים',
+      'Required before Review': 'נדרש לפני הבדיקה',
+      'Cancellation policy': 'מדיניות ביטול',
+      'Flexible': 'גמישה',
+      'Non-refundable': 'ללא החזר',
+      'Custom': 'מותאמת אישית',
+      'Requires review': 'דורש בדיקה',
+      'Deadline hours': 'מועד אחרון בשעות',
+      'Penalty mode': 'סוג קנס',
+      'No penalty': 'ללא קנס',
+      'Fixed amount': 'סכום קבוע',
+      'Percentage': 'אחוז',
+      'Penalty value': 'ערך הקנס',
+      'Review reason': 'סיבה לבדיקה',
+      'Price inclusions': 'כלול במחיר',
+      'Taxes included': 'מסים כלולים',
+      'Cleaning included': 'ניקיון כלול',
+      'Reviewed inclusion code': 'קוד פריט כלול שנבדק',
+      'For example breakfast': 'למשל ארוחת בוקר',
+      '+ Reviewed inclusion': '+ פריט כלול שנבדק',
+      'Taxes': 'מסים',
+      'Cleaning': 'ניקיון',
+      'Custom inclusion code': 'קוד פריט כלול מותאם',
+      'Add inclusion': 'הוסף פריט כלול',
+      'Booking-mode override': 'עקיפת מצב הזמנה',
+      'Use property mode': 'השתמש במצב הנכס',
+      'Sort order': 'סדר מיון',
+      'Connect Room Type to Rate Plan': 'חבר סוג חדר לתוכנית מחיר',
+      'Edit Room Rate product': 'ערוך מוצר מחיר לחדר',
+      'Room Type': 'סוג חדר',
+      'Reusable pricing schedule': 'לוח תמחור לשימוש חוזר',
+      'No linked schedule': 'אין לוח מקושר',
+      'Stored base nightly rate': 'מחיר לילה בסיסי שמור',
+      'Customer currency': 'מטבע הלקוח',
+      'External HTTPS redirect': 'הפניית HTTPS חיצונית',
+      'Shared schedule impact': 'השפעת לוח משותף',
+      'I reviewed the exact schedule link impact.': 'בדקתי את ההשפעה המדויקת של קישור הלוח.',
+      'Duplicate Room Rate product': 'שכפל מוצר מחיר לחדר',
+      'Source product': 'מוצר מקור',
+      'Unused Room Type / Rate Plan pair': 'צמד סוג חדר ותוכנית מחיר שאינו בשימוש',
+      'Choose exact unused pair': 'בחר צמד מדויק שאינו בשימוש',
+      'Edit pricing schedule': 'ערוך לוח תמחור',
+      'Create pricing schedule draft': 'צור טיוטת לוח תמחור',
+      'Schedule name': 'שם הלוח',
+      'Application scope': 'תחום יישום',
+      'Room occupancy': 'תפוסת חדר',
+      'Maximum party size': 'מספר אורחים מרבי',
+      'Minimum billable occupancy': 'תפוסה מינימלית לחיוב',
+      'Schedule ownership': 'בעלות הלוח',
+      'Shared · reusable by several products': 'משותף · לשימוש במספר מוצרים',
+      'Independent · one product only': 'עצמאי · מוצר אחד בלבד',
+      'Complete occupancy / LOS tiers': 'כל מדרגות התפוסה / משך השהייה',
+      'Guest count': 'מספר אורחים',
+      'Threshold nights': 'סף לילות',
+      'Nightly selling price': 'מחיר מכירה ללילה',
+      '+ Tier': '+ מדרגה',
+      'Independent occupancy / LOS tiers': 'מדרגות תפוסה / משך שהייה עצמאיות',
+      'Clone pricing schedule as draft': 'שכפל לוח תמחור כטיוטה',
+      'Source schedule': 'לוח מקור',
+      'New internal code': 'קוד פנימי חדש',
+      'New schedule name': 'שם לוח חדש',
+      'New schedule ownership': 'בעלות הלוח החדש',
+      'Choose shared or independent': 'בחר משותף או עצמאי',
+      'Selected Room Rate': 'מחיר החדר שנבחר',
+      'Source impact': 'השפעה על המקור',
+      'Edit seasonal / weekday price': 'ערוך מחיר עונתי / לפי יום בשבוע',
+      'Add seasonal / weekday price': 'הוסף מחיר עונתי / לפי יום בשבוע',
+      'Exact Room Rate product': 'מוצר מחיר חדר מדויק',
+      'Choose exact Room Rate product': 'בחר מוצר מחיר חדר מדויק',
+      'Valid from': 'בתוקף מ־',
+      'Valid to': 'בתוקף עד',
+      'Priority': 'קדימות',
+      'Minimum stay': 'שהייה מינימלית',
+      'Maximum stay': 'שהייה מרבית',
+      'Weekdays': 'ימי השבוע',
+      'Enabled shadow rule': 'כלל צל פעיל',
+      'Calendar-owned restriction': 'הגבלה בניהול לוח השנה',
+      'Edit exact-date price': 'ערוך מחיר לתאריך מדויק',
+      'Add exact-date price': 'הוסף מחיר לתאריך מדויק',
+      'Stay date': 'תאריך שהייה',
+      'No change': 'ללא שינוי',
+      'Set': 'הגדר',
+      'Clear': 'נקה',
+      'Audit reason': 'סיבת ביקורת',
+      'Pricing expiry': 'תפוגת מחיר',
+      'Review clearing all price/stay overrides': 'בדוק ניקוי כל עקיפות המחיר והשהייה',
+      'Edit guest allocation rule': 'ערוך כלל הקצאת אורחים',
+      'Create guest allocation rule': 'צור כלל הקצאת אורחים',
+      'Allocation behavior': 'אופן ההקצאה',
+      'Choose allocation behavior': 'בחר אופן הקצאה',
+      'Customer choice': 'בחירת הלקוח',
+      'Required bundle': 'חבילה נדרשת',
+      'Minimum guests': 'מספר אורחים מינימלי',
+      'Maximum guests': 'מספר אורחים מרבי',
+      'Allocation items': 'פריטי הקצאה',
+      '+ Room allocation': '+ הקצאת חדר',
+      'Units required': 'יחידות נדרשות',
+      'Physical guests per unit': 'אורחים פיזיים ליחידה',
+      'Pricing guests per unit': 'אורחי תמחור ליחידה',
+      'Pricing conflict needs review': 'קונפליקט תמחור דורש בדיקה',
+      'Controlled stale conflict': 'קונפליקט נתונים מיושנים מבוקר',
+      'The same pricing field changed in two different ways': 'אותו שדה תמחור השתנה בשתי דרכים שונות',
+      'At Review': 'בעת הבדיקה',
+      'Current': 'נוכחי',
+      'Requested': 'מבוקש',
+      'Return to fresh pricing': 'חזור לתמחור העדכני',
+      'Unavailable': 'לא זמין',
+      'Blocked': 'חסום',
+      'Not resolved': 'לא נפתר',
+      'No exact allocation could be resolved.': 'לא ניתן היה לפתור הקצאה מדויקת.',
+      'No Room Rate product could be resolved.': 'לא ניתן היה לפתור מוצר מחיר חדר.',
+      'Nightly server pricing breakdown': 'פירוט תמחור שרת לפי לילה',
+      'The highlighted source is the price actually used. A linked schedule always outranks independent tiers; active independent tiers outrank the stored base rate.': 'המקור המודגש הוא המחיר שבשימוש בפועל. לוח מקושר תמיד קודם למדרגות עצמאיות, ומדרגות עצמאיות פעילות קודמות למחיר הבסיס השמור.',
+      'Shared schedules disclose every affected Room product before Save. Independent schedules can link to one product only.': 'לוח משותף מציג לפני השמירה כל מוצר חדר שמושפע. לוח עצמאי יכול להיות מקושר למוצר אחד בלבד.',
+      'Names, inclusions, cancellation policy and booking-mode behavior are reviewed here.': 'כאן נבדקים שמות, פריטים כלולים, מדיניות ביטול והתנהגות מצב ההזמנה.',
+      'Pricing edits live here. Calendar keeps only operational inventory and closure controls.': 'עריכת המחירים מתבצעת כאן. לוח השנה שומר רק בקרות תפעוליות של מלאי וסגירות.',
+      'Physical occupancy and pricing occupancy remain explicit and separate for multi-room bookings.': 'תפוסה פיזית ותפוסת תמחור נשארות מפורשות ונפרדות בהזמנות מרובות חדרים.',
+      'Reviewed pricing actions only. Technical identities stay inside diagnostics.': 'מוצגות רק פעולות תמחור שנבדקו. מזהים טכניים נשארים בתוך האבחון.',
+      'One atomic exact-property operation will be applied only after all version and relationship checks pass.': 'פעולה אטומית אחת לנכס המדויק תוחל רק לאחר שכל בדיקות הגרסה והקשרים יעברו.',
+      'The exact reviewed operation has no semantic field diff.': 'לפעולה המדויקת שנבדקה אין הבדל סמנטי בשדות.',
+      'Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.': 'Hotels V2 הציבורי נשאר מושבת. שמירה זו אינה מפרסמת, ממירה, מזמינה או משנה רשומות היסטוריות.',
+      'The interrupted save did not reach the reviewed target. Fresh values are ready for one explicit Save; nothing was retried automatically.': 'השמירה שנקטעה לא הגיעה ליעד שנבדק. ערכים עדכניים מוכנים לשמירה מפורשת אחת; דבר לא נוסה שוב אוטומטית.',
+      'Save stopped because this workspace changed. Fresh values are ready for review; nothing was retried automatically.': 'השמירה נעצרה כי סביבת העבודה השתנתה. ערכים עדכניים מוכנים לבדיקה; דבר לא נוסה שוב אוטומטית.',
+      'The database already matches the reviewed pricing target. No mutation was retried.': 'מסד הנתונים כבר תואם ליעד התמחור שנבדק. שום מוטציה לא נוסתה שוב.',
+      'A valid exact-property pricing preview request is required.': 'נדרשת בקשת תצוגת תמחור תקפה לנכס המדויק.',
+      'Enter a positive selling price with no more than two decimal places.': 'הזן מחיר מכירה חיובי עם עד שתי ספרות אחרי הנקודה.',
+      'Review the custom cancellation deadline and penalty.': 'בדוק את מועד הביטול והקנס המותאמים.',
+      'Explain why cancellation terms still require review.': 'הסבר מדוע תנאי הביטול עדיין דורשים בדיקה.',
+      'Custom inclusion codes may use lowercase letters, numbers, hyphen and underscore.': 'קודי פריטים מותאמים יכולים לכלול אותיות לטיניות קטנות, מספרים, מקף וקו תחתון.',
+      'Review the property currency before creating a Room Rate product.': 'בדוק את מטבע הנכס לפני יצירת מוצר מחיר לחדר.',
+      'Detach and Save this product before attaching another schedule.': 'נתק ושמור מוצר זה לפני חיבור לוח אחר.',
+      'Review and acknowledge the exact schedule link impact.': 'בדוק ואשר את ההשפעה המדויקת של קישור הלוח.',
+      'Review the stored base rate, currency, HTTPS redirect and sort order.': 'בדוק את מחיר הבסיס השמור, המטבע, הפניית HTTPS וסדר המיון.',
+      'Choose shared or independent schedule ownership.': 'בחר בעלות משותפת או עצמאית ללוח.',
+      'Review and acknowledge every linked Room Rate affected by this schedule edit.': 'בדוק ואשר כל מחיר חדר מקושר שמושפע מעריכת הלוח.',
+      'Review the English name, currency, party size, minimum billable occupancy and tier coverage.': 'בדוק את השם באנגלית, המטבע, מספר האורחים, התפוסה המינימלית לחיוב וכיסוי המדרגות.',
+      'Choose an editable exact Room Rate product.': 'בחר מוצר מחיר חדר מדויק שניתן לעריכה.',
+      'Review the date range, weekdays, selling price, priority and stay limits.': 'בדוק את טווח התאריכים, ימי השבוע, מחיר המכירה, הקדימות ומגבלות השהייה.',
+      'Configure at least one exact-date price or stay field before Review.': 'הגדר לפחות שדה מחיר או שהייה אחד לתאריך מדויק לפני הבדיקה.',
+      'Maximum stay cannot be below minimum stay.': 'השהייה המרבית אינה יכולה להיות קצרה מהשהייה המינימלית.',
+      'Pricing expiry must be a valid future date and time.': 'תפוגת המחיר חייבת להיות תאריך ושעה עתידיים תקפים.',
+      'Stay date, a concise audit reason and any future pricing expiry are required.': 'נדרשים תאריך שהייה, סיבת ביקורת קצרה וכל מועד תפוגת מחיר עתידי.',
+      'Choose an explicit allocation behavior.': 'בחר אופן הקצאה מפורש.',
+      'Review the guest range and sort order.': 'בדוק את טווח האורחים ואת סדר המיון.',
+      'Cancellation and inclusions affect this exact normalized Rate Plan only. Payment and commission policies are separate and unchanged.': 'מדיניות הביטול והפריטים הכלולים חלים רק על תוכנית המחיר המנורמלת המדויקת הזאת. מדיניות התשלום והעמלה נפרדות וללא שינוי.',
+      'Rate Plan created as reviewed shadow configuration.': 'תוכנית המחיר נוצרה כתצורת צל שנבדקה.',
+      'Rate Plan updated.': 'תוכנית המחיר עודכנה.',
+      'Choose the exact stay and guest party. The server resolves physical allocation, pricing occupancy, precedence and totals from the current reviewed shadow snapshot.': 'בחר את השהייה המדויקת ואת הרכב האורחים. השרת מחשב הקצאה פיזית, תפוסת תמחור, קדימות וסכומים מתמונת הצל הנוכחית שנבדקה.',
+      'Technical preview horizon: 365 nights. Hotel business min/max stay is evaluated separately and returned as a quote blocker.': 'אופק התצוגה הטכנית הוא 365 לילות. מינימום ומקסימום השהייה העסקיים של הנכס נבדקים בנפרד ומוחזרים כחסם הצעה.',
+      'Auto only when exactly one active reviewed Plan exists': 'אוטומטי רק כשקיימת תוכנית אחת פעילה ומאושרת',
+      'Auto only when exactly one active reviewed rule covers the party': 'אוטומטי רק כשכלל פעיל ומאושר אחד מכסה את הקבוצה',
+      'Required only for a customer-choice allocation. Bundles are server allocated.': 'נדרש רק בהקצאה של בחירת לקוח. חבילות מוקצות על ידי השרת.',
+      'Add each exact age. No child age is inferred.': 'הוסף את הגיל המדויק של כל ילד. אין הסקת גילים.',
+      'This is a read-only calculation. It cannot activate pricing, change legacy rules, check inventory, create a booking, calculate commission or collect payment.': 'זהו חישוב לקריאה בלבד. הוא אינו יכול להפעיל תמחור, לשנות כללי legacy, לבדוק מלאי, ליצור הזמנה, לחשב עמלה או לגבות תשלום.',
+      'This preview cannot create or price a public booking.': 'תצוגה זו אינה יכולה ליצור או לתמחר הזמנה ציבורית.',
+      'Legacy': 'Legacy',
+      'Rooms V2 shadow': 'מבנה הצל של Rooms V2',
+      'No public change.': 'אין שינוי ציבורי.',
+      'Server-derived only.': 'מחושב רק על ידי השרת.',
+      'Physical / priced guests': 'אורחים פיזיים / מתומחרים',
+      'Resolved pricing guests': 'מספר אורחי תמחור שנפתר',
+      'Base source': 'מקור בסיס',
+      'Effective stay': 'שהייה אפקטיבית',
+      'Booking mode': 'מצב הזמנה',
+      'Includes': 'כולל',
+      'No reviewed inclusions': 'אין פריטים כלולים שנבדקו',
+      'No nightly rows were calculated. Resolve the blockers above; no fallback price was invented.': 'לא חושבו שורות לילה. פתור את החסמים לעיל; לא הומצא מחיר ברירת מחדל.',
+      'night': 'לילה',
+      'nights': 'לילות',
+      'guest': 'אורח',
+      'guests': 'אורחים',
+      'unit': 'יחידה',
+      'units': 'יחידות',
+      'physical': 'פיזית',
+      'priced': 'לתמחור',
+      'Min': 'מינ׳',
+      'Max': 'מקס׳',
+      'exact date price': 'מחיר לתאריך מדויק',
+      'seasonal range rule': 'כלל טווח עונתי',
+      'weekday rule': 'כלל יום בשבוע',
+      'pricing schedule tier': 'מדרגת לוח תמחור',
+      'independent occupancy tier': 'מדרגת תפוסה עצמאית',
+      'room rate base nightly rate': 'מחיר לילה בסיסי לחדר',
+      'property default': 'ברירת מחדל של הנכס',
+      'request confirmation': 'אישור לפי בקשה',
+      'No reviewed Room Rate pricing source is configured.': 'לא הוגדר מקור תמחור שנבדק למוצר החדר.',
+      'The property fallback exists but is not active and reviewed.': 'ברירת המחדל של הנכס קיימת אך אינה פעילה ומאושרת.',
+      'The property fallback currency does not match this Room product.': 'מטבע ברירת המחדל של הנכס אינו תואם למוצר חדר זה.',
+      'A positive Room Rate pricing source is required.': 'נדרש מקור תמחור חיובי למוצר החדר.',
+      'Legacy public pricing remains authoritative.': 'התמחור הציבורי הישן נשאר מקור הסמכות.',
+      'Public Hotels V2 remains off.': 'Hotels V2 הציבורי נשאר כבוי.',
+      'The requested stay is below the effective business minimum.': 'השהייה המבוקשת קצרה מהמינימום העסקי התקף.',
+      'The requested stay exceeds the effective business maximum.': 'השהייה המבוקשת חורגת מהמקסימום העסקי התקף.',
+      'The linked schedule does not cover this occupancy and stay length.': 'הלוח המקושר אינו מכסה את התפוסה ומשך השהייה האלה.',
+      'The independent Room Rate tiers do not cover this occupancy and stay length.': 'מדרגות מוצר החדר העצמאיות אינן מכסות את התפוסה ומשך השהייה האלה.',
+    }),
+  });
+
+  // Interpolated and editor-specific ADMIN-C copy is kept in a second, explicit
+  // dictionary so it is translated before markup is inserted. The DOM walker
+  // below remains a compatibility boundary for older static nodes; primary
+  // pricing workflow copy must not depend on matching a completed English
+  // sentence after values such as counts, product names or dates are inserted.
+  const PRICING_UI_WORKFLOW_TEXT = Object.freeze({
+    pl: Object.freeze({
+      'Guests': 'Goście',
+      'From nights': 'Od liczby nocy',
+      'Enabled tier': 'Włączony próg',
+      'Remove occupancy tier': 'Usuń próg obłożenia',
+      'No active occupancy / stay tiers.': 'Brak aktywnych progów obłożenia / pobytu.',
+      'Occupancy and length-of-stay pricing matrix': 'Macierz cen według obłożenia i długości pobytu',
+      '{count}+ night': '{count}+ noc',
+      '{count}+ nights': '{count}+ nocy',
+      'Not configured': 'Nie skonfigurowano',
+      'For a stay length, the highest configured threshold not exceeding the stay applies to the complete stay. Missing guest or threshold coverage fails closed; the base rate is not a fallback.': 'Dla danej długości pobytu do całego pobytu stosuje się najwyższy skonfigurowany próg, który jej nie przekracza. Brak pokrycia liczby gości lub progu bezpiecznie blokuje cenę; stawka bazowa nie jest wartością zapasową.',
+      'Shared': 'Współdzielony',
+      'Independent': 'Niezależny',
+      'tiers': 'progi',
+      'occupancy / LOS tier': 'próg obłożenia / długości pobytu',
+      'occupancy / LOS tiers': 'progi obłożenia / długości pobytu',
+      'No active schedule or independent tier set': 'Brak aktywnego harmonogramu lub niezależnego zestawu progów',
+      'No linked schedule, active independent tier or positive Room base price': 'Brak połączonego harmonogramu, aktywnego niezależnego progu lub dodatniej bazowej ceny pokoju',
+      'Configure a positive Room source or reviewed active property fallback': 'Skonfiguruj dodatnie źródło ceny pokoju albo sprawdzoną aktywną cenę zapasową obiektu',
+      'Stored base rate: {price} · not authoritative while this pricing source is linked.': 'Zapisana stawka bazowa: {price} · niewiążąca, gdy to źródło ceny jest połączone.',
+      'Schedule provenance: {source}.': 'Pochodzenie harmonogramu: {source}.',
+      'Tier provenance: {source}.': 'Pochodzenie progów: {source}.',
+      '{count} minimum billable guest': '{count} minimalnie rozliczany gość',
+      '{count} minimum billable guests': '{count} minimalnie rozliczanych gości',
+      'up to {count}': 'maksymalnie {count}',
+      'manual clone': 'ręczny klon',
+      'reviewed legacy preview': 'sprawdzony podgląd legacy',
+      'system source': 'źródło systemowe',
+      'manual': 'ręczne',
+      '{count} linked product': '{count} połączony produkt',
+      '{count} linked products': '{count} połączonych produktów',
+      'Not linked': 'Niepołączony',
+      'This provider-derived source is read-only. A clone creates a separate manual draft without mutating the source.': 'To źródło pochodzące od dostawcy jest tylko do odczytu. Klon tworzy oddzielną ręczną wersję roboczą bez modyfikowania źródła.',
+      'This accepted legacy-parity schedule is immutable. Its exact reviewed tier graph remains inactive while legacy pricing is authoritative.': 'Ten zatwierdzony harmonogram zgodności legacy jest niezmienny. Jego dokładny sprawdzony graf progów pozostaje nieaktywny, gdy ceny legacy są wiążące.',
+      '{count} Room product': '{count} produkt pokoju',
+      '{count} Room products': '{count} produktów pokoi',
+      'No price inclusions configured': 'Nie skonfigurowano składników ceny',
+      'Every day': 'Codziennie',
+      'priority': 'priorytet',
+      'protected legacy price': 'chroniona cena legacy',
+      'manual source': 'źródło ręczne',
+      'read-only': 'tylko do odczytu',
+      'No price / stay override yet': 'Brak nadpisania ceny / pobytu',
+      'Clear price override': 'Wyczyść nadpisanie ceny',
+      'Price inherited': 'Cena dziedziczona',
+      'Clear minimum stay': 'Wyczyść minimalny pobyt',
+      'Clear maximum stay': 'Wyczyść maksymalny pobyt',
+      'No stay override': 'Brak nadpisania pobytu',
+      'No pricing author yet': 'Brak autora ceny',
+      '{minimum}–{maximum} guests': '{minimum}–{maximum} gości',
+      'shared operational Calendar row': 'współdzielony operacyjny wiersz Kalendarza',
+      'customer choice': 'wybór klienta',
+      'requested occupancy': 'żądane obłożenie',
+      '{count} active physical unit': '{count} aktywna jednostka fizyczna',
+      '{count} active physical units': '{count} aktywnych jednostek fizycznych',
+      '{count} pooled unit': '{count} jednostka współdzielona',
+      '{count} pooled units': '{count} jednostek współdzielonych',
+      'child policy inherited': 'zasady dotyczące dzieci dziedziczone',
+      'children from age {age}': 'dzieci od {age}. roku życia',
+      'capacity {count}': 'pojemność {count}',
+      'capacity not reviewed': 'pojemność niesprawdzona',
+      'Room operating basis unavailable': 'Brak danych o podstawie operacyjnej pokoju',
+      'If a Room product has no linked schedule, active independent tiers or positive base rate, preview fails closed. Legacy party pricing is never guessed as this fallback.': 'Jeśli produkt pokoju nie ma połączonego harmonogramu, aktywnych niezależnych progów ani dodatniej stawki bazowej, podgląd zostaje bezpiecznie zablokowany. Ceny legacy dla grupy nigdy nie są uznawane za tę cenę zapasową.',
+      'Used only after no schedule tier, independent tier or positive Room base price resolves. This normalized shadow value never reads or modifies legacy party pricing.': 'Używana tylko wtedy, gdy nie można wyznaczyć progu harmonogramu, niezależnego progu ani dodatniej bazowej ceny pokoju. Ta znormalizowana wartość równoległa nigdy nie odczytuje ani nie zmienia cen legacy dla grupy.',
+      'Server pricing precedence · layer 5': 'Pierwszeństwo cen serwera · warstwa 5',
+      'Last normalized selling-price fallback': 'Ostatnia znormalizowana zapasowa cena sprzedaży',
+      'This price is used only when the exact Room Rate has no linked schedule tier, active independent tier or positive base nightly rate. It never derives from or replaces legacy party pricing.': 'Ta cena jest używana tylko wtedy, gdy dokładna stawka pokoju nie ma połączonego progu harmonogramu, aktywnego niezależnego progu ani dodatniej bazowej stawki nocnej. Nigdy nie jest wyprowadzana z cen legacy ani ich nie zastępuje.',
+      'Fallback nightly selling price': 'Zapasowa nocna cena sprzedaży',
+      'Enter reviewed positive price': 'Podaj sprawdzoną dodatnią cenę',
+      'Locked to the reviewed property currency.': 'Zablokowana na sprawdzonej walucie obiektu.',
+      'Review fallback price': 'Sprawdź cenę zapasową',
+      'Review property fallback disable': 'Sprawdź wyłączenie ceny zapasowej obiektu',
+      'Review new property fallback price': 'Sprawdź nową cenę zapasową obiektu',
+      'Property fallback price disabled.': 'Zapasowa cena obiektu została wyłączona.',
+      'Property fallback price updated.': 'Zapasowa cena obiektu została zaktualizowana.',
+      'Property fallback price created as a shadow draft.': 'Zapasowa cena obiektu została utworzona jako równoległa wersja robocza.',
+      'The server uses this only as normalized precedence layer 5. Legacy pricing, public flags, commission and payment behavior remain unchanged.': 'Serwer używa tej wartości tylko jako znormalizowanej warstwy pierwszeństwa 5. Ceny legacy, flagi publiczne, prowizje i obsługa płatności pozostają bez zmian.',
+      'Activation blockers': 'Blokady aktywacji',
+      'resolve blockers first': 'najpierw usuń blokady',
+      'Active is allowed only when the exact server readiness checks pass. This does not switch public Hotels V2 on.': 'Stan aktywny jest dozwolony dopiero po przejściu dokładnych serwerowych kontroli gotowości. Nie włącza to publicznego Hotels V2.',
+      'Resolve activation blockers first: {blockers}.': 'Najpierw usuń blokady aktywacji: {blockers}.',
+      'Explicitly acknowledge this active pricing state before Review.': 'Przed sprawdzeniem wyraźnie potwierdź ten aktywny stan cen.',
+      'Protected accepted contract': 'Chroniony zatwierdzony kontrakt',
+      'This exact accepted legacy-parity Hotel pricing graph is read-only in ADMIN-C. No clone, draft, rule, exact-date or allocation mutation is available here.': 'Dokładny, zatwierdzony graf cen Hotelu zgodny z legacy jest w ADMIN-C tylko do odczytu. Nie można tu wykonać klonowania ani zmiany wersji roboczej, reguły, konkretnej daty lub przydziału.',
+      'This exact protected object cannot be edited or activated through ADMIN-C. Clone a supported schedule or create a separate draft contract when the server readiness rules allow it.': 'Tego dokładnego chronionego obiektu nie można edytować ani aktywować w ADMIN-C. Gdy pozwolą na to kontrole gotowości serwera, sklonuj obsługiwany harmonogram lub utwórz oddzielny kontrakt roboczy.',
+      '7 Kamares ADMIN-C pricing is read-only. Its exact H3.1P parity graph must remain unchanged while legacy pricing is authoritative.': 'Ceny 7 Kamares w ADMIN-C są tylko do odczytu. Dokładny graf zgodności H3.1P musi pozostać bez zmian, gdy ceny legacy są wiążące.',
+      'Only same-currency manual room-occupancy schedules are newly attachable. Existing nonmanual links may be retained or detached, and their source can be cloned into a separate manual draft. A direct schedule-to-schedule switch is prohibited.': 'Nowo połączyć można tylko ręczne harmonogramy obłożenia pokoju w tej samej walucie. Istniejące połączenia nieręczne można zachować lub odłączyć, a ich źródło sklonować do oddzielnej ręcznej wersji roboczej. Bezpośrednia zmiana harmonogramu na inny jest zabroniona.',
+      'reference only': 'tylko odniesienie',
+      'other currency': 'inna waluta',
+      'clone to manual before attaching': 'przed połączeniem sklonuj jako ręczny',
+      'already linked': 'już połączony',
+      'A linked schedule or active independent tiers makes this value non-authoritative.': 'Połączony harmonogram lub aktywne niezależne progi sprawiają, że ta wartość nie jest wiążąca.',
+      'I reviewed every affected Room Rate link.': 'Sprawdzono każde połączenie stawki pokoju, którego dotyczy zmiana.',
+      'This acknowledgement protects shared and independent schedule ownership.': 'To potwierdzenie chroni własność harmonogramu współdzielonego i niezależnego.',
+      'Attach to {schedule}': 'Połącz z {schedule}',
+      'Detach from {schedule}': 'Odłącz od {schedule}',
+      'Current affected products: {products}. This exact product will {action} that link set.': 'Produkty, których obecnie dotyczy zmiana: {products}. Ten dokładny produkt {action} ten zestaw połączeń.',
+      'join': 'dołączy do',
+      'leave': 'opuści',
+      'none': 'brak',
+      'No pricing schedule link change.': 'Brak zmiany połączenia harmonogramu cen.',
+      'Schedule link impact reviewed: {products}. The exact link fingerprint is protected.': 'Sprawdzono wpływ połączenia harmonogramu: {products}. Dokładny odcisk zestawu połączeń jest chroniony.',
+      'currently no linked products': 'obecnie brak połączonych produktów',
+      'The authoritative source is calculated on the server; browser totals and source labels are never trusted.': 'Wiążące źródło jest obliczane na serwerze; sumy ani etykiety źródła z przeglądarki nie są uznawane za wiążące.',
+      'Only the stored base price and currency are copied. The new product starts draft and inactive with no schedule link, independent tiers, external redirect, inventory, bookings or activation.': 'Kopiowane są tylko zapisana cena bazowa i waluta. Nowy produkt rozpoczyna jako nieaktywna wersja robocza bez połączenia harmonogramu, niezależnych progów, przekierowania zewnętrznego, zapasów, rezerwacji ani aktywacji.',
+      'Review duplicate': 'Sprawdź duplikat',
+      'The exact target pair is unused. Schedule links, independent tiers, activation, inventory, bookings, rates beyond the stored base and external redirects are not copied.': 'Dokładna para docelowa jest nieużywana. Połączenia harmonogramu, niezależne progi, aktywacja, zapasy, rezerwacje, stawki poza zapisaną bazową i przekierowania zewnętrzne nie są kopiowane.',
+      'Retained but dormant while a reusable schedule is linked.': 'Zachowane, ale uśpione, gdy połączony jest harmonogram wielokrotnego użytku.',
+      'Every occupancy / stay tier needs a unique positive guest count and threshold with a non-negative price.': 'Każdy próg obłożenia / pobytu wymaga unikalnej dodatniej liczby gości i progu oraz nieujemnej ceny.',
+      'Application': 'Zastosowanie',
+      'Property booking-party schedules remain read-only parity/reference data.': 'Harmonogramy grupy rezerwacyjnej obiektu pozostają danymi zgodności / referencyjnymi tylko do odczytu.',
+      'Sharing': 'Współdzielenie',
+      'Choose schedule ownership': 'Wybierz własność harmonogramu',
+      'Independent · one Room product maximum': 'Niezależny · maksymalnie jeden produkt pokoju',
+      'Shared · multiple products': 'Współdzielony · wiele produktów',
+      'Enter reviewed maximum': 'Podaj sprawdzone maksimum',
+      'Enter reviewed minimum': 'Podaj sprawdzone minimum',
+      'Occupancy / length-of-stay tiers': 'Progi obłożenia / długości pobytu',
+      'The selected price applies to the complete stay. Configure a 1-night threshold only when the commercial contract explicitly supports one night.': 'Wybrana cena obowiązuje przez cały pobyt. Próg jednej nocy konfiguruj tylko wtedy, gdy kontrakt handlowy wyraźnie dopuszcza jedną noc.',
+      'Shared edit impact': 'Wpływ edycji współdzielonej',
+      'I reviewed all {count} linked product.': 'Sprawdzono {count} połączony produkt.',
+      'I reviewed all {count} linked products.': 'Sprawdzono wszystkie {count} połączone produkty.',
+      'The exact link fingerprint must remain unchanged through Save.': 'Dokładny odcisk zestawu połączeń musi pozostać bez zmian podczas zapisu.',
+      'Review schedule': 'Sprawdź harmonogram',
+      'Retained but dormant': 'Zachowane, ale uśpione',
+      'Independent tiers authoritative when enabled': 'Niezależne progi są wiążące po włączeniu',
+      'A reusable schedule is currently linked and remains authoritative. These tiers are retained for a future reviewed detach; editing them does not change the current source.': 'Obecnie połączony harmonogram wielokrotnego użytku pozostaje wiążący. Te progi są zachowane do przyszłego sprawdzonego odłączenia; ich edycja nie zmienia bieżącego źródła.',
+      'If at least one tier is enabled, missing guest / threshold coverage fails closed and the base rate is not a fallback.': 'Jeśli co najmniej jeden próg jest włączony, brak pokrycia gościa / progu bezpiecznie blokuje cenę, a stawka bazowa nie jest wartością zapasową.',
+      '{count} exact tier will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.': '{count} dokładny próg zostanie skopiowany do nowej niepołączonej wersji roboczej. Połączenia stawek pokoi, aktywacja i tożsamość ochrony legacy nie są kopiowane.',
+      '{count} exact tiers will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.': '{count} dokładnych progów zostanie skopiowanych do nowej niepołączonej wersji roboczej. Połączenia stawek pokoi, aktywacja i tożsamość ochrony legacy nie są kopiowane.',
+      '{count} source-linked product': '{count} produkt połączony ze źródłem',
+      '{count} source-linked products': '{count} produktów połączonych ze źródłem',
+      'Shared · reusable by multiple products': 'Współdzielony · wielokrotnego użytku przez wiele produktów',
+      'The clone starts draft and unlinked. This choice does not activate or attach it.': 'Klon rozpoczyna jako niepołączona wersja robocza. Ten wybór go nie aktywuje ani nie łączy.',
+      'I reviewed the exact source link impact.': 'Sprawdzono dokładny wpływ połączeń źródłowych.',
+      'The linked products above remain on the unchanged source schedule; the new clone starts unlinked.': 'Powyższe połączone produkty pozostają w niezmienionym harmonogramie źródłowym; nowy klon rozpoczyna bez połączeń.',
+      'Pricing schedule cloned as an unlinked {mode} draft.': 'Harmonogram cen sklonowano jako niepołączoną wersję roboczą ({mode}).',
+      'Source version {version}, its complete tier set and exact linked-product fingerprint are rechecked by the server. Existing Room Rate links remain untouched.': 'Serwer ponownie sprawdza wersję źródła {version}, pełny zestaw progów i dokładny odcisk połączonych produktów. Istniejące połączenia stawek pokoi pozostają bez zmian.',
+      'moves to clone': 'przechodzi do klonu',
+      'remains on source': 'pozostaje w źródle',
+      'One atomic transaction creates an independent inactive clone and relinks only the selected product, which is forced inactive. {impact}.': 'Jedna atomowa transakcja tworzy niezależny nieaktywny klon i ponownie łączy tylko wybrany produkt, który zostaje wymuszony jako nieaktywny. {impact}.',
+      'The source or selected product changed after Review. This is a fresh explicit Review; nothing was retried.': 'Źródło lub wybrany produkt zmienił się po sprawdzeniu. To nowa jawna weryfikacja; niczego nie ponowiono.',
+      'This product moves to a new independent inactive clone in the same atomic Save.': 'Ten produkt przechodzi do nowego niezależnego nieaktywnego klonu w tym samym atomowym zapisie.',
+      '{products} remain linked to the unchanged source.': '{products} pozostają połączone z niezmienionym źródłem.',
+      'No sibling product remains on the source after this exact relink.': 'Po tym dokładnym ponownym połączeniu żaden produkt równorzędny nie pozostaje w źródle.',
+      'I reviewed the selected product and every source-linked sibling.': 'Sprawdzono wybrany produkt i każdy produkt równorzędny połączony ze źródłem.',
+      'The target starts independent and draft; the selected product is forced inactive. No intermediate detach or second network mutation occurs.': 'Cel rozpoczyna jako niezależna wersja robocza; wybrany produkt zostaje wymuszony jako nieaktywny. Nie występuje pośrednie odłączenie ani druga mutacja sieciowa.',
+      'Choose every exact weekday this selling-price rule should cover.': 'Wybierz każdy dokładny dzień tygodnia objęty tą regułą ceny sprzedaży.',
+      'This row contains closed-to-arrival or closed-to-departure semantics. ADMIN-C preserves them byte-for-byte and cannot disable the complete row. ADMIN-D owns that operational decision.': 'Ten wiersz zawiera semantykę zamknięcia przyjazdu lub wyjazdu. ADMIN-C zachowuje ją bajt w bajt i nie może wyłączyć całego wiersza. Ta decyzja operacyjna należy do ADMIN-D.',
+      'Arrival/departure closure fields are read-only and preserved exactly. They are not evaluated by this pricing preview. Equal-priority pricing overlap is rejected by the server.': 'Pola zamknięcia przyjazdu / wyjazdu są tylko do odczytu i dokładnie zachowywane. Ten podgląd cen ich nie uwzględnia. Serwer odrzuca nakładające się ceny o równym priorytecie.',
+      'protected legacy price': 'chroniona cena legacy',
+      'No price/stay change': 'Brak zmiany ceny / pobytu',
+      'Set exact value': 'Ustaw dokładną wartość',
+      'Clear configured override / inherit': 'Wyczyść skonfigurowane nadpisanie / dziedzicz',
+      'Value': 'Wartość',
+      'Exact pricing provenance': 'Pochodzenie dokładnej ceny',
+      'No pricing override author yet': 'Brak autora nadpisania ceny',
+      'This may be an operational Calendar row. Calendar provenance is intentionally separate and is not presented as the source of a price.': 'To może być operacyjny wiersz Kalendarza. Jego pochodzenie jest celowo oddzielone i nie jest przedstawiane jako źródło ceny.',
+      'Pricing audit context': 'Kontekst audytu ceny',
+      'Reason for this price/stay configuration': 'Powód tej konfiguracji ceny / pobytu',
+      'Required for every exact-date price/stay Review, including explicit CLEAR. Operational Calendar reasons remain separate.': 'Wymagany przy każdej weryfikacji ceny / pobytu dla konkretnej daty, także przy jawnym WYCZYŚĆ. Powody operacyjne Kalendarza pozostają oddzielne.',
+      'Pricing override expires': 'Nadpisanie ceny wygasa',
+      'Optional. If set, it must be a future instant and applies only to price/stay resolution.': 'Opcjonalne. Jeśli ustawione, musi wskazywać przyszły moment i dotyczy wyłącznie wyznaczania ceny / pobytu.',
+      'This row also contains Calendar availability semantics. Pricing Save preserves closure, arrival/departure and availability fields byte-for-byte; this editor cannot disable or erase them.': 'Ten wiersz zawiera także semantykę dostępności Kalendarza. Zapis ceny zachowuje bajt w bajt pola zamknięcia, przyjazdu / wyjazdu i dostępności; ten edytor nie może ich wyłączyć ani usunąć.',
+      'No price/stay change preserves an unconfigured field as null. CLEAR is an explicit reviewed instruction and is never inferred.': 'Brak zmiany ceny / pobytu zachowuje nieskonfigurowane pole jako null. WYCZYŚĆ jest jawną sprawdzoną instrukcją i nigdy nie jest domyślne.',
+      '{field} is invalid.': 'Pole {field} jest nieprawidłowe.',
+      'Price/stay overrides cleared; the operational Calendar row remains.': 'Nadpisania ceny / pobytu wyczyszczono; operacyjny wiersz Kalendarza pozostaje.',
+      'Price-only exact-date row removed.': 'Usunięto wiersz konkretnej daty zawierający wyłącznie cenę.',
+      'All six price/stay fields are cleared in one reviewed action. Closure, CTA, CTD and inventory semantics remain byte-for-byte on the same exact Calendar row.': 'Wszystkie sześć pól ceny / pobytu jest czyszczonych w jednym sprawdzonym działaniu. Semantyka zamknięcia, CTA, CTD i zapasów pozostaje bajt w bajt w tym samym dokładnym wierszu Kalendarza.',
+      'This exact row contains price/stay configuration only. The server may remove it after binding its full reviewed original state.': 'Ten dokładny wiersz zawiera wyłącznie konfigurację ceny / pobytu. Serwer może go usunąć po powiązaniu pełnego sprawdzonego stanu pierwotnego.',
+      'The existing exact Room/date row was reused. Only price and stay SET/CLEAR fields change; Calendar closure, CTA, CTD and availability semantics are preserved byte-for-byte.': 'Ponownie użyto istniejącego dokładnego wiersza pokoju / daty. Zmieniają się tylko pola ceny i pobytu USTAW / WYCZYŚĆ; semantyka zamknięcia, CTA, CTD i dostępności Kalendarza jest zachowana bajt w bajt.',
+      'This price-only editor writes no Calendar closure, CTA, CTD or inventory state.': 'Ten edytor wyłącznie cenowy nie zapisuje zamknięcia Kalendarza, CTA, CTD ani stanu zapasów.',
+      'Enter units': 'Podaj jednostki',
+      'For example 3, 2': 'Na przykład 3, 2',
+      'For example 2, 2': 'Na przykład 2, 2',
+      'Comma-separated exact per-unit counts. Leave blank only for customer choice.': 'Dokładne liczby na jednostkę oddziel przecinkami. Pozostaw puste tylko dla wyboru klienta.',
+      'May differ from physical allocation only under an explicitly reviewed commercial contract.': 'Może różnić się od przydziału fizycznego tylko na podstawie jawnie sprawdzonego kontraktu handlowego.',
+      'Customer chooses one Room Type': 'Klient wybiera jeden typ pokoju',
+      'Required multi-room bundle': 'Wymagany pakiet wielu pokoi',
+      'Guests from': 'Goście od',
+      'Guests to': 'Goście do',
+      'Exact Room Type allocation': 'Dokładny przydział typów pokoi',
+      '+ Room Type': '+ Typ pokoju',
+      'Add each exact Room Type explicitly. No Room, unit count or guest allocation is inferred.': 'Dodaj każdy dokładny typ pokoju jawnie. Żaden pokój, liczba jednostek ani przydział gości nie są domyślne.',
+      'Per-unit guest counts must be comma-separated positive whole numbers.': 'Liczby gości na jednostkę muszą być dodatnimi liczbami całkowitymi oddzielonymi przecinkami.',
+      'Units required must be a whole number from 1 to 50.': 'Liczba wymaganych jednostek musi być liczbą całkowitą od 1 do 50.',
+      'Required bundles need exact physical and pricing guests per unit.': 'Wymagane pakiety potrzebują dokładnej liczby gości fizycznych i cenowych na jednostkę.',
+      'Customer-choice options use one unit and requested occupancy; leave both per-unit guest fields blank.': 'Opcje wyboru klienta używają jednej jednostki i żądanego obłożenia; oba pola gości na jednostkę pozostaw puste.',
+      'Per-unit guest-count entries must match Units required exactly.': 'Liczba wpisów gości na jednostkę musi dokładnie odpowiadać liczbie wymaganych jednostek.',
+      'Add at least one exact Room Type allocation item.': 'Dodaj co najmniej jeden dokładny element przydziału typu pokoju.',
+      'Each Room Type may appear once inside an allocation rule.': 'Każdy typ pokoju może wystąpić w regule przydziału tylko raz.',
+      'Every allocation item needs an exact Room Type and valid sort order.': 'Każdy element przydziału wymaga dokładnego typu pokoju i prawidłowej kolejności sortowania.',
+      'Physical guest counts and pricing occupancy are displayed separately. The complete item set is protected by its exact fingerprint.': 'Liczby gości fizycznych i obłożenie cenowe są wyświetlane oddzielnie. Pełny zestaw elementów jest chroniony dokładnym odciskiem.',
+      'Public request': 'Żądanie publiczne',
+      'Architecture authority': 'Wiążąca architektura',
+      'OFF': 'WYŁ.',
+      'No reviewed inclusions': 'Brak sprawdzonych składników',
+      'Unavailable': 'Niedostępne',
+      'Blocked': 'Zablokowane',
+      'Not resolved': 'Nierozstrzygnięte',
+      'Pricing conflict needs review': 'Konflikt cen wymaga sprawdzenia',
+      'Nothing was overwritten or retried. Compare the exact original, current and requested values, then reopen the editor from the fresh snapshot.': 'Niczego nie nadpisano ani nie ponowiono. Porównaj dokładne wartości pierwotne, bieżące i żądane, a następnie otwórz edytor ponownie z aktualnego obrazu.',
+      'The fresh pricing snapshot is now loaded. This conflict screen performs no mutation.': 'Aktualny obraz cen został załadowany. Ten ekran konfliktu nie wykonuje żadnej mutacji.',
+      'Review the property currency before configuring a fallback price.': 'Sprawdź walutę obiektu przed konfiguracją ceny zapasowej.',
+      'Review the property currency before creating a pricing schedule.': 'Sprawdź walutę obiektu przed utworzeniem harmonogramu cen.',
+      'Choose a same-currency room-occupancy schedule that is available for this exact product.': 'Wybierz dostępny dla tego dokładnego produktu harmonogram obłożenia pokoju w tej samej walucie.',
+      'An active external-redirect product requires its exact reviewed HTTPS redirect URL.': 'Aktywny produkt z przekierowaniem zewnętrznym wymaga dokładnego sprawdzonego adresu przekierowania HTTPS.',
+      'Choose an unused exact pair and a valid stored base rate.': 'Wybierz nieużywaną dokładną parę i prawidłową zapisaną stawkę bazową.',
+      'Detach this shared schedule until at most one product remains before changing it to independent.': 'Przed zmianą harmonogramu na niezależny odłączaj go, aż pozostanie najwyżej jeden produkt.',
+      'Review and acknowledge every linked Room Rate affected by this schedule edit.': 'Sprawdź i potwierdź każdą połączoną stawkę pokoju objętą edycją harmonogramu.',
+      'Review and acknowledge every exact source-linked Room Rate before cloning.': 'Przed klonowaniem sprawdź i potwierdź każdą dokładną stawkę pokoju połączoną ze źródłem.',
+      'No editable Room Rate product is available. Accepted legacy products are protected.': 'Brak edytowalnego produktu stawki pokoju. Zatwierdzone produkty legacy są chronione.',
+      'No editable exact Room Rate product is available.': 'Brak edytowalnego dokładnego produktu stawki pokoju.',
+      'Accepted Rate Plan': 'Zatwierdzony plan taryfowy',
+      'Accepted Room Rate product': 'Zatwierdzony produkt stawki pokoju',
+      'Accepted allocation rule': 'Zatwierdzona reguła przydziału',
+      'Accepted exact-date pricing': 'Zatwierdzone ceny dla konkretnej daty',
+      'Accepted occupancy / LOS tiers': 'Zatwierdzone progi obłożenia / długości pobytu',
+      'Accepted pricing schedule': 'Zatwierdzony harmonogram cen',
+      'Accepted property pricing fallback': 'Zatwierdzona zapasowa cena obiektu',
+      'Accepted seasonal / weekday rule': 'Zatwierdzona reguła sezonowa / dnia tygodnia',
+      'Protected Rate Plan': 'Chroniony plan taryfowy',
+      'Protected Room Rate': 'Chroniona stawka pokoju',
+      'Protected allocation rule': 'Chroniona reguła przydziału',
+      'Protected exact-date price': 'Chroniona cena dla konkretnej daty',
+      'Protected pricing schedule': 'Chroniony harmonogram cen',
+      'Protected property pricing fallback': 'Chroniona zapasowa cena obiektu',
+      'Protected seasonal rule': 'Chroniona reguła sezonowa',
+      'Reference pricing schedule': 'Referencyjny harmonogram cen',
+      'Read-only occupancy / LOS tiers': 'Progi obłożenia / długości pobytu tylko do odczytu',
+      'Active Rate Plans require reviewed names and descriptions in PL, EN and HE. Save incomplete content as draft or inactive.': 'Aktywne plany taryfowe wymagają sprawdzonych nazw i opisów w PL, EN i HE. Niepełną treść zapisz jako wersję roboczą lub nieaktywną.',
+      'Add a date range, weekdays and selling price.': 'Dodaj zakres dat, dni tygodnia i cenę sprzedaży.',
+      'Create a Rate Plan, then connect it to an exact Room Type.': 'Utwórz plan taryfowy, a następnie połącz go z dokładnym typem pokoju.',
+      'Create a Room Type before adding allocation rules.': 'Utwórz typ pokoju przed dodaniem reguł przydziału.',
+      'Create a draft occupancy / length-of-stay schedule or use independent product tiers.': 'Utwórz roboczy harmonogram obłożenia / długości pobytu albo użyj niezależnych progów produktu.',
+      'Create an inactive draft before connecting Room products.': 'Utwórz nieaktywną wersję roboczą przed połączeniem produktów pokoi.',
+      'Create at least one Room Type and Rate Plan before connecting a Room Rate product.': 'Przed połączeniem produktu stawki pokoju utwórz co najmniej jeden typ pokoju i plan taryfowy.',
+      'Create draft rules before activation and preview.': 'Przed aktywacją i podglądem utwórz reguły robocze.',
+      'Deploy and verify the ADMIN-C pricing foundation before editing normalized prices.': 'Wdróż i zweryfikuj fundament cen ADMIN-C przed edycją znormalizowanych cen.',
+      'Enter explicit priority': 'Podaj jawny priorytet',
+      'Enter reviewed selling price': 'Podaj sprawdzoną cenę sprzedaży',
+      'Optional HTTPS URL': 'Opcjonalny adres HTTPS',
+      'No override': 'Brak nadpisania',
+      'Not used for an exact bundle': 'Nieużywane dla dokładnego pakietu',
+      'Only a room-occupancy schedule can be cloned into the Room pricing control plane.': 'Do panelu cen pokoi można sklonować tylko harmonogram obłożenia pokoju.',
+      'Only the Rate Plan business content is copied. No Room Rate product, activation, booking, payment or commission relationship is copied.': 'Kopiowana jest tylko treść biznesowa planu taryfowego. Nie są kopiowane produkty stawek pokoi ani relacje aktywacji, rezerwacji, płatności lub prowizji.',
+      'Every Room Type / Rate Plan pair already has a product. Create another Room Type or Rate Plan first.': 'Każda para typu pokoju i planu taryfowego ma już produkt. Najpierw utwórz kolejny typ pokoju lub plan taryfowy.',
+      'Rate Plan duplicated as a separate draft.': 'Plan taryfowy zduplikowano jako oddzielną wersję roboczą.',
+      'Rate Plan name in English is required.': 'Nazwa planu taryfowego w języku angielskim jest wymagana.',
+      'Pricing schedule code': 'Kod harmonogramu cen',
+      'Pricing schedule created as a shadow draft.': 'Harmonogram cen utworzono jako równoległą wersję roboczą.',
+      'Pricing schedule updated.': 'Harmonogram cen został zaktualizowany.',
+      'Schedule name in English is required.': 'Nazwa harmonogramu w języku angielskim jest wymagana.',
+      'Choose shared or independent ownership for the new schedule.': 'Wybierz współdzieloną lub niezależną własność nowego harmonogramu.',
+      'Independent Room Rate tiers updated atomically.': 'Niezależne progi stawki pokoju zaktualizowano atomowo.',
+      'Independent pricing schedule cloned and linked to the selected inactive product.': 'Niezależny harmonogram cen sklonowano i połączono z wybranym nieaktywnym produktem.',
+      'Room Rate product created as a shadow draft.': 'Produkt stawki pokoju utworzono jako równoległą wersję roboczą.',
+      'Room Rate product duplicated as an inert draft.': 'Produkt stawki pokoju zduplikowano jako nieaktywną wersję roboczą.',
+      'Room Rate product updated.': 'Produkt stawki pokoju został zaktualizowany.',
+      'Exact-date price created.': 'Cena dla konkretnej daty została utworzona.',
+      'Exact-date price updated.': 'Cena dla konkretnej daty została zaktualizowana.',
+      'Seasonal / weekday price created.': 'Cena sezonowa / dnia tygodnia została utworzona.',
+      'Seasonal / weekday price updated.': 'Cena sezonowa / dnia tygodnia została zaktualizowana.',
+      'Seasonal / weekday rule disabled.': 'Reguła sezonowa / dnia tygodnia została wyłączona.',
+      'Guest allocation created as a shadow draft.': 'Przydział gości utworzono jako równoległą wersję roboczą.',
+      'Guest allocation updated.': 'Przydział gości został zaktualizowany.',
+      'Review Room Rate product': 'Sprawdź produkt stawki pokoju',
+      'Review duplicated Rate Plan': 'Sprawdź zduplikowany plan taryfowy',
+      'Review duplicated Room Rate product': 'Sprawdź zduplikowany produkt stawki pokoju',
+      'Review complete independent tier set': 'Sprawdź pełny niezależny zestaw progów',
+      'Review pricing schedule': 'Sprawdź harmonogram cen',
+      'Review new pricing schedule': 'Sprawdź nowy harmonogram cen',
+      'Review schedule clone': 'Sprawdź klon harmonogramu',
+      'Review clone for this product': 'Sprawdź klon dla tego produktu',
+      'Review fresh clone for this product': 'Sprawdź aktualny klon dla tego produktu',
+      'Review seasonal / weekday rule': 'Sprawdź regułę sezonową / dnia tygodnia',
+      'Review new seasonal / weekday rule': 'Sprawdź nową regułę sezonową / dnia tygodnia',
+      'Review seasonal-rule disable': 'Sprawdź wyłączenie reguły sezonowej',
+      'Review exact-date price': 'Sprawdź cenę dla konkretnej daty',
+      'Review new exact-date price': 'Sprawdź nową cenę dla konkretnej daty',
+      'Review exact-date price on fresh Calendar row': 'Sprawdź cenę dla konkretnej daty w aktualnym wierszu Kalendarza',
+      'Review clearing exact-date pricing': 'Sprawdź wyczyszczenie ceny dla konkretnej daty',
+      'Review guest allocation': 'Sprawdź przydział gości',
+      'Review new guest allocation': 'Sprawdź nowy przydział gości',
+      'Review and acknowledge the exact source-link impact.': 'Sprawdź i potwierdź dokładny wpływ połączenia źródłowego.',
+      'Save content, relationship or tier edits first, then disable this pricing object in a separate explicit Review.': 'Najpierw zapisz zmiany treści, relacji lub progów, a następnie wyłącz ten obiekt cenowy w oddzielnej jawnej weryfikacji.',
+      'Save seasonal-price edits first, then disable this rule in a separate explicit Review.': 'Najpierw zapisz zmiany ceny sezonowej, a następnie wyłącz tę regułę w oddzielnej jawnej weryfikacji.',
+      'No pricing fields changed. Nothing needs Review or Save.': 'Żadne pole cenowe nie zostało zmienione. Nie trzeba niczego sprawdzać ani zapisywać.',
+      'Fresh non-overlapping values were preserved. Review this rebuilt plan and explicitly Save once.': 'Zachowano aktualne, nienakładające się wartości. Sprawdź odbudowany plan i jawnie zapisz go raz.',
+      'The complete set is protected by its exact child fingerprint. No missing occupancy can silently fall back to the base rate.': 'Pełny zestaw jest chroniony dokładnym odciskiem elementów podrzędnych. Brakujące obłożenie nie może po cichu przejść na stawkę bazową.',
+      'The linked reusable schedule remains authoritative. This exact full-set update only changes dormant retained tiers.': 'Połączony harmonogram wielokrotnego użytku pozostaje wiążący. Ta dokładna aktualizacja pełnego zestawu zmienia tylko zachowane uśpione progi.',
+      'This complete rule is reviewed in the Pricing control plane. Calendar has no second price-rule writer.': 'Pełna reguła jest sprawdzana w panelu cen. Kalendarz nie ma drugiego mechanizmu zapisu reguł cenowych.',
+      'This status-only disable binds the complete price, stay and Calendar restriction state. No Calendar-owned CTA/CTD restriction is present.': 'Wyłączenie obejmujące tylko status wiąże pełny stan ceny, pobytu i ograniczeń Kalendarza. Nie ma ograniczenia CTA/CTD zarządzanego przez Kalendarz.',
+      'The first reviewed pricing mutation will appear here.': 'Tutaj pojawi się pierwsza sprawdzona mutacja cen.',
+      'Load the exact Pricing control before requesting a preview.': 'Przed żądaniem podglądu załaduj dokładny panel cen.',
+      'The server preview could not be confirmed.': 'Nie udało się potwierdzić podglądu serwera.',
+      'Fresh pricing has a genuine conflict.': 'Aktualne ceny zawierają rzeczywisty konflikt.',
+      'Fresh pricing has a genuine conflict. Nothing was overwritten or retried.': 'Aktualne ceny zawierają rzeczywisty konflikt. Niczego nie nadpisano ani nie ponowiono.',
+      'The same pricing field changed after Review.': 'To samo pole cenowe zmieniło się po sprawdzeniu.',
+      'The same pricing field changed after Review. Nothing was overwritten or retried.': 'To samo pole cenowe zmieniło się po sprawdzeniu. Niczego nie nadpisano ani nie ponowiono.',
+      'The atomic clone and exact product relink are already committed. No mutation was retried.': 'Atomowy klon i dokładne ponowne połączenie produktu są już zatwierdzone. Nie ponowiono żadnej mutacji.',
+      'The atomic clone result is only partially present or differs from the reviewed target.': 'Wynik atomowego klonowania jest obecny tylko częściowo albo różni się od sprawdzonego celu.',
+      'The selected product is no longer linked to the exact source schedule.': 'Wybrany produkt nie jest już połączony z dokładnym harmonogramem źródłowym.',
+      'This exact Room Rate no longer has a reusable schedule to clone.': 'Ta dokładna stawka pokoju nie ma już harmonogramu wielokrotnego użytku do sklonowania.',
+      'The source pricing schedule is no longer available.': 'Źródłowy harmonogram cen nie jest już dostępny.',
+      'This Room Rate tier set is not editable.': 'Tego zestawu progów stawki pokoju nie można edytować.',
+      'Admin': 'Administrator',
+      'Partner': 'Partner',
+      'Calendar sync': 'Synchronizacja Kalendarza',
+      'System': 'System',
+      'create': 'utworzono',
+      'update': 'zaktualizowano',
+      'disable': 'wyłączono',
+      'duplicate': 'zduplikowano',
+      'delete': 'usunięto',
+      'Pricing schedule': 'Harmonogram cen',
+      'Exact-date price': 'Cena dla konkretnej daty',
+      'Seasonal / weekday rule': 'Reguła sezonowa / dnia tygodnia',
+      'Property fallback price': 'Zapasowa cena obiektu',
+      'Room Rate product': 'Produkt stawki pokoju',
+      'Unresolved requirement': 'Nierozstrzygnięte wymaganie',
+      'Mon': 'Pon.',
+      'Tue': 'Wt.',
+      'Wed': 'Śr.',
+      'Thu': 'Czw.',
+      'Fri': 'Pt.',
+      'Sat': 'Sob.',
+      'Sun': 'Niedz.',
+      'pricing': 'cena',
+      'Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.': 'Tryb rezerwacji obiektu: {mode}. Nadpisanie planu taryfowego jest jawne i sprawdzane przez serwer.',
+      'A Calendar row for the exact Room/date appeared after Review. Its operational fields and any unrequested price/stay fields are preserved. Inspect this fresh explicit UPDATE Review; nothing was retried.': 'Po sprawdzeniu pojawił się wiersz Kalendarza dla dokładnego pokoju / daty. Zachowano jego pola operacyjne oraz nieżądane pola ceny / pobytu. Sprawdź nową jawną weryfikację AKTUALIZACJI; niczego nie ponowiono.',
+      'The source schedule changed; inspect this fresh clone Review. Nothing was retried.': 'Harmonogram źródłowy się zmienił; sprawdź nową weryfikację klonu. Niczego nie ponowiono.',
+      '{entity} changed after Review. The overlapping fields were not overwritten.': 'Element {entity} zmienił się po sprawdzeniu. Nakładające się pola nie zostały nadpisane.',
+      'This complete tier-set replacement affects: {products}. The exact child and link fingerprints are protected.': 'Ta pełna wymiana zestawu progów dotyczy: {products}. Dokładne odciski elementów podrzędnych i połączeń są chronione.',
+      'This is a complete atomic tier-set Review. Missing tier coverage fails closed; base pricing is not used as a fallback.': 'To kompletna atomowa weryfikacja zestawu progów. Brak pokrycia progu bezpiecznie blokuje cenę; cena bazowa nie jest używana jako zapasowa.',
+      'Unchanged for sibling products': 'Bez zmian dla produktów równorzędnych',
+      'New independent schedule name': 'Nazwa nowego niezależnego harmonogramu',
+      'PROTECTED': 'CHRONIONE',
+      'schedule': 'harmonogram',
+      '{name} tier matrix': 'Macierz progów: {name}',
+    }),
+    he: Object.freeze({
+      'Guests': 'אורחים',
+      'From nights': 'החל ממספר לילות',
+      'Enabled tier': 'מדרגה פעילה',
+      'Remove occupancy tier': 'הסר מדרגת תפוסה',
+      'No active occupancy / stay tiers.': 'אין מדרגות תפוסה / שהייה פעילות.',
+      'Occupancy and length-of-stay pricing matrix': 'מטריצת תמחור לפי תפוסה ומשך שהייה',
+      '{count}+ night': '{count}+ לילה',
+      '{count}+ nights': '{count}+ לילות',
+      'Not configured': 'לא הוגדר',
+      'For a stay length, the highest configured threshold not exceeding the stay applies to the complete stay. Missing guest or threshold coverage fails closed; the base rate is not a fallback.': 'למשך שהייה נתון, הסף המוגדר הגבוה ביותר שאינו עולה על משך השהייה חל על כל השהייה. היעדר כיסוי לאורחים או לסף נחסם בבטחה; מחיר הבסיס אינו ברירת מחדל.',
+      'Shared': 'משותף',
+      'Independent': 'עצמאי',
+      'tiers': 'מדרגות',
+      'occupancy / LOS tier': 'מדרגת תפוסה / משך שהייה',
+      'occupancy / LOS tiers': 'מדרגות תפוסה / משך שהייה',
+      'No active schedule or independent tier set': 'אין לוח פעיל או קבוצת מדרגות עצמאית',
+      'No linked schedule, active independent tier or positive Room base price': 'אין לוח מקושר, מדרגה עצמאית פעילה או מחיר בסיס חיובי לחדר',
+      'Configure a positive Room source or reviewed active property fallback': 'הגדר מקור חיובי לחדר או ברירת מחדל פעילה ומאושרת לנכס',
+      'Stored base rate: {price} · not authoritative while this pricing source is linked.': 'מחיר בסיס שמור: {price} · אינו מקור הסמכות כל עוד מקור תמחור זה מקושר.',
+      'Schedule provenance: {source}.': 'מקור הלוח: {source}.',
+      'Tier provenance: {source}.': 'מקור המדרגות: {source}.',
+      '{count} minimum billable guest': '{count} אורח מינימלי לחיוב',
+      '{count} minimum billable guests': '{count} אורחים מינימליים לחיוב',
+      'up to {count}': 'עד {count}',
+      'manual clone': 'עותק ידני',
+      'reviewed legacy preview': 'תצוגת legacy מאושרת',
+      'system source': 'מקור מערכת',
+      'manual': 'ידני',
+      '{count} linked product': '{count} מוצר מקושר',
+      '{count} linked products': '{count} מוצרים מקושרים',
+      'Not linked': 'לא מקושר',
+      'This provider-derived source is read-only. A clone creates a separate manual draft without mutating the source.': 'מקור זה שמגיע מספק הוא לקריאה בלבד. שכפול יוצר טיוטה ידנית נפרדת בלי לשנות את המקור.',
+      'This accepted legacy-parity schedule is immutable. Its exact reviewed tier graph remains inactive while legacy pricing is authoritative.': 'לוח תאימות legacy מאושר זה אינו ניתן לשינוי. גרף המדרגות המדויק שנבדק נשאר לא פעיל כל עוד תמחור legacy הוא מקור הסמכות.',
+      '{count} Room product': '{count} מוצר חדר',
+      '{count} Room products': '{count} מוצרי חדר',
+      'No price inclusions configured': 'לא הוגדרו פריטים כלולים במחיר',
+      'Every day': 'כל יום',
+      'priority': 'קדימות',
+      'protected legacy price': 'מחיר legacy מוגן',
+      'manual source': 'מקור ידני',
+      'read-only': 'לקריאה בלבד',
+      'No price / stay override yet': 'אין עדיין עקיפת מחיר / שהייה',
+      'Clear price override': 'נקה עקיפת מחיר',
+      'Price inherited': 'מחיר בירושה',
+      'Clear minimum stay': 'נקה שהייה מינימלית',
+      'Clear maximum stay': 'נקה שהייה מרבית',
+      'No stay override': 'אין עקיפת שהייה',
+      'No pricing author yet': 'אין עדיין מחבר תמחור',
+      '{minimum}–{maximum} guests': '{minimum}–{maximum} אורחים',
+      'shared operational Calendar row': 'שורת לוח שנה תפעולית משותפת',
+      'customer choice': 'בחירת לקוח',
+      'requested occupancy': 'תפוסה מבוקשת',
+      '{count} active physical unit': '{count} יחידה פיזית פעילה',
+      '{count} active physical units': '{count} יחידות פיזיות פעילות',
+      '{count} pooled unit': '{count} יחידה מאוגדת',
+      '{count} pooled units': '{count} יחידות מאוגדות',
+      'child policy inherited': 'מדיניות ילדים עוברת בירושה',
+      'children from age {age}': 'ילדים מגיל {age}',
+      'capacity {count}': 'קיבולת {count}',
+      'capacity not reviewed': 'הקיבולת לא נבדקה',
+      'Room operating basis unavailable': 'בסיס התפעול של החדר אינו זמין',
+      'If a Room product has no linked schedule, active independent tiers or positive base rate, preview fails closed. Legacy party pricing is never guessed as this fallback.': 'אם למוצר חדר אין לוח מקושר, מדרגות עצמאיות פעילות או מחיר בסיס חיובי, התצוגה נחסמת בבטחה. תמחור legacy לקבוצה לעולם אינו מוסק כברירת מחדל זו.',
+      'Used only after no schedule tier, independent tier or positive Room base price resolves. This normalized shadow value never reads or modifies legacy party pricing.': 'משמש רק כאשר אין מדרגת לוח, מדרגה עצמאית או מחיר בסיס חיובי לחדר שנפתרו. ערך הצל המנורמל הזה לעולם אינו קורא או משנה תמחור legacy לקבוצה.',
+      'Server pricing precedence · layer 5': 'קדימות תמחור השרת · שכבה 5',
+      'Last normalized selling-price fallback': 'ברירת המחדל המנורמלת האחרונה למחיר מכירה',
+      'This price is used only when the exact Room Rate has no linked schedule tier, active independent tier or positive base nightly rate. It never derives from or replaces legacy party pricing.': 'מחיר זה משמש רק כאשר למחיר החדר המדויק אין מדרגת לוח מקושרת, מדרגה עצמאית פעילה או מחיר בסיס חיובי ללילה. הוא לעולם אינו נגזר מתמחור legacy ואינו מחליף אותו.',
+      'Fallback nightly selling price': 'מחיר מכירה חלופי ללילה',
+      'Enter reviewed positive price': 'הזן מחיר חיובי שנבדק',
+      'Locked to the reviewed property currency.': 'נעול למטבע הנכס שנבדק.',
+      'Review fallback price': 'בדוק מחיר חלופי',
+      'Review property fallback disable': 'בדוק השבתת מחיר ברירת המחדל של הנכס',
+      'Review new property fallback price': 'בדוק מחיר ברירת מחדל חדש לנכס',
+      'Property fallback price disabled.': 'מחיר ברירת המחדל של הנכס הושבת.',
+      'Property fallback price updated.': 'מחיר ברירת המחדל של הנכס עודכן.',
+      'Property fallback price created as a shadow draft.': 'מחיר ברירת המחדל של הנכס נוצר כטיוטת צל.',
+      'The server uses this only as normalized precedence layer 5. Legacy pricing, public flags, commission and payment behavior remain unchanged.': 'השרת משתמש בערך זה רק כשכבת קדימות מנורמלת 5. תמחור legacy, דגלים ציבוריים, עמלות והתנהגות תשלום נשארים ללא שינוי.',
+      'Activation blockers': 'חסמי הפעלה',
+      'resolve blockers first': 'פתור תחילה את החסמים',
+      'Active is allowed only when the exact server readiness checks pass. This does not switch public Hotels V2 on.': 'מצב פעיל מותר רק לאחר שבדיקות המוכנות המדויקות בשרת עוברות. פעולה זו אינה מפעילה את Hotels V2 הציבורי.',
+      'Resolve activation blockers first: {blockers}.': 'פתור תחילה את חסמי ההפעלה: {blockers}.',
+      'Explicitly acknowledge this active pricing state before Review.': 'אשר במפורש את מצב התמחור הפעיל לפני הבדיקה.',
+      'Protected accepted contract': 'חוזה מאושר ומוגן',
+      'This exact accepted legacy-parity Hotel pricing graph is read-only in ADMIN-C. No clone, draft, rule, exact-date or allocation mutation is available here.': 'גרף תמחור המלון המדויק והמאושר לתאימות legacy הוא לקריאה בלבד ב־ADMIN-C. אין כאן שינוי של שכפול, טיוטה, כלל, תאריך מדויק או הקצאה.',
+      'This exact protected object cannot be edited or activated through ADMIN-C. Clone a supported schedule or create a separate draft contract when the server readiness rules allow it.': 'אי אפשר לערוך או להפעיל אובייקט מוגן מדויק זה דרך ADMIN-C. שכפל לוח נתמך או צור חוזה טיוטה נפרד כאשר כללי המוכנות בשרת מאפשרים זאת.',
+      '7 Kamares ADMIN-C pricing is read-only. Its exact H3.1P parity graph must remain unchanged while legacy pricing is authoritative.': 'תמחור 7 Kamares ב־ADMIN-C הוא לקריאה בלבד. גרף התאימות המדויק H3.1P חייב להישאר ללא שינוי כל עוד תמחור legacy הוא מקור הסמכות.',
+      'Only same-currency manual room-occupancy schedules are newly attachable. Existing nonmanual links may be retained or detached, and their source can be cloned into a separate manual draft. A direct schedule-to-schedule switch is prohibited.': 'אפשר לקשר מחדש רק לוחות ידניים לתפוסת חדר באותו מטבע. אפשר להשאיר או לנתק קישורים קיימים שאינם ידניים, ולשכפל את המקור שלהם לטיוטה ידנית נפרדת. מעבר ישיר מלוח ללוח אסור.',
+      'reference only': 'לעיון בלבד',
+      'other currency': 'מטבע אחר',
+      'clone to manual before attaching': 'שכפל לידני לפני הקישור',
+      'already linked': 'כבר מקושר',
+      'A linked schedule or active independent tiers makes this value non-authoritative.': 'לוח מקושר או מדרגות עצמאיות פעילות הופכים ערך זה ללא סמכותי.',
+      'I reviewed every affected Room Rate link.': 'בדקתי כל קישור למחיר חדר שמושפע.',
+      'This acknowledgement protects shared and independent schedule ownership.': 'אישור זה מגן על בעלות לוח משותפת ועצמאית.',
+      'Attach to {schedule}': 'קשר אל {schedule}',
+      'Detach from {schedule}': 'נתק מ־{schedule}',
+      'Current affected products: {products}. This exact product will {action} that link set.': 'המוצרים שמושפעים כעת: {products}. המוצר המדויק הזה {action} את קבוצת הקישורים.',
+      'join': 'יצטרף אל',
+      'leave': 'יעזוב',
+      'none': 'אין',
+      'No pricing schedule link change.': 'אין שינוי בקישור לוח התמחור.',
+      'Schedule link impact reviewed: {products}. The exact link fingerprint is protected.': 'השפעת קישור הלוח נבדקה: {products}. טביעת האצבע המדויקת של הקישורים מוגנת.',
+      'currently no linked products': 'אין כעת מוצרים מקושרים',
+      'The authoritative source is calculated on the server; browser totals and source labels are never trusted.': 'מקור הסמכות מחושב בשרת; סכומים ותוויות מקור מהדפדפן לעולם אינם נחשבים מהימנים.',
+      'Only the stored base price and currency are copied. The new product starts draft and inactive with no schedule link, independent tiers, external redirect, inventory, bookings or activation.': 'רק מחיר הבסיס השמור והמטבע מועתקים. המוצר החדש מתחיל כטיוטה לא פעילה ללא קישור לוח, מדרגות עצמאיות, הפניה חיצונית, מלאי, הזמנות או הפעלה.',
+      'Review duplicate': 'בדוק שכפול',
+      'The exact target pair is unused. Schedule links, independent tiers, activation, inventory, bookings, rates beyond the stored base and external redirects are not copied.': 'צמד היעד המדויק אינו בשימוש. קישורי לוח, מדרגות עצמאיות, הפעלה, מלאי, הזמנות, מחירים מעבר לבסיס השמור והפניות חיצוניות אינם מועתקים.',
+      'Retained but dormant while a reusable schedule is linked.': 'נשמר אך רדום כל עוד לוח לשימוש חוזר מקושר.',
+      'Every occupancy / stay tier needs a unique positive guest count and threshold with a non-negative price.': 'כל מדרגת תפוסה / שהייה דורשת מספר אורחים וסף חיוביים וייחודיים עם מחיר שאינו שלילי.',
+      'Application': 'יישום',
+      'Property booking-party schedules remain read-only parity/reference data.': 'לוחות קבוצת ההזמנה של הנכס נשארים נתוני תאימות / ייחוס לקריאה בלבד.',
+      'Sharing': 'שיתוף',
+      'Choose schedule ownership': 'בחר בעלות על הלוח',
+      'Independent · one Room product maximum': 'עצמאי · מוצר חדר אחד לכל היותר',
+      'Shared · multiple products': 'משותף · מספר מוצרים',
+      'Enter reviewed maximum': 'הזן מקסימום שנבדק',
+      'Enter reviewed minimum': 'הזן מינימום שנבדק',
+      'Occupancy / length-of-stay tiers': 'מדרגות תפוסה / משך שהייה',
+      'The selected price applies to the complete stay. Configure a 1-night threshold only when the commercial contract explicitly supports one night.': 'המחיר שנבחר חל על כל השהייה. הגדר סף של לילה אחד רק כאשר החוזה המסחרי תומך בכך במפורש.',
+      'Shared edit impact': 'השפעת עריכה משותפת',
+      'I reviewed all {count} linked product.': 'בדקתי את המוצר המקושר האחד ({count}).',
+      'I reviewed all {count} linked products.': 'בדקתי את כל {count} המוצרים המקושרים.',
+      'The exact link fingerprint must remain unchanged through Save.': 'טביעת האצבע המדויקת של הקישורים חייבת להישאר ללא שינוי במהלך השמירה.',
+      'Review schedule': 'בדוק לוח',
+      'Retained but dormant': 'נשמר אך רדום',
+      'Independent tiers authoritative when enabled': 'מדרגות עצמאיות הן מקור הסמכות כשהן פעילות',
+      'A reusable schedule is currently linked and remains authoritative. These tiers are retained for a future reviewed detach; editing them does not change the current source.': 'לוח לשימוש חוזר מקושר כעת ונשאר מקור הסמכות. מדרגות אלה נשמרות לניתוק עתידי שנבדק; עריכתן אינה משנה את המקור הנוכחי.',
+      'If at least one tier is enabled, missing guest / threshold coverage fails closed and the base rate is not a fallback.': 'אם לפחות מדרגה אחת פעילה, היעדר כיסוי לאורח / סף נחסם בבטחה ומחיר הבסיס אינו ברירת מחדל.',
+      '{count} exact tier will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.': 'מדרגה מדויקת אחת ({count}) תועתק לטיוטה חדשה ולא מקושרת. קישורי מחירי חדר, הפעלה וזהות הגנת legacy אינם מועתקים.',
+      '{count} exact tiers will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.': '{count} מדרגות מדויקות יועתקו לטיוטה חדשה ולא מקושרת. קישורי מחירי חדר, הפעלה וזהות הגנת legacy אינם מועתקים.',
+      '{count} source-linked product': '{count} מוצר המקושר למקור',
+      '{count} source-linked products': '{count} מוצרים המקושרים למקור',
+      'Shared · reusable by multiple products': 'משותף · לשימוש חוזר במספר מוצרים',
+      'The clone starts draft and unlinked. This choice does not activate or attach it.': 'השכפול מתחיל כטיוטה לא מקושרת. בחירה זו אינה מפעילה או מקשרת אותו.',
+      'I reviewed the exact source link impact.': 'בדקתי את השפעת קישור המקור המדויקת.',
+      'The linked products above remain on the unchanged source schedule; the new clone starts unlinked.': 'המוצרים המקושרים לעיל נשארים בלוח המקור ללא שינוי; השכפול החדש מתחיל ללא קישורים.',
+      'Pricing schedule cloned as an unlinked {mode} draft.': 'לוח התמחור שוכפל כטיוטה {mode} לא מקושרת.',
+      'Source version {version}, its complete tier set and exact linked-product fingerprint are rechecked by the server. Existing Room Rate links remain untouched.': 'השרת בודק מחדש את גרסת המקור {version}, את קבוצת המדרגות המלאה ואת טביעת האצבע המדויקת של המוצרים המקושרים. קישורי מחירי החדר הקיימים נשארים ללא שינוי.',
+      'moves to clone': 'עובר לשכפול',
+      'remains on source': 'נשאר במקור',
+      'One atomic transaction creates an independent inactive clone and relinks only the selected product, which is forced inactive. {impact}.': 'עסקה אטומית אחת יוצרת שכפול עצמאי ולא פעיל ומקשרת מחדש רק את המוצר שנבחר, שנכפה כלא פעיל. {impact}.',
+      'The source or selected product changed after Review. This is a fresh explicit Review; nothing was retried.': 'המקור או המוצר שנבחר השתנו לאחר הבדיקה. זוהי בדיקה מפורשת חדשה; שום דבר לא נוסה שוב.',
+      'This product moves to a new independent inactive clone in the same atomic Save.': 'מוצר זה עובר לשכפול עצמאי ולא פעיל חדש באותה שמירה אטומית.',
+      '{products} remain linked to the unchanged source.': '{products} נשארים מקושרים למקור ללא שינוי.',
+      'No sibling product remains on the source after this exact relink.': 'אף מוצר אח לא נשאר במקור לאחר הקישור מחדש המדויק הזה.',
+      'I reviewed the selected product and every source-linked sibling.': 'בדקתי את המוצר שנבחר ואת כל המוצרים האחים המקושרים למקור.',
+      'The target starts independent and draft; the selected product is forced inactive. No intermediate detach or second network mutation occurs.': 'היעד מתחיל כעצמאי ובמצב טיוטה; המוצר שנבחר נכפה כלא פעיל. אין ניתוק ביניים או שינוי רשת שני.',
+      'Choose every exact weekday this selling-price rule should cover.': 'בחר כל יום מדויק בשבוע שכלל מחיר המכירה צריך לכסות.',
+      'This row contains closed-to-arrival or closed-to-departure semantics. ADMIN-C preserves them byte-for-byte and cannot disable the complete row. ADMIN-D owns that operational decision.': 'שורה זו מכילה משמעות של סגירה להגעה או לעזיבה. ADMIN-C שומר עליה בדיוק ואינו יכול להשבית את כל השורה. ההחלטה התפעולית שייכת ל־ADMIN-D.',
+      'Arrival/departure closure fields are read-only and preserved exactly. They are not evaluated by this pricing preview. Equal-priority pricing overlap is rejected by the server.': 'שדות סגירת הגעה / עזיבה הם לקריאה בלבד ונשמרים בדיוק. תצוגת התמחור אינה מחשבת אותם. השרת דוחה חפיפת מחירים באותה קדימות.',
+      'protected legacy price': 'מחיר legacy מוגן',
+      'No price/stay change': 'אין שינוי במחיר / שהייה',
+      'Set exact value': 'הגדר ערך מדויק',
+      'Clear configured override / inherit': 'נקה עקיפה מוגדרת / קבל בירושה',
+      'Value': 'ערך',
+      'Exact pricing provenance': 'מקור התמחור המדויק',
+      'No pricing override author yet': 'אין עדיין מחבר לעקיפת התמחור',
+      'This may be an operational Calendar row. Calendar provenance is intentionally separate and is not presented as the source of a price.': 'ייתכן שזו שורת לוח שנה תפעולית. מקור לוח השנה מופרד בכוונה ואינו מוצג כמקור למחיר.',
+      'Pricing audit context': 'הקשר ביקורת תמחור',
+      'Reason for this price/stay configuration': 'הסיבה לתצורת מחיר / שהייה זו',
+      'Required for every exact-date price/stay Review, including explicit CLEAR. Operational Calendar reasons remain separate.': 'נדרש לכל בדיקת מחיר / שהייה בתאריך מדויק, כולל ניקוי מפורש. סיבות תפעוליות של לוח השנה נשארות נפרדות.',
+      'Pricing override expires': 'עקיפת התמחור פגה',
+      'Optional. If set, it must be a future instant and applies only to price/stay resolution.': 'אופציונלי. אם מוגדר, חייב להיות מועד עתידי וחל רק על פתרון מחיר / שהייה.',
+      'This row also contains Calendar availability semantics. Pricing Save preserves closure, arrival/departure and availability fields byte-for-byte; this editor cannot disable or erase them.': 'שורה זו מכילה גם משמעות של זמינות בלוח השנה. שמירת התמחור שומרת בדיוק על שדות סגירה, הגעה / עזיבה וזמינות; עורך זה אינו יכול להשבית או למחוק אותם.',
+      'No price/stay change preserves an unconfigured field as null. CLEAR is an explicit reviewed instruction and is never inferred.': 'אין שינוי במחיר / שהייה שומר שדה לא מוגדר כ־null. ניקוי הוא הוראה מפורשת שנבדקה ולעולם אינו מוסק.',
+      '{field} is invalid.': 'השדה {field} אינו תקין.',
+      'Price/stay overrides cleared; the operational Calendar row remains.': 'עקיפות המחיר / שהייה נוקו; שורת לוח השנה התפעולית נשארת.',
+      'Price-only exact-date row removed.': 'שורת התאריך המדויק שמכילה מחיר בלבד הוסרה.',
+      'All six price/stay fields are cleared in one reviewed action. Closure, CTA, CTD and inventory semantics remain byte-for-byte on the same exact Calendar row.': 'כל ששת שדות המחיר / שהייה מנוקים בפעולה אחת שנבדקה. משמעות הסגירה, CTA, CTD והמלאי נשארת בדיוק באותה שורת לוח שנה.',
+      'This exact row contains price/stay configuration only. The server may remove it after binding its full reviewed original state.': 'שורה מדויקת זו מכילה תצורת מחיר / שהייה בלבד. השרת רשאי להסיר אותה לאחר קישור מצבה המקורי המלא שנבדק.',
+      'The existing exact Room/date row was reused. Only price and stay SET/CLEAR fields change; Calendar closure, CTA, CTD and availability semantics are preserved byte-for-byte.': 'נעשה שימוש חוזר בשורת החדר / תאריך המדויקת. רק שדות הגדרה / ניקוי של מחיר ושהייה משתנים; משמעות הסגירה, CTA, CTD והזמינות של לוח השנה נשמרת בדיוק.',
+      'This price-only editor writes no Calendar closure, CTA, CTD or inventory state.': 'עורך המחיר בלבד אינו כותב סגירת לוח שנה, CTA, CTD או מצב מלאי.',
+      'Enter units': 'הזן יחידות',
+      'For example 3, 2': 'לדוגמה 3, 2',
+      'For example 2, 2': 'לדוגמה 2, 2',
+      'Comma-separated exact per-unit counts. Leave blank only for customer choice.': 'מספרים מדויקים לכל יחידה, מופרדים בפסיקים. השאר ריק רק לבחירת לקוח.',
+      'May differ from physical allocation only under an explicitly reviewed commercial contract.': 'יכול להיות שונה מההקצאה הפיזית רק לפי חוזה מסחרי שנבדק במפורש.',
+      'Customer chooses one Room Type': 'הלקוח בוחר סוג חדר אחד',
+      'Required multi-room bundle': 'חבילת מספר חדרים נדרשת',
+      'Guests from': 'אורחים מ־',
+      'Guests to': 'אורחים עד',
+      'Exact Room Type allocation': 'הקצאה מדויקת של סוג חדר',
+      '+ Room Type': '+ סוג חדר',
+      'Add each exact Room Type explicitly. No Room, unit count or guest allocation is inferred.': 'הוסף במפורש כל סוג חדר מדויק. אין הסקה של חדר, מספר יחידות או הקצאת אורחים.',
+      'Per-unit guest counts must be comma-separated positive whole numbers.': 'מספרי אורחים ליחידה חייבים להיות מספרים שלמים חיוביים המופרדים בפסיקים.',
+      'Units required must be a whole number from 1 to 50.': 'מספר היחידות הנדרש חייב להיות מספר שלם בין 1 ל־50.',
+      'Required bundles need exact physical and pricing guests per unit.': 'חבילות נדרשות צריכות מספר מדויק של אורחים פיזיים ואורחי תמחור לכל יחידה.',
+      'Customer-choice options use one unit and requested occupancy; leave both per-unit guest fields blank.': 'אפשרויות בחירת לקוח משתמשות ביחידה אחת ובתפוסה המבוקשת; השאר את שני שדות האורחים ליחידה ריקים.',
+      'Per-unit guest-count entries must match Units required exactly.': 'מספר רשומות האורחים ליחידה חייב להתאים בדיוק למספר היחידות הנדרש.',
+      'Add at least one exact Room Type allocation item.': 'הוסף לפחות פריט הקצאה מדויק אחד של סוג חדר.',
+      'Each Room Type may appear once inside an allocation rule.': 'כל סוג חדר יכול להופיע פעם אחת בכלל הקצאה.',
+      'Every allocation item needs an exact Room Type and valid sort order.': 'כל פריט הקצאה דורש סוג חדר מדויק וסדר מיון תקין.',
+      'Physical guest counts and pricing occupancy are displayed separately. The complete item set is protected by its exact fingerprint.': 'מספרי האורחים הפיזיים ותפוסת התמחור מוצגים בנפרד. קבוצת הפריטים המלאה מוגנת בטביעת האצבע המדויקת שלה.',
+      'Public request': 'בקשה ציבורית',
+      'Architecture authority': 'ארכיטקטורה סמכותית',
+      'OFF': 'כבוי',
+      'No reviewed inclusions': 'אין פריטים כלולים שנבדקו',
+      'Unavailable': 'לא זמין',
+      'Blocked': 'חסום',
+      'Not resolved': 'לא נפתר',
+      'Pricing conflict needs review': 'קונפליקט תמחור דורש בדיקה',
+      'Nothing was overwritten or retried. Compare the exact original, current and requested values, then reopen the editor from the fresh snapshot.': 'דבר לא נדרס ולא נוסה שוב. השווה את הערכים המקוריים, הנוכחיים והמבוקשים המדויקים ואז פתח מחדש את העורך מתמונת המצב העדכנית.',
+      'The fresh pricing snapshot is now loaded. This conflict screen performs no mutation.': 'תמונת התמחור העדכנית נטענה. מסך הקונפליקט אינו מבצע שינוי.',
+      'Review the property currency before configuring a fallback price.': 'בדוק את מטבע הנכס לפני הגדרת מחיר ברירת מחדל.',
+      'Review the property currency before creating a pricing schedule.': 'בדוק את מטבע הנכס לפני יצירת לוח תמחור.',
+      'Choose a same-currency room-occupancy schedule that is available for this exact product.': 'בחר לוח תפוסת חדר באותו מטבע שזמין למוצר המדויק הזה.',
+      'An active external-redirect product requires its exact reviewed HTTPS redirect URL.': 'מוצר פעיל עם הפניה חיצונית דורש את כתובת ההפניה המדויקת ב־HTTPS שנבדקה.',
+      'Choose an unused exact pair and a valid stored base rate.': 'בחר צמד מדויק שאינו בשימוש ומחיר בסיס שמור תקין.',
+      'Detach this shared schedule until at most one product remains before changing it to independent.': 'נתק את הלוח המשותף עד שיישאר מוצר אחד לכל היותר לפני שינויו לעצמאי.',
+      'Review and acknowledge every linked Room Rate affected by this schedule edit.': 'בדוק ואשר כל מחיר חדר מקושר שמושפע מעריכת הלוח.',
+      'Review and acknowledge every exact source-linked Room Rate before cloning.': 'בדוק ואשר כל מחיר חדר מדויק המקושר למקור לפני השכפול.',
+      'No editable Room Rate product is available. Accepted legacy products are protected.': 'אין מוצר מחיר חדר שניתן לעריכה. מוצרי legacy מאושרים מוגנים.',
+      'No editable exact Room Rate product is available.': 'אין מוצר מחיר חדר מדויק שניתן לעריכה.',
+      'Accepted Rate Plan': 'תוכנית מחיר מאושרת',
+      'Accepted Room Rate product': 'מוצר מחיר חדר מאושר',
+      'Accepted allocation rule': 'כלל הקצאה מאושר',
+      'Accepted exact-date pricing': 'תמחור מאושר לתאריך מדויק',
+      'Accepted occupancy / LOS tiers': 'מדרגות תפוסה / משך שהייה מאושרות',
+      'Accepted pricing schedule': 'לוח תמחור מאושר',
+      'Accepted property pricing fallback': 'ברירת מחדל מאושרת לתמחור הנכס',
+      'Accepted seasonal / weekday rule': 'כלל עונתי / יום בשבוע מאושר',
+      'Protected Rate Plan': 'תוכנית מחיר מוגנת',
+      'Protected Room Rate': 'מחיר חדר מוגן',
+      'Protected allocation rule': 'כלל הקצאה מוגן',
+      'Protected exact-date price': 'מחיר מוגן לתאריך מדויק',
+      'Protected pricing schedule': 'לוח תמחור מוגן',
+      'Protected property pricing fallback': 'ברירת מחדל מוגנת לתמחור הנכס',
+      'Protected seasonal rule': 'כלל עונתי מוגן',
+      'Reference pricing schedule': 'לוח תמחור לייחוס',
+      'Read-only occupancy / LOS tiers': 'מדרגות תפוסה / משך שהייה לקריאה בלבד',
+      'Active Rate Plans require reviewed names and descriptions in PL, EN and HE. Save incomplete content as draft or inactive.': 'תוכניות מחיר פעילות דורשות שמות ותיאורים שנבדקו בפולנית, אנגלית ועברית. שמור תוכן חלקי כטיוטה או כלא פעיל.',
+      'Add a date range, weekdays and selling price.': 'הוסף טווח תאריכים, ימים בשבוע ומחיר מכירה.',
+      'Create a Rate Plan, then connect it to an exact Room Type.': 'צור תוכנית מחיר ולאחר מכן קשר אותה לסוג חדר מדויק.',
+      'Create a Room Type before adding allocation rules.': 'צור סוג חדר לפני הוספת כללי הקצאה.',
+      'Create a draft occupancy / length-of-stay schedule or use independent product tiers.': 'צור טיוטת לוח תפוסה / משך שהייה או השתמש במדרגות מוצר עצמאיות.',
+      'Create an inactive draft before connecting Room products.': 'צור טיוטה לא פעילה לפני קישור מוצרי חדר.',
+      'Create at least one Room Type and Rate Plan before connecting a Room Rate product.': 'צור לפחות סוג חדר אחד ותוכנית מחיר אחת לפני קישור מוצר מחיר חדר.',
+      'Create draft rules before activation and preview.': 'צור כללי טיוטה לפני הפעלה ותצוגה מקדימה.',
+      'Deploy and verify the ADMIN-C pricing foundation before editing normalized prices.': 'פרוס ואמת את תשתית התמחור ADMIN-C לפני עריכת מחירים מנורמלים.',
+      'Enter explicit priority': 'הזן קדימות מפורשת',
+      'Enter reviewed selling price': 'הזן מחיר מכירה שנבדק',
+      'Optional HTTPS URL': 'כתובת HTTPS אופציונלית',
+      'No override': 'ללא עקיפה',
+      'Not used for an exact bundle': 'לא בשימוש לחבילה מדויקת',
+      'Only a room-occupancy schedule can be cloned into the Room pricing control plane.': 'רק לוח תפוסת חדר יכול להשתכפל ללוח הבקרה של תמחור החדר.',
+      'Only the Rate Plan business content is copied. No Room Rate product, activation, booking, payment or commission relationship is copied.': 'רק התוכן העסקי של תוכנית המחיר מועתק. מוצרי מחיר חדר וקשרי הפעלה, הזמנה, תשלום או עמלה אינם מועתקים.',
+      'Every Room Type / Rate Plan pair already has a product. Create another Room Type or Rate Plan first.': 'לכל צמד של סוג חדר ותוכנית מחיר כבר יש מוצר. צור תחילה סוג חדר או תוכנית מחיר נוספים.',
+      'Rate Plan duplicated as a separate draft.': 'תוכנית המחיר שוכפלה כטיוטה נפרדת.',
+      'Rate Plan name in English is required.': 'נדרש שם תוכנית מחיר באנגלית.',
+      'Pricing schedule code': 'קוד לוח תמחור',
+      'Pricing schedule created as a shadow draft.': 'לוח התמחור נוצר כטיוטת צל.',
+      'Pricing schedule updated.': 'לוח התמחור עודכן.',
+      'Schedule name in English is required.': 'נדרש שם לוח באנגלית.',
+      'Choose shared or independent ownership for the new schedule.': 'בחר בעלות משותפת או עצמאית ללוח החדש.',
+      'Independent Room Rate tiers updated atomically.': 'מדרגות מחיר החדר העצמאיות עודכנו באופן אטומי.',
+      'Independent pricing schedule cloned and linked to the selected inactive product.': 'לוח התמחור העצמאי שוכפל וקושר למוצר הלא פעיל שנבחר.',
+      'Room Rate product created as a shadow draft.': 'מוצר מחיר החדר נוצר כטיוטת צל.',
+      'Room Rate product duplicated as an inert draft.': 'מוצר מחיר החדר שוכפל כטיוטה לא פעילה.',
+      'Room Rate product updated.': 'מוצר מחיר החדר עודכן.',
+      'Exact-date price created.': 'המחיר לתאריך המדויק נוצר.',
+      'Exact-date price updated.': 'המחיר לתאריך המדויק עודכן.',
+      'Seasonal / weekday price created.': 'המחיר העונתי / לפי יום בשבוע נוצר.',
+      'Seasonal / weekday price updated.': 'המחיר העונתי / לפי יום בשבוע עודכן.',
+      'Seasonal / weekday rule disabled.': 'הכלל העונתי / לפי יום בשבוע הושבת.',
+      'Guest allocation created as a shadow draft.': 'הקצאת האורחים נוצרה כטיוטת צל.',
+      'Guest allocation updated.': 'הקצאת האורחים עודכנה.',
+      'Review Room Rate product': 'בדוק מוצר מחיר חדר',
+      'Review duplicated Rate Plan': 'בדוק תוכנית מחיר משוכפלת',
+      'Review duplicated Room Rate product': 'בדוק מוצר מחיר חדר משוכפל',
+      'Review complete independent tier set': 'בדוק קבוצת מדרגות עצמאית מלאה',
+      'Review pricing schedule': 'בדוק לוח תמחור',
+      'Review new pricing schedule': 'בדוק לוח תמחור חדש',
+      'Review schedule clone': 'בדוק שכפול לוח',
+      'Review clone for this product': 'בדוק שכפול למוצר זה',
+      'Review fresh clone for this product': 'בדוק שכפול עדכני למוצר זה',
+      'Review seasonal / weekday rule': 'בדוק כלל עונתי / לפי יום בשבוע',
+      'Review new seasonal / weekday rule': 'בדוק כלל חדש עונתי / לפי יום בשבוע',
+      'Review seasonal-rule disable': 'בדוק השבתת כלל עונתי',
+      'Review exact-date price': 'בדוק מחיר לתאריך מדויק',
+      'Review new exact-date price': 'בדוק מחיר חדש לתאריך מדויק',
+      'Review exact-date price on fresh Calendar row': 'בדוק מחיר לתאריך מדויק בשורת לוח שנה עדכנית',
+      'Review clearing exact-date pricing': 'בדוק ניקוי תמחור לתאריך מדויק',
+      'Review guest allocation': 'בדוק הקצאת אורחים',
+      'Review new guest allocation': 'בדוק הקצאת אורחים חדשה',
+      'Review and acknowledge the exact source-link impact.': 'בדוק ואשר את השפעת קישור המקור המדויקת.',
+      'Save content, relationship or tier edits first, then disable this pricing object in a separate explicit Review.': 'שמור תחילה עריכות תוכן, קשרים או מדרגות, ואז השבת את אובייקט התמחור בבדיקה מפורשת נפרדת.',
+      'Save seasonal-price edits first, then disable this rule in a separate explicit Review.': 'שמור תחילה עריכות מחיר עונתי, ואז השבת את הכלל בבדיקה מפורשת נפרדת.',
+      'No pricing fields changed. Nothing needs Review or Save.': 'לא השתנו שדות תמחור. אין צורך בבדיקה או שמירה.',
+      'Fresh non-overlapping values were preserved. Review this rebuilt plan and explicitly Save once.': 'ערכים עדכניים שאינם חופפים נשמרו. בדוק את התוכנית שנבנתה מחדש ושמור פעם אחת במפורש.',
+      'The complete set is protected by its exact child fingerprint. No missing occupancy can silently fall back to the base rate.': 'הקבוצה המלאה מוגנת בטביעת האצבע המדויקת של ילדיה. תפוסה חסרה אינה יכולה לעבור בשקט למחיר הבסיס.',
+      'The linked reusable schedule remains authoritative. This exact full-set update only changes dormant retained tiers.': 'הלוח המקושר לשימוש חוזר נשאר מקור הסמכות. עדכון הקבוצה המלאה המדויק משנה רק מדרגות רדומות שנשמרו.',
+      'This complete rule is reviewed in the Pricing control plane. Calendar has no second price-rule writer.': 'הכלל המלא נבדק בלוח בקרת התמחור. ללוח השנה אין כותב שני לכללי מחיר.',
+      'This status-only disable binds the complete price, stay and Calendar restriction state. No Calendar-owned CTA/CTD restriction is present.': 'השבתה של סטטוס בלבד קושרת את מלוא מצב המחיר, השהייה והגבלות לוח השנה. אין הגבלת CTA/CTD שבבעלות לוח השנה.',
+      'The first reviewed pricing mutation will appear here.': 'שינוי התמחור הראשון שנבדק יופיע כאן.',
+      'Load the exact Pricing control before requesting a preview.': 'טען את בקרת התמחור המדויקת לפני בקשת תצוגה מקדימה.',
+      'The server preview could not be confirmed.': 'לא ניתן היה לאשר את תצוגת השרת.',
+      'Fresh pricing has a genuine conflict.': 'בתמחור העדכני יש קונפליקט אמיתי.',
+      'Fresh pricing has a genuine conflict. Nothing was overwritten or retried.': 'בתמחור העדכני יש קונפליקט אמיתי. דבר לא נדרס ולא נוסה שוב.',
+      'The same pricing field changed after Review.': 'אותו שדה תמחור השתנה לאחר הבדיקה.',
+      'The same pricing field changed after Review. Nothing was overwritten or retried.': 'אותו שדה תמחור השתנה לאחר הבדיקה. דבר לא נדרס ולא נוסה שוב.',
+      'The atomic clone and exact product relink are already committed. No mutation was retried.': 'השכפול האטומי והקישור מחדש של המוצר המדויק כבר נשמרו. שום שינוי לא נוסה שוב.',
+      'The atomic clone result is only partially present or differs from the reviewed target.': 'תוצאת השכפול האטומי קיימת רק חלקית או שונה מהיעד שנבדק.',
+      'The selected product is no longer linked to the exact source schedule.': 'המוצר שנבחר אינו מקושר עוד ללוח המקור המדויק.',
+      'This exact Room Rate no longer has a reusable schedule to clone.': 'למחיר החדר המדויק אין עוד לוח לשימוש חוזר לשכפול.',
+      'The source pricing schedule is no longer available.': 'לוח התמחור המקורי אינו זמין עוד.',
+      'This Room Rate tier set is not editable.': 'קבוצת מדרגות מחיר החדר אינה ניתנת לעריכה.',
+      'Admin': 'מנהל',
+      'Partner': 'שותף',
+      'Calendar sync': 'סנכרון לוח שנה',
+      'System': 'מערכת',
+      'create': 'נוצר',
+      'update': 'עודכן',
+      'disable': 'הושבת',
+      'duplicate': 'שוכפל',
+      'delete': 'נמחק',
+      'Pricing schedule': 'לוח תמחור',
+      'Exact-date price': 'מחיר לתאריך מדויק',
+      'Seasonal / weekday rule': 'כלל עונתי / לפי יום בשבוע',
+      'Property fallback price': 'מחיר ברירת מחדל של הנכס',
+      'Room Rate product': 'מוצר מחיר חדר',
+      'Unresolved requirement': 'דרישה שלא נפתרה',
+      'Mon': 'ב׳',
+      'Tue': 'ג׳',
+      'Wed': 'ד׳',
+      'Thu': 'ה׳',
+      'Fri': 'ו׳',
+      'Sat': 'ש׳',
+      'Sun': 'א׳',
+      'pricing': 'תמחור',
+      'Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.': 'מצב ההזמנה של הנכס: {mode}. עקיפת תוכנית המחיר מפורשת ומאומתת בשרת.',
+      'A Calendar row for the exact Room/date appeared after Review. Its operational fields and any unrequested price/stay fields are preserved. Inspect this fresh explicit UPDATE Review; nothing was retried.': 'שורת לוח שנה לחדר / תאריך המדויקים הופיעה לאחר הבדיקה. השדות התפעוליים וכל שדות מחיר / שהייה שלא התבקשו נשמרו. בדוק את בדיקת העדכון המפורשת והעדכנית; דבר לא נוסה שוב.',
+      'The source schedule changed; inspect this fresh clone Review. Nothing was retried.': 'לוח המקור השתנה; בדוק את בדיקת השכפול העדכנית. דבר לא נוסה שוב.',
+      '{entity} changed after Review. The overlapping fields were not overwritten.': '{entity} השתנה לאחר הבדיקה. השדות החופפים לא נדרסו.',
+      'This complete tier-set replacement affects: {products}. The exact child and link fingerprints are protected.': 'החלפת קבוצת המדרגות המלאה משפיעה על: {products}. טביעות האצבע המדויקות של הילדים והקישורים מוגנות.',
+      'This is a complete atomic tier-set Review. Missing tier coverage fails closed; base pricing is not used as a fallback.': 'זוהי בדיקה אטומית מלאה של קבוצת המדרגות. כיסוי מדרגות חסר נחסם בבטחה; מחיר הבסיס אינו משמש כברירת מחדל.',
+      'Unchanged for sibling products': 'ללא שינוי למוצרים אחים',
+      'New independent schedule name': 'שם הלוח העצמאי החדש',
+      'PROTECTED': 'מוגן',
+      'schedule': 'לוח',
+      '{name} tier matrix': 'מטריצת מדרגות: {name}',
+    }),
+  });
+
+  function pricingUiLanguage() {
+    const language = String(typeof document === 'undefined' ? 'en' : (document.documentElement?.lang || 'en')).toLowerCase().slice(0, 2);
+    return Object.hasOwn(PRICING_UI_TEXT, language) ? language : 'en';
+  }
+
+  function pricingUiText(source, replacements = {}) {
+    const canonical = String(source == null ? '' : source);
+    let translated = PRICING_UI_WORKFLOW_TEXT[pricingUiLanguage()]?.[canonical]
+      || PRICING_UI_TEXT[pricingUiLanguage()][canonical]
+      || canonical;
+    Object.entries(replacements).forEach(([key, value]) => {
+      translated = translated.replaceAll(`{${key}}`, String(value));
+    });
+    return translated;
+  }
+
+  function pricingUiHtml(source, replacements = {}) {
+    return escapeHtml(pricingUiText(source, replacements));
+  }
+
+  function pricingUiAttr(source, replacements = {}) {
+    return escapeAttr(pricingUiText(source, replacements));
+  }
+
+  function localizePricingUi(rootNode) {
+    if (!rootNode || pricingUiLanguage() === 'en') return;
+    // Pricing content is a reviewed business contract. Never walk the whole
+    // subtree: a Room, Plan, schedule, audit reason or server blocker may
+    // legitimately equal an Admin chrome dictionary key. Only these explicit
+    // code-owned chrome slots are eligible for post-render localization.
+    const chromeSelector = [
+      '[data-hotel-workspace-tab="pricing"]',
+      '.hotel-workspace-panel-header h3',
+      '.hotel-workspace-panel-header p',
+      '.hotel-workspace-panel-actions button',
+      '.hotel-pricing-jump-nav a',
+      '.hotel-pricing-safety-banner .hotel-workspace-eyebrow',
+      '.hotel-pricing-safety-banner > div > p',
+      '.hotel-pricing-activation-blockers > .hotel-workspace-eyebrow',
+      '.hotel-pricing-activation-blockers > h4',
+      '.hotel-pricing-activation-blockers > p',
+      '.hotel-workspace-section-title h4',
+      '.hotel-workspace-section-title p',
+      '.hotel-pricing-rule-columns > div > h5',
+      '.hotel-pricing-authority > span',
+      '.hotel-pricing-section > button',
+      '.hotel-rate-plan-card button',
+      '.hotel-pricing-product-card button',
+      '.hotel-pricing-schedule-card button',
+      '.hotel-pricing-rule-row button',
+      '.hotel-pricing-allocation-card button',
+      '.hotel-pricing-property-default button',
+      '.hotel-workspace-empty > strong',
+      '.hotel-workspace-empty > span',
+      '.hotel-workspace-form label > span',
+      '.hotel-workspace-form label > small',
+      '.hotel-workspace-form fieldset > legend',
+      '.hotel-workspace-form fieldset > small',
+      '.hotel-workspace-form button',
+      '.hotel-workspace-modal__dialog > header .hotel-workspace-eyebrow',
+      '.hotel-workspace-modal__dialog > header h3',
+      '.hotel-workspace-modal__dialog > header button',
+      '.hotel-workspace-modal__dialog > footer button',
+      '.hotel-workspace-modal .hotel-workspace-safety-note',
+      '.hotel-workspace-modal .hotel-pricing-activation-blockers > strong',
+    ].join(',');
+    rootNode.querySelectorAll?.(chromeSelector).forEach((element) => {
+      Array.from(element.childNodes).forEach((node) => {
+        if (node.nodeType !== 3) return;
+        const raw = String(node.nodeValue || '');
+        const value = raw.trim();
+        if (!value) return;
+        const translated = pricingUiText(value);
+        if (translated !== value) node.nodeValue = `${raw.match(/^\s*/u)?.[0] || ''}${translated}${raw.match(/\s*$/u)?.[0] || ''}`;
+      });
+    });
+    rootNode.querySelectorAll?.('input[placeholder], textarea[placeholder], button[aria-label], button[title]').forEach((element) => {
+      ['placeholder', 'aria-label', 'title'].forEach((attribute) => {
+        if (!element.hasAttribute(attribute)) return;
+        element.setAttribute(attribute, pricingUiText(element.getAttribute(attribute)));
+      });
+    });
+  }
 
   const PARTNER_CAPABILITY_DETAILS = Object.freeze({
     edit_property_content: ['Property content', 'Edit property names, descriptions and structured content.'],
@@ -85,8 +1612,14 @@
   }
 
   function toast(message, type = 'info') {
-    if (typeof window.showToast === 'function') window.showToast(String(message || ''), type);
-    else if (type === 'error') console.error(message);
+    const rawMessage = String(message || '');
+    const localizedMessage = state.activeTab === 'calendar'
+      ? availabilityUiText(rawMessage)
+      : (state.activeTab === 'pricing' || state.modal?.dataset?.pricingUi === 'true'
+        ? pricingUiText(rawMessage)
+        : rawMessage);
+    if (typeof window.showToast === 'function') window.showToast(localizedMessage, type);
+    else if (type === 'error') console.error(localizedMessage);
   }
 
   function formatMoney(value, currency = 'EUR') {
@@ -573,6 +2106,10 @@
       state.pricingPromotionError = null;
       state.partnerPermissions = null;
       state.partnerPermissionsError = null;
+      state.pricingControl = null;
+      state.pricingControlError = null;
+      state.pricingControlLoading = false;
+      state.pricingSelection = { room_rate_id: null, section: null };
       try {
         state.h3Configuration = await Repository.getH3Configuration(id);
       } catch (error) {
@@ -594,6 +2131,11 @@
         state.partnerPermissions = await Repository.getPartnerHotelPermissions(id);
       } catch (error) {
         state.partnerPermissionsError = error;
+      }
+      try {
+        state.pricingControl = await Repository.getPricingControl(id);
+      } catch (error) {
+        state.pricingControlError = error;
       }
       state.calendar = {
         loading: false,
@@ -634,6 +2176,10 @@
     state.pricingPromotionError = null;
     state.partnerPermissions = null;
     state.partnerPermissionsError = null;
+    state.pricingControl = null;
+    state.pricingControlError = null;
+    state.pricingControlLoading = false;
+    state.pricingSelection = { room_rate_id: null, section: null };
     state.calendar.data = null;
     if (workspaceElement) {
       workspaceElement.hidden = true;
@@ -668,7 +2214,7 @@
       </header>
       <nav class="hotel-workspace-tabs" role="tablist" aria-label="Property Workspace sections">
         ${WORKSPACE_TABS.map(([key, label]) => `
-          <button type="button" role="tab" id="hotelWorkspaceTab-${key}" data-hotel-workspace-tab="${key}" aria-controls="hotelWorkspaceActivePanel" aria-selected="${state.activeTab === key}" tabindex="${state.activeTab === key ? '0' : '-1'}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(label)}</button>
+          <button type="button" role="tab" id="hotelWorkspaceTab-${key}" data-hotel-workspace-tab="${key}" aria-controls="hotelWorkspaceActivePanel" aria-selected="${state.activeTab === key}" tabindex="${state.activeTab === key ? '0' : '-1'}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(key === 'pricing' ? pricingUiText(label) : label)}</button>
         `).join('')}
       </nav>
       <div class="hotel-workspace-panel" id="hotelWorkspaceActivePanel" role="tabpanel" aria-labelledby="hotelWorkspaceTab-${escapeAttr(state.activeTab)}" tabindex="0"></div>`;
@@ -708,6 +2254,7 @@
     const renderers = {
       overview: renderOverviewPanel,
       rooms: renderRoomsPanel,
+      pricing: renderPricingPanel,
       calendar: renderCalendarPanel,
       booking_setup: renderBookingSetupPanel,
       bookings: renderBookingsPanel,
@@ -1572,10 +3119,9 @@
       ? Core.sevenArchesShadowPreparation(workspace)
       : null;
     const rooms = workspace.room_types.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
-    const plans = workspace.rate_plans.slice().sort((a, b) => a.sort_order - b.sort_order || a.code.localeCompare(b.code));
     panel.innerHTML = `
-      ${workspacePanelHeader('Rooms & Rates', 'Manage Room Types, optional physical units, reusable Rate Plans and their sellable products.', `
-        <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-add-rate-plan>+ Rate Plan</button><button class="btn-primary" type="button" data-add-room>${rooms.length ? '+ Another Room Type' : '+ Room Type'}</button></div>`)}
+      ${workspacePanelHeader('Rooms & Rates', 'Manage Room Types and physical inventory. Pricing products are reviewed in the dedicated Rates & Pricing control plane.', `
+        <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-open-pricing>Rates & Pricing</button><button class="btn-primary" type="button" data-add-room>${rooms.length ? '+ Another Room Type' : '+ Room Type'}</button></div>`)}
       ${migration.legacy_product ? `<section class="hotel-workspace-card hotel-legacy-product-banner">
         <div><span class="hotel-workspace-eyebrow">Current live legacy product</span><h4>${migration.legacy_live_product_count} configured accommodation product${migration.legacy_live_product_count === 1 ? '' : 's'}</h4><p>${migration.legacy_pricing_rule_count} legacy pricing rules remain live. Below are ${rooms.length} normalized Room Types in inert V2 preparation.</p></div>
         ${sevenArches?.eligible
@@ -1584,19 +3130,17 @@
             ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
             : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
       </section>` : ''}
-      ${pricingPromotionCardMarkup()}
-      <div class="hotel-rooms-layout">
+      <div class="hotel-rooms-layout hotel-rooms-layout--room-control">
         <section>
           <div class="hotel-workspace-section-title"><div><h4>Normalized Room Types</h4><p>One Room Type may use several Rate Plans.</p></div><span>${rooms.length}</span></div>
           <div class="hotel-room-grid">${rooms.length ? rooms.map(renderRoomCard).join('') : renderEmptyState('No Room Types yet', 'Create the first draft room without changing the current public Hotel.')}</div>
         </section>
-        <section>
-          <div class="hotel-workspace-section-title"><div><h4>Property Rate Plans</h4><p>Create once and connect to one or many Room Types.</p></div><span>${plans.length}</span></div>
-          <div class="hotel-rate-plan-list">${plans.length ? plans.map(renderRatePlanCard).join('') : renderEmptyState('No Rate Plans yet', 'Add Flexible, Non-refundable or another property-level plan.')}</div>
-        </section>
       </div>`;
     panel.querySelector('[data-add-room]')?.addEventListener('click', () => openRoomEditor());
-    panel.querySelector('[data-add-rate-plan]')?.addEventListener('click', () => openRatePlanEditor());
+    panel.querySelector('[data-open-pricing]')?.addEventListener('click', () => {
+      state.activeTab = 'pricing';
+      renderWorkspace();
+    });
     panel.querySelector('[data-prepare-legacy-accommodation]')?.addEventListener('click', () => openLegacyAccommodationPreparation(migration));
     panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
     panel.querySelector('[data-review-seven-kamares-pricing]')?.addEventListener('click', openLegacyPricingPromotionPreparation);
@@ -1640,27 +3184,46 @@
   }
 
   function renderRoomRateLine(rate) {
+    const controlledRate = state.pricingControl?.room_rates.find((candidate) => candidate.id === rate.id) || rate;
     const plan = state.workspace.rate_plans.find((candidate) => candidate.id === rate.rate_plan_id);
-    const schedule = rate.pricing_schedule_id
-      ? state.workspace.pricing_schedules.find((candidate) => candidate.id === rate.pricing_schedule_id)
+    const schedule = controlledRate.pricing_schedule_id
+      ? (state.pricingControl?.pricing_schedules.find((candidate) => candidate.id === controlledRate.pricing_schedule_id)
+        || state.workspace.pricing_schedules.find((candidate) => candidate.id === controlledRate.pricing_schedule_id))
       : null;
     const tierCount = schedule
-      ? state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length
+      ? (Array.isArray(schedule.tiers)
+        ? schedule.tiers.filter((tier) => tier.is_active !== false).length
+        : state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length)
       : 0;
-    const detail = schedule
-      ? `Inactive shared schedule · ${tierCount} tiers · H3 allocation review required`
-      : (rate.is_active ? 'Active product' : 'Inactive product');
-    const price = schedule ? 'Shared schedule' : formatMoney(rate.base_nightly_rate, rate.currency);
+    const independentTierCount = Core.asArray(controlledRate.independent_tiers).filter((tier) => tier.is_active !== false).length;
+    const scheduleMode = schedule?.sharing_mode === 'shared'
+      ? 'Shared'
+      : schedule?.sharing_mode === 'independent' ? 'Independent' : 'Reusable';
+    const source = String(controlledRate.pricing_source || 'missing');
+    const fallback = state.pricingControl?.property_pricing_default;
+    const detail = source === 'pricing_schedule' && schedule
+      ? `${scheduleMode} schedule authoritative · ${tierCount} tiers`
+      : source === 'independent_tiers'
+        ? `Independent occupancy / LOS tiers authoritative · ${independentTierCount} tiers`
+        : source === 'base_nightly_rate' && controlledRate.base_nightly_rate_authoritative === true
+          ? 'Room Rate base nightly price authoritative'
+          : source === 'property_default'
+            ? 'Property fallback selling price authoritative'
+            : 'Pricing source missing · configure Rates & Pricing';
+    const price = source === 'pricing_schedule' && schedule
+      ? 'Schedule pricing'
+      : source === 'independent_tiers'
+        ? 'Tier pricing'
+        : source === 'base_nightly_rate' && controlledRate.base_nightly_rate_authoritative === true
+          ? formatMoney(controlledRate.base_nightly_rate, controlledRate.currency)
+          : source === 'property_default' && fallback
+            ? formatMoney(fallback.nightly_rate, fallback.currency)
+            : 'Not configured';
     return `<button type="button" class="hotel-room-rate-line" data-edit-room-rate="${escapeAttr(rate.id)}"><span><strong>${escapeHtml(Core.i18nText(plan?.name_i18n, 'en', 'Rate Plan'))}</strong><small>${escapeHtml(detail)}</small></span><b>${escapeHtml(price)}</b></button>`;
   }
 
   function renderUnitLine(unit) {
     return `<button type="button" class="hotel-unit-line" data-edit-unit="${escapeAttr(unit.id)}"><span>${escapeHtml(Core.i18nText(unit.name_i18n, 'en', unit.code))}</span><small>${escapeHtml(unit.status)}</small></button>`;
-  }
-
-  function renderRatePlanCard(plan) {
-    const productCount = state.workspace.room_rates.filter((rate) => rate.rate_plan_id === plan.id).length;
-    return `<article class="hotel-rate-plan-card"><div><span class="hotel-workspace-eyebrow">${escapeHtml(plan.code)}</span><h5>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code))}</h5><p>${escapeHtml(Core.cancellationPolicyLabel(plan.cancellation_policy))} · ${productCount} room products</p></div><div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(plan.is_active ? 'READY' : 'DRAFT')}">${plan.is_active ? 'ACTIVE' : 'INACTIVE'}</span><button class="btn-secondary" type="button" data-edit-rate-plan="${escapeAttr(plan.id)}">Edit</button></div></article>`;
   }
 
   function bindRoomPanelActions(panel) {
@@ -1669,10 +3232,1968 @@
     panel.querySelectorAll('[data-disable-room]').forEach((button) => button.addEventListener('click', () => disableRoom(button.dataset.disableRoom)));
     panel.querySelectorAll('[data-add-unit]').forEach((button) => button.addEventListener('click', () => openUnitEditor(null, button.dataset.addUnit)));
     panel.querySelectorAll('[data-edit-unit]').forEach((button) => button.addEventListener('click', () => openUnitEditor(button.dataset.editUnit)));
-    panel.querySelectorAll('[data-edit-rate-plan]').forEach((button) => button.addEventListener('click', () => openRatePlanEditor(button.dataset.editRatePlan)));
-    panel.querySelectorAll('[data-connect-room-rate]').forEach((button) => button.addEventListener('click', () => openRoomRateEditor(null, button.dataset.connectRoomRate)));
-    panel.querySelectorAll('[data-edit-room-rate]').forEach((button) => button.addEventListener('click', () => openRoomRateEditor(button.dataset.editRoomRate)));
+    panel.querySelectorAll('[data-connect-room-rate]').forEach((button) => button.addEventListener('click', () => {
+      state.pricingSelection = { room_rate_id: null, room_type_id: button.dataset.connectRoomRate, section: 'products' };
+      state.activeTab = 'pricing';
+      renderWorkspace();
+    }));
+    panel.querySelectorAll('[data-edit-room-rate]').forEach((button) => button.addEventListener('click', () => {
+      state.pricingSelection = { room_rate_id: button.dataset.editRoomRate, room_type_id: null, section: 'products' };
+      state.activeTab = 'pricing';
+      renderWorkspace();
+    }));
     panel.querySelectorAll('[data-edit-room-child-policy]').forEach((button) => button.addEventListener('click', () => openRoomChildrenPolicyEditor(button.dataset.editRoomChildPolicy)));
+  }
+
+  function pricingLifecycleTone(status) {
+    if (status === 'active') return 'success';
+    if (status === 'disabled') return 'danger';
+    return 'warning';
+  }
+
+  function pricingLifecycleLabel(status) {
+    const value = String(status || 'draft').trim().toLowerCase();
+    const canonical = value === 'active' ? 'Active' : value === 'disabled' ? 'Disabled' : value === 'inactive' ? 'Inactive' : 'Draft';
+    return pricingUiLanguage() === 'en' ? canonical.toUpperCase() : pricingUiText(canonical);
+  }
+
+  function pricingEntryImmutable(entry) {
+    const contract = entry?.immutable_contract;
+    if (contract === true || typeof contract === 'string') return Boolean(contract);
+    return Boolean(contract && typeof contract === 'object' && Object.keys(contract).length);
+  }
+
+  function pricingEntryImmutableReason(entry) {
+    return typeof entry?.immutable_contract?.reason === 'string'
+      ? entry.immutable_contract.reason
+      : '';
+  }
+
+  function pricingEntryIsNonmanualSource(entry) {
+    return pricingEntryImmutableReason(entry) === 'nonmanual_source_read_only';
+  }
+
+  function pricingTierSetIsNonmanual(rate) {
+    return Core.asArray(rate?.independent_tiers).some((tier) => (
+      tier.source !== 'manual' || pricingEntryIsNonmanualSource(tier)
+    ));
+  }
+
+  function pricingCloneCode(baseCode, suffix) {
+    const reviewedSuffix = String(suffix || '').toLowerCase();
+    const prefixLength = Math.max(1, 80 - reviewedSuffix.length);
+    return `${String(baseCode || '').slice(0, prefixLength)}${reviewedSuffix}`;
+  }
+
+  function pricingCloneLabel(baseLabel, suffix) {
+    const reviewedSuffix = String(suffix || '');
+    return `${String(baseLabel || '').slice(0, Math.max(0, 240 - reviewedSuffix.length))}${reviewedSuffix}`;
+  }
+
+  function pricingHotelMutationLocked(control = state.pricingControl) {
+    return Core.normalizeUuid(control?.hotel_id) === Core.SEVEN_ARCHES_PROPERTY_ID;
+  }
+
+  function requirePricingHotelMutationAccess() {
+    if (!pricingHotelMutationLocked()) return true;
+    toast('7 Kamares ADMIN-C pricing is read-only. Its exact H3.1P parity graph must remain unchanged while legacy pricing is authoritative.', 'warning');
+    return false;
+  }
+
+  function pricingBlockerLabel(value) {
+    const source = typeof value === 'string' ? { code: value } : Core.asObject(value);
+    return pricingUiText(String(source.label || source.message || source.code || source.reason || 'Unresolved requirement').replaceAll('_', ' '));
+  }
+
+  function pricingRoomLabel(roomId) {
+    const room = state.pricingControl?.room_types.find((entry) => entry.id === roomId);
+    return Core.i18nText(room?.name_i18n, pricingUiLanguage(), room?.code || pricingUiText('Room Type'));
+  }
+
+  function pricingRoomOperationalLabel(roomId) {
+    const room = state.pricingControl?.room_types.find((entry) => entry.id === roomId);
+    if (!room) return pricingUiText('Room operating basis unavailable');
+    const inventory = room.inventory_mode === 'unitized'
+      ? pricingUiText(Number(room.active_unit_count) === 1 ? '{count} active physical unit' : '{count} active physical units', { count: Number(room.active_unit_count) })
+      : pricingUiText(Number(room.base_inventory_count) === 1 ? '{count} pooled unit' : '{count} pooled units', { count: Number(room.base_inventory_count) });
+    const childPolicy = room.children_policy_override === null
+      ? pricingUiText('child policy inherited')
+      : room.children_policy_override === 'minimum_age'
+        ? pricingUiText('children from age {age}', { age: Number(room.minimum_child_age_override) })
+        : pricingUiEnumLabel(room.children_policy_override);
+    const capacity = room.max_occupancy == null
+      ? pricingUiText('capacity not reviewed')
+      : pricingUiText('capacity {count}', { count: Number(room.max_occupancy) });
+    return `${capacity} · ${inventory} · ${childPolicy}`;
+  }
+
+  function pricingPlanLabel(planId) {
+    const plan = state.pricingControl?.rate_plans.find((entry) => entry.id === planId);
+    return Core.i18nText(plan?.name_i18n, pricingUiLanguage(), plan?.code || pricingUiText('Rate Plan'));
+  }
+
+  function pricingProductLabel(roomRateId) {
+    const rate = state.pricingControl?.room_rates.find((entry) => entry.id === roomRateId);
+    if (!rate) return pricingUiText('Room Rate product');
+    return `${pricingRoomLabel(rate.room_type_id)} · ${pricingPlanLabel(rate.rate_plan_id)}`;
+  }
+
+  function pricingProductIsImmutable(roomRateId) {
+    return pricingEntryImmutable(state.pricingControl?.room_rates.find((entry) => entry.id === roomRateId));
+  }
+
+  function pricingTierMatrixMarkup(tiers, currency, options = {}) {
+    const active = Core.asArray(tiers).filter((tier) => tier.is_active !== false);
+    if (!active.length) return `<div class="hotel-pricing-empty-inline">${pricingUiHtml('No active occupancy / stay tiers.')}</div>`;
+    const guestCounts = Array.from(new Set(active.map((tier) => Number(tier.guest_count)))).sort((a, b) => a - b);
+    const thresholds = Array.from(new Set(active.map((tier) => Number(tier.threshold_nights)))).sort((a, b) => a - b);
+    const byCell = new Map(active.map((tier) => [`${tier.guest_count}:${tier.threshold_nights}`, tier]));
+    const matrixLabel = options.label
+      ? pricingUiText('{name} tier matrix', { name: options.label })
+      : pricingUiText('Occupancy and length-of-stay pricing matrix');
+    return `<div class="hotel-pricing-tier-table-wrap" role="region" aria-label="${escapeAttr(matrixLabel)}" tabindex="0"><table class="hotel-pricing-tier-table"><thead><tr><th scope="col">${pricingUiHtml('Guests')}</th>${thresholds.map((threshold) => `<th scope="col">${pricingUiHtml(threshold === 1 ? '{count}+ night' : '{count}+ nights', { count: threshold })}</th>`).join('')}</tr></thead><tbody>${guestCounts.map((guestCount) => `<tr><th scope="row">${guestCount}</th>${thresholds.map((threshold) => { const tier = byCell.get(`${guestCount}:${threshold}`); return `<td>${tier ? escapeHtml(formatMoney(tier.nightly_rate, currency)) : `<span aria-label="${pricingUiAttr('Not configured')}">—</span>`}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><p class="hotel-pricing-continuation-note">${pricingUiHtml('For a stay length, the highest configured threshold not exceeding the stay applies to the complete stay. Missing guest or threshold coverage fails closed; the base rate is not a fallback.')}</p>`;
+  }
+
+  function pricingSourceCardMarkup(rate) {
+    const control = state.pricingControl;
+    const authoritativeSource = String(rate.pricing_source || 'missing');
+    const schedule = rate.pricing_schedule_id
+      ? control.pricing_schedules.find((entry) => entry.id === rate.pricing_schedule_id)
+      : null;
+    const activeIndependentTiers = Core.asArray(rate.independent_tiers).filter((tier) => tier.is_active !== false);
+    let sourceTitle;
+    let sourceDetail;
+    let sourcePrice;
+    if (authoritativeSource === 'pricing_schedule' && schedule) {
+      sourceTitle = pricingUiText(`${schedule.sharing_mode === 'shared' ? 'Shared' : 'Independent'} schedule authoritative`);
+      sourceDetail = `${Core.i18nText(schedule.name_i18n, pricingUiLanguage(), schedule.code)} · ${pricingUiCount(schedule.tiers.filter((tier) => tier.is_active !== false).length, 'tier', 'tiers')}`;
+      sourcePrice = pricingUiText('Occupancy / LOS schedule');
+    } else if (authoritativeSource === 'independent_tiers') {
+      sourceTitle = pricingUiText('Independent tiers authoritative');
+      sourceDetail = pricingUiCount(activeIndependentTiers.length, 'occupancy / LOS tier', 'occupancy / LOS tiers');
+      sourcePrice = pricingUiText('Product tier schedule');
+    } else if (authoritativeSource === 'base_nightly_rate' && rate.base_nightly_rate_authoritative === true) {
+      sourceTitle = pricingUiText('Base nightly rate authoritative');
+      sourceDetail = pricingUiText('No active schedule or independent tier set');
+      sourcePrice = formatMoney(rate.base_nightly_rate, rate.currency);
+    } else if (authoritativeSource === 'property_default'
+        && control.property_pricing_default?.is_active === true
+        && control.property_pricing_default.review_status === 'reviewed'
+        && control.property_pricing_default.currency === rate.currency) {
+      sourceTitle = pricingUiText('Property fallback authoritative');
+      sourceDetail = pricingUiText('No linked schedule, active independent tier or positive Room base price');
+      sourcePrice = formatMoney(
+        control.property_pricing_default.nightly_rate,
+        control.property_pricing_default.currency,
+      );
+    } else {
+      sourceTitle = pricingUiText('No authoritative price');
+      sourceDetail = pricingUiText('Configure a positive Room source or reviewed active property fallback');
+      sourcePrice = pricingUiText('Fails closed');
+    }
+    const selected = state.pricingSelection.room_rate_id === rate.id;
+    const productProtected = pricingHotelMutationLocked() || pricingEntryImmutable(rate);
+    const tierSetProtected = productProtected || pricingTierSetIsNonmanual(rate);
+    const scheduleCanClone = schedule && !pricingHotelMutationLocked()
+      && !pricingEntryImmutable(rate)
+      && (!pricingEntryImmutable(schedule) || pricingEntryIsNonmanualSource(schedule));
+    const independentSources = Array.from(new Set(activeIndependentTiers.map((tier) => tier.source)));
+    return `<article class="hotel-pricing-product-card${selected ? ' is-selected' : ''}" data-pricing-product-card="${escapeAttr(rate.id)}">
+      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(pricingRoomLabel(rate.room_type_id))}</span><h4>${escapeHtml(pricingPlanLabel(rate.rate_plan_id))}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${pricingLifecycleTone(rate.lifecycle_status)}">${pricingLifecycleLabel(rate.lifecycle_status)}</span></header>
+      <div class="hotel-pricing-authority"><span>Pricing source actually used</span><strong>${escapeHtml(sourceTitle)}</strong><small>${escapeHtml(sourceDetail)}</small></div>
+      <dl><div><dt>${pricingUiHtml('Customer selling price')}</dt><dd>${escapeHtml(sourcePrice)}</dd></div><div><dt>${pricingUiHtml('Currency')}</dt><dd>${escapeHtml(rate.currency)}</dd></div><div><dt>${pricingUiHtml('Review')}</dt><dd>${escapeHtml(String(rate.review_status || 'requires review').replaceAll('_', ' '))}</dd></div></dl>
+      ${schedule || activeIndependentTiers.length ? `<p class="hotel-workspace-safety-note">${pricingUiHtml('Stored base rate: {price} · not authoritative while this pricing source is linked.', { price: formatMoney(rate.base_nightly_rate, rate.currency) })}${schedule ? ` ${pricingUiHtml('Schedule provenance: {source}.', { source: pricingUiEnumLabel(schedule.source) })}` : independentSources.length ? ` ${pricingUiHtml('Tier provenance: {source}.', { source: independentSources.map(pricingUiEnumLabel).join(' · ') })}` : ''}</p>` : ''}
+      ${Core.asArray(rate.activation_blockers).length ? `<ul class="hotel-pricing-blockers">${rate.activation_blockers.map((item) => `<li>${escapeHtml(pricingBlockerLabel(item))}</li>`).join('')}</ul>` : ''}
+      <footer><button class="btn-secondary" type="button" data-edit-pricing-product="${escapeAttr(rate.id)}">${pricingUiHtml(productProtected ? 'View protected product' : 'Edit product')}</button>${productProtected ? '' : `<button class="btn-secondary" type="button" data-duplicate-pricing-product="${escapeAttr(rate.id)}">${pricingUiHtml('Duplicate product')}</button><button class="btn-secondary" type="button" data-edit-product-tiers="${escapeAttr(rate.id)}">${pricingUiHtml(tierSetProtected ? 'View protected tiers' : 'Occupancy / LOS tiers')}</button>${scheduleCanClone ? `<button class="btn-secondary" type="button" data-clone-schedule-for-product="${escapeAttr(rate.id)}">${pricingUiHtml('Clone schedule for this product')}</button>` : ''}`}</footer>
+      <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(rate.id)}</code>${schedule ? `<code>${escapeHtml(schedule.id)}</code>` : ''}</details>
+    </article>`;
+  }
+
+  function pricingScheduleCardMarkup(schedule) {
+    const immutable = pricingEntryImmutable(schedule) || pricingHotelMutationLocked()
+      || schedule.application_scope !== 'room_occupancy';
+    const nonmanual = pricingEntryIsNonmanualSource(schedule);
+    const cloneAllowed = !pricingHotelMutationLocked()
+      && schedule.application_scope === 'room_occupancy'
+      && (!pricingEntryImmutable(schedule) || nonmanual);
+    const linkedProducts = schedule.linked_room_rate_ids.map(pricingProductLabel);
+    const provenance = schedule.source_reference?.cloned_from_schedule_id
+      ? pricingUiText('manual clone')
+      : schedule.source === 'legacy_preview' ? pricingUiText('reviewed legacy preview')
+        : schedule.source === 'system' ? pricingUiText('system source') : pricingUiText('manual');
+    const minimumBillable = pricingUiText(
+      Number(schedule.minimum_billable_occupancy) === 1
+        ? '{count} minimum billable guest'
+        : '{count} minimum billable guests',
+      { count: Number(schedule.minimum_billable_occupancy) },
+    );
+    const linkedCount = pricingUiText(
+      linkedProducts.length === 1 ? '{count} linked product' : '{count} linked products',
+      { count: linkedProducts.length },
+    );
+    return `<article class="hotel-pricing-schedule-card">
+      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(schedule.code)} · ${pricingUiHtml(schedule.sharing_mode === 'shared' ? 'Shared' : 'Independent')}</span><h4>${escapeHtml(Core.i18nText(schedule.name_i18n, pricingUiLanguage(), schedule.code))}</h4><p>${escapeHtml(minimumBillable)} · ${pricingUiHtml('up to {count}', { count: Number(schedule.maximum_party_size) })} · ${escapeHtml(provenance)}</p></div><span class="hotel-workspace-status hotel-workspace-status--${pricingLifecycleTone(schedule.lifecycle_status)}">${pricingLifecycleLabel(schedule.lifecycle_status)}</span></header>
+      <div class="hotel-pricing-link-impact"><strong>${escapeHtml(linkedCount)}</strong><span>${escapeHtml(linkedProducts.length ? linkedProducts.join(' · ') : pricingUiText('Not linked'))}</span></div>
+      ${pricingTierMatrixMarkup(schedule.tiers, schedule.currency, { label: Core.i18nText(schedule.name_i18n, pricingUiLanguage(), schedule.code) })}
+      ${immutable ? `<p class="hotel-workspace-safety-note">${pricingUiHtml(nonmanual ? 'This provider-derived source is read-only. A clone creates a separate manual draft without mutating the source.' : 'This accepted legacy-parity schedule is immutable. Its exact reviewed tier graph remains inactive while legacy pricing is authoritative.')}</p>` : ''}
+      <footer><button class="btn-secondary" type="button" data-edit-pricing-schedule="${escapeAttr(schedule.id)}">${pricingUiHtml(immutable ? nonmanual ? 'View read-only source' : 'View protected schedule' : 'Edit schedule')}</button>${cloneAllowed ? `<button class="btn-secondary" type="button" data-clone-pricing-schedule="${escapeAttr(schedule.id)}">${pricingUiHtml('Clone as new manual draft')}</button>` : ''}</footer>
+      <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(schedule.id)}</code><code>${escapeHtml(schedule.tiers_fingerprint || 'No tier fingerprint')}</code><code>${escapeHtml(schedule.link_fingerprint || 'No link fingerprint')}</code>${schedule.source_reference?.cloned_from_schedule_id ? `<code>Cloned from ${escapeHtml(schedule.source_reference.cloned_from_schedule_id)}</code>` : ''}${schedule.source_reference?.pricing_fingerprint ? `<code>Source fingerprint ${escapeHtml(schedule.source_reference.pricing_fingerprint)}</code>` : ''}</details>
+    </article>`;
+  }
+
+  function pricingRatePlanCardMarkup(plan) {
+    const linked = state.pricingControl.room_rates.filter((rate) => rate.rate_plan_id === plan.id);
+    const immutable = pricingEntryImmutable(plan) || pricingHotelMutationLocked();
+    const linkedCount = pricingUiText(linked.length === 1 ? '{count} Room product' : '{count} Room products', { count: linked.length });
+    const cancellation = pricingUiEnumLabel(Core.cancellationPolicyLabel(plan.cancellation_policy));
+    return `<article class="hotel-rate-plan-card"><div><span class="hotel-workspace-eyebrow">${escapeHtml(plan.code)}</span><h5>${escapeHtml(Core.i18nText(plan.name_i18n, pricingUiLanguage(), plan.code))}</h5><p>${escapeHtml(cancellation)} · ${escapeHtml(linkedCount)}</p><small>${plan.price_inclusions.length ? `${pricingUiHtml('Includes')} ${escapeHtml(plan.price_inclusions.join(' · '))}` : pricingUiHtml('No price inclusions configured')}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${pricingLifecycleTone(plan.lifecycle_status)}">${pricingLifecycleLabel(plan.lifecycle_status)}</span><button class="btn-secondary" type="button" data-edit-pricing-plan="${escapeAttr(plan.id)}">${pricingUiHtml(immutable ? 'View protected plan' : 'Edit')}</button>${immutable ? '' : `<button class="btn-secondary" type="button" data-duplicate-pricing-plan="${escapeAttr(plan.id)}">${pricingUiHtml('Duplicate')}</button>`}</div></article>`;
+  }
+
+  function pricingRuleCardMarkup(rule) {
+    const immutable = pricingHotelMutationLocked() || pricingEntryImmutable(rule) || pricingProductIsImmutable(rule.room_rate_id);
+    const protection = pricingEntryIsNonmanualSource(rule)
+      ? ` · ${pricingUiEnumLabel(rule.source)} · ${pricingUiText('read-only')}`
+      : immutable ? ` · ${pricingUiText('protected legacy price')}` : ` · ${pricingUiText('manual source')}`;
+    const weekdayLabel = Core.asArray(rule.weekdays).length === 7
+      ? pricingUiText('Every day')
+      : Core.asArray(rule.weekdays).map((day) => pricingUiText(['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][day])).join(', ');
+    return `<article class="hotel-pricing-rule-row"><div><strong>${escapeHtml(pricingProductLabel(rule.room_rate_id))}</strong><span>${escapeHtml(rule.valid_from)} → ${escapeHtml(rule.valid_to)} · ${escapeHtml(weekdayLabel)}</span><small>${escapeHtml(formatMoney(rule.nightly_rate, state.pricingControl.room_rates.find((rate) => rate.id === rule.room_rate_id)?.currency))} · ${pricingUiHtml('priority')} ${Number(rule.priority || 0)}${rule.minimum_stay ? ` · ${pricingUiHtml('Min')} ${Number(rule.minimum_stay)} ${pricingUiHtml('nights')}` : ''}${rule.maximum_stay ? ` · ${pricingUiHtml('Max')} ${Number(rule.maximum_stay)} ${pricingUiHtml('nights')}` : ''}${escapeHtml(protection)}</small></div><button class="btn-secondary" type="button" data-edit-pricing-rule="${escapeAttr(rule.id)}">${pricingUiHtml(immutable ? pricingEntryIsNonmanualSource(rule) ? 'View read-only source' : 'View protected' : 'Edit')}</button></article>`;
+  }
+
+  function pricingExactDateCardMarkup(row) {
+    const currency = state.pricingControl.room_rates.find((rate) => rate.id === row.room_rate_id)?.currency;
+    const rateLabel = row.pricing_configured === false
+      ? pricingUiText('No price / stay override yet')
+      : row.nightly_rate_mode === 'clear' ? pricingUiText('Clear price override')
+        : row.nightly_rate_mode === 'set' ? formatMoney(row.nightly_rate, currency) : pricingUiText('Price inherited');
+    const restrictions = [
+      row.minimum_stay_mode === 'clear' ? pricingUiText('Clear minimum stay') : row.minimum_stay_mode === 'set' ? `${pricingUiText('Min')} ${row.minimum_stay}` : '',
+      row.maximum_stay_mode === 'clear' ? pricingUiText('Clear maximum stay') : row.maximum_stay_mode === 'set' ? `${pricingUiText('Max')} ${row.maximum_stay}` : '',
+    ].filter(Boolean);
+    const immutable = pricingHotelMutationLocked() || pricingEntryImmutable(row) || pricingProductIsImmutable(row.room_rate_id);
+    const pricingProvenance = row.pricing_configured
+      ? `${pricingUiEnumLabel(row.pricing_source || 'unknown')} ${pricingUiText('pricing')} · ${pricingUiEnumLabel(row.pricing_actor_type || 'unknown')}`
+      : pricingUiText('No pricing author yet');
+    return `<article class="hotel-pricing-rule-row"><div><strong>${escapeHtml(pricingProductLabel(row.room_rate_id))}</strong><span>${escapeHtml(row.stay_date)} · ${escapeHtml(rateLabel)}</span><small>${escapeHtml(restrictions.join(' · ') || pricingUiText('No stay override'))} · ${escapeHtml(pricingProvenance)}${row.shared_with_calendar ? ` · ${pricingUiHtml('shared operational Calendar row')}` : ''}${immutable ? ` · ${pricingUiHtml('protected legacy price')}` : ''}</small></div><button class="btn-secondary" type="button" data-edit-exact-price="${escapeAttr(row.id)}">${pricingUiHtml(immutable ? 'View protected' : row.pricing_configured === false ? 'Add pricing safely' : 'Edit')}</button></article>`;
+  }
+
+  function pricingAllocationCardMarkup(rule) {
+    const items = Core.asArray(rule.items);
+    const itemText = items.map((item) => {
+      const room = pricingRoomLabel(item.room_type_id);
+      const physical = Core.asArray(item.allocated_guest_counts).length
+        ? Core.asArray(item.allocated_guest_counts).join(' + ')
+        : item.allocated_guest_count;
+      const priced = Core.asArray(item.pricing_guest_counts).length
+        ? Core.asArray(item.pricing_guest_counts).join(' + ')
+        : item.pricing_guest_count;
+      return `${room}: ${pricingUiCount(item.units_required, 'unit', 'units')} · ${pricingUiText('physical')} ${physical ?? pricingUiText('customer choice')} · ${pricingUiText('priced')} ${priced ?? pricingUiText('requested occupancy')} · ${pricingRoomOperationalLabel(item.room_type_id)}`;
+    });
+    return `<article class="hotel-pricing-allocation-card"><header><div><span class="hotel-workspace-eyebrow">${escapeHtml(rule.code)}</span><h4>${Number(rule.min_guest_count)}–${Number(rule.max_guest_count)} ${pricingUiHtml('guests')} · ${pricingUiHtml(String(rule.allocation_mode).replaceAll('_', ' '))}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${pricingLifecycleTone(rule.lifecycle_status)}">${pricingLifecycleLabel(rule.lifecycle_status)}</span></header><ul>${itemText.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul><button class="btn-secondary" type="button" data-edit-allocation-rule="${escapeAttr(rule.id)}">${pricingUiHtml(pricingEntryImmutable(rule) || pricingHotelMutationLocked() ? 'View protected allocation' : 'Edit allocation')}</button><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(rule.id)}</code><code>${escapeHtml(rule.items_fingerprint || 'No item fingerprint')}</code></details></article>`;
+  }
+
+  function pricingPropertyDefaultMarkup(control) {
+    const fallback = control.property_pricing_default;
+    if (!fallback) {
+      return `<section class="hotel-pricing-property-default hotel-workspace-card"><div><span class="hotel-workspace-eyebrow">${pricingUiHtml('Precedence layer 5')}</span><h4>${pricingUiHtml('No property fallback selling price')}</h4><p>${pricingUiHtml('If a Room product has no linked schedule, active independent tiers or positive base rate, preview fails closed. Legacy party pricing is never guessed as this fallback.')}</p></div>${pricingHotelMutationLocked(control) ? `<span class="hotel-workspace-status hotel-workspace-status--warning">${pricingUiHtml('PROTECTED')}</span>` : `<button class="btn-secondary" type="button" data-edit-property-pricing-default>${pricingUiHtml('Configure reviewed fallback')}</button>`}</section>`;
+    }
+    return `<section class="hotel-pricing-property-default hotel-workspace-card"><div><span class="hotel-workspace-eyebrow">${pricingUiHtml('Precedence layer 5 · property fallback')}</span><h4>${escapeHtml(formatMoney(fallback.nightly_rate, fallback.currency))}</h4><p>${pricingUiHtml('Used only after no schedule tier, independent tier or positive Room base price resolves. This normalized shadow value never reads or modifies legacy party pricing.')}</p>${Core.asArray(fallback.activation_blockers).length ? `<ul class="hotel-pricing-blockers">${fallback.activation_blockers.map((item) => `<li>${escapeHtml(pricingBlockerLabel(item))}</li>`).join('')}</ul>` : ''}</div><div><span class="hotel-workspace-status hotel-workspace-status--${pricingLifecycleTone(fallback.lifecycle_status)}">${pricingLifecycleLabel(fallback.lifecycle_status)}</span><button class="btn-secondary" type="button" data-edit-property-pricing-default>${pricingUiHtml(pricingHotelMutationLocked(control) || pricingEntryImmutable(fallback) ? 'View protected fallback' : 'Edit fallback')}</button><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(fallback.id)}</code></details></div></section>`;
+  }
+
+  function pricingActivityMarkup(activity) {
+    const entityLabels = {
+      rate_plan: 'Rate Plan',
+      room_rate: 'Room Rate product',
+      pricing_schedule: 'Pricing schedule',
+      occupancy_tier: 'Occupancy / LOS tiers',
+      rate_rule: 'Seasonal / weekday rule',
+      calendar_override: 'Exact-date price',
+      allocation_rule: 'Allocation rule',
+      property_pricing_default: 'Property fallback price',
+    };
+    const actorLabels = {
+      admin: 'Admin',
+      partner: 'Partner',
+      sync: 'Calendar sync',
+      system: 'System',
+    };
+    const timestamp = new Date(activity.created_at);
+    const formatted = Number.isFinite(timestamp.getTime())
+      ? timestamp.toLocaleString(document.documentElement.lang || 'en')
+      : activity.created_at;
+    const action = pricingUiEnumLabel(activity.action);
+    const entity = pricingUiText(entityLabels[activity.entity_type] || String(activity.entity_type).replaceAll('_', ' '));
+    const actor = pricingUiText(actorLabels[activity.actor_type] || String(activity.actor_type).replaceAll('_', ' '));
+    return `<li class="hotel-pricing-activity-row"><div><strong>${escapeHtml(action)} · ${escapeHtml(entity)}</strong><span>${escapeHtml(actor)} · ${escapeHtml(formatted)}</span></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(activity.entity_id)}</code><code>${escapeHtml(activity.correlation_id)}</code>${activity.actor_id ? `<code>${escapeHtml(activity.actor_id)}</code>` : '<span>No human actor ID recorded</span>'}</details></li>`;
+  }
+
+  async function refreshPricingControl() {
+    if (!state.workspace || state.pricingControlLoading) return;
+    const hotelId = state.workspace.property.id;
+    state.pricingControlLoading = true;
+    state.pricingControlError = null;
+    if (state.activeTab === 'pricing') renderActivePanel();
+    try {
+      const control = await Repository.getPricingControl(hotelId);
+      if (!state.workspace || state.workspace.property.id !== hotelId) return;
+      state.pricingControl = control;
+    } catch (error) {
+      state.pricingControlError = error;
+    } finally {
+      state.pricingControlLoading = false;
+      if (state.workspace?.property.id === hotelId && state.activeTab === 'pricing') renderActivePanel();
+    }
+  }
+
+  function renderPricingPanel(panel) {
+    if (state.pricingControlLoading) {
+      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Loading the exact server pricing snapshot…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading pricing control…</div>`;
+      localizePricingUi(panel);
+      return;
+    }
+    if (state.pricingControlError || !state.pricingControl) {
+      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Pricing fails closed without the dedicated reviewed control plane.')}<section class="hotel-workspace-card hotel-property-empty--error"><h4>Pricing control unavailable</h4><p>${escapeHtml(state.pricingControlError?.userMessage || state.pricingControlError?.message || 'Deploy and verify the ADMIN-C pricing foundation before editing normalized prices.')}</p><button class="btn-secondary" type="button" data-retry-pricing-control>Retry secure load</button></section>`;
+      localizePricingUi(panel);
+      panel.querySelector('[data-retry-pricing-control]')?.addEventListener('click', () => void refreshPricingControl());
+      return;
+    }
+    const control = state.pricingControl;
+    const flagsOff = Object.values(control.feature_flags).every((value) => value === false);
+    const architecture = String(control.property.architecture_version || 'unknown');
+    const legacyArchitecture = architecture === 'legacy';
+    const mutationsLocked = pricingHotelMutationLocked(control);
+    const headerActions = `<div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-preview-pricing>Preview stay</button>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-schedule>+ Schedule</button><button class="btn-primary" type="button" data-add-pricing-plan>+ Rate Plan</button>'}</div>`;
+    panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.', headerActions)}
+      <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsOff ? 'success' : 'danger'}">FLAGS ${pricingUiHtml(flagsOff ? 'OFF' : 'DRIFT')}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
+      ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Accepted H3.1P boundary</span><h4>7 Kamares pricing control is read-only</h4><p>The exact 1 Rate Plan / 2 schedules / 2 Room Rates / 5 allocation rules / 10 items graph and its 70-case parity receipt must remain unchanged. Use the structured preview below; configure full ADMIN-C CRUD on another future Hotel.</p></section>' : ''}
+      ${pricingPromotionCardMarkup()}
+      ${pricingPropertyDefaultMarkup(control)}
+      <nav class="hotel-pricing-jump-nav" aria-label="Rates and pricing sections"><a href="#hotelPricingProducts">Products</a><a href="#hotelPricingSchedules">Schedules</a><a href="#hotelPricingPlans">Rate Plans</a><a href="#hotelPricingRules">Calendar prices</a><a href="#hotelPricingAllocation">Allocation</a><a href="#hotelPricingActivity">Activity</a></nav>
+      <section id="hotelPricingProducts" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Room Rate products</h4><p>The highlighted source is the price actually used. A linked schedule always outranks independent tiers; active independent tiers outrank the stored base rate.</p></div><span>${control.room_rates.length}</span></div><div class="hotel-pricing-product-grid">${control.room_rates.length ? control.room_rates.map(pricingSourceCardMarkup).join('') : renderEmptyState('No Room Rate products', 'Create a Rate Plan, then connect it to an exact Room Type.')}</div>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-product>+ Room Rate product</button>'}</section>
+      <section id="hotelPricingSchedules" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Reusable pricing schedules</h4><p>Shared schedules disclose every affected Room product before Save. Independent schedules can link to one product only.</p></div><span>${control.pricing_schedules.length}</span></div><div class="hotel-pricing-schedule-grid">${control.pricing_schedules.length ? control.pricing_schedules.map(pricingScheduleCardMarkup).join('') : renderEmptyState('No reusable schedule', 'Create a draft occupancy / length-of-stay schedule or use independent product tiers.')}</div></section>
+      <section id="hotelPricingPlans" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Rate Plans</h4><p>Names, inclusions, cancellation policy and booking-mode behavior are reviewed here.</p></div><span>${control.rate_plans.length}</span></div><div class="hotel-rate-plan-list">${control.rate_plans.length ? control.rate_plans.map(pricingRatePlanCardMarkup).join('') : renderEmptyState('No Rate Plans', 'Create an inactive draft before connecting Room products.')}</div></section>
+      <section id="hotelPricingRules" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Seasonal, weekday and exact-date prices</h4><p>Pricing edits live here. Calendar keeps only operational inventory and closure controls.</p></div>${mutationsLocked ? '' : '<div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-add-exact-price>+ Exact date</button><button class="btn-secondary" type="button" data-add-pricing-rule>+ Range rule</button></div>'}</div><div class="hotel-pricing-rule-columns"><div><h5>Seasonal / weekday rules</h5>${control.rate_rules.length ? control.rate_rules.map(pricingRuleCardMarkup).join('') : renderEmptyState('No range rules', 'Add a date range, weekdays and selling price.')}</div><div><h5>Exact-date prices</h5>${control.exact_date_prices.length ? control.exact_date_prices.map(pricingExactDateCardMarkup).join('') : renderEmptyState('No exact-date price', 'Use exact dates for reviewed selling-price and stay overrides.')}</div></div></section>
+      <section id="hotelPricingAllocation" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Guest allocation</h4><p>Physical occupancy and pricing occupancy remain explicit and separate for multi-room bookings.</p></div><span>${control.allocation_rules.length}</span></div><div class="hotel-pricing-allocation-grid">${control.allocation_rules.length ? control.allocation_rules.map(pricingAllocationCardMarkup).join('') : renderEmptyState('No allocation rules', 'Create draft rules before activation and preview.')}</div>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-allocation-rule>+ Allocation rule</button>'}</section>
+      <section id="hotelPricingActivity" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Recent pricing activity</h4><p>Reviewed pricing actions only. Technical identities stay inside diagnostics.</p></div><span>${control.recent_activity.length}</span></div>${control.recent_activity.length ? `<ol class="hotel-pricing-activity-list">${control.recent_activity.map(pricingActivityMarkup).join('')}</ol>` : renderEmptyState('No pricing activity yet', 'The first reviewed pricing mutation will appear here.')}</section>`;
+    localizePricingUi(panel);
+    bindPricingPanel(panel);
+  }
+
+  function bindPricingPanel(panel) {
+    panel.querySelector('[data-preview-pricing]')?.addEventListener('click', openPricingPreview);
+    panel.querySelector('[data-add-pricing-plan]')?.addEventListener('click', () => openPricingPlanEditor());
+    panel.querySelector('[data-add-pricing-product]')?.addEventListener('click', () => openPricingProductEditor());
+    panel.querySelector('[data-add-pricing-schedule]')?.addEventListener('click', () => openPricingScheduleEditor());
+    panel.querySelector('[data-add-pricing-rule]')?.addEventListener('click', () => openPricingRuleEditor());
+    panel.querySelector('[data-add-exact-price]')?.addEventListener('click', () => openExactDatePriceEditor());
+    panel.querySelector('[data-add-allocation-rule]')?.addEventListener('click', () => openPricingAllocationEditor());
+    panel.querySelector('[data-edit-property-pricing-default]')?.addEventListener('click', openPropertyPricingDefaultEditor);
+    panel.querySelectorAll('[data-edit-pricing-plan]').forEach((button) => button.addEventListener('click', () => openPricingPlanEditor(button.dataset.editPricingPlan)));
+    panel.querySelectorAll('[data-duplicate-pricing-plan]').forEach((button) => button.addEventListener('click', () => duplicatePricingPlan(button.dataset.duplicatePricingPlan)));
+    panel.querySelectorAll('[data-edit-pricing-product]').forEach((button) => button.addEventListener('click', () => openPricingProductEditor(button.dataset.editPricingProduct)));
+    panel.querySelectorAll('[data-duplicate-pricing-product]').forEach((button) => button.addEventListener('click', () => duplicatePricingProduct(button.dataset.duplicatePricingProduct)));
+    panel.querySelectorAll('[data-edit-product-tiers]').forEach((button) => button.addEventListener('click', () => openProductTierEditor(button.dataset.editProductTiers)));
+    panel.querySelectorAll('[data-clone-schedule-for-product]').forEach((button) => button.addEventListener('click', () => openPricingScheduleCloneForProduct(button.dataset.cloneScheduleForProduct)));
+    panel.querySelectorAll('[data-edit-pricing-schedule]').forEach((button) => button.addEventListener('click', () => openPricingScheduleEditor(button.dataset.editPricingSchedule)));
+    panel.querySelectorAll('[data-clone-pricing-schedule]').forEach((button) => button.addEventListener('click', () => openPricingScheduleClone(button.dataset.clonePricingSchedule)));
+    panel.querySelectorAll('[data-edit-pricing-rule]').forEach((button) => button.addEventListener('click', () => openPricingRuleEditor(button.dataset.editPricingRule)));
+    panel.querySelectorAll('[data-edit-exact-price]').forEach((button) => button.addEventListener('click', () => openExactDatePriceEditor(button.dataset.editExactPrice)));
+    panel.querySelectorAll('[data-edit-allocation-rule]').forEach((button) => button.addEventListener('click', () => openPricingAllocationEditor(button.dataset.editAllocationRule)));
+    const selected = state.pricingSelection.room_rate_id
+      ? panel.querySelector(`[data-pricing-product-card="${state.pricingSelection.room_rate_id}"]`)
+      : null;
+    selected?.scrollIntoView?.({ block: 'center' });
+  }
+
+  function pricingPreviewBlockerMarkup(blocker) {
+    const source = Core.asObject(blocker);
+    const labels = {
+      property_default_pricing_missing: 'No reviewed Room Rate pricing source is configured.',
+      property_pricing_default_inactive_or_unreviewed: 'The property fallback exists but is not active and reviewed.',
+      property_pricing_default_currency_mismatch: 'The property fallback currency does not match this Room product.',
+      positive_pricing_source_required: 'A positive Room Rate pricing source is required.',
+      legacy_architecture_authoritative: 'Legacy public pricing remains authoritative.',
+      public_hotels_v2_off: 'Public Hotels V2 remains off.',
+      below_minimum_stay: 'The requested stay is below the effective business minimum.',
+      above_maximum_stay: 'The requested stay exceeds the effective business maximum.',
+      missing_schedule_occupancy_los_tier: 'The linked schedule does not cover this occupancy and stay length.',
+      missing_independent_occupancy_los_tier: 'The independent Room Rate tiers do not cover this occupancy and stay length.',
+    };
+    const label = pricingUiText(labels[source.code] || pricingBlockerLabel(source.code));
+    return `<li><strong>${escapeHtml(label)}</strong>${source.stay_date ? `<span>${escapeHtml(source.stay_date)}</span>` : ''}${source.entity ? `<small>${escapeHtml(String(source.entity).replaceAll('_', ' '))}</small>` : ''}</li>`;
+  }
+
+  function pricingUiEnumLabel(value) {
+    return pricingUiText(String(value || '').replaceAll('_', ' '));
+  }
+
+  function pricingUiCount(value, singular, plural) {
+    const count = Number(value);
+    return `${count} ${pricingUiText(count === 1 ? singular : plural)}`;
+  }
+
+  function pricingPreviewResultMarkup(result) {
+    const blockers = Core.asArray(result.blocking_reasons);
+    const productByKey = new Map(Core.asArray(result.products).map((product) => [
+      `${product.room_rate_id}:${product.unit_sequence}`, product,
+    ]));
+    const nights = Core.asArray(result.nightly_breakdown);
+    return `<section class="hotel-pricing-preview-result" aria-live="polite">
+      <header><div><span class="hotel-workspace-eyebrow">${pricingUiHtml('Server-authoritative shadow quote')}</span><h4 tabindex="-1">${result.ok ? escapeHtml(formatMoney(result.customer_total, result.currency)) : pricingUiHtml('Price not requestable')}</h4><p>${escapeHtml(result.check_in)} → ${escapeHtml(result.check_out)} · ${escapeHtml(pricingUiCount(result.nights, 'night', 'nights'))} · ${escapeHtml(pricingUiCount(result.guest_count, 'guest', 'guests'))}</p></div><span class="hotel-workspace-status hotel-workspace-status--${result.ok ? 'success' : 'danger'}">${pricingUiHtml(result.ok ? 'CALCULATED' : 'BLOCKED')}</span></header>
+      <div class="hotel-workspace-locked-fields"><div><span>${pricingUiHtml('Public request')}</span><strong>${pricingUiHtml('OFF')}</strong><small>${pricingUiHtml('This preview cannot create or price a public booking.')}</small></div><div><span>${pricingUiHtml('Architecture authority')}</span><strong>${pricingUiHtml(result.legacy_authoritative ? 'Legacy' : 'Rooms V2 shadow')}</strong><small>${pricingUiHtml('No public change.')}</small></div><div><span>${pricingUiHtml('Pricing order · highest precedence → fallback')}</span><strong>${escapeHtml(result.pricing_precedence.map(pricingUiEnumLabel).join(' → '))}</strong><small>${pricingUiHtml('Server-derived only.')}</small></div></div>
+      ${blockers.length ? `<section class="hotel-pricing-preview-blockers"><strong>${pricingUiHtml('Quote blockers and safety notices')}</strong><ul>${blockers.map(pricingPreviewBlockerMarkup).join('')}</ul></section>` : ''}
+      <section><h5>${pricingUiHtml('Physical and pricing allocation')}</h5>${result.allocation.length ? `<div class="hotel-pricing-preview-allocation">${result.allocation.map((row) => `<article><strong>${escapeHtml(pricingRoomLabel(row.room_type_id))}</strong><span>${escapeHtml(pricingUiCount(row.units_required, 'unit', 'units'))} · ${pricingUiHtml('physical')} ${escapeHtml(row.allocated_guest_counts.join(' + '))} · ${pricingUiHtml('priced')} ${escapeHtml(row.pricing_guest_counts.join(' + '))}</span></article>`).join('')}</div>` : `<p>${pricingUiHtml('No exact allocation could be resolved.')}</p>`}</section>
+      <section><h5>${pricingUiHtml('Room products')}</h5>${result.products.length ? `<div class="hotel-pricing-preview-products">${result.products.map((product) => `<article><header><strong>${escapeHtml(pricingProductLabel(product.room_rate_id))} · ${pricingUiHtml('unit')} ${Number(product.unit_sequence)}</strong><b>${product.subtotal == null ? pricingUiHtml('Unavailable') : escapeHtml(formatMoney(product.subtotal, product.currency))}</b></header><dl><div><dt>${pricingUiHtml('Physical / priced guests')}</dt><dd>${Number(product.allocated_guest_count)} / ${Number(product.requested_pricing_guest_count)}</dd></div><div><dt>${pricingUiHtml('Resolved pricing guests')}</dt><dd>${product.resolved_pricing_guest_count ?? pricingUiHtml('Blocked')}</dd></div><div><dt>${pricingUiHtml('Base source')}</dt><dd>${escapeHtml(product.base_pricing_source ? pricingUiEnumLabel(product.base_pricing_source) : pricingUiText('Not resolved'))}</dd></div><div><dt>${pricingUiHtml('Effective stay')}</dt><dd>${pricingUiHtml('Min')} ${product.effective_minimum_stay ?? '—'} · ${pricingUiHtml('Max')} ${product.effective_maximum_stay ?? '—'}</dd></div><div><dt>${pricingUiHtml('Booking mode')}</dt><dd>${escapeHtml(product.booking_mode ? pricingUiEnumLabel(product.booking_mode) : pricingUiText('Not resolved'))}</dd></div><div><dt>${pricingUiHtml('Cancellation')}</dt><dd>${product.cancellation_policy ? escapeHtml(pricingUiEnumLabel(Core.cancellationPolicyLabel(product.cancellation_policy))) : pricingUiHtml('Not resolved')}</dd></div></dl><small>${product.price_inclusions?.length ? `${pricingUiHtml('Includes')} ${escapeHtml(product.price_inclusions.join(' · '))}` : pricingUiHtml('No reviewed inclusions')}</small></article>`).join('')}</div>` : `<p>${pricingUiHtml('No Room Rate product could be resolved.')}</p>`}</section>
+      <section><h5>${pricingUiHtml('Nightly calculation')}</h5>${nights.length ? `<div class="hotel-pricing-preview-table-wrap" role="region" aria-label="${pricingUiAttr('Nightly server pricing breakdown')}" tabindex="0"><table class="hotel-review-table"><thead><tr><th>${pricingUiHtml('Date')}</th><th>${pricingUiHtml('Product')}</th><th>${pricingUiHtml('Source')}</th><th>${pricingUiHtml('Stay bounds')}</th><th>${pricingUiHtml('Price')}</th></tr></thead><tbody>${nights.map((night) => { const product = productByKey.get(`${night.room_rate_id}:${night.unit_sequence}`); return `<tr><td>${escapeHtml(night.stay_date)}</td><td>${escapeHtml(product ? pricingProductLabel(product.room_rate_id) : pricingProductLabel(night.room_rate_id))} · ${pricingUiHtml('unit')} ${Number(night.unit_sequence)}</td><td>${escapeHtml(pricingUiEnumLabel(night.final_pricing_source))}</td><td>${pricingUiHtml('Min')} ${night.effective_minimum_stay ?? '—'} · ${pricingUiHtml('Max')} ${night.effective_maximum_stay ?? '—'}</td><td>${escapeHtml(formatMoney(night.nightly_rate, night.currency))}</td></tr>`; }).join('')}</tbody></table></div>` : `<p>${pricingUiHtml('No nightly rows were calculated. Resolve the blockers above; no fallback price was invented.')}</p>`}</section>
+      <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(result.snapshot_token)}</code><code>${escapeHtml(result.hotel_id)}</code></details>
+    </section>`;
+  }
+
+  function openPricingPreview() {
+    const control = state.pricingControl;
+    if (!control) {
+      toast('Load the exact Pricing control before requesting a preview.', 'error');
+      return;
+    }
+    const planOptions = control.rate_plans.map((plan) => `<option value="${escapeAttr(plan.id)}">${escapeHtml(Core.i18nText(plan.name_i18n, pricingUiLanguage(), plan.code))} · ${pricingLifecycleLabel(plan.lifecycle_status)}</option>`).join('');
+    const allocationOptions = control.allocation_rules.map((rule) => `<option value="${escapeAttr(rule.id)}">${escapeHtml(rule.code)} · ${pricingUiHtml('{minimum}–{maximum} guests', { minimum: Number(rule.min_guest_count), maximum: Number(rule.max_guest_count) })} · ${pricingLifecycleLabel(rule.lifecycle_status)}</option>`).join('');
+    openPricingModal({
+      title: 'Preview server pricing',
+      className: 'hotel-workspace-modal--wide hotel-pricing-preview-modal',
+      body: `<form id="hotelPricingPreviewForm" class="hotel-workspace-form">
+        <p class="hotel-workspace-intro">Choose the exact stay and guest party. The server resolves physical allocation, pricing occupancy, precedence and totals from the current reviewed shadow snapshot.</p>
+        <div class="hotel-workspace-form-grid">
+          <label class="admin-form-field"><span>Check-in</span><input type="date" name="check_in" required /></label>
+          <label class="admin-form-field"><span>Check-out</span><input type="date" name="check_out" required /><small>Technical preview horizon: 365 nights. Hotel business min/max stay is evaluated separately and returned as a quote blocker.</small></label>
+          <label class="admin-form-field"><span>Adults</span><input type="number" name="adults" min="1" max="50" step="1" required placeholder="Enter adults" /></label>
+          <label class="admin-form-field"><span>Rate Plan</span><select name="rate_plan_id"><option value="">${pricingUiHtml('Auto only when exactly one active reviewed Plan exists')}</option>${planOptions}</select></label>
+          <label class="admin-form-field"><span>Allocation rule</span><select name="allocation_rule_id"><option value="">${pricingUiHtml('Auto only when exactly one active reviewed rule covers the party')}</option>${allocationOptions}</select></label>
+          <label class="admin-form-field"><span>Room choice</span><select name="selected_room_type_id" disabled><option value="">${pricingUiHtml('Choose an allocation rule first')}</option></select><small>Required only for a customer-choice allocation. Bundles are server allocated.</small></label>
+        </div>
+        <fieldset><legend>Children</legend><div data-pricing-preview-children></div><button class="btn-secondary" type="button" data-add-preview-child>+ Child age</button><small>Add each exact age. No child age is inferred.</small></fieldset>
+        <p class="hotel-workspace-safety-note">This is a read-only calculation. It cannot activate pricing, change legacy rules, check inventory, create a booking, calculate commission or collect payment.</p>
+      </form><div data-pricing-preview-result></div>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Close</button><button class="btn-primary" type="submit" form="hotelPricingPreviewForm">Calculate shadow quote</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingPreviewForm');
+        const resultHost = overlay.querySelector('[data-pricing-preview-result]');
+        const childrenHost = form.querySelector('[data-pricing-preview-children]');
+        const addChild = () => {
+          const row = document.createElement('label');
+          row.className = 'admin-form-field hotel-pricing-preview-child';
+          row.innerHTML = '<span>Child age</span><span><input type="number" name="child_age" min="0" max="17" step="1" required placeholder="Age" /><button class="btn-secondary" type="button" data-remove-preview-child aria-label="Remove child age">Remove</button></span>';
+          row.querySelector('[data-remove-preview-child]')?.addEventListener('click', () => row.remove());
+          childrenHost.append(row);
+          localizePricingUi(row);
+          row.querySelector('input')?.focus();
+        };
+        form.querySelector('[data-add-preview-child]')?.addEventListener('click', addChild);
+        const roomSelect = form.elements.selected_room_type_id;
+        const updateRoomChoices = () => {
+          const rule = control.allocation_rules.find((entry) => entry.id === Core.normalizeUuid(form.elements.allocation_rule_id.value));
+          if (!rule || rule.allocation_mode !== 'customer_choice') {
+          roomSelect.innerHTML = `<option value="">${pricingUiHtml(rule ? 'Not used for an exact bundle' : 'Choose an allocation rule first')}</option>`;
+            roomSelect.value = '';
+            roomSelect.disabled = true;
+            roomSelect.required = false;
+            return;
+          }
+          roomSelect.innerHTML = `<option value="">${pricingUiHtml('Select an exact Room Type')}</option>${rule.items.map((item) => `<option value="${escapeAttr(item.room_type_id)}">${escapeHtml(`${pricingRoomLabel(item.room_type_id)} · ${pricingRoomOperationalLabel(item.room_type_id)}`)}</option>`).join('')}`;
+          roomSelect.disabled = false;
+          roomSelect.required = true;
+          localizePricingUi(roomSelect);
+        };
+        form.elements.allocation_rule_id.addEventListener('change', updateRoomChoices);
+        updateRoomChoices();
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submit = overlay.querySelector('button[form="hotelPricingPreviewForm"]');
+          const fd = new FormData(form);
+          const request = {
+            contract_version: Core.PRICING_PREVIEW_CONTRACT,
+            hotel_id: control.hotel_id,
+            snapshot_token: control.snapshot_token,
+            rate_plan_id: Core.normalizeUuid(fd.get('rate_plan_id')) || null,
+            allocation_rule_id: Core.normalizeUuid(fd.get('allocation_rule_id')) || null,
+            selected_room_type_id: Core.normalizeUuid(fd.get('selected_room_type_id')) || null,
+            check_in: String(fd.get('check_in') || ''),
+            check_out: String(fd.get('check_out') || ''),
+            adults: Number(fd.get('adults')),
+            child_ages: fd.getAll('child_age').map(Number),
+          };
+          try {
+            Core.validatePricingPreviewRequest(request);
+          } catch (error) {
+            toast(error.message, 'error');
+            return;
+          }
+          submit.disabled = true;
+          submit.textContent = pricingUiText('Calculating…');
+          resultHost.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Resolving exact server pricing…</div>';
+          try {
+            const result = await Repository.previewPricingQuote(request);
+            resultHost.innerHTML = pricingPreviewResultMarkup(result);
+            localizePricingUi(resultHost);
+            resultHost.querySelector('h4')?.focus?.();
+          } catch (error) {
+            resultHost.innerHTML = `<section class="hotel-workspace-card hotel-property-empty--error"><h4>Preview stopped safely</h4><p>${escapeHtml(error?.userMessage || error?.message || 'The server preview could not be confirmed.')}</p>${error?.isStale ? '<p>Pricing changed after this form opened. Close this dialog, refresh Rates & Pricing, then make a new explicit preview request. Nothing was retried.</p>' : ''}</section>`;
+            localizePricingUi(resultHost);
+          } finally {
+            submit.disabled = false;
+            submit.textContent = pricingUiText('Calculate shadow quote');
+          }
+        });
+      },
+    });
+  }
+
+  function syncWorkspacePricing(control = state.pricingControl) {
+    if (!state.workspace || !control) return;
+    state.workspace.rate_plans = Core.clone(control.rate_plans);
+    state.workspace.room_rates = Core.clone(control.room_rates);
+    state.workspace.pricing_schedules = Core.clone(control.pricing_schedules);
+    state.workspace.pricing_schedule_tiers = control.pricing_schedules.flatMap((schedule) => Core.clone(schedule.tiers));
+    if (Array.isArray(control.recent_activity)) state.workspace.activity = Core.clone(control.recent_activity);
+    state.calendar.data = null;
+  }
+
+  function pricingCollectionFor(entity, control = state.pricingControl) {
+    if (!control) return [];
+    const key = {
+      rate_plan: 'rate_plans', room_rate: 'room_rates', pricing_schedule: 'pricing_schedules',
+      room_rate_tier_set: 'room_rates', rate_rule: 'rate_rules',
+      exact_date_price: 'exact_date_prices', allocation_rule: 'allocation_rules',
+    }[entity];
+    if (entity === 'property_pricing_default') {
+      return control.property_pricing_default ? [control.property_pricing_default] : [];
+    }
+    return key ? Core.asArray(control[key]) : [];
+  }
+
+  function pricingEntityById(entity, id, control = state.pricingControl) {
+    const exactId = Core.normalizeUuid(id);
+    return pricingCollectionFor(entity, control).find((entry) => entry.id === exactId) || null;
+  }
+
+  function pricingStateForReview(entity, value, options = {}) {
+    if (entity === 'room_rate_tier_set') {
+      return { id: value?.id, tiers: Core.clone(value?.tiers || value?.independent_tiers || []) };
+    }
+    return { id: value?.id, ...Core.pricingBusinessState(entity, value, options) };
+  }
+
+  function pricingAppliedStateForComparison(entity, value, options = {}) {
+    return JSON.parse(JSON.stringify(pricingStateForReview(entity, value, options), (key, nested) => (
+      key === 'version' ? undefined : nested
+    )));
+  }
+
+  function pricingOperationForTarget(control, entity, before, target, options = {}) {
+    if (pricingHotelMutationLocked(control)) {
+      throw new Error('The accepted 7 Kamares H3.1P pricing graph is read-only in ADMIN-C.');
+    }
+    const operationOptions = { ...options };
+    if (before) {
+      const beforeState = Core.pricingBusinessState(entity, before, {
+        id: before.id, hotelId: control.hotel_id, create: false,
+      });
+      const targetState = Core.pricingBusinessState(entity, target, {
+        id: before.id, hotelId: control.hotel_id, create: false,
+      });
+      const lifecycleEntities = [
+        'rate_plan', 'room_rate', 'pricing_schedule', 'allocation_rule',
+        'property_pricing_default',
+      ];
+      if (lifecycleEntities.includes(entity)
+          && beforeState.lifecycle_status !== 'disabled'
+          && targetState.lifecycle_status === 'disabled') {
+        const statusOnlyTarget = Core.clone(targetState);
+        statusOnlyTarget.lifecycle_status = beforeState.lifecycle_status;
+        if (JSON.stringify(statusOnlyTarget) !== JSON.stringify(beforeState)) {
+          throw new Error('Save content, relationship or tier edits first, then disable this pricing object in a separate explicit Review.');
+        }
+        operationOptions.action = 'disable';
+      } else if (entity === 'rate_rule'
+          && beforeState.is_active === true && targetState.is_active === false) {
+        if (beforeState.closed_to_arrival || beforeState.closed_to_departure) {
+          throw new Error('This rule contains Calendar-owned arrival/departure restrictions. ADMIN-C cannot disable it; review that operational restriction in Calendar during ADMIN-D.');
+        }
+        const activeOnlyTarget = Core.clone(targetState);
+        activeOnlyTarget.is_active = true;
+        if (JSON.stringify(activeOnlyTarget) !== JSON.stringify(beforeState)) {
+          throw new Error('Save seasonal-price edits first, then disable this rule in a separate explicit Review.');
+        }
+        operationOptions.action = 'disable';
+      }
+      if (JSON.stringify(beforeState) === JSON.stringify(targetState)
+          && operationOptions.action !== 'disable') {
+        throw new Error('No pricing fields changed. Nothing needs Review or Save.');
+      }
+    }
+    return Core.buildPricingControlOperation(control, entity, target, before, {
+      action: operationOptions.action,
+      activationAcknowledged: operationOptions.activationAcknowledged,
+      sharedImpactAcknowledged: operationOptions.sharedImpactAcknowledged,
+    });
+  }
+
+  function pricingConflictModal(entity, conflicts, freshControl) {
+    state.pricingControl = freshControl;
+    syncWorkspacePricing(freshControl);
+    openPricingModal({
+      title: 'Pricing conflict needs review',
+      className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
+      body: `<section class="hotel-workspace-card hotel-property-empty--error"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Controlled stale conflict')}</span><h4>${pricingUiHtml('The same pricing field changed in two different ways')}</h4><p>${pricingUiHtml('Nothing was overwritten or retried. Compare the exact original, current and requested values, then reopen the editor from the fresh snapshot.')}</p></section><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>${pricingUiHtml('Field')}</th><th>${pricingUiHtml('At Review')}</th><th>${pricingUiHtml('Current')}</th><th>${pricingUiHtml('Requested')}</th></tr></thead><tbody>${conflicts.map((entry) => `<tr><th>${escapeHtml(reviewFieldLabel(entry.field))}</th><td>${reviewValueMarkup(entry.original, entry.field)}</td><td>${reviewValueMarkup(entry.current, entry.field)}</td><td>${reviewValueMarkup(entry.requested, entry.field)}</td></tr>`).join('')}</tbody></table></div><p class="hotel-workspace-safety-note">${pricingUiHtml('The fresh pricing snapshot is now loaded. This conflict screen performs no mutation.')}</p>`,
+      footer: '<button class="btn-primary" type="button" data-pricing-conflict-close>Return to fresh pricing</button>',
+      onReady(overlay) {
+        overlay.querySelector('[data-pricing-conflict-close]')?.addEventListener('click', () => {
+          closeModal({ restoreFocus: false, force: true, skipCleanup: true });
+          renderWorkspace();
+        });
+      },
+    });
+    toast(pricingUiText('{entity} changed after Review. The overlapping fields were not overwritten.', {
+      entity: pricingUiEnumLabel(entity),
+    }), 'warning');
+  }
+
+  function pricingReviewOptions({ title, entity, before, after, operation, operationOptions = {}, successMessage, contextMessage = '' }) {
+    const originalControl = state.pricingControl;
+    const target = Core.clone(after);
+    const original = before ? Core.clone(before) : null;
+    const plan = Core.buildPricingControlPlan(originalControl, [operation]);
+    const correlationId = Core.newUuid();
+    const idempotencyKey = Core.newUuid();
+    const buildFreshReview = async (freshControl) => {
+      let fresh = pricingEntityById(entity, operation.id, freshControl);
+      if (!original) {
+        if (!fresh && entity === 'exact_date_price' && operation.action === 'create') {
+          const tupleRow = freshControl.exact_date_prices.find((candidate) => (
+            candidate.room_rate_id === target.room_rate_id
+            && candidate.stay_date === target.stay_date
+          )) || null;
+          if (tupleRow) {
+            const fields = ['nightly_rate', 'minimum_stay', 'maximum_stay'];
+            const conflicts = [];
+            const mergedTarget = Core.clone(tupleRow);
+            fields.forEach((field) => {
+              const requestedMode = target[`${field}_mode`];
+              const currentMode = tupleRow[`${field}_mode`];
+              if (requestedMode === null) return;
+              const requestedPair = JSON.stringify([requestedMode, target[field]]);
+              const currentPair = JSON.stringify([currentMode, tupleRow[field]]);
+              if (currentMode !== null && currentPair !== requestedPair) {
+                conflicts.push({
+                  field,
+                  original: 'No row existed at Review',
+                  current: { mode: currentMode, value: tupleRow[field] },
+                  requested: { mode: requestedMode, value: target[field] },
+                });
+                return;
+              }
+              mergedTarget[`${field}_mode`] = requestedMode;
+              mergedTarget[field] = target[field];
+            });
+            if (tupleRow.pricing_configured && (
+              tupleRow.pricing_reason !== target.reason
+              || tupleRow.pricing_expires_at !== target.expires_at
+            )) {
+              conflicts.push({
+                field: 'pricing provenance',
+                original: 'No pricing row existed at Review',
+                current: { reason: tupleRow.pricing_reason, expires_at: tupleRow.pricing_expires_at },
+                requested: { reason: target.reason, expires_at: target.expires_at },
+              });
+            }
+            if (conflicts.length) return { conflicts };
+            mergedTarget.reason = target.reason;
+            mergedTarget.expires_at = target.expires_at;
+            const currentState = pricingAppliedStateForComparison(
+              entity, tupleRow, { id: tupleRow.id, hotelId: freshControl.hotel_id },
+            );
+            const mergedState = pricingAppliedStateForComparison(
+              entity, mergedTarget, { id: tupleRow.id, hotelId: freshControl.hotel_id },
+            );
+            if (JSON.stringify(currentState) === JSON.stringify(mergedState)) {
+              return { matched: true, fresh: tupleRow };
+            }
+            const freshOperation = pricingOperationForTarget(
+              freshControl, entity, tupleRow, mergedTarget, {},
+            );
+            return {
+              review: pricingReviewOptions({
+                title: 'Review exact-date price on fresh Calendar row', entity,
+                before: tupleRow, after: mergedTarget, operation: freshOperation,
+                operationOptions: {}, successMessage,
+                contextMessage: [contextMessage, pricingUiText('A Calendar row for the exact Room/date appeared after Review. Its operational fields and any unrequested price/stay fields are preserved. Inspect this fresh explicit UPDATE Review; nothing was retried.')].filter(Boolean).join(' '),
+              }),
+            };
+          }
+        }
+        if (fresh) {
+          if (operation.action === 'clone') {
+            const cloneMatches = JSON.stringify(pricingAppliedStateForComparison('pricing_schedule', fresh, {
+              id: operation.id, hotelId: freshControl.hotel_id,
+            })) === JSON.stringify(pricingAppliedStateForComparison('pricing_schedule', target, {
+              id: operation.id, hotelId: freshControl.hotel_id,
+            }));
+            if (cloneMatches) return { matched: true, fresh };
+          }
+          const currentState = pricingAppliedStateForComparison(entity, fresh, { id: operation.id, hotelId: freshControl.hotel_id });
+          const targetState = pricingAppliedStateForComparison(entity, target, { id: operation.id, hotelId: freshControl.hotel_id });
+          if (JSON.stringify(currentState) === JSON.stringify(targetState)) return { matched: true, fresh };
+          return { conflicts: [{ field: 'exact identity', original: 'Did not exist', current: currentState, requested: targetState }] };
+        }
+        if (operation.action === 'clone') {
+          const freshSource = pricingEntityById('pricing_schedule', operation.payload.source_schedule_id, freshControl);
+          if (!freshSource) return { conflicts: [{ field: 'source schedule', original: operation.payload.source_schedule_id, current: 'Missing', requested: 'Clone exact source' }] };
+          const targetTiersByKey = new Map(Core.asArray(target.tiers).map((tier) => [`${tier.guest_count}:${tier.threshold_nights}`, tier]));
+          const freshTarget = {
+            ...Core.clone(freshSource), id: operation.id, code: operation.payload.code,
+            name_i18n: Core.clone(operation.payload.name_i18n), sharing_mode: operation.payload.sharing_mode,
+            lifecycle_status: 'draft', linked_room_rate_ids: [], link_fingerprint: null,
+            tiers: freshSource.tiers.map((tier) => ({
+              ...Core.clone(tier),
+              id: targetTiersByKey.get(`${tier.guest_count}:${tier.threshold_nights}`)?.id || Core.newUuid(),
+              schedule_id: operation.id, version: 0,
+            })),
+            version: 0,
+          };
+          const freshOperation = Core.buildPricingScheduleCloneOperation(freshControl, freshSource, {
+            id: operation.id, code: operation.payload.code, name_i18n: operation.payload.name_i18n,
+            sharing_mode: operation.payload.sharing_mode,
+            tiers: freshTarget.tiers,
+          }, { sharedImpactAcknowledged: operation.shared_impact_acknowledged });
+          return {
+            review: pricingReviewOptions({ title, entity, before: null, after: freshTarget, operation: freshOperation, operationOptions, successMessage, contextMessage: [contextMessage, pricingUiText('The source schedule changed; inspect this fresh clone Review. Nothing was retried.')].filter(Boolean).join(' ') }),
+          };
+        }
+        const freshOperation = pricingOperationForTarget(freshControl, entity, null, target, operationOptions);
+        return {
+          review: pricingReviewOptions({ title, entity, before: null, after: target, operation: freshOperation, operationOptions, successMessage, contextMessage }),
+        };
+      }
+      if (!fresh && entity === 'exact_date_price' && operation.action === 'disable') {
+        return { matched: true, fresh: null };
+      }
+      if (!fresh) return { conflicts: [{ field: 'exact identity', original: pricingStateForReview(entity, original), current: 'Missing', requested: pricingStateForReview(entity, target) }] };
+      const freshState = pricingAppliedStateForComparison(entity, fresh, { id: operation.id, hotelId: freshControl.hotel_id });
+      const targetState = pricingAppliedStateForComparison(entity, target, { id: operation.id, hotelId: freshControl.hotel_id });
+      if (JSON.stringify(freshState) === JSON.stringify(targetState)) return { matched: true, fresh };
+      const reconciliation = Core.reconcilePricingBusinessState(entity, original, fresh, target, {
+        id: operation.id, hotelId: freshControl.hotel_id,
+      });
+      if (!reconciliation.safe) return { conflicts: reconciliation.conflicts };
+      const mergedTarget = { ...Core.clone(fresh), ...Core.clone(reconciliation.merged), id: operation.id };
+      const freshOperation = pricingOperationForTarget(freshControl, entity, fresh, mergedTarget, operationOptions);
+      return {
+        review: pricingReviewOptions({
+          title, entity, before: fresh, after: mergedTarget, operation: freshOperation,
+          operationOptions, successMessage,
+          contextMessage: [contextMessage, pricingUiText('Fresh non-overlapping values were preserved. Review this rebuilt plan and explicitly Save once.')].filter(Boolean).join(' '),
+        }),
+      };
+    };
+    return {
+      title: pricingUiText(title),
+      pricingUi: true,
+      entity,
+      before: before
+        ? pricingStateForReview(entity, before, { id: operation.id, hotelId: originalControl.hotel_id })
+        : null,
+      after: pricingStateForReview(entity, after, { id: operation.id, hotelId: originalControl.hotel_id }),
+      operation,
+      contextMessage: pricingUiText(contextMessage),
+      diagnostics: [
+        { label: 'Entity ID', value: operation.id },
+        { label: 'Snapshot', value: originalControl.snapshot_token },
+        ...(operation.expected_children_fingerprint ? [{ label: 'Child set', value: operation.expected_children_fingerprint }] : []),
+        ...(operation.expected_link_fingerprint ? [{ label: 'Link set', value: operation.expected_link_fingerprint }] : []),
+      ],
+      successMessage: pricingUiText(successMessage),
+      async onConfirm() {
+        const result = await Repository.applyPricingControlPlan(plan, correlationId, idempotencyKey);
+        state.pricingControl = result.pricing_control;
+        state.pricingControlError = null;
+        syncWorkspacePricing(result.pricing_control);
+        return result;
+      },
+      async onStaleReview() {
+        const freshControl = await Repository.getPricingControl(originalControl.hotel_id);
+        state.pricingControl = freshControl;
+        syncWorkspacePricing(freshControl);
+        const rebuilt = await buildFreshReview(freshControl);
+        if (rebuilt.conflicts) {
+          const conflict = new Error('The same pricing field changed after Review.');
+          conflict.closeReviewAfterStale = true;
+          conflict.userMessage = 'The same pricing field changed after Review. Nothing was overwritten or retried.';
+          conflict.openPricingConflict = { entity, conflicts: rebuilt.conflicts, freshControl };
+          throw conflict;
+        }
+        if (rebuilt.matched) {
+          return {
+            matched: true,
+            message: 'The database already matches the reviewed pricing target. No mutation was retried.',
+          };
+        }
+        return rebuilt.review || null;
+      },
+      async onAmbiguousReview() {
+        const freshControl = await Repository.getPricingControl(originalControl.hotel_id);
+        state.pricingControl = freshControl;
+        syncWorkspacePricing(freshControl);
+        const rebuilt = await buildFreshReview(freshControl);
+        if (rebuilt.matched) {
+          return {
+            matched: true,
+            message: 'The database already matches the reviewed pricing target. No mutation was retried.',
+          };
+        }
+        if (rebuilt.conflicts) {
+          const conflict = new Error('Fresh pricing has a genuine conflict.');
+          conflict.closeReviewAfterStale = true;
+          conflict.userMessage = 'Fresh pricing has a genuine conflict. Nothing was overwritten or retried.';
+          conflict.openPricingConflict = { entity, conflicts: rebuilt.conflicts, freshControl };
+          throw conflict;
+        }
+        return rebuilt;
+      },
+    };
+  }
+
+  function pricingLifecycleOptions(value, entry = null) {
+    const current = String(value || 'draft');
+    const blockers = Core.asArray(entry?.activation_blockers);
+    return Core.PRICING_LIFECYCLE_STATUSES.map((status) => {
+      const activeBlocked = status === 'active' && blockers.length > 0 && current !== 'active';
+      return `<option value="${status}" ${status === current ? 'selected' : ''} ${activeBlocked ? 'disabled' : ''}>${pricingLifecycleLabel(status)}${activeBlocked ? ` · ${pricingUiHtml('resolve blockers first')}` : ''}</option>`;
+    }).join('');
+  }
+
+  function pricingActivationMarkup(entry = null) {
+    const blockers = Core.asArray(entry?.activation_blockers);
+    return `${blockers.length ? `<section class="hotel-pricing-activation-blockers"><strong>${pricingUiHtml('Activation blockers')}</strong><ul>${blockers.map((item) => `<li>${escapeHtml(pricingBlockerLabel(item))}</li>`).join('')}</ul></section>` : ''}<label class="hotel-pricing-activation-ack"><input type="checkbox" name="activation_acknowledged" /><span><strong>${pricingUiHtml('I explicitly reviewed activation.')}</strong><small>${pricingUiHtml('Active is allowed only when the exact server readiness checks pass. This does not switch public Hotels V2 on.')}</small></span></label>`;
+  }
+
+  function pricingActivationAcknowledged(fd, lifecycle, entry = null) {
+    if (lifecycle !== 'active') return false;
+    const blockers = Core.asArray(entry?.activation_blockers);
+    if (blockers.length && entry?.lifecycle_status !== 'active') {
+      throw new Error(pricingUiText('Resolve activation blockers first: {blockers}.', { blockers: blockers.map(pricingBlockerLabel).join('; ') }));
+    }
+    if (!fd.has('activation_acknowledged')) throw new Error('Explicitly acknowledge this active pricing state before Review.');
+    return true;
+  }
+
+  function openImmutablePricingView(title, entry, description, body) {
+    const guidance = pricingHotelMutationLocked()
+      ? 'This exact accepted legacy-parity Hotel pricing graph is read-only in ADMIN-C. No clone, draft, rule, exact-date or allocation mutation is available here.'
+      : 'This exact protected object cannot be edited or activated through ADMIN-C. Clone a supported schedule or create a separate draft contract when the server readiness rules allow it.';
+    openPricingModal({
+      title,
+      className: 'hotel-workspace-modal--wide',
+      body: `<section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Protected accepted contract')}</span><h4>${escapeHtml(description)}</h4><p>${pricingUiHtml(guidance)}</p></section>${body || ''}<details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(entry.id)}</code></details>`,
+      footer: '<button class="btn-primary" type="button" data-hotel-modal-close>Close</button>',
+    });
+  }
+
+  function blockAcceptedHotelPricingEditor(title, entry, description, body = '') {
+    if (!pricingHotelMutationLocked()) return false;
+    if (entry) openImmutablePricingView(title, entry, description, body);
+    else requirePricingHotelMutationAccess();
+    return true;
+  }
+
+  function openPropertyPricingDefaultEditor() {
+    const existing = state.pricingControl?.property_pricing_default || null;
+    if (blockAcceptedHotelPricingEditor(
+      'Accepted property pricing fallback', existing,
+      existing ? formatMoney(existing.nightly_rate, existing.currency) : 'Property fallback',
+    )) return;
+    if (existing && pricingEntryImmutable(existing)) {
+      openImmutablePricingView(
+        'Protected property pricing fallback', existing,
+        formatMoney(existing.nightly_rate, existing.currency),
+        '<section class="hotel-workspace-card"><p>This exact fallback is protected by the accepted server contract.</p></section>',
+      );
+      return;
+    }
+    const currency = String(state.pricingControl.property.currency || '').trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      toast('Review the property currency before configuring a fallback price.', 'error');
+      return;
+    }
+    const fallback = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id,
+      nightly_rate: null, currency, lifecycle_status: 'draft', version: 0,
+    };
+    openPricingModal({
+      title: existing ? 'Edit property fallback price' : 'Configure property fallback price',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPropertyPricingDefaultForm" class="hotel-workspace-form"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Server pricing precedence · layer 5')}</span><h4>${pricingUiHtml('Last normalized selling-price fallback')}</h4><p>${pricingUiHtml('This price is used only when the exact Room Rate has no linked schedule tier, active independent tier or positive base nightly rate. It never derives from or replaces legacy party pricing.')}</p></section><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${pricingUiHtml('Fallback nightly selling price')}</span><input name="nightly_rate" type="number" min="0.01" max="9999999999.99" step="0.01" value="${escapeAttr(fallback.nightly_rate ?? '')}" required placeholder="${pricingUiAttr('Enter reviewed positive price')}" /></label><div class="admin-form-field"><span>${pricingUiHtml('Currency')}</span><strong>${escapeHtml(currency)}</strong><small>${pricingUiHtml('Locked to the reviewed property currency.')}</small></div><label class="admin-form-field"><span>${pricingUiHtml('Lifecycle')}</span><select name="lifecycle_status">${pricingLifecycleOptions(fallback.lifecycle_status, fallback)}</select></label></div>${pricingActivationMarkup(fallback)}</form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPropertyPricingDefaultForm">Review fallback price</button>',
+      onReady(overlay) {
+        overlay.querySelector('#hotelPropertyPricingDefaultForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(event.currentTarget);
+          const priceRaw = String(fd.get('nightly_rate') || '').trim();
+          const lifecycle = String(fd.get('lifecycle_status') || '');
+          let activationAcknowledged;
+          try { activationAcknowledged = pricingActivationAcknowledged(fd, lifecycle, fallback); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const target = {
+            ...fallback,
+            nightly_rate: priceRaw === '' ? Number.NaN : Number(priceRaw),
+            currency,
+            lifecycle_status: lifecycle,
+          };
+          if (!Core.isExactMoney(target.nightly_rate, 0.01)) {
+            toast('Enter a positive selling price with no more than two decimal places.', 'error');
+            return;
+          }
+          const operationOptions = { activationAcknowledged };
+          try {
+            const operation = pricingOperationForTarget(
+              state.pricingControl, 'property_pricing_default', existing, target, operationOptions,
+            );
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({
+              title: operation.action === 'disable'
+                ? 'Review property fallback disable'
+                : existing ? 'Review property fallback price' : 'Review new property fallback price',
+              entity: 'property_pricing_default', before: existing, after: target,
+              operation, operationOptions,
+              successMessage: operation.action === 'disable'
+                ? 'Property fallback price disabled.'
+                : existing ? 'Property fallback price updated.' : 'Property fallback price created as a shadow draft.',
+              contextMessage: 'The server uses this only as normalized precedence layer 5. Legacy pricing, public flags, commission and payment behavior remain unchanged.',
+            }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function openPricingPlanEditor(planId = null) {
+    const existing = planId ? pricingEntityById('rate_plan', planId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted Rate Plan', existing, Core.i18nText(existing?.name_i18n, 'en', existing?.code || 'Rate Plan'))) return;
+    if (existing && pricingEntryImmutable(existing)) {
+      openImmutablePricingView('Protected Rate Plan', existing, Core.i18nText(existing.name_i18n, 'en', existing.code), `<section class="hotel-workspace-card"><dl><div><dt>Lifecycle</dt><dd>${escapeHtml(pricingLifecycleLabel(existing.lifecycle_status))}</dd></div><div><dt>Cancellation</dt><dd>${escapeHtml(Core.cancellationPolicyLabel(existing.cancellation_policy))}</dd></div><div><dt>Inclusions</dt><dd>${escapeHtml(existing.price_inclusions.join(' · ') || 'None')}</dd></div></dl></section>`);
+      return;
+    }
+    const plan = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id, code: '', name_i18n: {}, description_i18n: {},
+      meal_plan_code: null, cancellation_policy: { type: 'requires_review', reason: '' }, booking_mode_override: null,
+      price_inclusions: [], lifecycle_status: 'draft', sort_order: 1000, version: 0,
+    };
+    const cancellation = Core.normalizeCancellationPolicy(plan.cancellation_policy);
+    const customInclusions = Core.normalizeStringSet(plan.price_inclusions).filter((value) => !Core.HOTEL_PRICE_INCLUSIONS.includes(value));
+    const customInclusionRow = (value = '') => `<div class="hotel-pricing-inclusion-row" data-pricing-inclusion-row><label class="admin-form-field"><span>Reviewed inclusion code</span><input name="custom_inclusion" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(value)}" placeholder="For example breakfast" required /></label><button class="btn-secondary hotel-danger-action" type="button" data-remove-pricing-inclusion>Remove</button></div>`;
+    openPricingModal({
+      title: existing ? 'Edit Rate Plan' : 'Create Rate Plan draft',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingPlanForm" class="hotel-workspace-form">
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(plan.code)}" required /></label><label class="admin-form-field"><span>Meal plan code</span><input name="meal_plan_code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(plan.meal_plan_code || '')}" placeholder="Optional" /></label></div>
+        ${i18nFields('name', 'Rate Plan name', plan.name_i18n, 'input', 240)}
+        ${i18nFields('description', 'Rate Plan description', plan.description_i18n, 'textarea', 5000)}
+        <fieldset><legend>${pricingUiHtml('Cancellation')}</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${pricingUiHtml('Policy')}</span><select name="cancellation_type"><option value="flexible" ${cancellation.type === 'flexible' ? 'selected' : ''}>${pricingUiHtml('Flexible')}</option><option value="non_refundable" ${cancellation.type === 'non_refundable' ? 'selected' : ''}>${pricingUiHtml('Non-refundable')}</option><option value="custom" ${cancellation.type === 'custom' ? 'selected' : ''}>${pricingUiHtml('Custom')}</option><option value="requires_review" ${cancellation.type === 'requires_review' ? 'selected' : ''}>${pricingUiHtml('Requires review')}</option></select></label><label class="admin-form-field" data-cancellation-custom><span>${pricingUiHtml('Cancellation deadline (hours)')}</span><input name="deadline_hours" type="number" min="0" max="87600" step="1" value="${escapeAttr(cancellation.deadline_hours ?? '')}" placeholder="${pricingUiAttr('Enter reviewed hours')}" /></label><label class="admin-form-field" data-cancellation-custom><span>${pricingUiHtml('Penalty')}</span><select name="penalty_mode"><option value="">${pricingUiHtml('Choose reviewed penalty')}</option><option value="none" ${cancellation.penalty_mode === 'none' ? 'selected' : ''}>${pricingUiHtml('None')}</option><option value="flat" ${cancellation.penalty_mode === 'flat' ? 'selected' : ''}>${pricingUiHtml('Fixed amount')}</option><option value="percent" ${cancellation.penalty_mode === 'percent' ? 'selected' : ''}>${pricingUiHtml('Percentage')}</option></select></label><label class="admin-form-field" data-cancellation-custom><span>${pricingUiHtml('Penalty value')}</span><input name="penalty_value" type="number" min="0" step="0.01" value="${escapeAttr(cancellation.penalty_value ?? '')}" /></label><label class="admin-form-field" data-cancellation-review><span>${pricingUiHtml('Why terms are unresolved')}</span><input name="cancellation_reason" maxlength="160" value="${escapeAttr(cancellation.reason || '')}" placeholder="${pricingUiAttr('Required before Review')}" /></label></div></fieldset>
+        <fieldset><legend>Price inclusions</legend><div class="hotel-h3-method-grid">${Core.HOTEL_PRICE_INCLUSIONS.map((value) => `<label class="admin-checkbox-field"><input type="checkbox" name="price_inclusion" value="${value}" ${plan.price_inclusions.includes(value) ? 'checked' : ''} /><span>${value === 'taxes' ? 'Taxes included' : 'Cleaning included'}</span></label>`).join('')}</div><div class="hotel-pricing-inclusion-list" data-pricing-inclusion-list>${customInclusions.map(customInclusionRow).join('')}</div><button class="btn-secondary" type="button" data-add-pricing-inclusion>+ Reviewed inclusion</button><small>Add each normalized inclusion as a separate code. These labels do not change payment or commission policy.</small></fieldset>
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${pricingUiHtml('Booking-mode override')}</span><select name="booking_mode_override"><option value="">${pricingUiHtml('Use property mode')}</option>${Core.BOOKING_MODES.map((mode) => `<option value="${mode}" ${plan.booking_mode_override === mode ? 'selected' : ''}>${escapeHtml(pricingUiEnumLabel(mode))}</option>`).join('')}</select></label><label class="admin-form-field"><span>${pricingUiHtml('Lifecycle')}</span><select name="lifecycle_status">${pricingLifecycleOptions(plan.lifecycle_status, plan)}</select></label><label class="admin-form-field"><span>${pricingUiHtml('Sort order')}</span><input name="sort_order" type="number" min="0" max="1000000" step="1" value="${escapeAttr(plan.sort_order)}" required /></label></div>
+        ${pricingActivationMarkup(plan)}
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingPlanForm">Review Rate Plan</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingPlanForm');
+        const syncCancellation = () => {
+          const type = form.elements.cancellation_type.value;
+          form.querySelectorAll('[data-cancellation-custom]').forEach((field) => { field.hidden = type !== 'custom'; });
+          form.querySelectorAll('[data-cancellation-review]').forEach((field) => { field.hidden = type !== 'requires_review'; });
+        };
+        form.elements.cancellation_type.addEventListener('change', syncCancellation);
+        syncCancellation();
+        const inclusionList = form.querySelector('[data-pricing-inclusion-list]');
+        form.querySelector('[data-add-pricing-inclusion]')?.addEventListener('click', () => {
+          inclusionList.insertAdjacentHTML('beforeend', customInclusionRow());
+          inclusionList.querySelector('[data-pricing-inclusion-row]:last-child input')?.focus();
+        });
+        inclusionList.addEventListener('click', (event) => {
+          const remove = event.target.closest('[data-remove-pricing-inclusion]');
+          if (!remove) return;
+          remove.closest('[data-pricing-inclusion-row]')?.remove();
+        });
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const cancellationType = String(fd.get('cancellation_type'));
+          let cancellationPolicy;
+          if (cancellationType === 'custom') {
+            const deadlineRaw = String(fd.get('deadline_hours') || '').trim();
+            const deadline = deadlineRaw === '' ? Number.NaN : Number(deadlineRaw);
+            const penaltyMode = String(fd.get('penalty_mode'));
+            const penaltyValue = fd.get('penalty_value') === '' ? null : Number(fd.get('penalty_value'));
+            if (!Number.isInteger(deadline) || deadline < 0 || !Core.PENALTY_MODES?.includes?.(penaltyMode)
+                || (['flat', 'percent'].includes(penaltyMode)
+                  && (!Core.isExactMoney(penaltyValue, 0, penaltyMode === 'percent' ? 100 : 9999999999.99)))) {
+              toast('Review the custom cancellation deadline and penalty.', 'error'); return;
+            }
+            cancellationPolicy = { type: 'custom', deadline_hours: deadline, penalty_mode: penaltyMode, ...(['flat', 'percent'].includes(penaltyMode) ? { penalty_value: penaltyValue } : {}) };
+          } else if (cancellationType === 'requires_review') {
+            const reason = String(fd.get('cancellation_reason') || '').trim();
+            if (!reason) { toast('Explain why cancellation terms still require review.', 'error'); return; }
+            cancellationPolicy = { type: 'requires_review', reason };
+          } else cancellationPolicy = { type: cancellationType };
+          const customCodes = fd.getAll('custom_inclusion').map((value) => String(value).trim().toLowerCase()).filter(Boolean);
+          if (customCodes.some((value) => !/^[a-z0-9][a-z0-9_-]*$/.test(value))) { toast('Custom inclusion codes may use lowercase letters, numbers, hyphen and underscore.', 'error'); return; }
+          const lifecycle = String(fd.get('lifecycle_status'));
+          let activationAcknowledged;
+          try { activationAcknowledged = pricingActivationAcknowledged(fd, lifecycle, plan); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const target = {
+            ...plan,
+            code: String(fd.get('code') || '').trim().toLowerCase(),
+            name_i18n: readI18n(fd, 'name'), description_i18n: readI18n(fd, 'description'),
+            meal_plan_code: String(fd.get('meal_plan_code') || '').trim().toLowerCase() || null,
+            cancellation_policy: cancellationPolicy,
+            booking_mode_override: String(fd.get('booking_mode_override') || '') || null,
+            price_inclusions: Core.normalizeStringSet([...fd.getAll('price_inclusion'), ...customCodes]),
+            lifecycle_status: lifecycle, sort_order: Number(fd.get('sort_order')),
+          };
+          try {
+            target.code = Core.validateCode(target.code, 'Rate Plan code');
+            if (!Core.i18nText(target.name_i18n, 'en')) throw new Error('Rate Plan name in English is required.');
+            if (lifecycle === 'active' && Core.LANGUAGES.some((language) => (
+              !String(target.name_i18n[language] || '').trim() || !String(target.description_i18n[language] || '').trim()
+            ))) throw new Error('Active Rate Plans require reviewed names and descriptions in PL, EN and HE. Save incomplete content as draft or inactive.');
+            if (!Number.isInteger(target.sort_order) || target.sort_order < 0 || target.sort_order > 1000000) throw new Error('Sort order must be a whole number from 0 to 1000000.');
+            const operationOptions = { activationAcknowledged };
+            const operation = pricingOperationForTarget(state.pricingControl, 'rate_plan', existing, target, operationOptions);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: existing ? 'Review Rate Plan changes' : 'Review new Rate Plan', entity: 'rate_plan', before: existing, after: target, operation, operationOptions, successMessage: existing ? 'Rate Plan updated.' : 'Rate Plan created as reviewed shadow configuration.', contextMessage: 'Cancellation and inclusions affect this exact normalized Rate Plan only. Payment and commission policies are separate and unchanged.' }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  async function duplicatePricingPlan(planId) {
+    const source = pricingEntityById('rate_plan', planId);
+    if (!source || pricingHotelMutationLocked() || pricingEntryImmutable(source)) {
+      requirePricingHotelMutationAccess();
+      return;
+    }
+    const codeSuffix = `-copy-${source.id.slice(0, 6)}`;
+    const nameSuffix = ' copy';
+    const target = {
+      ...Core.clone(source),
+      id: Core.newUuid(),
+      code: `${source.code.slice(0, 80 - codeSuffix.length)}${codeSuffix}`,
+      name_i18n: Object.fromEntries(Object.entries(source.name_i18n).map(([language, value]) => (
+        [language, `${String(value).slice(0, 240 - nameSuffix.length)}${nameSuffix}`]
+      ))),
+      lifecycle_status: 'draft',
+      is_active: false,
+      review_status: 'requires_review',
+      sort_order: Math.min(1000000, Number(source.sort_order || 0) + 100),
+      version: 0,
+      immutable_contract: null,
+      activation_blockers: [],
+    };
+    try {
+      const operation = pricingOperationForTarget(state.pricingControl, 'rate_plan', null, target);
+      await openReview(pricingReviewOptions({
+        title: 'Review duplicated Rate Plan', entity: 'rate_plan', before: null, after: target,
+        operation, successMessage: 'Rate Plan duplicated as a separate draft.',
+        contextMessage: 'Only the Rate Plan business content is copied. No Room Rate product, activation, booking, payment or commission relationship is copied.',
+      }));
+    } catch (error) { toast(error.message, 'error'); }
+  }
+
+  function openPricingProductEditor(roomRateId = null) {
+    const existing = roomRateId ? pricingEntityById('room_rate', roomRateId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted Room Rate product', existing, existing ? pricingProductLabel(existing.id) : 'Room Rate product')) return;
+    if (existing && pricingEntryImmutable(existing)) {
+      openImmutablePricingView('Protected Room Rate', existing, pricingProductLabel(existing.id), `<section class="hotel-workspace-card"><p>${escapeHtml(existing.pricing_source.replaceAll('_', ' '))} is authoritative. Stored base: ${escapeHtml(formatMoney(existing.base_nightly_rate, existing.currency))}.</p></section>`);
+      return;
+    }
+    const propertyCurrency = String(state.pricingControl.property.currency || '').trim().toUpperCase();
+    if (!existing && !/^[A-Z]{3}$/.test(propertyCurrency)) {
+      toast('Review the property currency before creating a Room Rate product.', 'error'); return;
+    }
+    const preferredRoomId = Core.normalizeUuid(state.pricingSelection.room_type_id);
+    const rate = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id,
+      room_type_id: preferredRoomId || null,
+      rate_plan_id: null, pricing_schedule_id: null,
+      base_nightly_rate: null, currency: propertyCurrency,
+      external_redirect_url: null, lifecycle_status: 'draft', sort_order: 1000, version: 0,
+    };
+    if (!state.pricingControl.room_types.length || !state.pricingControl.rate_plans.length) {
+      toast('Create at least one Room Type and Rate Plan before connecting a Room Rate product.', 'error'); return;
+    }
+    const scheduleOptions = state.pricingControl.pricing_schedules
+      .filter((schedule) => schedule.application_scope === 'room_occupancy'
+        || schedule.id === rate.pricing_schedule_id)
+      .map((schedule) => {
+        const nonmanual = pricingEntryIsNonmanualSource(schedule);
+        const unavailable = schedule.application_scope !== 'room_occupancy'
+          || schedule.currency !== rate.currency
+          || nonmanual
+          || (schedule.sharing_mode === 'independent'
+            && schedule.linked_room_rate_ids.some((id) => id !== rate.id));
+        const suffix = schedule.application_scope !== 'room_occupancy'
+          ? 'reference only'
+          : schedule.currency !== rate.currency
+            ? 'other currency'
+            : nonmanual
+              ? 'clone to manual before attaching'
+              : unavailable ? 'already linked' : '';
+        return `<option value="${escapeAttr(schedule.id)}" ${schedule.id === rate.pricing_schedule_id ? 'selected' : ''} ${unavailable && schedule.id !== rate.pricing_schedule_id ? 'disabled' : ''}>${escapeHtml(Core.i18nText(schedule.name_i18n, pricingUiLanguage(), schedule.code))} · ${escapeHtml(pricingUiEnumLabel(schedule.sharing_mode))}${suffix ? ` · ${pricingUiHtml(suffix)}` : ''}</option>`;
+      }).join('');
+    openPricingModal({
+      title: existing ? 'Edit Room Rate product' : 'Connect Room Type to Rate Plan',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingProductForm" class="hotel-workspace-form">
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Room Type</span><select name="room_type_id" ${existing ? 'disabled' : 'required'}><option value="" ${rate.room_type_id ? '' : 'selected'} disabled>${pricingUiHtml('Choose exact Room Type')}</option>${state.pricingControl.room_types.map((room) => `<option value="${escapeAttr(room.id)}" ${room.id === rate.room_type_id ? 'selected' : ''}>${escapeHtml(Core.i18nText(room.name_i18n, pricingUiLanguage(), room.code))}</option>`).join('')}</select>${!existing && preferredRoomId ? '<small>Preselected from the exact Room Type action you opened.</small>' : ''}</label><label class="admin-form-field"><span>Rate Plan</span><select name="rate_plan_id" ${existing ? 'disabled' : 'required'}><option value="" ${rate.rate_plan_id ? '' : 'selected'} disabled>${pricingUiHtml('Choose exact Rate Plan')}</option>${state.pricingControl.rate_plans.map((plan) => `<option value="${escapeAttr(plan.id)}" ${plan.id === rate.rate_plan_id ? 'selected' : ''}>${escapeHtml(Core.i18nText(plan.name_i18n, pricingUiLanguage(), plan.code))}</option>`).join('')}</select></label>
+        <label class="admin-form-field"><span>Reusable pricing schedule</span><select name="pricing_schedule_id"><option value="">${pricingUiHtml('No linked schedule')}</option>${scheduleOptions}</select><small>${pricingUiHtml('Only same-currency manual room-occupancy schedules are newly attachable. Existing nonmanual links may be retained or detached, and their source can be cloned into a separate manual draft. A direct schedule-to-schedule switch is prohibited.')}</small></label>
+        <label class="admin-form-field"><span>Stored base nightly rate</span><input name="base_nightly_rate" type="number" min="0" max="9999999999.99" step="0.01" value="${escapeAttr(rate.base_nightly_rate ?? '')}" required placeholder="Enter reviewed selling price" /><small>A linked schedule or active independent tiers makes this value non-authoritative.</small></label><label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(rate.currency)}" required /></label><label class="admin-form-field"><span>External redirect URL</span><input name="external_redirect_url" type="url" maxlength="2048" value="${escapeAttr(rate.external_redirect_url || '')}" placeholder="Optional HTTPS URL" /></label><label class="admin-form-field"><span>Lifecycle</span><select name="lifecycle_status">${pricingLifecycleOptions(rate.lifecycle_status, rate)}</select></label><label class="admin-form-field"><span>Sort order</span><input name="sort_order" type="number" min="0" max="1000000" step="1" value="${escapeAttr(rate.sort_order)}" required /></label></div>
+        <section class="hotel-pricing-link-review" data-pricing-link-impact aria-live="polite"></section>
+        <label class="hotel-pricing-activation-ack" data-schedule-impact-ack hidden><input type="checkbox" name="shared_impact_acknowledged" /><span><strong>I reviewed every affected Room Rate link.</strong><small>This acknowledgement protects shared and independent schedule ownership.</small></span></label>
+        ${pricingActivationMarkup(rate)}
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingProductForm">Review product</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingProductForm');
+        const scheduleInput = form.elements.pricing_schedule_id;
+        const renderLinkImpact = () => {
+          const beforeId = existing?.pricing_schedule_id || null;
+          const afterId = Core.normalizeUuid(scheduleInput.value) || null;
+          const changed = beforeId !== afterId;
+          const schedule = state.pricingControl.pricing_schedules.find((entry) => entry.id === (afterId || beforeId));
+          const labels = schedule?.linked_room_rate_ids.map(pricingProductLabel) || [];
+          form.querySelector('[data-schedule-impact-ack]').hidden = !changed;
+          const scheduleLabel = Core.i18nText(schedule?.name_i18n, pricingUiLanguage(), schedule?.code || pricingUiText('schedule'));
+          const action = pricingUiText(afterId ? 'join' : 'leave');
+          form.querySelector('[data-pricing-link-impact]').innerHTML = changed
+            ? `<strong>${pricingUiHtml(beforeId ? 'Detach from {schedule}' : 'Attach to {schedule}', { schedule: scheduleLabel })}</strong><p>${pricingUiHtml('Current affected products: {products}. This exact product will {action} that link set.', { products: labels.join(' · ') || pricingUiText('none'), action })}</p>`
+            : `<p>${pricingUiHtml('No pricing schedule link change.')}</p>`;
+        };
+        scheduleInput.addEventListener('change', renderLinkImpact);
+        renderLinkImpact();
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const beforeSchedule = existing?.pricing_schedule_id || null;
+          const nextSchedule = Core.normalizeUuid(fd.get('pricing_schedule_id')) || null;
+          if (beforeSchedule && nextSchedule && beforeSchedule !== nextSchedule) { toast('Detach and Save this product before attaching another schedule.', 'error'); return; }
+          const lifecycle = String(fd.get('lifecycle_status'));
+          let activationAcknowledged;
+          try { activationAcknowledged = pricingActivationAcknowledged(fd, lifecycle, rate); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const linkChanged = beforeSchedule !== nextSchedule;
+          if (linkChanged && !fd.has('shared_impact_acknowledged')) { toast('Review and acknowledge the exact schedule link impact.', 'error'); return; }
+          const baseRateRaw = String(fd.get('base_nightly_rate') || '').trim();
+          const target = {
+            ...rate,
+            room_type_id: existing?.room_type_id || Core.normalizeUuid(fd.get('room_type_id')),
+            rate_plan_id: existing?.rate_plan_id || Core.normalizeUuid(fd.get('rate_plan_id')),
+            pricing_schedule_id: nextSchedule,
+            base_nightly_rate: baseRateRaw === '' ? Number.NaN : Number(baseRateRaw),
+            currency: String(fd.get('currency') || '').trim().toUpperCase(),
+            external_redirect_url: String(fd.get('external_redirect_url') || '').trim() || null,
+            lifecycle_status: lifecycle, sort_order: Number(fd.get('sort_order')),
+          };
+          if (!target.room_type_id || !target.rate_plan_id
+              || !Core.isExactMoney(target.base_nightly_rate) || !/^[A-Z]{3}$/.test(target.currency)
+              || !Number.isInteger(target.sort_order) || target.sort_order < 0
+              || (target.external_redirect_url && !Core.isExactHttpsUrl(target.external_redirect_url))) {
+            toast('Review the stored base rate, currency, HTTPS redirect and sort order.', 'error'); return;
+          }
+          const operationOptions = { activationAcknowledged, sharedImpactAcknowledged: fd.has('shared_impact_acknowledged') };
+          try {
+            const selectedSchedule = nextSchedule
+              ? state.pricingControl.pricing_schedules.find((schedule) => schedule.id === nextSchedule)
+              : null;
+            if (selectedSchedule && (selectedSchedule.application_scope !== 'room_occupancy'
+              || selectedSchedule.currency !== target.currency
+              || (pricingEntryIsNonmanualSource(selectedSchedule)
+                && selectedSchedule.id !== beforeSchedule)
+              || (selectedSchedule.sharing_mode === 'independent'
+                && selectedSchedule.linked_room_rate_ids.some((id) => id !== rate.id)))) {
+              throw new Error('Choose a same-currency room-occupancy schedule that is available for this exact product.');
+            }
+            const selectedPlan = state.pricingControl.rate_plans.find((plan) => plan.id === target.rate_plan_id);
+            const effectiveBookingMode = selectedPlan?.booking_mode_override || state.pricingControl.property.booking_mode;
+            if (target.lifecycle_status === 'active' && effectiveBookingMode === 'external_redirect' && !target.external_redirect_url) {
+              throw new Error('An active external-redirect product requires its exact reviewed HTTPS redirect URL.');
+            }
+            const operation = pricingOperationForTarget(state.pricingControl, 'room_rate', existing, target, operationOptions);
+            const affectedSchedule = state.pricingControl.pricing_schedules.find((schedule) => schedule.id === (nextSchedule || beforeSchedule));
+            const affectedLabels = affectedSchedule?.linked_room_rate_ids.map(pricingProductLabel) || [];
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: existing ? 'Review Room Rate product' : 'Review new Room Rate product', entity: 'room_rate', before: existing, after: target, operation, operationOptions, successMessage: existing ? 'Room Rate product updated.' : 'Room Rate product created as a shadow draft.', contextMessage: linkChanged ? pricingUiText('Schedule link impact reviewed: {products}. The exact link fingerprint is protected.', { products: affectedLabels.join(' · ') || pricingUiText('currently no linked products') }) : pricingUiText('The authoritative source is calculated on the server; browser totals and source labels are never trusted.') }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function duplicatePricingProduct(roomRateId) {
+    const source = pricingEntityById('room_rate', roomRateId);
+    if (!source || pricingHotelMutationLocked() || pricingEntryImmutable(source)) {
+      requirePricingHotelMutationAccess();
+      return;
+    }
+    const usedPairs = new Set(state.pricingControl.room_rates.map((rate) => `${rate.room_type_id}:${rate.rate_plan_id}`));
+    const choices = [];
+    state.pricingControl.room_types.forEach((room) => state.pricingControl.rate_plans.forEach((plan) => {
+      if (!usedPairs.has(`${room.id}:${plan.id}`)) choices.push({ room, plan });
+    }));
+    if (!choices.length) { toast('Every Room Type / Rate Plan pair already has a product. Create another Room Type or Rate Plan first.', 'info'); return; }
+    openPricingModal({
+      title: 'Duplicate Room Rate product',
+      body: `<form id="hotelDuplicatePricingProductForm" class="hotel-workspace-form"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Source product')}</span><h4>${escapeHtml(pricingProductLabel(source.id))}</h4><p>${pricingUiHtml('Only the stored base price and currency are copied. The new product starts draft and inactive with no schedule link, independent tiers, external redirect, inventory, bookings or activation.')}</p></section><label class="admin-form-field"><span>${pricingUiHtml('Unused Room Type / Rate Plan pair')}</span><select name="pair" required><option value="" selected disabled>${pricingUiHtml('Choose exact unused pair')}</option>${choices.map(({ room, plan }) => `<option value="${escapeAttr(`${room.id}:${plan.id}`)}">${escapeHtml(Core.i18nText(room.name_i18n, pricingUiLanguage(), room.code))} · ${escapeHtml(Core.i18nText(plan.name_i18n, pricingUiLanguage(), plan.code))}</option>`).join('')}</select></label><label class="admin-form-field"><span>${pricingUiHtml('Stored base nightly rate')}</span><input name="base_nightly_rate" type="number" min="0" max="9999999999.99" step="0.01" value="${escapeAttr(source.base_nightly_rate)}" required /></label></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelDuplicatePricingProductForm">Review duplicate</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelDuplicatePricingProductForm');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const [roomTypeId, ratePlanId] = String(fd.get('pair') || '').split(':');
+          const baseRateRaw = String(fd.get('base_nightly_rate') || '').trim();
+          const target = {
+            ...Core.clone(source), id: Core.newUuid(), room_type_id: Core.normalizeUuid(roomTypeId),
+            rate_plan_id: Core.normalizeUuid(ratePlanId), pricing_schedule_id: null,
+            base_nightly_rate: baseRateRaw === '' ? Number.NaN : Number(baseRateRaw), external_redirect_url: null,
+            lifecycle_status: 'draft', is_active: false, review_status: 'requires_review',
+            independent_tiers: [], independent_tiers_fingerprint: null,
+            sort_order: Math.min(1000000, Number(source.sort_order || 0) + 100),
+            version: 0, immutable_contract: null, activation_blockers: [],
+          };
+          if (!target.room_type_id || !target.rate_plan_id || usedPairs.has(`${target.room_type_id}:${target.rate_plan_id}`)
+              || !Core.isExactMoney(target.base_nightly_rate)) {
+            toast('Choose an unused exact pair and a valid stored base rate.', 'error'); return;
+          }
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'room_rate', null, target);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({
+              title: 'Review duplicated Room Rate product', entity: 'room_rate', before: null, after: target,
+              operation, successMessage: 'Room Rate product duplicated as an inert draft.',
+              contextMessage: 'The exact target pair is unused. Schedule links, independent tiers, activation, inventory, bookings, rates beyond the stored base and external redirects are not copied.',
+            }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function pricingTierEditorRow(tier = {}, options = {}) {
+    const id = Core.normalizeUuid(tier.id) || Core.newUuid();
+    const version = Number.isInteger(Number(tier.version)) ? Number(tier.version) : 0;
+    return `<div class="hotel-pricing-tier-editor-row" data-pricing-tier-row data-tier-id="${escapeAttr(id)}" data-tier-version="${version}"><label class="admin-form-field"><span>${pricingUiHtml('Guests')}</span><input data-tier-guest type="number" min="1" max="50" step="1" value="${escapeAttr(tier.guest_count ?? '')}" required /></label><label class="admin-form-field"><span>${pricingUiHtml('From nights')}</span><input data-tier-threshold type="number" min="1" max="3650" step="1" value="${escapeAttr(tier.threshold_nights ?? '')}" required /></label><label class="admin-form-field"><span>${pricingUiHtml('Nightly selling price')}</span><input data-tier-rate type="number" min="0" max="9999999999.99" step="0.01" value="${escapeAttr(tier.nightly_rate ?? '')}" required /></label><label class="admin-checkbox-field"><input data-tier-active type="checkbox" ${tier.is_active === false ? '' : 'checked'} /><span>${pricingUiHtml('Enabled tier')}</span></label><button class="btn-secondary hotel-danger-action" type="button" data-remove-pricing-tier aria-label="${pricingUiAttr('Remove occupancy tier')}">${pricingUiHtml('Remove')}</button>${options.dormant ? `<small class="hotel-workspace-safety-note">${pricingUiHtml('Retained but dormant while a reusable schedule is linked.')}</small>` : ''}</div>`;
+  }
+
+  function bindPricingTierRows(form, options = {}) {
+    const list = form.querySelector('[data-pricing-tier-list]');
+    const bindRemove = (row) => row.querySelector('[data-remove-pricing-tier]')?.addEventListener('click', () => row.remove());
+    list?.querySelectorAll('[data-pricing-tier-row]').forEach(bindRemove);
+    form.querySelector('[data-add-pricing-tier]')?.addEventListener('click', () => {
+      const holder = document.createElement('div');
+      holder.innerHTML = pricingTierEditorRow({}, options);
+      const row = holder.firstElementChild;
+      list.append(row);
+      bindRemove(row);
+      row.querySelector('input')?.focus();
+    });
+  }
+
+  function pricingTiersFromForm(form, parentKey, parentId, options = {}) {
+    const tiers = Array.from(form.querySelectorAll('[data-pricing-tier-row]')).map((row) => ({
+      id: Core.normalizeUuid(row.dataset.tierId),
+      ...(options.hotelId ? { hotel_id: options.hotelId } : {}),
+      [parentKey]: parentId,
+      guest_count: Number(row.querySelector('[data-tier-guest]').value),
+      threshold_nights: Number(row.querySelector('[data-tier-threshold]').value),
+      nightly_rate: Number(row.querySelector('[data-tier-rate]').value),
+      is_active: row.querySelector('[data-tier-active]').checked,
+      version: Number(row.dataset.tierVersion || 0),
+    }));
+    const keys = new Set();
+    for (const tier of tiers) {
+      const key = `${tier.guest_count}:${tier.threshold_nights}`;
+      if (!tier.id || !Number.isInteger(tier.guest_count) || tier.guest_count < 1
+          || !Number.isInteger(tier.threshold_nights) || tier.threshold_nights < 1
+          || !Core.isExactMoney(tier.nightly_rate)
+          || keys.has(key)) throw new Error('Every occupancy / stay tier needs a unique positive guest count and threshold with a non-negative price.');
+      keys.add(key);
+    }
+    return tiers.sort((a, b) => a.guest_count - b.guest_count || a.threshold_nights - b.threshold_nights || a.id.localeCompare(b.id));
+  }
+
+  function openPricingScheduleEditor(scheduleId = null) {
+    const existing = scheduleId ? pricingEntityById('pricing_schedule', scheduleId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted pricing schedule', existing, Core.i18nText(existing?.name_i18n, 'en', existing?.code || 'Pricing schedule'), existing ? pricingTierMatrixMarkup(existing.tiers, existing.currency) : '')) return;
+    if (existing && existing.application_scope !== 'room_occupancy') {
+      openImmutablePricingView('Reference pricing schedule', existing, Core.i18nText(existing.name_i18n, 'en', existing.code), '<section class="hotel-workspace-card"><p>Property booking-party schedules are parity/reference data and are not attachable or mutable in the Room pricing control plane.</p></section>');
+      return;
+    }
+    if (existing && pricingEntryImmutable(existing)) {
+      openImmutablePricingView('Protected pricing schedule', existing, Core.i18nText(existing.name_i18n, 'en', existing.code), pricingTierMatrixMarkup(existing.tiers, existing.currency));
+      return;
+    }
+    const propertyCurrency = String(state.pricingControl.property.currency || '').trim().toUpperCase();
+    if (!existing && !/^[A-Z]{3}$/.test(propertyCurrency)) {
+      toast('Review the property currency before creating a pricing schedule.', 'error'); return;
+    }
+    const schedule = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id, code: '', name_i18n: {},
+      application_scope: 'room_occupancy', currency: propertyCurrency,
+      maximum_party_size: null, minimum_billable_occupancy: null, sharing_mode: null,
+      lifecycle_status: 'draft', tiers: [], linked_room_rate_ids: [], version: 0,
+    };
+    const linkedLabels = schedule.linked_room_rate_ids.map(pricingProductLabel);
+    openPricingModal({
+      title: existing ? 'Edit pricing schedule' : 'Create pricing schedule draft',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingScheduleForm" class="hotel-workspace-form">
+        <input type="hidden" name="application_scope" value="room_occupancy" /><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(schedule.code)}" required /></label><div class="admin-form-field"><span>${pricingUiHtml('Application')}</span><strong>${pricingUiHtml('Room occupancy')}</strong><small>${pricingUiHtml('Property booking-party schedules remain read-only parity/reference data.')}</small></div><label class="admin-form-field"><span>${pricingUiHtml('Sharing')}</span><select name="sharing_mode" required><option value="" ${schedule.sharing_mode ? '' : 'selected'} disabled>${pricingUiHtml('Choose schedule ownership')}</option><option value="independent" ${schedule.sharing_mode === 'independent' ? 'selected' : ''}>${pricingUiHtml('Independent · one Room product maximum')}</option><option value="shared" ${schedule.sharing_mode === 'shared' ? 'selected' : ''}>${pricingUiHtml('Shared · multiple products')}</option></select></label><label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(schedule.currency)}" required /></label><label class="admin-form-field"><span>Maximum party size</span><input name="maximum_party_size" type="number" min="1" max="50" step="1" value="${escapeAttr(schedule.maximum_party_size ?? '')}" required placeholder="Enter reviewed maximum" /></label><label class="admin-form-field"><span>Minimum billable occupancy</span><input name="minimum_billable_occupancy" type="number" min="1" max="50" step="1" value="${escapeAttr(schedule.minimum_billable_occupancy ?? '')}" required placeholder="Enter reviewed minimum" /></label><label class="admin-form-field"><span>Lifecycle</span><select name="lifecycle_status">${pricingLifecycleOptions(schedule.lifecycle_status, schedule)}</select></label></div>
+        ${i18nFields('name', 'Schedule name', schedule.name_i18n, 'input', 240)}
+        <fieldset><legend>${pricingUiHtml('Occupancy / length-of-stay tiers')}</legend><p>${pricingUiHtml('The selected price applies to the complete stay. Configure a 1-night threshold only when the commercial contract explicitly supports one night.')}</p><div class="hotel-pricing-tier-editor" data-pricing-tier-list>${schedule.tiers.map((tier) => pricingTierEditorRow(tier)).join('')}</div><button class="btn-secondary" type="button" data-add-pricing-tier>${pricingUiHtml('+ Tier')}</button></fieldset>
+        ${linkedLabels.length ? `<section class="hotel-pricing-link-review"><strong>${pricingUiHtml('Shared edit impact')}</strong><p>${escapeHtml(linkedLabels.join(' · '))}</p></section><label class="hotel-pricing-activation-ack"><input type="checkbox" name="shared_impact_acknowledged" /><span><strong>${pricingUiHtml(linkedLabels.length === 1 ? 'I reviewed all {count} linked product.' : 'I reviewed all {count} linked products.', { count: linkedLabels.length })}</strong><small>${pricingUiHtml('The exact link fingerprint must remain unchanged through Save.')}</small></span></label>` : ''}
+        ${pricingActivationMarkup(schedule)}
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingScheduleForm">Review schedule</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingScheduleForm');
+        bindPricingTierRows(form);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const sharingMode = String(fd.get('sharing_mode'));
+          if (!Core.PRICING_SCHEDULE_SHARING_MODES.includes(sharingMode)) { toast('Choose shared or independent schedule ownership.', 'error'); return; }
+          if (sharingMode === 'independent' && schedule.linked_room_rate_ids.length > 1) { toast('Detach this shared schedule until at most one product remains before changing it to independent.', 'error'); return; }
+          const lifecycle = String(fd.get('lifecycle_status'));
+          let activationAcknowledged;
+          try { activationAcknowledged = pricingActivationAcknowledged(fd, lifecycle, schedule); }
+          catch (error) { toast(error.message, 'error'); return; }
+          if (schedule.linked_room_rate_ids.length && !fd.has('shared_impact_acknowledged')) { toast('Review and acknowledge every linked Room Rate affected by this schedule edit.', 'error'); return; }
+          let tiers;
+          try { tiers = pricingTiersFromForm(form, 'schedule_id', schedule.id); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const maximumPartyRaw = String(fd.get('maximum_party_size') || '').trim();
+          const minimumBillableRaw = String(fd.get('minimum_billable_occupancy') || '').trim();
+          const target = {
+            ...schedule, code: String(fd.get('code') || '').trim().toLowerCase(), name_i18n: readI18n(fd, 'name'),
+            application_scope: String(fd.get('application_scope')), sharing_mode: sharingMode,
+            currency: String(fd.get('currency') || '').trim().toUpperCase(),
+            maximum_party_size: maximumPartyRaw === '' ? Number.NaN : Number(maximumPartyRaw),
+            minimum_billable_occupancy: minimumBillableRaw === '' ? Number.NaN : Number(minimumBillableRaw),
+            lifecycle_status: lifecycle, tiers,
+          };
+          if (!/^[A-Z]{3}$/.test(target.currency) || !Core.i18nText(target.name_i18n, 'en')
+              || !Number.isInteger(target.maximum_party_size) || target.maximum_party_size < 1 || target.maximum_party_size > 50
+              || !Number.isInteger(target.minimum_billable_occupancy) || target.minimum_billable_occupancy < 1
+              || target.minimum_billable_occupancy > target.maximum_party_size
+              || tiers.some((tier) => tier.guest_count > target.maximum_party_size)) {
+            toast('Review the English name, currency, party size, minimum billable occupancy and tier coverage.', 'error'); return;
+          }
+          try { target.code = Core.validateCode(target.code, 'Pricing schedule code'); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const operationOptions = { activationAcknowledged, sharedImpactAcknowledged: fd.has('shared_impact_acknowledged') };
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'pricing_schedule', existing, target, operationOptions);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: existing ? 'Review pricing schedule' : 'Review new pricing schedule', entity: 'pricing_schedule', before: existing, after: target, operation, operationOptions, successMessage: existing ? 'Pricing schedule updated.' : 'Pricing schedule created as a shadow draft.', contextMessage: linkedLabels.length ? pricingUiText('This complete tier-set replacement affects: {products}. The exact child and link fingerprints are protected.', { products: linkedLabels.join(' · ') }) : pricingUiText('This is a complete atomic tier-set Review. Missing tier coverage fails closed; base pricing is not used as a fallback.') }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function openProductTierEditor(roomRateId) {
+    const rate = pricingEntityById('room_rate_tier_set', roomRateId);
+    if (blockAcceptedHotelPricingEditor('Accepted occupancy / LOS tiers', rate, rate ? pricingProductLabel(rate.id) : 'Room Rate tiers', rate ? pricingTierMatrixMarkup(rate.independent_tiers, rate.currency) : '')) return;
+    if (!rate || pricingEntryImmutable(rate)) { toast('This Room Rate tier set is not editable.', 'error'); return; }
+    if (pricingTierSetIsNonmanual(rate)) {
+      const sources = Array.from(new Set(Core.asArray(rate.independent_tiers).map((tier) => tier.source)));
+      openImmutablePricingView(
+        'Read-only occupancy / LOS tiers',
+        rate,
+        pricingProductLabel(rate.id),
+        `<section class="hotel-workspace-card"><p>These exact tiers come from ${escapeHtml(sources.join(' · ').replaceAll('_', ' '))}. ADMIN-C cannot relabel or mutate provider-derived price rows.</p></section>${pricingTierMatrixMarkup(rate.independent_tiers, rate.currency)}`,
+      );
+      return;
+    }
+    const linked = Boolean(rate.pricing_schedule_id);
+    openPricingModal({
+      title: 'Independent occupancy / LOS tiers',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelProductTierForm" class="hotel-workspace-form"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(pricingProductLabel(rate.id))}</span><h4>${pricingUiHtml(linked ? 'Retained but dormant' : 'Independent tiers authoritative when enabled')}</h4><p>${pricingUiHtml(linked ? 'A reusable schedule is currently linked and remains authoritative. These tiers are retained for a future reviewed detach; editing them does not change the current source.' : 'If at least one tier is enabled, missing guest / threshold coverage fails closed and the base rate is not a fallback.')}</p></section><div class="hotel-pricing-tier-editor" data-pricing-tier-list>${rate.independent_tiers.map((tier) => pricingTierEditorRow(tier, { dormant: linked })).join('')}</div><button class="btn-secondary" type="button" data-add-pricing-tier>${pricingUiHtml('+ Tier')}</button></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelProductTierForm">Review complete tier set</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelProductTierForm');
+        bindPricingTierRows(form, { dormant: linked });
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          let tiers;
+          try { tiers = pricingTiersFromForm(form, 'room_rate_id', rate.id, { hotelId: state.pricingControl.hotel_id }); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const target = { ...rate, tiers, independent_tiers: tiers };
+          const operationOptions = {};
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'room_rate_tier_set', rate, target, operationOptions);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: 'Review complete independent tier set', entity: 'room_rate_tier_set', before: rate, after: target, operation, operationOptions, successMessage: 'Independent Room Rate tiers updated atomically.', contextMessage: linked ? 'The linked reusable schedule remains authoritative. This exact full-set update only changes dormant retained tiers.' : 'The complete set is protected by its exact child fingerprint. No missing occupancy can silently fall back to the base rate.' }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function openPricingScheduleClone(scheduleId) {
+    const source = pricingEntityById('pricing_schedule', scheduleId);
+    if (!source) { toast('The source pricing schedule is no longer available.', 'error'); return; }
+    if (blockAcceptedHotelPricingEditor('Accepted pricing schedule', source, Core.i18nText(source.name_i18n, 'en', source.code), pricingTierMatrixMarkup(source.tiers, source.currency))) return;
+    if (source.application_scope !== 'room_occupancy') { toast('Only a room-occupancy schedule can be cloned into the Room pricing control plane.', 'error'); return; }
+    const targetId = Core.newUuid();
+    const targetTiers = source.tiers.map((tier) => ({
+      ...Core.clone(tier), id: Core.newUuid(), schedule_id: targetId, version: 0,
+    }));
+    const linkedProducts = Core.asArray(source.linked_room_rate_ids).map(pricingProductLabel);
+    const cloneSuffix = `-copy-${targetId.slice(0, 6)}`;
+    const suggestedCode = pricingCloneCode(source.code, cloneSuffix);
+    const suggestedNames = Object.fromEntries(Object.entries(source.name_i18n).map(
+      ([language, label]) => [language, pricingCloneLabel(label, ' copy')],
+    ));
+    openPricingModal({
+      title: 'Clone pricing schedule as draft',
+      body: `<form id="hotelPricingScheduleCloneForm" class="hotel-workspace-form"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Source schedule')}</span><h4>${escapeHtml(Core.i18nText(source.name_i18n, pricingUiLanguage(), source.code))}</h4><p>${pricingUiHtml(source.tiers.length === 1 ? '{count} exact tier will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.' : '{count} exact tiers will be copied into a new unlinked draft. Room Rate links, activation and legacy-protection identity are not copied.', { count: source.tiers.length })}</p>${linkedProducts.length ? `<div class="hotel-pricing-link-impact"><strong>${pricingUiHtml(linkedProducts.length === 1 ? '{count} source-linked product' : '{count} source-linked products', { count: linkedProducts.length })}</strong><span>${escapeHtml(linkedProducts.join(' · '))}</span></div>` : ''}</section><label class="admin-form-field"><span>${pricingUiHtml('New internal code')}</span><input name="code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(suggestedCode)}" required /></label>${i18nFields('name', pricingUiText('New schedule name'), suggestedNames, 'input', 240)}<label class="admin-form-field"><span>${pricingUiHtml('New schedule ownership')}</span><select name="sharing_mode" required><option value="" selected disabled>${pricingUiHtml('Choose shared or independent')}</option><option value="independent">${pricingUiHtml('Independent · one Room product maximum')}</option><option value="shared">${pricingUiHtml('Shared · reusable by multiple products')}</option></select><small>${pricingUiHtml('The clone starts draft and unlinked. This choice does not activate or attach it.')}</small></label>${linkedProducts.length ? `<label class="hotel-pricing-activation-ack"><input type="checkbox" name="shared_impact_acknowledged" /><span><strong>${pricingUiHtml('I reviewed the exact source link impact.')}</strong><small>${pricingUiHtml('The linked products above remain on the unchanged source schedule; the new clone starts unlinked.')}</small></span></label>` : ''}</form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingScheduleCloneForm">Review clone</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingScheduleCloneForm');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const values = {
+            id: targetId, code: String(fd.get('code') || '').trim().toLowerCase(),
+            name_i18n: readI18n(fd, 'name'), sharing_mode: String(fd.get('sharing_mode') || ''),
+            tiers: Core.clone(targetTiers),
+          };
+          try {
+            values.code = Core.validateCode(values.code, 'Pricing schedule code');
+            if (!Core.i18nText(values.name_i18n, 'en')) throw new Error('Schedule name in English is required.');
+            if (!Core.PRICING_SCHEDULE_SHARING_MODES.includes(values.sharing_mode)) throw new Error('Choose shared or independent ownership for the new schedule.');
+            const sharedImpactAcknowledged = linkedProducts.length ? fd.has('shared_impact_acknowledged') : false;
+            if (linkedProducts.length && !sharedImpactAcknowledged) throw new Error('Review and acknowledge every exact source-linked Room Rate before cloning.');
+            const operation = Core.buildPricingScheduleCloneOperation(state.pricingControl, source, values, { sharedImpactAcknowledged });
+            const target = {
+              ...Core.clone(source), ...values, hotel_id: state.pricingControl.hotel_id,
+              lifecycle_status: 'draft', linked_room_rate_ids: [], link_fingerprint: null,
+              tiers: Core.clone(targetTiers),
+              version: 0, immutable_contract: null, activation_blockers: [],
+            };
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: 'Review schedule clone', entity: 'pricing_schedule', before: null, after: target, operation, operationOptions: { cloneSourceId: source.id, sharedImpactAcknowledged }, successMessage: pricingUiText('Pricing schedule cloned as an unlinked {mode} draft.', { mode: pricingUiEnumLabel(values.sharing_mode) }), contextMessage: pricingUiText('Source version {version}, its complete tier set and exact linked-product fingerprint are rechecked by the server. Existing Room Rate links remain untouched.', { version: source.version }) }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function pricingCloneForProductReviewOptions(control, source, rate, target, operations, options = {}) {
+    const plan = Core.buildPricingControlPlan(control, operations);
+    const correlationId = Core.newUuid();
+    const idempotencyKey = Core.newUuid();
+    const targetRate = { ...Core.clone(rate), pricing_schedule_id: target.id, lifecycle_status: 'inactive' };
+    const sourceLinkedLabels = Core.asArray(source.linked_room_rate_ids).map((id) => (
+      id === rate.id
+        ? `${pricingProductLabel(id)} · ${pricingUiText('moves to clone')}`
+        : `${pricingProductLabel(id)} · ${pricingUiText('remains on source')}`
+    ));
+    const rebuild = async (freshControl, allowMatch) => {
+      const freshTarget = pricingEntityById('pricing_schedule', target.id, freshControl);
+      const freshRate = pricingEntityById('room_rate', rate.id, freshControl);
+      if (freshTarget || freshRate?.pricing_schedule_id === target.id) {
+        const targetMatches = freshTarget && freshRate?.pricing_schedule_id === target.id
+          && freshRate.lifecycle_status === 'inactive'
+          && JSON.stringify(pricingAppliedStateForComparison('pricing_schedule', freshTarget, {
+            id: target.id, hotelId: freshControl.hotel_id,
+          })) === JSON.stringify(pricingAppliedStateForComparison('pricing_schedule', target, {
+            id: target.id, hotelId: freshControl.hotel_id,
+          }));
+        if (allowMatch && targetMatches) return { matched: true };
+        return { conflict: 'The atomic clone result is only partially present or differs from the reviewed target.' };
+      }
+      const freshSource = pricingEntityById('pricing_schedule', source.id, freshControl);
+      if (!freshSource || !freshRate || freshRate.pricing_schedule_id !== freshSource.id
+          || !freshSource.linked_room_rate_ids.includes(freshRate.id)) {
+        return { conflict: 'The selected product is no longer linked to the exact source schedule.' };
+      }
+      const tierIdsByKey = new Map(Core.asArray(target.tiers).map((tier) => [`${tier.guest_count}:${tier.threshold_nights}`, tier.id]));
+      const freshTiers = freshSource.tiers.map((tier) => ({
+        ...Core.clone(tier),
+        id: tierIdsByKey.get(`${tier.guest_count}:${tier.threshold_nights}`) || Core.newUuid(),
+        schedule_id: target.id,
+        version: 0,
+      }));
+      const freshTargetDraft = {
+        ...Core.clone(freshSource), id: target.id, code: target.code,
+        name_i18n: Core.clone(target.name_i18n), sharing_mode: 'independent',
+        lifecycle_status: 'draft', is_active: false, review_status: 'requires_review',
+        linked_room_rate_ids: [], link_fingerprint: null, tiers: freshTiers,
+        version: 0, immutable_contract: null, activation_blockers: [],
+      };
+      const freshOperations = Core.buildPricingScheduleCloneForRoomRateOperations(
+        freshControl, freshSource, freshRate, freshTargetDraft,
+      );
+      return {
+        review: pricingCloneForProductReviewOptions(
+          freshControl, freshSource, freshRate, freshTargetDraft, freshOperations,
+          { afterStale: true },
+        ),
+      };
+    };
+    return {
+      title: pricingUiText(options.afterStale ? 'Review fresh clone for this product' : 'Review clone for this product'),
+      entity: 'schedule clone for product',
+      before: {
+        source_schedule: pricingStateForReview('pricing_schedule', source, { id: source.id, hotelId: control.hotel_id }),
+        selected_product: pricingStateForReview('room_rate', rate, { id: rate.id, hotelId: control.hotel_id }),
+      },
+      after: {
+        source_schedule: pricingUiText('Unchanged for sibling products'),
+        cloned_schedule: pricingStateForReview('pricing_schedule', target, { id: target.id, hotelId: control.hotel_id }),
+        selected_product: pricingStateForReview('room_rate', targetRate, { id: rate.id, hotelId: control.hotel_id }),
+      },
+      operations,
+      contextMessage: [
+        options.afterStale ? pricingUiText('The source or selected product changed after Review. This is a fresh explicit Review; nothing was retried.') : '',
+        pricingUiText('One atomic transaction creates an independent inactive clone and relinks only the selected product, which is forced inactive. {impact}.', { impact: sourceLinkedLabels.join(' · ') }),
+      ].filter(Boolean).join(' '),
+      diagnostics: [
+        { label: 'Source schedule', value: source.id },
+        { label: 'Target schedule', value: target.id },
+        { label: 'Selected Room Rate', value: rate.id },
+        { label: 'Source tier set', value: source.tiers_fingerprint },
+        { label: 'Source links', value: source.link_fingerprint },
+      ],
+      successMessage: pricingUiText('Independent pricing schedule cloned and linked to the selected inactive product.'),
+      async onConfirm() {
+        const result = await Repository.applyPricingControlPlan(plan, correlationId, idempotencyKey);
+        state.pricingControl = result.pricing_control;
+        state.pricingControlError = null;
+        syncWorkspacePricing(result.pricing_control);
+        return result;
+      },
+      async onStaleReview() {
+        const freshControl = await Repository.getPricingControl(control.hotel_id);
+        const result = await rebuild(freshControl, false);
+        state.pricingControl = freshControl;
+        syncWorkspacePricing(freshControl);
+        if (result.conflict) {
+          const error = new Error(result.conflict);
+          error.userMessage = `${result.conflict} Nothing was overwritten or retried.`;
+          throw error;
+        }
+        return result.review;
+      },
+      async onAmbiguousReview() {
+        const freshControl = await Repository.getPricingControl(control.hotel_id);
+        const result = await rebuild(freshControl, true);
+        state.pricingControl = freshControl;
+        syncWorkspacePricing(freshControl);
+        if (result.matched) return { matched: true, message: 'The atomic clone and exact product relink are already committed. No mutation was retried.' };
+        if (result.conflict) {
+          const error = new Error(result.conflict);
+          error.userMessage = `${result.conflict} No mutation was retried.`;
+          throw error;
+        }
+        return result;
+      },
+    };
+  }
+
+  function openPricingScheduleCloneForProduct(roomRateId) {
+    const rate = pricingEntityById('room_rate', roomRateId);
+    const source = rate?.pricing_schedule_id
+      ? pricingEntityById('pricing_schedule', rate.pricing_schedule_id)
+      : null;
+    if (!rate || !source) { toast('This exact Room Rate no longer has a reusable schedule to clone.', 'error'); return; }
+    if (pricingHotelMutationLocked() || pricingEntryImmutable(rate)
+        || (pricingEntryImmutable(source) && !pricingEntryIsNonmanualSource(source))) {
+      requirePricingHotelMutationAccess();
+      return;
+    }
+    const targetId = Core.newUuid();
+    const targetTiers = source.tiers.map((tier) => ({
+      ...Core.clone(tier), id: Core.newUuid(), schedule_id: targetId, version: 0,
+    }));
+    const siblings = source.linked_room_rate_ids.filter((id) => id !== rate.id).map(pricingProductLabel);
+    const cloneSuffix = `-${rate.id.slice(0, 8)}-${targetId.slice(0, 6)}`;
+    const suggestedCode = pricingCloneCode(source.code, cloneSuffix);
+    const roomLabel = ` · ${pricingRoomLabel(rate.room_type_id)}`;
+    const suggestedNames = Object.fromEntries(Object.entries(source.name_i18n).map(
+      ([language, label]) => [language, pricingCloneLabel(label, roomLabel)],
+    ));
+    openPricingModal({
+      title: 'Clone schedule for this product',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingCloneForProductForm" class="hotel-workspace-form"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Selected Room Rate')}</span><h4>${escapeHtml(pricingProductLabel(rate.id))}</h4><p>${pricingUiHtml('This product moves to a new independent inactive clone in the same atomic Save.')}</p></section><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Source impact')}</span><h4>${escapeHtml(Core.i18nText(source.name_i18n, pricingUiLanguage(), source.code))}</h4><p>${siblings.length ? pricingUiHtml('{products} remain linked to the unchanged source.', { products: siblings.join(' · ') }) : pricingUiHtml('No sibling product remains on the source after this exact relink.')}</p></section><label class="admin-form-field"><span>${pricingUiHtml('New internal code')}</span><input name="code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(suggestedCode)}" required /></label>${i18nFields('name', pricingUiText('New independent schedule name'), suggestedNames, 'input', 240)}<label class="hotel-pricing-activation-ack"><input type="checkbox" name="shared_impact_acknowledged" /><span><strong>${pricingUiHtml('I reviewed the selected product and every source-linked sibling.')}</strong><small>${pricingUiHtml('The target starts independent and draft; the selected product is forced inactive. No intermediate detach or second network mutation occurs.')}</small></span></label></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingCloneForProductForm">Review atomic clone</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingCloneForProductForm');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          if (!fd.has('shared_impact_acknowledged')) { toast('Review and acknowledge the exact source-link impact.', 'error'); return; }
+          try {
+            const target = {
+              ...Core.clone(source), id: targetId,
+              code: Core.validateCode(String(fd.get('code') || '').trim().toLowerCase(), 'Pricing schedule code'),
+              name_i18n: readI18n(fd, 'name'), sharing_mode: 'independent',
+              lifecycle_status: 'draft', is_active: false, review_status: 'requires_review',
+              linked_room_rate_ids: [], link_fingerprint: null, tiers: Core.clone(targetTiers),
+              version: 0, immutable_contract: null, activation_blockers: [],
+            };
+            if (!Core.i18nText(target.name_i18n, 'en')) throw new Error('Schedule name in English is required.');
+            const operations = Core.buildPricingScheduleCloneForRoomRateOperations(
+              state.pricingControl, source, rate, target,
+            );
+            closeModal({ restoreFocus: false });
+            await openReview(pricingCloneForProductReviewOptions(
+              state.pricingControl, source, rate, target, operations,
+            ));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function openPricingRuleEditor(ruleId = null) {
+    const existing = ruleId ? pricingEntityById('rate_rule', ruleId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted seasonal / weekday rule', existing, existing ? pricingProductLabel(existing.room_rate_id) : 'Seasonal / weekday rule')) return;
+    if (existing && (pricingEntryImmutable(existing) || pricingProductIsImmutable(existing.room_rate_id))) {
+      openImmutablePricingView('Protected seasonal rule', existing, pricingProductLabel(existing.room_rate_id), `<section class="hotel-workspace-card"><p>${escapeHtml(existing.valid_from)} → ${escapeHtml(existing.valid_to)} · ${escapeHtml(formatMoney(existing.nightly_rate, state.pricingControl.room_rates.find((rate) => rate.id === existing.room_rate_id)?.currency))}</p></section>`);
+      return;
+    }
+    const editableProducts = state.pricingControl.room_rates.filter((rate) => !pricingEntryImmutable(rate));
+    if (!editableProducts.length) { toast('No editable Room Rate product is available. Accepted legacy products are protected.', 'error'); return; }
+    const rule = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id,
+      room_rate_id: editableProducts.some((rate) => rate.id === state.pricingSelection.room_rate_id)
+        ? state.pricingSelection.room_rate_id : null,
+      valid_from: '', valid_to: '', weekdays: [],
+      nightly_rate: null, minimum_stay: null, maximum_stay: null,
+      closed_to_arrival: false, closed_to_departure: false, priority: null,
+      is_active: false, version: 0,
+    };
+    const calendarRestrictions = rule.closed_to_arrival === true || rule.closed_to_departure === true;
+    openPricingModal({
+      title: existing ? 'Edit seasonal / weekday price' : 'Add seasonal / weekday price',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingRuleForm" class="hotel-workspace-form"><label class="admin-form-field"><span>Exact Room Rate product</span><select name="room_rate_id" ${existing ? 'disabled' : 'required'}><option value="" ${rule.room_rate_id ? '' : 'selected'} disabled>${pricingUiHtml('Choose exact Room Rate product')}</option>${state.pricingControl.room_rates.map((rate) => `<option value="${escapeAttr(rate.id)}" ${rate.id === rule.room_rate_id ? 'selected' : ''}>${escapeHtml(pricingProductLabel(rate.id))}</option>`).join('')}</select>${!existing && rule.room_rate_id ? '<small>Preselected from the exact product context you opened.</small>' : ''}</label><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Valid from</span><input name="valid_from" type="date" value="${escapeAttr(rule.valid_from)}" required /></label><label class="admin-form-field"><span>Valid to</span><input name="valid_to" type="date" value="${escapeAttr(rule.valid_to)}" required /></label><label class="admin-form-field"><span>Nightly selling price</span><input name="nightly_rate" type="number" min="0" max="9999999999.99" step="0.01" value="${escapeAttr(rule.nightly_rate ?? '')}" required placeholder="Enter reviewed selling price" /></label><label class="admin-form-field"><span>Priority</span><input name="priority" type="number" min="-32768" max="32767" step="1" value="${escapeAttr(rule.priority ?? '')}" required placeholder="Enter explicit priority" /></label><label class="admin-form-field"><span>Minimum stay</span><input name="minimum_stay" type="number" min="1" max="3650" step="1" value="${escapeAttr(rule.minimum_stay ?? '')}" placeholder="No override" /></label><label class="admin-form-field"><span>Maximum stay</span><input name="maximum_stay" type="number" min="1" max="3650" step="1" value="${escapeAttr(rule.maximum_stay ?? '')}" placeholder="No override" /></label></div><fieldset><legend>${pricingUiHtml('Weekdays')}</legend><div class="hotel-calendar-weekdays">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => `<label><input type="checkbox" name="weekday" value="${index + 1}" ${rule.weekdays.includes(index + 1) ? 'checked' : ''} /> ${pricingUiHtml(label)}</label>`).join('')}</div><small>Choose every exact weekday this selling-price rule should cover.</small></fieldset><label class="admin-checkbox-field"><input type="checkbox" name="is_active" ${rule.is_active ? 'checked' : ''} ${calendarRestrictions ? 'disabled' : ''} /><span>Enabled shadow rule</span></label>${calendarRestrictions ? '<section class="hotel-pricing-activation-blockers"><strong>Calendar-owned restriction</strong><p>This row contains closed-to-arrival or closed-to-departure semantics. ADMIN-C preserves them byte-for-byte and cannot disable the complete row. ADMIN-D owns that operational decision.</p></section>' : ''}<p class="hotel-workspace-safety-note">Arrival/departure closure fields are read-only and preserved exactly. They are not evaluated by this pricing preview. Equal-priority pricing overlap is rejected by the server.</p></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingRuleForm">Review rule</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingRuleForm');
+        Array.from(form.elements.room_rate_id.options).forEach((option) => {
+          if (pricingProductIsImmutable(option.value)) {
+            option.disabled = true;
+            option.textContent = `${option.textContent} · ${pricingUiText('protected legacy price')}`;
+          }
+        });
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const nightlyRateRaw = String(fd.get('nightly_rate') || '').trim();
+          const priorityRaw = String(fd.get('priority') || '').trim();
+          const target = {
+            ...rule,
+            room_rate_id: existing?.room_rate_id || Core.normalizeUuid(fd.get('room_rate_id')),
+            valid_from: String(fd.get('valid_from')), valid_to: String(fd.get('valid_to')),
+            weekdays: fd.getAll('weekday').map(Number).sort((a, b) => a - b),
+            nightly_rate: nightlyRateRaw === '' ? Number.NaN : Number(nightlyRateRaw),
+            minimum_stay: fd.get('minimum_stay') === '' ? null : Number(fd.get('minimum_stay')),
+            maximum_stay: fd.get('maximum_stay') === '' ? null : Number(fd.get('maximum_stay')),
+            closed_to_arrival: rule.closed_to_arrival === true,
+            closed_to_departure: rule.closed_to_departure === true,
+            priority: priorityRaw === '' ? Number.NaN : Number(priorityRaw),
+            is_active: calendarRestrictions ? rule.is_active === true : fd.has('is_active'),
+          };
+          if (!target.room_rate_id || pricingProductIsImmutable(target.room_rate_id)) { toast('Choose an editable exact Room Rate product.', 'error'); return; }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(target.valid_from) || !/^\d{4}-\d{2}-\d{2}$/.test(target.valid_to)
+              || target.valid_to < target.valid_from || !target.weekdays.length
+              || !Core.isExactMoney(target.nightly_rate)
+              || !Number.isInteger(target.priority) || target.priority < -32768 || target.priority > 32767
+              || (target.minimum_stay != null && (!Number.isInteger(target.minimum_stay) || target.minimum_stay < 1))
+              || (target.maximum_stay != null && (!Number.isInteger(target.maximum_stay) || target.maximum_stay < 1))
+              || (target.minimum_stay != null && target.maximum_stay != null && target.maximum_stay < target.minimum_stay)) {
+            toast('Review the date range, weekdays, selling price, priority and stay limits.', 'error'); return;
+          }
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'rate_rule', existing, target);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: operation.action === 'disable' ? 'Review seasonal-rule disable' : existing ? 'Review seasonal / weekday rule' : 'Review new seasonal / weekday rule', entity: 'rate_rule', before: existing, after: target, operation, successMessage: operation.action === 'disable' ? 'Seasonal / weekday rule disabled.' : existing ? 'Seasonal / weekday price updated.' : 'Seasonal / weekday price created.', contextMessage: operation.action === 'disable' ? 'This status-only disable binds the complete price, stay and Calendar restriction state. No Calendar-owned CTA/CTD restriction is present.' : 'This complete rule is reviewed in the Pricing control plane. Calendar has no second price-rule writer.' }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function pricingSetClearField(name, label, row, options = {}) {
+    const mode = row?.[`${name}_mode`] == null ? '' : String(row[`${name}_mode`]);
+    return `<div class="hotel-pricing-set-clear"><label class="admin-form-field"><span>${pricingUiHtml(label)}</span><select name="${name}_mode" data-pricing-mode-for="${name}"><option value="" ${mode === '' ? 'selected' : ''}>${pricingUiHtml('No price/stay change')}</option><option value="set" ${mode === 'set' ? 'selected' : ''}>${pricingUiHtml('Set exact value')}</option><option value="clear" ${mode === 'clear' ? 'selected' : ''}>${pricingUiHtml('Clear configured override / inherit')}</option></select></label><label class="admin-form-field" data-pricing-value-for="${name}"><span>${pricingUiHtml(options.valueLabel || 'Value')}</span><input name="${name}" type="number" min="${options.min ?? 0}" max="${options.max ?? 9999999999.99}" step="${options.step || (options.integer ? 1 : 0.01)}" value="${escapeAttr(row?.[name] ?? '')}" /></label></div>`;
+  }
+
+  function bindPricingSetClearFields(form) {
+    form.querySelectorAll('[data-pricing-mode-for]').forEach((select) => {
+      const sync = () => {
+        const input = form.elements[select.dataset.pricingModeFor];
+        const wrapper = form.querySelector(`[data-pricing-value-for="${select.dataset.pricingModeFor}"]`);
+        const set = select.value === 'set';
+        input.disabled = !set;
+        input.required = set;
+        wrapper.classList.toggle('is-cleared', !set);
+      };
+      select.addEventListener('change', sync);
+      sync();
+    });
+  }
+
+  function openExactDatePriceEditor(exactDateId = null) {
+    const existing = exactDateId ? pricingEntityById('exact_date_price', exactDateId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted exact-date pricing', existing, existing ? `${pricingProductLabel(existing.room_rate_id)} · ${existing.stay_date}` : 'Exact-date pricing')) return;
+    if (existing && (pricingEntryImmutable(existing) || pricingProductIsImmutable(existing.room_rate_id))) {
+      openImmutablePricingView('Protected exact-date price', existing, `${pricingProductLabel(existing.room_rate_id)} · ${existing.stay_date}`, '<section class="hotel-workspace-card"><p>The accepted legacy pricing product and all effective price children remain frozen while legacy pricing is authoritative.</p></section>');
+      return;
+    }
+    const editableProducts = state.pricingControl.room_rates.filter((rate) => !pricingEntryImmutable(rate));
+    if (!editableProducts.length) { toast('No editable Room Rate product is available. Accepted legacy products are protected.', 'error'); return; }
+    const row = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id,
+      room_rate_id: editableProducts.some((rate) => rate.id === state.pricingSelection.room_rate_id)
+        ? state.pricingSelection.room_rate_id : null,
+      stay_date: '', nightly_rate_mode: null, nightly_rate: null,
+      minimum_stay_mode: null, minimum_stay: null,
+      maximum_stay_mode: null, maximum_stay: null,
+      reason: '', expires_at: null, version: 0,
+    };
+    const existingPricingReason = existing?.pricing_reason || '';
+    const existingPricingExpiry = existing?.pricing_expires_at
+      ? new Date(existing.pricing_expires_at).toISOString().slice(0, 16)
+      : '';
+    const pricingProvenanceMarkup = existing
+      ? `<section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${pricingUiHtml('Exact pricing provenance')}</span><h4>${existing.pricing_configured ? pricingUiHtml(String(existing.pricing_source).replaceAll('_', ' ')) : pricingUiHtml('No pricing override author yet')}</h4><p>${existing.pricing_configured ? `${pricingUiHtml(String(existing.pricing_actor_type).replaceAll('_', ' '))} · ${escapeHtml(new Date(existing.pricing_updated_at).toLocaleString(document.documentElement.lang || 'en'))}` : pricingUiHtml('This may be an operational Calendar row. Calendar provenance is intentionally separate and is not presented as the source of a price.')}</p>${existing.pricing_reason ? `<small>${escapeHtml(existing.pricing_reason)}</small>` : ''}${existing.pricing_actor_id || existing.pricing_correlation_id ? `<details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary>${existing.pricing_actor_id ? `<code>${escapeHtml(existing.pricing_actor_id)}</code>` : ''}${existing.pricing_correlation_id ? `<code>${escapeHtml(existing.pricing_correlation_id)}</code>` : ''}</details>` : ''}</section>`
+      : '';
+    openPricingModal({
+      title: existing ? 'Edit exact-date price' : 'Add exact-date price',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelExactDatePriceForm" class="hotel-workspace-form"><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Exact Room Rate product</span><select name="room_rate_id" ${existing ? 'disabled' : 'required'}><option value="" ${row.room_rate_id ? '' : 'selected'} disabled>${pricingUiHtml('Choose exact Room Rate product')}</option>${state.pricingControl.room_rates.map((rate) => `<option value="${escapeAttr(rate.id)}" ${rate.id === row.room_rate_id ? 'selected' : ''}>${escapeHtml(pricingProductLabel(rate.id))}</option>`).join('')}</select>${!existing && row.room_rate_id ? '<small>Preselected from the exact product context you opened.</small>' : ''}</label><label class="admin-form-field"><span>Stay date</span><input name="stay_date" type="date" value="${escapeAttr(row.stay_date)}" ${existing ? 'disabled' : ''} required /></label></div>${pricingSetClearField('nightly_rate', 'Nightly selling price', row)}${pricingSetClearField('minimum_stay', 'Minimum stay', row, { min: 1, max: 3650, integer: true })}${pricingSetClearField('maximum_stay', 'Maximum stay', row, { min: 1, max: 3650, integer: true })}${pricingProvenanceMarkup}<fieldset><legend>Pricing audit context</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Reason for this price/stay configuration</span><textarea name="reason" maxlength="500" rows="3" required>${escapeHtml(existingPricingReason)}</textarea><small>Required for every exact-date price/stay Review, including explicit CLEAR. Operational Calendar reasons remain separate.</small></label><label class="admin-form-field"><span>Pricing override expires</span><input name="expires_at" type="datetime-local" value="${escapeAttr(existingPricingExpiry)}" /><small>Optional. If set, it must be a future instant and applies only to price/stay resolution.</small></label></div></fieldset>${existing?.shared_with_calendar ? '<p class="hotel-workspace-safety-note">This row also contains Calendar availability semantics. Pricing Save preserves closure, arrival/departure and availability fields byte-for-byte; this editor cannot disable or erase them.</p>' : ''}<p class="hotel-workspace-safety-note">No price/stay change preserves an unconfigured field as null. CLEAR is an explicit reviewed instruction and is never inferred.</p></form>`,
+      footer: `${existing?.pricing_configured ? '<button class="btn-secondary hotel-danger-action" type="button" data-disable-exact-price>Review clearing all price/stay overrides</button>' : ''}<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelExactDatePriceForm">Review exact date</button>`,
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelExactDatePriceForm');
+        Array.from(form.elements.room_rate_id.options).forEach((option) => {
+          if (pricingProductIsImmutable(option.value)) {
+            option.disabled = true;
+            option.textContent = `${option.textContent} · ${pricingUiText('protected legacy price')}`;
+          }
+        });
+        bindPricingSetClearFields(form);
+        overlay.querySelector('[data-disable-exact-price]')?.addEventListener('click', async () => {
+          const target = {
+            ...Core.clone(existing),
+            nightly_rate_mode: null, nightly_rate: null,
+            minimum_stay_mode: null, minimum_stay: null,
+            maximum_stay_mode: null, maximum_stay: null,
+            pricing_configured: false,
+          };
+          try {
+            const operationOptions = { action: 'disable' };
+            const operation = pricingOperationForTarget(
+              state.pricingControl, 'exact_date_price', existing, target, operationOptions,
+            );
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({
+              title: 'Review clearing exact-date pricing', entity: 'exact_date_price',
+              before: existing, after: target, operation, operationOptions,
+              successMessage: existing.shared_with_calendar
+                ? 'Price/stay overrides cleared; the operational Calendar row remains.'
+                : 'Price-only exact-date row removed.',
+              contextMessage: existing.shared_with_calendar
+                ? 'All six price/stay fields are cleared in one reviewed action. Closure, CTA, CTD and inventory semantics remain byte-for-byte on the same exact Calendar row.'
+                : 'This exact row contains price/stay configuration only. The server may remove it after binding its full reviewed original state.',
+            }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const fieldValue = (name, integer = false) => {
+            const mode = String(fd.get(`${name}_mode`));
+            if (mode === '') return { mode: null, value: null };
+            if (mode === 'clear') return { mode, value: null };
+            const rawValue = String(fd.get(name) || '').trim();
+            const value = rawValue === '' ? Number.NaN : Number(rawValue);
+            if (mode !== 'set' || (integer ? (!Number.isInteger(value) || value < 1) : !Core.isExactMoney(value))) throw new Error(pricingUiText('{field} is invalid.', { field: pricingUiEnumLabel(name) }));
+            return { mode, value };
+          };
+          let nightly;
+          let minimum;
+          let maximum;
+          try { nightly = fieldValue('nightly_rate'); minimum = fieldValue('minimum_stay', true); maximum = fieldValue('maximum_stay', true); }
+          catch (error) { toast(error.message, 'error'); return; }
+          if (![nightly.mode, minimum.mode, maximum.mode].some((mode) => mode !== null)) { toast('Configure at least one exact-date price or stay field before Review.', 'error'); return; }
+          if (minimum.mode === 'set' && maximum.mode === 'set' && maximum.value < minimum.value) { toast('Maximum stay cannot be below minimum stay.', 'error'); return; }
+          const requestedRoomRateId = existing?.room_rate_id || Core.normalizeUuid(fd.get('room_rate_id'));
+          const requestedStayDate = existing?.stay_date || String(fd.get('stay_date'));
+          const expiryRaw = String(fd.get('expires_at') || '').trim();
+          const expiryMillis = expiryRaw ? Date.parse(expiryRaw) : Number.NaN;
+          if (expiryRaw && !Number.isFinite(expiryMillis)) {
+            toast('Pricing expiry must be a valid future date and time.', 'error'); return;
+          }
+          const exactExisting = existing || state.pricingControl.exact_date_prices.find((candidate) => (
+            candidate.room_rate_id === requestedRoomRateId && candidate.stay_date === requestedStayDate
+          )) || null;
+          const target = {
+            ...(exactExisting || row),
+            id: exactExisting?.id || row.id,
+            room_rate_id: requestedRoomRateId,
+            stay_date: requestedStayDate,
+            nightly_rate_mode: nightly.mode, nightly_rate: nightly.value,
+            minimum_stay_mode: minimum.mode, minimum_stay: minimum.value,
+            maximum_stay_mode: maximum.mode, maximum_stay: maximum.value,
+            reason: String(fd.get('reason') || '').trim(),
+            expires_at: expiryRaw ? new Date(expiryMillis).toISOString() : null,
+          };
+          if (!target.room_rate_id || pricingProductIsImmutable(target.room_rate_id)) { toast('Choose an editable exact Room Rate product.', 'error'); return; }
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(target.stay_date) || !target.reason
+              || target.reason.length > 500
+              || (target.expires_at && Date.parse(target.expires_at) <= Date.now())) {
+            toast('Stay date, a concise audit reason and any future pricing expiry are required.', 'error'); return;
+          }
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'exact_date_price', exactExisting, target);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: exactExisting ? 'Review exact-date price' : 'Review new exact-date price', entity: 'exact_date_price', before: exactExisting, after: target, operation, successMessage: exactExisting ? 'Exact-date price updated.' : 'Exact-date price created.', contextMessage: exactExisting?.shared_with_calendar ? 'The existing exact Room/date row was reused. Only price and stay SET/CLEAR fields change; Calendar closure, CTA, CTD and availability semantics are preserved byte-for-byte.' : 'This price-only editor writes no Calendar closure, CTA, CTD or inventory state.' }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
+  }
+
+  function pricingAllocationItemEditor(item = {}) {
+    const id = Core.normalizeUuid(item.id) || Core.newUuid();
+    const physical = Core.asArray(item.allocated_guest_counts).length
+      ? Core.asArray(item.allocated_guest_counts).join(', ')
+      : item.allocated_guest_count == null ? '' : String(item.allocated_guest_count);
+    const priced = Core.asArray(item.pricing_guest_counts).length
+      ? Core.asArray(item.pricing_guest_counts).join(', ')
+      : item.pricing_guest_count == null ? '' : String(item.pricing_guest_count);
+    return `<div class="hotel-pricing-allocation-item-editor" data-pricing-allocation-item data-item-id="${escapeAttr(id)}"><label class="admin-form-field"><span>${pricingUiHtml('Room Type')}</span><select data-allocation-room required><option value="" ${item.room_type_id ? '' : 'selected'} disabled>${pricingUiHtml('Choose exact Room Type')}</option>${state.pricingControl.room_types.map((room) => `<option value="${escapeAttr(room.id)}" ${room.id === item.room_type_id ? 'selected' : ''}>${escapeHtml(`${Core.i18nText(room.name_i18n, pricingUiLanguage(), room.code)} · ${pricingRoomOperationalLabel(room.id)}`)}</option>`).join('')}</select></label><label class="admin-form-field"><span>${pricingUiHtml('Units required')}</span><input data-allocation-units type="number" min="1" max="50" step="1" value="${escapeAttr(item.units_required ?? '')}" required placeholder="${pricingUiAttr('Enter units')}" /></label><label class="admin-form-field"><span>${pricingUiHtml('Physical guests per unit')}</span><input data-allocation-physical value="${escapeAttr(physical)}" placeholder="${pricingUiAttr('For example 3, 2')}" /><small>${pricingUiHtml('Comma-separated exact per-unit counts. Leave blank only for customer choice.')}</small></label><label class="admin-form-field"><span>${pricingUiHtml('Pricing guests per unit')}</span><input data-allocation-priced value="${escapeAttr(priced)}" placeholder="${pricingUiAttr('For example 2, 2')}" /><small>${pricingUiHtml('May differ from physical allocation only under an explicitly reviewed commercial contract.')}</small></label><label class="admin-form-field"><span>${pricingUiHtml('Sort order')}</span><input data-allocation-sort type="number" min="0" max="1000000" step="1" value="${escapeAttr(item.sort_order ?? 100)}" required /></label><button class="btn-secondary hotel-danger-action" type="button" data-remove-allocation-item>${pricingUiHtml('Remove')}</button></div>`;
+  }
+
+  function bindPricingAllocationItems(form) {
+    const list = form.querySelector('[data-pricing-allocation-items]');
+    const bind = (row) => row.querySelector('[data-remove-allocation-item]')?.addEventListener('click', () => row.remove());
+    list.querySelectorAll('[data-pricing-allocation-item]').forEach(bind);
+    form.querySelector('[data-add-allocation-item]')?.addEventListener('click', () => {
+      const holder = document.createElement('div');
+      holder.innerHTML = pricingAllocationItemEditor({ sort_order: (list.children.length + 1) * 100 });
+      const row = holder.firstElementChild;
+      list.append(row); bind(row); row.querySelector('select')?.focus();
+    });
+  }
+
+  function pricingAllocationItemsFromForm(form, ruleId, mode) {
+    const parseCounts = (value) => {
+      const text = String(value || '').trim();
+      if (!text) return null;
+      const values = text.split(',').map((entry) => Number(entry.trim()));
+      if (values.some((entry) => !Number.isInteger(entry) || entry < 1)) throw new Error('Per-unit guest counts must be comma-separated positive whole numbers.');
+      return values;
+    };
+    const items = Array.from(form.querySelectorAll('[data-pricing-allocation-item]')).map((row) => {
+      const units = Number(row.querySelector('[data-allocation-units]').value);
+      const physical = parseCounts(row.querySelector('[data-allocation-physical]').value);
+      const priced = parseCounts(row.querySelector('[data-allocation-priced]').value);
+      if (!Number.isInteger(units) || units < 1 || units > 50) throw new Error('Units required must be a whole number from 1 to 50.');
+      if (mode === 'required_bundle' && (!physical || !priced)) throw new Error('Required bundles need exact physical and pricing guests per unit.');
+      if (mode === 'customer_choice' && (units !== 1 || physical || priced)) throw new Error('Customer-choice options use one unit and requested occupancy; leave both per-unit guest fields blank.');
+      if ((physical && physical.length !== units) || (priced && priced.length !== units)) throw new Error('Per-unit guest-count entries must match Units required exactly.');
+      return {
+        id: Core.normalizeUuid(row.dataset.itemId), hotel_id: state.pricingControl.hotel_id,
+        allocation_rule_id: ruleId,
+        room_type_id: Core.normalizeUuid(row.querySelector('[data-allocation-room]').value),
+        units_required: units,
+        allocated_guest_count: physical ? physical.reduce((sum, value) => sum + value, 0) : null,
+        pricing_guest_count: priced ? priced.reduce((sum, value) => sum + value, 0) : null,
+        allocated_guest_counts: physical,
+        pricing_guest_counts: priced,
+        sort_order: Number(row.querySelector('[data-allocation-sort]').value),
+      };
+    });
+    if (!items.length) throw new Error('Add at least one exact Room Type allocation item.');
+    if (new Set(items.map((item) => item.room_type_id)).size !== items.length) throw new Error('Each Room Type may appear once inside an allocation rule.');
+    if (items.some((item) => !item.id || !item.room_type_id || !Number.isInteger(item.sort_order) || item.sort_order < 0)) throw new Error('Every allocation item needs an exact Room Type and valid sort order.');
+    return items;
+  }
+
+  function openPricingAllocationEditor(ruleId = null) {
+    const existing = ruleId ? pricingEntityById('allocation_rule', ruleId) : null;
+    if (blockAcceptedHotelPricingEditor('Accepted allocation rule', existing, existing ? `${existing.min_guest_count}–${existing.max_guest_count} guests` : 'Allocation rule')) return;
+    if (existing && pricingEntryImmutable(existing)) {
+      openImmutablePricingView('Protected allocation rule', existing, `${existing.min_guest_count}–${existing.max_guest_count} guests`, `<section class="hotel-workspace-card"><ul>${Core.asArray(existing.items).map((item) => `<li>${escapeHtml(pricingRoomLabel(item.room_type_id))} · ${Number(item.units_required)} unit(s) · physical ${escapeHtml(Core.asArray(item.allocated_guest_counts).join(' + ') || item.allocated_guest_count || 'customer choice')} · priced ${escapeHtml(Core.asArray(item.pricing_guest_counts).join(' + ') || item.pricing_guest_count || 'requested occupancy')}</li>`).join('')}</ul></section>`);
+      return;
+    }
+    if (!state.pricingControl.room_types.length) { toast('Create a Room Type before adding allocation rules.', 'error'); return; }
+    const rule = existing || {
+      id: Core.newUuid(), hotel_id: state.pricingControl.hotel_id,
+      code: '', allocation_mode: null, min_guest_count: null, max_guest_count: null,
+      lifecycle_status: 'draft', sort_order: 1000, items: [], version: 0,
+    };
+    openPricingModal({
+      title: existing ? 'Edit guest allocation rule' : 'Create guest allocation rule',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelPricingAllocationForm" class="hotel-workspace-form"><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" pattern="[a-z0-9](?:[a-z0-9_]|-)*" maxlength="80" value="${escapeAttr(rule.code)}" required /></label><label class="admin-form-field"><span>${pricingUiHtml('Allocation behavior')}</span><select name="allocation_mode" required><option value="" ${rule.allocation_mode ? '' : 'selected'} disabled>${pricingUiHtml('Choose allocation behavior')}</option><option value="customer_choice" ${rule.allocation_mode === 'customer_choice' ? 'selected' : ''}>${pricingUiHtml('Customer chooses one Room Type')}</option><option value="required_bundle" ${rule.allocation_mode === 'required_bundle' ? 'selected' : ''}>${pricingUiHtml('Required multi-room bundle')}</option></select></label><label class="admin-form-field"><span>Guests from</span><input name="min_guest_count" type="number" min="1" max="50" step="1" value="${escapeAttr(rule.min_guest_count ?? '')}" required placeholder="Enter reviewed minimum" /></label><label class="admin-form-field"><span>Guests to</span><input name="max_guest_count" type="number" min="1" max="50" step="1" value="${escapeAttr(rule.max_guest_count ?? '')}" required placeholder="Enter reviewed maximum" /></label><label class="admin-form-field"><span>Lifecycle</span><select name="lifecycle_status">${pricingLifecycleOptions(rule.lifecycle_status, rule)}</select></label><label class="admin-form-field"><span>Sort order</span><input name="sort_order" type="number" min="0" max="1000000" step="1" value="${escapeAttr(rule.sort_order)}" required /></label></div><fieldset><legend>Exact Room Type allocation</legend><div class="hotel-pricing-allocation-item-list" data-pricing-allocation-items>${rule.items.map(pricingAllocationItemEditor).join('')}</div><button class="btn-secondary" type="button" data-add-allocation-item>+ Room Type</button><small>Add each exact Room Type explicitly. No Room, unit count or guest allocation is inferred.</small></fieldset>${pricingActivationMarkup(rule)}</form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelPricingAllocationForm">Review allocation</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#hotelPricingAllocationForm');
+        bindPricingAllocationItems(form);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fd = new FormData(form);
+          const lifecycle = String(fd.get('lifecycle_status'));
+          let activationAcknowledged;
+          try { activationAcknowledged = pricingActivationAcknowledged(fd, lifecycle, rule); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const mode = String(fd.get('allocation_mode'));
+          if (!Core.ROOM_ALLOCATION_MODES.includes(mode)) { toast('Choose an explicit allocation behavior.', 'error'); return; }
+          let items;
+          try { items = pricingAllocationItemsFromForm(form, rule.id, mode); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const minimumGuestsRaw = String(fd.get('min_guest_count') || '').trim();
+          const maximumGuestsRaw = String(fd.get('max_guest_count') || '').trim();
+          const target = {
+            ...rule, code: String(fd.get('code') || '').trim().toLowerCase(), allocation_mode: mode,
+            min_guest_count: minimumGuestsRaw === '' ? Number.NaN : Number(minimumGuestsRaw),
+            max_guest_count: maximumGuestsRaw === '' ? Number.NaN : Number(maximumGuestsRaw),
+            lifecycle_status: lifecycle, sort_order: Number(fd.get('sort_order')), items,
+          };
+          if (!Number.isInteger(target.min_guest_count) || !Number.isInteger(target.max_guest_count)
+              || target.min_guest_count < 1 || target.max_guest_count > 50 || target.max_guest_count < target.min_guest_count
+              || !Number.isInteger(target.sort_order) || target.sort_order < 0) {
+            toast('Review the guest range and sort order.', 'error'); return;
+          }
+          try { target.code = Core.validateCode(target.code, 'Allocation rule code'); }
+          catch (error) { toast(error.message, 'error'); return; }
+          const operationOptions = { activationAcknowledged };
+          try {
+            const operation = pricingOperationForTarget(state.pricingControl, 'allocation_rule', existing, target, operationOptions);
+            closeModal({ restoreFocus: false });
+            await openReview(pricingReviewOptions({ title: existing ? 'Review guest allocation' : 'Review new guest allocation', entity: 'allocation_rule', before: existing, after: target, operation, operationOptions, successMessage: existing ? 'Guest allocation updated.' : 'Guest allocation created as a shadow draft.', contextMessage: 'Physical guest counts and pricing occupancy are displayed separately. The complete item set is protected by its exact fingerprint.' }));
+          } catch (error) { toast(error.message, 'error'); }
+        });
+      },
+    });
   }
 
   function modalMarkup(title, body, footer = '') {
@@ -1704,6 +5225,20 @@
       focusTarget?.focus?.();
     });
     return overlay;
+  }
+
+  function openPricingModal(options) {
+    const onReady = options?.onReady;
+    return openModal({
+      ...options,
+      title: pricingUiText(options?.title),
+      onReady(overlay) {
+        overlay.dataset.pricingUi = 'true';
+        localizePricingUi(overlay);
+        onReady?.(overlay);
+        localizePricingUi(overlay);
+      },
+    });
   }
 
   function setModalSaving(overlay, saving) {
@@ -1796,21 +5331,23 @@
     return result;
   }
 
-  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, onStaleReview, onAmbiguousReview, closeOnApplyError = false, successMessage, contextMessage = '', diagnostics = [] }) {
+  async function openReview({ title, entity, before, after, operation, operations, onConfirm, onCancel, onApplyError, onStaleReview, onAmbiguousReview, closeOnApplyError = false, successMessage, contextMessage = '', diagnostics = [], pricingUi = false }) {
     const reviewedOperations = Array.isArray(operations) ? operations : [operation];
     const rows = Core.buildReviewRows(entity, before, after);
+    const reviewChromeHtml = (value) => (pricingUi ? pricingUiHtml(value) : escapeHtml(value));
     if (!rows.length) {
-      toast('There are no changes to review.', 'info');
+      toast(pricingUi ? pricingUiText('There are no changes to review.') : 'There are no changes to review.', 'info');
       return false;
     }
     state.pendingReview = { reviewedOperations };
-    openModal({
+    const reviewModal = pricingUi ? openPricingModal : openModal;
+    reviewModal({
       title,
       className: 'hotel-workspace-modal--review',
-      body: `<div class="hotel-review-summary"><p>One atomic exact-property operation will be applied only after all version and relationship checks pass.</p><dl><div><dt>Property</dt><dd>${escapeHtml(propertyTitle(state.workspace.property))}</dd></div><div><dt>Entity</dt><dd>${escapeHtml(entity.replaceAll('_', ' '))}</dd></div><div><dt>Changes</dt><dd>${rows.length}</dd></div></dl><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(state.workspace.property.id)}</code>${reviewDiagnosticsMarkup(diagnostics)}</details></div>
+      body: `<div class="hotel-review-summary"><p>${reviewChromeHtml('One atomic exact-property operation will be applied only after all version and relationship checks pass.')}</p><dl><div><dt>${reviewChromeHtml('Property')}</dt><dd>${escapeHtml(propertyTitle(state.workspace.property))}</dd></div><div><dt>${reviewChromeHtml('Entity')}</dt><dd>${escapeHtml(entity.replaceAll('_', ' '))}</dd></div><div><dt>${reviewChromeHtml('Changes')}</dt><dd>${rows.length}</dd></div></dl><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(state.workspace.property.id)}</code>${reviewDiagnosticsMarkup(diagnostics)}</details></div>
         ${contextMessage ? `<p class="hotel-workspace-safety-note">${escapeHtml(contextMessage)}</p>` : ''}
-        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.before, row.field)}</td><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('') || '<tr><td colspan="3">The exact reviewed operation has no semantic field diff.</td></tr>'}</tbody></table></div>
-        <p class="hotel-workspace-safety-note">Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.</p>`,
+        <div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>${reviewChromeHtml('Field')}</th><th>${reviewChromeHtml('Before')}</th><th>${reviewChromeHtml('After')}</th></tr></thead><tbody>${rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.before, row.field)}</td><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('') || `<tr><td colspan="3">${reviewChromeHtml('The exact reviewed operation has no semantic field diff.')}</td></tr>`}</tbody></table></div>
+        <p class="hotel-workspace-safety-note">${reviewChromeHtml('Public Hotels V2 remains disabled. This save does not publish, convert, book or alter historical rows.')}</p>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-hotel-review-confirm>Save reviewed changes</button>',
       onClose: onCancel,
       onReady(overlay) {
@@ -1847,7 +5384,7 @@
             // a read-only reconciliation check; it never resends the plan.
             setModalSaving(overlay, true);
             button.disabled = false;
-            button.textContent = 'Check current state';
+            button.textContent = pricingUi ? pricingUiText('Check current state') : 'Check current state';
             toast('The save result and current database state could not yet be confirmed. Uploaded media remains preserved. Use “Check current state”; no mutation will be retried.', 'warning');
             return true;
           }
@@ -1856,7 +5393,9 @@
         overlay.querySelector('[data-hotel-review-confirm]')?.addEventListener('click', async (event) => {
           const button = event.currentTarget;
           button.disabled = true;
-          button.textContent = ambiguousPending ? 'Checking…' : 'Saving…';
+          button.textContent = pricingUi
+            ? pricingUiText(ambiguousPending ? 'Checking…' : 'Saving…')
+            : ambiguousPending ? 'Checking…' : 'Saving…';
           setModalSaving(overlay, true);
           try {
             if (ambiguousPending) {
@@ -1878,6 +5417,14 @@
             if (error?.isStale && typeof onStaleReview === 'function') {
               try {
                 const freshReview = await onStaleReview(error);
+                if (freshReview?.matched) {
+                  setModalSaving(overlay, false);
+                  closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+                  renderWorkspace();
+                  toast(freshReview.message
+                    || 'The current database state already matches the reviewed target. No mutation was retried.', 'success');
+                  return;
+                }
                 if (freshReview) {
                   setModalSaving(overlay, false);
                   closeModal({ restoreFocus: false, skipCleanup: true, force: true });
@@ -1927,6 +5474,12 @@
                 openPropertyControlConflict(failure.openPropertyControlConflict);
               } else if (failure.openOperationalAssignmentConflict) {
                 operationalAssignmentConflict(failure.openOperationalAssignmentConflict);
+              } else if (failure.openPricingConflict) {
+                pricingConflictModal(
+                  failure.openPricingConflict.entity,
+                  failure.openPricingConflict.conflicts,
+                  failure.openPricingConflict.freshControl,
+                );
               } else if (failure.reopenSevenArchesPreparation) {
                 openSevenArchesPreparation(failure.reopenSevenArchesPreparation);
               }
@@ -1936,7 +5489,7 @@
             setModalSaving(overlay, false);
             if (closeOnApplyError && !failure?.isAmbiguousOutcome) closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             button.disabled = false;
-            button.textContent = 'Save reviewed changes';
+            button.textContent = pricingUi ? pricingUiText('Save reviewed changes') : 'Save reviewed changes';
             const message = failure?.userMessage
               || (failure?.isStale
                 ? 'Save stopped: this configuration changed after Review. Refresh and review the fresh values.'
@@ -2968,156 +6521,6 @@
     });
   }
 
-  function cancellationFields(policy) {
-    const normalized = Core.normalizeCancellationPolicy(policy);
-    return `<fieldset><legend>Cancellation policy</legend><div class="hotel-workspace-form-grid">
-      <label class="admin-form-field"><span>Policy</span><select name="cancellation_type">${normalized.type === 'requires_review' ? '<option value="requires_review" selected disabled>Requires confirmation</option>' : ''}<option value="flexible" ${normalized.type === 'flexible' ? 'selected' : ''}>Flexible</option><option value="non_refundable" ${normalized.type === 'non_refundable' ? 'selected' : ''}>Non-refundable</option><option value="custom" ${normalized.type === 'custom' ? 'selected' : ''}>Custom</option></select></label>
-      <label class="admin-form-field" data-custom-cancellation><span>Deadline before arrival (hours)</span><input name="deadline_hours" type="number" min="0" step="1" value="${normalized.deadline_hours ?? 48}" /></label>
-      <label class="admin-form-field" data-custom-cancellation><span>Penalty</span><select name="penalty_mode"><option value="none" ${normalized.penalty_mode === 'none' ? 'selected' : ''}>No configured penalty</option><option value="flat" ${normalized.penalty_mode === 'flat' ? 'selected' : ''}>Fixed amount</option><option value="percent" ${normalized.penalty_mode === 'percent' ? 'selected' : ''}>Percent of total</option></select></label>
-      <label class="admin-form-field" data-custom-cancellation data-penalty-value><span>Penalty value</span><input name="penalty_value" type="number" min="0" step="0.01" value="${escapeAttr(normalized.penalty_value ?? '')}" /></label>
-    </div>${normalized.type === 'requires_review' ? '<p class="hotel-workspace-safety-note">Cancellation terms are unresolved. This Rate Plan must remain inactive until an Admin selects and reviews a confirmed policy.</p>' : ''}<small>This stores a safe policy description only. H2A does not change booking or refund calculations.</small></fieldset>`;
-  }
-
-  function readCancellationPolicy(form, currentPolicy = null) {
-    const type = String(form.elements.cancellation_type.value || 'flexible');
-    if (type === 'requires_review') return Core.normalizeCancellationPolicy(currentPolicy);
-    if (type !== 'custom') return Core.normalizeCancellationPolicy({ type });
-    const mode = String(form.elements.penalty_mode.value || 'none');
-    return Core.normalizeCancellationPolicy({
-      type,
-      deadline_hours: Number(form.elements.deadline_hours.value || 0),
-      penalty_mode: mode,
-      ...(mode === 'none' ? {} : { penalty_value: Number(form.elements.penalty_value.value) }),
-    });
-  }
-
-  function openRatePlanEditor(planId = null) {
-    const existing = planId ? state.workspace.rate_plans.find((plan) => plan.id === planId) : null;
-    const plan = existing || Core.normalizeRatePlan({
-      id: Core.newUuid(), hotel_id: state.workspace.property.id, code: '', name_i18n: {}, description_i18n: {},
-      cancellation_policy: { type: 'flexible' }, booking_mode_override: null, meal_plan_code: null,
-      is_active: false, sort_order: 1000, version: 1,
-    });
-    openModal({
-      title: existing ? 'Edit Rate Plan' : 'Add Rate Plan',
-      className: 'hotel-workspace-modal--wide',
-      body: `<form id="hotelRatePlanEditorForm" class="hotel-workspace-form">
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Internal code</span><input name="code" value="${escapeAttr(plan.code)}" required pattern="[a-z0-9](?:[a-z0-9_]|-)*" /></label><label class="admin-form-field"><span>Meal plan code</span><input name="meal_plan_code" value="${escapeAttr(plan.meal_plan_code || '')}" placeholder="room_only, breakfast…" /></label></div>
-        ${i18nFields('name', 'Rate Plan name', plan.name_i18n)}
-        ${i18nFields('description', 'Rate Plan description', plan.description_i18n, 'textarea')}
-        ${cancellationFields(plan.cancellation_policy)}
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Booking-mode override</span><select name="booking_mode_override"><option value="">Use property booking mode</option>${Core.BOOKING_MODES.map((mode) => `<option value="${mode}" ${plan.booking_mode_override === mode ? 'selected' : ''}>${escapeHtml(bookingModeLabel(mode))}</option>`).join('')}</select></label><label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${plan.sort_order}" /></label><label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${plan.is_active ? 'checked' : ''} /><span>Active configuration</span></label></div>
-        <div class="hotel-workspace-locked-fields"><div><span>Scope</span><strong>This property only</strong></div></div>
-        <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(plan.id)}</code></details>
-      </form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRatePlanEditorForm">Review Rate Plan</button>',
-      onReady(overlay) {
-        const form = overlay.querySelector('#hotelRatePlanEditorForm');
-        const syncCancellation = () => {
-          const custom = form.elements.cancellation_type.value === 'custom';
-          form.querySelectorAll('[data-custom-cancellation]').forEach((element) => { element.hidden = !custom; });
-          const needsValue = custom && form.elements.penalty_mode.value !== 'none';
-          form.querySelector('[data-penalty-value]').hidden = !needsValue;
-        };
-        form.elements.cancellation_type.addEventListener('change', syncCancellation);
-        form.elements.penalty_mode.addEventListener('change', syncCancellation);
-        syncCancellation();
-        form.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          const fd = new FormData(form);
-          let validated;
-          try {
-            validated = Core.validateRatePlan({
-              ...plan,
-              code: String(fd.get('code') || '').trim().toLowerCase(),
-              name_i18n: readI18n(fd, 'name'),
-              description_i18n: readI18n(fd, 'description'),
-              meal_plan_code: String(fd.get('meal_plan_code') || '').trim().toLowerCase() || null,
-              cancellation_policy: readCancellationPolicy(form, plan.cancellation_policy),
-              booking_mode_override: String(fd.get('booking_mode_override') || '') || null,
-              is_active: fd.get('is_active') === 'on',
-              sort_order: Number(fd.get('sort_order')),
-            }, state.workspace);
-          } catch (error) { toast(error.message, 'error'); return; }
-          closeModal({ restoreFocus: false });
-          await openReview({
-            title: existing ? 'Review Rate Plan changes' : 'Review new Rate Plan',
-            entity: 'rate_plan', before: existing, after: validated,
-            operation: Core.operationForEntity('rate_plan', validated, existing),
-            successMessage: existing ? 'Rate Plan updated.' : 'Rate Plan created.',
-          });
-        });
-      },
-    });
-  }
-
-  function openRoomRateEditor(rateId = null, preferredRoomId = null) {
-    const existing = rateId ? state.workspace.room_rates.find((rate) => rate.id === rateId) : null;
-    const rate = existing || Core.normalizeRoomRate({
-      id: Core.newUuid(), hotel_id: state.workspace.property.id,
-      room_type_id: Core.normalizeUuid(preferredRoomId) || state.workspace.room_types[0]?.id,
-      rate_plan_id: state.workspace.rate_plans[0]?.id,
-      base_nightly_rate: null, currency: state.workspace.property.currency || 'EUR', is_active: false, sort_order: 1000, version: 1,
-    });
-    if (!state.workspace.room_types.length || !state.workspace.rate_plans.length) {
-      toast('Create at least one Room Type and one Rate Plan before connecting them.', 'error');
-      return;
-    }
-    if (existing?.pricing_schedule_id) {
-      const schedule = state.workspace.pricing_schedules.find((candidate) => candidate.id === existing.pricing_schedule_id);
-      const tierCount = state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === existing.pricing_schedule_id && tier.is_active !== false).length;
-      openModal({
-        title: 'Shared Room Rate schedule',
-        body: `<section class="hotel-workspace-card hotel-legacy-pricing-blocker">
-          <span class="hotel-workspace-eyebrow">Dormant Rooms V2 shadow pricing</span>
-          <h4>${escapeHtml(Core.i18nText(schedule?.name_i18n, 'en', 'Shared apartment pricing'))}</h4>
-          <p>This exact product uses a reusable ${tierCount}-tier occupancy × length-of-stay schedule. Its base rate is not an executable €0 price.</p>
-          <p>Generic Room Rate editing is locked until H3 adds allocation-aware detach/clone and authoritative public resolution.</p>
-          <details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(existing.id)}</code><code>${escapeHtml(existing.pricing_schedule_id)}</code></details>
-        </section>`,
-      });
-      return;
-    }
-    openModal({
-      title: existing ? 'Edit Room Rate product' : 'Connect Room Type + Rate Plan',
-      body: `<form id="hotelRoomRateEditorForm" class="hotel-workspace-form"><div class="hotel-workspace-form-grid">
-        <label class="admin-form-field"><span>Room Type</span><select name="room_type_id" ${existing ? 'disabled' : ''}>${state.workspace.room_types.map((room) => `<option value="${room.id}" ${rate.room_type_id === room.id ? 'selected' : ''}>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</option>`).join('')}</select></label>
-        <label class="admin-form-field"><span>Rate Plan</span><select name="rate_plan_id" ${existing ? 'disabled' : ''}>${state.workspace.rate_plans.map((plan) => `<option value="${plan.id}" ${rate.rate_plan_id === plan.id ? 'selected' : ''}>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code))}</option>`).join('')}</select></label>
-        <label class="admin-form-field"><span>Base nightly rate</span><input name="base_nightly_rate" type="number" min="0" step="0.01" value="${escapeAttr(rate.base_nightly_rate ?? '')}" required /></label>
-        <label class="admin-form-field"><span>Currency</span><input name="currency" maxlength="3" value="${escapeAttr(rate.currency)}" required /></label>
-        <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" step="1" value="${rate.sort_order}" /></label>
-        <label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${rate.is_active ? 'checked' : ''} /><span>Active sellable configuration</span></label>
-      </div><div class="hotel-workspace-locked-fields"><div><span>Public effect</span><strong>None while V2 flags are off</strong></div></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(rate.id)}</code></details></form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelRoomRateEditorForm">Review product</button>',
-      onReady(overlay) {
-        overlay.querySelector('#hotelRoomRateEditorForm')?.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          const form = event.currentTarget;
-          const fd = new FormData(form);
-          let validated;
-          try {
-            validated = Core.validateRoomRate({
-              ...rate,
-              room_type_id: existing ? rate.room_type_id : String(fd.get('room_type_id')),
-              rate_plan_id: existing ? rate.rate_plan_id : String(fd.get('rate_plan_id')),
-              base_nightly_rate: Number(fd.get('base_nightly_rate')),
-              currency: String(fd.get('currency') || '').trim().toUpperCase(),
-              is_active: fd.get('is_active') === 'on',
-              sort_order: Number(fd.get('sort_order')),
-            }, state.workspace);
-          } catch (error) { toast(error.message, 'error'); return; }
-          closeModal({ restoreFocus: false });
-          await openReview({
-            title: existing ? 'Review Room Rate changes' : 'Review Room + Rate Plan product',
-            entity: 'room_rate', before: existing, after: validated,
-            operation: Core.operationForEntity('room_rate', validated, existing),
-            successMessage: existing ? 'Room Rate product updated.' : 'Room Rate product created.',
-          });
-        });
-      },
-    });
-  }
-
   async function duplicateRoom(roomId) {
     const source = state.workspace.room_types.find((room) => room.id === roomId);
     if (!source) return;
@@ -3169,16 +6572,49 @@
     const data = Core.asObject(calendar);
     const roomById = new Map(state.workspace.room_types.map((room) => [room.id, room]));
     const planById = new Map(state.workspace.rate_plans.map((plan) => [plan.id, plan]));
+    const pricingRateById = new Map(Core.asArray(state.pricingControl?.room_rates)
+      .map((rate) => [Core.normalizeUuid(rate.id), rate]));
+    const pricingScheduleById = new Map(Core.asArray(state.pricingControl?.pricing_schedules)
+      .map((schedule) => [Core.normalizeUuid(schedule.id), schedule]));
+    const propertyPricingDefault = Core.asObject(state.pricingControl?.property_pricing_default);
     return Core.asArray(data.room_rates).map((raw) => {
       const rate = Core.asObject(raw);
+      const exactPricingRate = pricingRateById.get(Core.normalizeUuid(rate.id)) || rate;
       const room = roomById.get(rate.room_type_id) || Core.asObject(rate.room_type);
       const plan = planById.get(rate.rate_plan_id) || Core.asObject(rate.rate_plan);
-      const schedule = rate.pricing_schedule_id
-        ? state.workspace.pricing_schedules.find((candidate) => candidate.id === rate.pricing_schedule_id)
+      const schedule = exactPricingRate.pricing_schedule_id
+        ? pricingScheduleById.get(Core.normalizeUuid(exactPricingRate.pricing_schedule_id))
+          || state.workspace.pricing_schedules.find((candidate) => candidate.id === exactPricingRate.pricing_schedule_id)
         : null;
       const scheduleTierCount = schedule
-        ? state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length
+        ? Core.asArray(schedule.tiers).filter((tier) => tier.is_active !== false).length
+          || state.workspace.pricing_schedule_tiers.filter((tier) => tier.schedule_id === schedule.id && tier.is_active !== false).length
         : 0;
+      const pricingSource = String(exactPricingRate.pricing_source || '').trim();
+      const pricingLabel = (() => {
+        if (pricingSource === 'pricing_schedule' && schedule) {
+          const ownership = schedule.sharing_mode === 'shared' ? 'Shared' : 'Independent';
+          return `${ownership} ${scheduleTierCount}-tier schedule authoritative`;
+        }
+        if (pricingSource === 'independent_tiers') {
+          const tierCount = Core.asArray(exactPricingRate.independent_tiers)
+            .filter((tier) => tier.is_active !== false).length;
+          return `Independent ${tierCount}-tier occupancy pricing authoritative`;
+        }
+        if (pricingSource === 'base_nightly_rate'
+            && exactPricingRate.base_nightly_rate_authoritative === true) {
+          return `${formatMoney(exactPricingRate.base_nightly_rate, exactPricingRate.currency)} Room Rate base authoritative`;
+        }
+        if (pricingSource === 'property_default') {
+          return propertyPricingDefault.id
+            ? `${formatMoney(propertyPricingDefault.nightly_rate, propertyPricingDefault.currency)} Property fallback authoritative`
+            : 'Property fallback authoritative';
+        }
+        if (pricingSource === 'missing') return 'Pricing source missing · configure Rates & Pricing';
+        return schedule
+          ? `${scheduleTierCount}-tier linked shadow schedule · confirm authority in Rates & Pricing`
+          : 'Pricing authority not loaded · open Rates & Pricing';
+      })();
       return {
         ...rate,
         id: Core.normalizeUuid(rate.id),
@@ -3189,10 +6625,8 @@
         base_inventory_count: Number(room.base_inventory_count ?? rate.base_inventory_count ?? 0),
         rate_plan_name: Core.i18nText(rate.rate_plan_name_i18n || plan.name_i18n, 'en', plan.code || 'Rate Plan'),
         rate_plan_code: String(plan.code || rate.rate_plan_code || '').trim(),
-        currency: String(rate.currency || state.workspace.property.currency || 'EUR'),
-        pricing_label: schedule
-          ? `Shared ${scheduleTierCount}-tier shadow schedule`
-          : `${formatMoney(rate.base_nightly_rate, rate.currency || state.workspace.property.currency || 'EUR')} base`,
+        currency: String(exactPricingRate.currency || state.pricingControl?.property?.currency || state.workspace.property.currency || ''),
+        pricing_label: pricingLabel,
       };
     }).filter((rate) => rate.id && rate.room_type_id);
   }
@@ -3403,13 +6837,13 @@
     const productById = new Map(products.map((product) => [product.id, product]));
     return `<aside class="hotel-calendar-rules">
       <section class="hotel-workspace-card">
-        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Seasonal & weekday rules</span><h4>${rules.length} rule${rules.length === 1 ? '' : 's'}</h4></div><button class="btn-secondary" type="button" data-add-calendar-rule ${selected.size ? '' : 'disabled'}>+ Rule</button></div>
-        ${rules.length ? `<ul>${rules.slice(0, 20).map((rule) => { const product = productById.get(rule.room_rate_id); return `<li><button type="button" data-edit-calendar-rule="${escapeAttr(rule.id)}"><strong>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(rule.nightly_rate, product?.currency))}</strong><small>${escapeHtml(rule.valid_from)} → ${escapeHtml(rule.valid_to)} · priority ${Number(rule.priority || 0)}${rule.is_active === false ? ' · inactive' : ''}</small></button></li>`; }).join('')}</ul>` : '<p>Select a product, then create a reviewed seasonal or weekday rule.</p>'}
+        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Pricing summary · read only here</span><h4>${rules.length} seasonal / weekday rule${rules.length === 1 ? '' : 's'}</h4></div></div>
+        ${rules.length ? `<ul>${rules.slice(0, 20).map((rule) => { const product = productById.get(rule.room_rate_id); return `<li><span><strong>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(rule.nightly_rate, product?.currency))}</strong><small>${escapeHtml(rule.valid_from)} → ${escapeHtml(rule.valid_to)} · priority ${Number(rule.priority || 0)}${rule.is_active === false ? ' · inactive' : ''}</small></span></li>`; }).join('')}</ul>` : '<p>No seasonal / weekday rules in this loaded Calendar range.</p>'}
       </section>
       <section class="hotel-workspace-card">
-        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Occupancy / LOS tiers</span><h4>${tiers.length} tier${tiers.length === 1 ? '' : 's'}</h4></div><button class="btn-secondary" type="button" data-add-occupancy-tier ${selected.size ? '' : 'disabled'}>+ Tier</button></div>
-        ${tiers.length ? `<ul>${tiers.slice(0, 30).map((tier) => { const product = productById.get(tier.room_rate_id); return `<li><button type="button" data-edit-occupancy-tier="${escapeAttr(tier.id)}"><strong>${Number(tier.guest_count)} guests · ${Number(tier.threshold_nights)}+ nights</strong><small>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(tier.nightly_rate, product?.currency))}${tier.is_active === false ? ' · inactive' : ''}</small></button></li>`; }).join('')}</ul>` : '<p>Optional tiers let one product reproduce reviewed guest-count and length-of-stay pricing without duplicating rooms.</p>'}
-        <button class="btn-secondary" type="button" data-preview-authoritative-rate ${selected.size === 1 ? '' : 'disabled'}>Preview authoritative stay</button>
+        <div class="hotel-calendar-rules__heading"><div><span class="hotel-workspace-eyebrow">Pricing source · read only here</span><h4>${tiers.length} independent occupancy / LOS tier${tiers.length === 1 ? '' : 's'}</h4></div></div>
+        ${tiers.length ? `<ul>${tiers.slice(0, 30).map((tier) => { const product = productById.get(tier.room_rate_id); return `<li><span><strong>${Number(tier.guest_count)} guests · ${Number(tier.threshold_nights)}+ nights</strong><small>${escapeHtml(product?.room_name || 'Rate product')} · ${escapeHtml(formatMoney(tier.nightly_rate, product?.currency))}${tier.is_active === false ? ' · inactive' : ''}</small></span></li>`; }).join('')}</ul>` : '<p>No independent product tiers in this loaded Calendar range.</p>'}
+        <button class="btn-primary" type="button" data-calendar-open-pricing>Open Rates & Pricing</button>
       </section>
     </aside>`;
   }
@@ -3423,7 +6857,7 @@
       ? `${state.calendar.selection_start}${state.calendar.selection_end !== state.calendar.selection_start ? ` → ${state.calendar.selection_end}` : ''}`
       : 'Select one date or a range';
     if (!products.length) {
-      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Manual prices, inventory and restrictions for normalized Room × Rate Plan products.')}
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Availability', 'Manual inventory and operational restrictions for normalized Room × Rate Plan products.')}
         <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Rooms V2 shadow</span><h4>No Room Rate products to calendar yet</h4><p>The current legacy property and its public prices remain unchanged. Prepare a normalized Room Type, Rate Plan and Room Rate product first.</p><button class="btn-primary" type="button" data-calendar-open-rooms>Open Rooms & Rates</button></section>`;
       panel.querySelector('[data-calendar-open-rooms]')?.addEventListener('click', () => { state.activeTab = 'rooms'; renderWorkspace(); });
       return;
@@ -3431,7 +6865,7 @@
     if (!state.calendar.mobile_product_id || !products.some((product) => product.id === state.calendar.mobile_product_id)) {
       state.calendar.mobile_product_id = products[0].id;
     }
-    panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Select exact products and dates, then Review one transactional manual update.')}
+    panel.innerHTML = `${workspacePanelHeader('Calendar & Availability', 'Select exact products and dates, then Review one transactional inventory / closure update. Prices remain read-only here.')}
       <section class="hotel-calendar-toolbar hotel-workspace-card">
         <div class="hotel-calendar-toolbar__navigation"><button class="btn-secondary" type="button" data-calendar-shift="-1" aria-label="Previous ${state.calendar.view}">←</button><button class="btn-secondary" type="button" data-calendar-today>Today</button><button class="btn-secondary" type="button" data-calendar-shift="1" aria-label="Next ${state.calendar.view}">→</button><strong>${escapeHtml(calendarMonthTitle(range))}</strong></div>
         <div class="hotel-calendar-toolbar__actions"><label><span>View</span><select data-calendar-view><option value="month" ${state.calendar.view === 'month' ? 'selected' : ''}>Month</option><option value="two_months" ${state.calendar.view === 'two_months' ? 'selected' : ''}>2 months</option><option value="week" ${state.calendar.view === 'week' ? 'selected' : ''}>Week</option></select></label><button class="btn-secondary" type="button" data-calendar-select-all>${selectedCount === products.length ? 'Clear products' : 'Select all products'}</button><button class="btn-primary" type="button" data-calendar-edit-range ${selectedCount && state.calendar.selection_start ? '' : 'disabled'}>Edit selected range</button></div>
@@ -3450,10 +6884,11 @@
     state.calendar.error = null;
     renderActivePanel();
     try {
-      const data = await Repository.getCalendar(propertyId, range.start, range.end);
+      const data = await Repository.getAvailabilityControl(propertyId, range.start, range.end);
       if (!state.workspace || state.workspace.property.id !== propertyId) return;
       state.calendar.data = data;
-      state.calendar.selected_product_ids = state.calendar.selected_product_ids.filter((id) => data.room_rates.some((rate) => rate.id === id));
+      const targetIds = new Set([...data.room_types.map((room) => room.id), ...data.room_rates.map((rate) => rate.id)]);
+      state.calendar.selected_product_ids = state.calendar.selected_product_ids.filter((id) => targetIds.has(id));
     } catch (error) {
       state.calendar.error = error;
     } finally {
@@ -3522,11 +6957,10 @@
       state.calendar.selection_start = null; state.calendar.selection_end = null; state.calendar.selection_anchor = null; renderActivePanel();
     });
     panel.querySelector('[data-calendar-edit-range]')?.addEventListener('click', openCalendarRangeEditor);
-    panel.querySelector('[data-add-calendar-rule]')?.addEventListener('click', () => openCalendarRuleEditor());
-    panel.querySelectorAll('[data-edit-calendar-rule]').forEach((button) => button.addEventListener('click', () => openCalendarRuleEditor(button.dataset.editCalendarRule)));
-    panel.querySelector('[data-add-occupancy-tier]')?.addEventListener('click', () => openOccupancyTierEditor());
-    panel.querySelectorAll('[data-edit-occupancy-tier]').forEach((button) => button.addEventListener('click', () => openOccupancyTierEditor(button.dataset.editOccupancyTier)));
-    panel.querySelector('[data-preview-authoritative-rate]')?.addEventListener('click', openAuthoritativeRatePreview);
+    panel.querySelector('[data-calendar-open-pricing]')?.addEventListener('click', () => {
+      state.activeTab = 'pricing';
+      renderWorkspace();
+    });
     void range;
   }
 
@@ -3534,18 +6968,18 @@
     const range = activeCalendarRange();
     const data = state.calendar.data;
     const rangeMatches = data?.hotel_id === state.workspace.property.id
-      && data?.start_date === range.start && data?.end_date === range.end;
+      && data?.from === range.start && data?.to === range.end;
     if (state.calendar.loading) {
-      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Availability', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
       return;
     }
     if (state.calendar.error) {
-      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'The calendar failed closed; no raw-table fallback is used.')}<div class="hotel-property-empty hotel-property-empty--error"><p>${escapeHtml(state.calendar.error.message || 'Calendar could not be loaded.')}</p><button class="btn-secondary" type="button" data-calendar-retry>Retry exact range</button></div>`;
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Availability', 'The calendar failed closed; no raw-table fallback is used.')}<div class="hotel-property-empty hotel-property-empty--error"><p>${escapeHtml(state.calendar.error.message || 'Calendar could not be loaded.')}</p><button class="btn-secondary" type="button" data-calendar-retry>Retry exact range</button></div>`;
       panel.querySelector('[data-calendar-retry]')?.addEventListener('click', () => { state.calendar.error = null; void loadCalendarRange(); });
       return;
     }
     if (!rangeMatches) {
-      panel.innerHTML = `${workspacePanelHeader('Calendar & Rates', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
+      panel.innerHTML = `${workspacePanelHeader('Calendar & Availability', 'Loading authoritative room rates, inventory and restrictions…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading ${escapeHtml(calendarMonthTitle(range))}…</div>`;
       void loadCalendarRange();
       return;
     }
@@ -3648,7 +7082,7 @@
           button.textContent = 'Saving…';
           setModalSaving(overlay, true);
           try {
-            const result = await Repository.applyCalendarPlan(plan);
+            throw new Error('The retired H2B Calendar mutation path is disabled. Prepare a fresh ADMIN-D Review.');
             closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             const activeRange = activeCalendarRange();
             if (result.calendar?.hotel_id === state.workspace.property.id
@@ -3710,9 +7144,13 @@
 
   function calendarOverrideOperations(products, dates, patch, provenance) {
     if (!Object.keys(patch).length) return [];
+    const operationalFields = new Set(['closed_to_arrival', 'closed_to_departure']);
+    if (Object.keys(patch).some((field) => !operationalFields.has(field))) {
+      throw new Error('Calendar may write only operational arrival/departure closures. Use Rates & Pricing for price or stay rules.');
+    }
     const existingByKey = new Map(Core.asArray(state.calendar.data?.calendar_overrides)
       .map((row) => [`${row.room_rate_id}:${row.stay_date}`, row]));
-    const valueFields = ['nightly_rate', 'minimum_stay', 'maximum_stay', 'closed', 'closed_to_arrival', 'closed_to_departure'];
+    const valueFields = ['closed_to_arrival', 'closed_to_departure'];
     const operations = [];
     products.forEach((product) => dates.forEach((stayDate) => {
       const existing = existingByKey.get(`${product.id}:${stayDate}`) || null;
@@ -3801,11 +7239,9 @@
       body: `<form id="hotelCalendarRangeForm" class="hotel-workspace-form">
         <div class="hotel-calendar-edit-context"><div><span>Products</span><strong>${products.length}</strong><small>${products.map((product) => `${product.room_name} · ${product.rate_plan_name}`).join(', ')}</small></div><div><span>Date range</span><strong>${escapeHtml(startDate)} → ${escapeHtml(endDate)}</strong><small>${enumerateCalendarDates(startDate, endDate).length} calendar days</small></div></div>
         <fieldset><legend>Apply on weekdays</legend><div class="hotel-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label, index) => `<label><input type="checkbox" name="weekday" value="${index + 1}" checked /> ${label}</label>`).join('')}</div></fieldset>
-        <fieldset><legend>Rates & inventory</legend><div class="hotel-workspace-form-grid">${rangePatchControl('nightly_rate', 'Nightly rate', 'number', { step: '0.01', placeholder: 'EUR', clearLabel: 'Use lower-precedence price' })}${rangePatchControl('sellable_units', 'Sellable rooms', 'number', { integer: true, clearLabel: 'Use base inventory' })}</div></fieldset>
+        <fieldset><legend>Room inventory</legend><div class="hotel-workspace-form-grid">${rangePatchControl('sellable_units', 'Sellable rooms', 'number', { integer: true, clearLabel: 'Use base inventory' })}</div><p>Nightly prices and stay limits are edited only in Rates & Pricing.</p></fieldset>
         <fieldset><legend>Availability & restrictions</legend><div class="hotel-workspace-form-grid">
           <label class="admin-form-field"><span>Room safety closure</span><select name="closed_mode"><option value="no_change">No change</option><option value="false">Set open</option><option value="true">Set closed</option><option value="clear">Clear override / inherit</option></select></label>
-          ${rangePatchControl('minimum_stay', 'Minimum stay', 'number', { min: 1, positive: true, clearLabel: 'No minimum override' })}
-          ${rangePatchControl('maximum_stay', 'Maximum stay', 'number', { min: 1, positive: true, clearLabel: 'No maximum override' })}
           <label class="admin-form-field"><span>Arrival</span><select name="closed_to_arrival_mode"><option value="no_change">No change</option><option value="false">Allow arrival</option><option value="true">Close to arrival</option><option value="clear">Clear override / inherit</option></select></label>
           <label class="admin-form-field"><span>Departure</span><select name="closed_to_departure_mode"><option value="no_change">No change</option><option value="false">Allow departure</option><option value="true">Close to departure</option><option value="clear">Clear override / inherit</option></select></label>
         </div></fieldset>
@@ -3823,13 +7259,10 @@
         form.addEventListener('submit', (event) => {
           event.preventDefault();
           const fd = new FormData(form);
-          let ratePatch;
+          let closurePatch;
           let inventoryPatch;
           try {
-            ratePatch = {
-              nightly_rate: calendarPatchField(fd, 'nightly_rate', { label: 'Nightly rate' }),
-              minimum_stay: calendarPatchField(fd, 'minimum_stay', { label: 'Minimum stay', integer: true, positive: true }),
-              maximum_stay: calendarPatchField(fd, 'maximum_stay', { label: 'Maximum stay', integer: true, positive: true }),
+            closurePatch = {
               closed_to_arrival: calendarPatchField(fd, 'closed_to_arrival', { boolean: true }),
               closed_to_departure: calendarPatchField(fd, 'closed_to_departure', { boolean: true }),
             };
@@ -3841,9 +7274,9 @@
             toast(error.message, 'error');
             return;
           }
-          ratePatch = Object.fromEntries(Object.entries(ratePatch).filter(([_key, value]) => value));
+          closurePatch = Object.fromEntries(Object.entries(closurePatch).filter(([_key, value]) => value));
           inventoryPatch = Object.fromEntries(Object.entries(inventoryPatch).filter(([_key, value]) => value));
-          if (!Object.keys(ratePatch).length && !Object.keys(inventoryPatch).length) {
+          if (!Object.keys(closurePatch).length && !Object.keys(inventoryPatch).length) {
             toast('Choose at least one explicit Calendar change.', 'error');
             return;
           }
@@ -3858,7 +7291,7 @@
           const dates = enumerateCalendarDates(startDate, endDate).filter((date) => weekdays.includes((parseIsoDate(date).getUTCDay() || 7)));
           const provenance = { reason, expires_at: expiresAt, reviewed_range: { from: startDate, to: endDate, weekdays } };
           const operations = [
-            ...calendarOverrideOperations(products, dates, ratePatch, provenance),
+            ...calendarOverrideOperations(products, dates, closurePatch, provenance),
             ...dailyInventoryOperations(products, dates, inventoryPatch, provenance),
           ];
           if (!operations.length) { toast('The reviewed range produces no database changes.', 'info'); return; }
@@ -3879,113 +7312,545 @@
     });
   }
 
-  function openCalendarRuleEditor(ruleId = null) {
-    const existing = ruleId ? Core.asArray(state.calendar.data?.rate_rules).find((rule) => rule.id === ruleId) : null;
-    const products = existing ? calendarProducts().filter((product) => product.id === existing.room_rate_id) : selectedCalendarProducts();
-    if (!products.length) { toast('Select at least one Room × Rate Plan product.', 'error'); return; }
-    const range = activeCalendarRange();
-    openModal({
-      title: existing ? 'Edit seasonal / weekday rule' : 'Add seasonal / weekday rule',
-      className: 'hotel-workspace-modal--wide',
-      body: `<form id="hotelCalendarRuleForm" class="hotel-workspace-form">
-        <p>${existing ? 'This edits one exact reviewed rule.' : `One draft rule will be created for each of ${products.length} selected products.`}</p>
-        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Valid from</span><input type="date" name="valid_from" value="${escapeAttr(existing?.valid_from || range.start)}" required /></label><label class="admin-form-field"><span>Valid to</span><input type="date" name="valid_to" value="${escapeAttr(existing?.valid_to || range.end)}" required /></label><label class="admin-form-field"><span>Nightly rate</span><input type="number" name="nightly_rate" min="0" step="0.01" value="${escapeAttr(existing?.nightly_rate ?? '')}" required /></label><label class="admin-form-field"><span>Priority</span><input type="number" name="priority" min="-32768" max="32767" step="1" value="${escapeAttr(existing?.priority ?? 0)}" required /></label><label class="admin-form-field"><span>Minimum stay</span><input type="number" name="minimum_stay" min="1" step="1" value="${escapeAttr(existing?.minimum_stay ?? '')}" /></label><label class="admin-form-field"><span>Maximum stay</span><input type="number" name="maximum_stay" min="1" step="1" value="${escapeAttr(existing?.maximum_stay ?? '')}" /></label></div>
-        <fieldset><legend>Weekdays</legend><div class="hotel-calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label, index) => `<label><input type="checkbox" name="weekday" value="${index + 1}" ${!existing || Core.asArray(existing.weekdays).includes(index + 1) ? 'checked' : ''} /> ${label}</label>`).join('')}</div></fieldset>
-        <div class="hotel-workspace-form-grid"><label class="admin-checkbox-field"><input type="checkbox" name="closed_to_arrival" ${existing?.closed_to_arrival ? 'checked' : ''} /> Closed to arrival</label><label class="admin-checkbox-field"><input type="checkbox" name="closed_to_departure" ${existing?.closed_to_departure ? 'checked' : ''} /> Closed to departure</label><label class="admin-checkbox-field"><input type="checkbox" name="is_active" ${existing?.is_active === false ? '' : 'checked'} /> Active</label></div>
-        <p class="hotel-workspace-safety-note">Equal-priority overlapping rules are rejected by the server. Use exact priorities deliberately.</p>
-      </form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelCalendarRuleForm">Review rule</button>',
-      onReady(overlay) {
-        overlay.querySelector('#hotelCalendarRuleForm')?.addEventListener('submit', (event) => {
-          event.preventDefault();
-          const fd = new FormData(event.currentTarget);
-          const payload = {
-            valid_from: String(fd.get('valid_from')), valid_to: String(fd.get('valid_to')),
-            weekdays: fd.getAll('weekday').map(Number).sort((a, b) => a - b),
-            nightly_rate: Number(fd.get('nightly_rate')),
-            minimum_stay: fd.get('minimum_stay') === '' ? null : Number(fd.get('minimum_stay')),
-            maximum_stay: fd.get('maximum_stay') === '' ? null : Number(fd.get('maximum_stay')),
-            closed_to_arrival: fd.has('closed_to_arrival'), closed_to_departure: fd.has('closed_to_departure'),
-            priority: Number(fd.get('priority')), is_active: fd.has('is_active'),
-          };
-          if (!payload.valid_from || !payload.valid_to || payload.valid_to < payload.valid_from || !payload.weekdays.length
-              || !Number.isFinite(payload.nightly_rate) || payload.nightly_rate < 0
-              || (payload.minimum_stay && payload.maximum_stay && payload.maximum_stay < payload.minimum_stay)) {
-            toast('Review dates, weekdays, rate and stay limits.', 'error'); return;
-          }
-          const operations = products.map((product) => ({
-            entity: 'rate_rule', type: existing ? 'update' : 'create',
-            id: existing?.id || Core.newUuid(),
-            expected_version: existing ? Number(existing.version) : 0,
-            payload: { ...payload, room_rate_id: product.id },
-          }));
-          const plan = buildCalendarPlan(operations, { product_ids: products.map((product) => product.id) });
-          closeModal({ restoreFocus: false });
-          void openCalendarReview({ title: 'Review seasonal / weekday rule', plan, rows: [
-            { field: 'Products', before: existing ? existing.room_rate_id : 'No rules', after: products.map((product) => `${product.room_name} · ${product.rate_plan_name}`) },
-            { field: 'Rule', before: existing || 'Not configured', after: payload },
-          ], successMessage: existing ? 'Rate rule updated.' : 'Rate rules created atomically.' });
-        });
-      },
-    });
+  const AVAILABILITY_UI_TEXT = Object.freeze({
+    pl: Object.freeze({
+      'Calendar & Availability': 'Kalendarz i dostępność', 'Today': 'Dzisiaj', 'Week': 'Tydzień',
+      'Month': 'Miesiąc', '2 months': '2 miesiące', 'Review changes': 'Sprawdź zmiany',
+      'Inventory': 'Dostępność pokoi', 'Available': 'Dostępne', 'Held': 'Wstrzymane',
+      'Booked': 'Zarezerwowane', 'Blocked': 'Zablokowane', 'Physical units': 'Jednostki fizyczne',
+      'Room Rate restrictions': 'Ograniczenia stawek pokoju', 'Active holds': 'Aktywne blokady',
+      'Release hold': 'Zwolnij blokadę', 'Bookings requiring mapping': 'Rezerwacje wymagające przypisania',
+      'Map booking': 'Przypisz rezerwację', 'Recent activity': 'Ostatnia aktywność',
+      'No active holds in this range.': 'Brak aktywnych blokad w tym zakresie.',
+      'No booking mapping blockers.': 'Brak blokad przypisania rezerwacji.',
+      'No availability activity yet.': 'Brak aktywności dostępności.',
+      'Edit selected range': 'Edytuj wybrany zakres', 'Select a Room or Room Rate and dates first.': 'Najpierw wybierz pokój lub stawkę pokoju oraz daty.',
+      'Reason': 'Powód', 'Cancel': 'Anuluj', 'Review': 'Sprawdź', 'Save reviewed changes': 'Zapisz sprawdzone zmiany',
+      'Technical diagnostics': 'Diagnostyka techniczna', 'Operations': 'Operacje', 'Impacts': 'Skutki',
+      'View': 'Widok', 'Clear dates': 'Wyczyść daty', 'Active booking allocations': 'Aktywne przypisania rezerwacji',
+      'No active booking allocations.': 'Brak aktywnych przypisań rezerwacji.', 'Mapped booking': 'Przypisana rezerwacja',
+      'Release allocation': 'Zwolnij przypisanie', 'adults': 'dorosłych', 'children': 'dzieci',
+      'commitment': 'zobowiązanie', 'commitments': 'zobowiązania', 'Expires': 'Wygasa',
+      'Server stay preview': 'Serwerowy podgląd pobytu', 'Checks pricing and availability without creating a booking or hold.': 'Sprawdza ceny i dostępność bez tworzenia rezerwacji ani blokady.',
+      'Arrival': 'Przyjazd', 'Departure': 'Wyjazd', 'Adults': 'Dorośli', 'Child ages': 'Wiek dzieci',
+      'Room Type (optional)': 'Typ pokoju (opcjonalnie)', 'Room Rate (optional)': 'Stawka pokoju (opcjonalnie)',
+      'Rate Plan (optional)': 'Plan taryfowy (opcjonalnie)', 'Allocation rule ID (optional)': 'Identyfikator reguły przydziału (opcjonalnie)',
+      'Automatic': 'Automatycznie', 'Preview stay': 'Podgląd pobytu', 'Total': 'Suma', 'Requested units': 'Żądane jednostki',
+      'Available for stay': 'Dostępne na pobyt', 'Yes': 'Tak', 'No': 'Nie', 'Room': 'Pokój',
+      'Nightly availability': 'Dostępność nocna', 'Departure boundary': 'Granica wyjazdu', 'Open': 'Otwarte', 'Close': 'Zamknij',
+      'Configuration is complete for this stay.': 'Konfiguracja tego pobytu jest kompletna.',
+      'This stay is blocked by the current reviewed configuration.': 'Ten pobyt jest zablokowany przez aktualną sprawdzoną konfigurację.',
+      'Preview only: no booking, inventory hold or public activation is created.': 'Tylko podgląd: nie powstaje rezerwacja, blokada zapasu ani aktywacja publiczna.',
+      'Exact allocation': 'Dokładny przydział', 'Room Rate': 'Stawka pokoju', 'Units required': 'Wymagane jednostki',
+      'Physical guest counts': 'Fizyczna liczba gości', 'Pricing guest counts': 'Liczba gości do wyceny',
+      'Physical Units': 'Jednostki fizyczne', 'Remove allocation': 'Usuń przydział', 'Allocation': 'Przydział',
+      'Select exact active Units for this Room.': 'Wybierz dokładne aktywne jednostki tego pokoju.',
+      'Pooled inventory uses no physical Unit IDs.': 'Wspólna pula nie używa identyfikatorów jednostek fizycznych.',
+      'Map exact booking allocation': 'Przypisz dokładny przydział rezerwacji', 'Review booking allocation': 'Sprawdź przydział rezerwacji',
+      'Review booking allocation release': 'Sprawdź zwolnienie przydziału rezerwacji',
+      'Server-authoritative Room inventory, product restrictions, physical Units, holds and exact booking allocation. Prices are read-only.': 'Serwerowy zapas pokoi, ograniczenia produktów, jednostki fizyczne, blokady i dokładne przypisanie rezerwacji. Ceny są tylko do odczytu.',
+      'selected': 'wybrano', 'active': 'aktywne', 'inactive': 'nieaktywne', 'No Room Rate products.': 'Brak produktów stawek pokoju.',
+      'Room Type': 'Typ pokoju', 'base': 'bazowo', 'Block dates': 'Zablokuj daty', 'Edit': 'Edytuj', 'Disable': 'Wyłącz',
+      'sellable': 'do sprzedaży', 'blocked': 'zablokowane', 'Closed': 'Zamknięte',
+      'Exact-date operational overrides': 'Dokładne ograniczenia dat', 'No exact operational override rows in this range.': 'Brak dokładnych ograniczeń w tym zakresie.',
+      'Disable availability fields': 'Wyłącz pola dostępności', 'Shared Rate Rule restrictions': 'Wspólne ograniczenia reguł stawek',
+      'Only CTA / CTD availability fields are editable here. Pricing, dates, weekdays and row lifecycle remain ADMIN-C-owned.': 'Tutaj można edytować wyłącznie pola dostępności CTA / CTD. Ceny, daty, dni tygodnia i cykl życia wiersza pozostają pod kontrolą ADMIN-C.',
+      'No shared Rate Rule availability fields in this range.': 'Brak pól dostępności wspólnych reguł stawek w tym zakresie.',
+      'Edit CTA / CTD': 'Edytuj CTA / CTD', 'Clear': 'Wyczyść', 'The server built the only plan eligible for Save.': 'Serwer utworzył jedyny plan dopuszczony do zapisu.',
+      'No semantic change. No database mutation will be sent.': 'Brak zmiany semantycznej. Żadna mutacja bazy nie zostanie wysłana.',
+      'Entity': 'Encja', 'Action': 'Działanie', 'Affected Rooms / Rates': 'Objęte pokoje / stawki',
+      'No prices, payments, Partner assignment, architecture, flags or public behavior are part of this plan.': 'Ten plan nie obejmuje cen, płatności, przypisania Partnera, architektury, flag ani zachowania publicznego.',
+      'Rooms': 'Pokoje', 'Room Rates': 'Stawki pokoi', 'Date range': 'Zakres dat', 'Sellable units': 'Jednostki do sprzedaży',
+      'No change': 'Bez zmian', 'Set': 'Ustaw', 'Clear / inherit': 'Wyczyść / dziedzicz', 'Room closure': 'Zamknięcie pokoju',
+      'Set closed': 'Ustaw zamknięte', 'Set open': 'Ustaw otwarte', 'Exact-date closure': 'Zamknięcie dokładnej daty',
+      'Closed to arrival': 'Zamknięte na przyjazd', 'Closed to departure': 'Zamknięte na wyjazd', 'Allow': 'Zezwól',
+      'Temporary expiry': 'Tymczasowe wygaśnięcie', 'Inventory expiry': 'Wygaśnięcie zapasu', 'Restriction expiry': 'Wygaśnięcie ograniczenia',
+      'No change omits the field. CLEAR sends null only after this explicit Review. The server expands weekdays into exact-date reviewed operations and shows every affected product before Save.': 'Bez zmian pomija pole. WYCZYŚĆ wysyła null dopiero po tej jawnej weryfikacji. Serwer rozwija dni tygodnia do sprawdzonych operacji na dokładnych datach i pokazuje każdy objęty produkt przed zapisem.',
+      'Edit physical Unit block': 'Edytuj blokadę jednostki fizycznej', 'Review physical Unit block': 'Sprawdź blokadę jednostki fizycznej',
+      'From': 'Od', 'To': 'Do', 'Expiry': 'Wygaśnięcie', 'Edit shared Rate Rule availability fields': 'Edytuj dostępność wspólnej reguły stawek',
+      'Price, stay limits, dates, weekdays, priority and lifecycle are locked.': 'Cena, limity pobytu, daty, dni tygodnia, priorytet i cykl życia są zablokowane.',
+      'Review hold release': 'Sprawdź zwolnienie blokady', 'Review exact override disable': 'Sprawdź wyłączenie dokładnego ograniczenia',
+      'Review physical Unit block disable': 'Sprawdź wyłączenie blokady jednostki fizycznej',
+      'Not calculated': 'Nie obliczono', 'Reactivate': 'Aktywuj ponownie', 'Missing': 'Brak',
+      'Review physical Unit block update': 'Sprawdź aktualizację blokady jednostki fizycznej',
+      'Review shared Rate Rule availability update': 'Sprawdź aktualizację dostępności wspólnej reguły stawek',
+      'Allocation rule (optional)': 'Reguła przydziału (opcjonalnie)',
+      'No Room Types.': 'Brak typów pokoi.', 'create': 'utworzono', 'update': 'zaktualizowano', 'disable': 'wyłączono',
+      'delete': 'usunięto', 'daily inventory': 'dzienny zapas', 'calendar override': 'ograniczenie kalendarza',
+      'unit calendar block': 'blokada jednostki', 'booking allocation': 'przypisanie rezerwacji', 'inventory hold': 'blokada zapasu',
+      'pooled': 'wspólna pula', 'unitized': 'jednostki fizyczne', 'reviewed': 'sprawdzone', 'requires review': 'wymaga sprawdzenia',
+      'pending': 'oczekująca', 'confirmed': 'potwierdzona', 'released': 'zwolnione', 'expired': 'wygasłe', 'consumed': 'wykorzystane',
+      'maintenance': 'konserwacja', 'disabled': 'wyłączone', 'draft': 'wersja robocza',
+      'operational closed': 'zamknięte operacyjnie', 'safety closed': 'zamknięte bezpieczeństwa', 'inventory exhausted': 'brak dostępnego zapasu',
+      'room rate inactive': 'nieaktywna stawka pokoju', 'insufficient availability': 'niewystarczająca dostępność',
+      'public activation off': 'aktywacja publiczna wyłączona', 'unmapped bookings require allocation': 'rezerwacje wymagają przypisania',
+      'product restriction blocked': 'blokada ograniczenia produktu', 'pricing configuration blocked': 'zablokowana konfiguracja cen',
+      'exact booking allocation required': 'wymagane dokładne przypisanie rezerwacji', 'stale booking allocation': 'nieaktualne przypisanie rezerwacji',
+      'operational override': 'dokładne ograniczenie', 'rate rule operational restriction': 'ograniczenie reguły stawek',
+      'hold': 'blokada zapasu', 'map': 'przypisz', 'release': 'zwolnij', 'clear': 'wyczyść', 'upsert': 'zapisz',
+      'The reviewed result was already saved.': 'Sprawdzony wynik został już zapisany.', 'Availability changes saved.': 'Zmiany dostępności zapisano.',
+      'Save result is ambiguous. Reload; this plan will not be retried.': 'Wynik zapisu jest niejednoznaczny. Przeładuj; ten plan nie zostanie ponowiony.',
+      'A valid explicit expiry is required for SET.': 'Dla USTAW wymagane jest prawidłowe jawne wygaśnięcie.',
+      'A valid explicit expiry is required.': 'Wymagane jest prawidłowe jawne wygaśnięcie.',
+      'Sellable units must be a whole number.': 'Liczba jednostek do sprzedaży musi być całkowita.',
+      'Choose at least one structured change.': 'Wybierz co najmniej jedną uporządkowaną zmianę.',
+      'Choose an exact Room Rate.': 'Wybierz dokładną stawkę pokoju.',
+      'Expiry must be a valid future instant.': 'Wygaśnięcie musi być prawidłowym terminem w przyszłości.',
+      'Daily inventory overrides': 'Dzienne nadpisania zapasu', 'Delete override': 'Usuń nadpisanie',
+      'Review daily inventory override delete': 'Sprawdź usunięcie dziennego nadpisania zapasu',
+    }),
+    he: Object.freeze({
+      'Calendar & Availability': 'לוח שנה וזמינות', 'Today': 'היום', 'Week': 'שבוע',
+      'Month': 'חודש', '2 months': 'חודשיים', 'Review changes': 'בדיקת שינויים',
+      'Inventory': 'מלאי', 'Available': 'זמין', 'Held': 'מוחזק', 'Booked': 'מוזמן',
+      'Blocked': 'חסום', 'Physical units': 'יחידות פיזיות', 'Room Rate restrictions': 'הגבלות תעריף חדר',
+      'Active holds': 'החזקות פעילות', 'Release hold': 'שחרור החזקה',
+      'Bookings requiring mapping': 'הזמנות הדורשות שיוך', 'Map booking': 'שיוך הזמנה',
+      'Recent activity': 'פעילות אחרונה', 'No active holds in this range.': 'אין החזקות פעילות בטווח זה.',
+      'No booking mapping blockers.': 'אין חסימות שיוך להזמנה.', 'No availability activity yet.': 'אין עדיין פעילות זמינות.',
+      'Edit selected range': 'עריכת הטווח שנבחר', 'Select a Room or Room Rate and dates first.': 'יש לבחור תחילה חדר או תעריף חדר ותאריכים.',
+      'Reason': 'סיבה', 'Cancel': 'ביטול', 'Review': 'בדיקה', 'Save reviewed changes': 'שמירת שינויים שנבדקו',
+      'Technical diagnostics': 'אבחון טכני', 'Operations': 'פעולות', 'Impacts': 'השפעות',
+      'View': 'תצוגה', 'Clear dates': 'ניקוי תאריכים', 'Active booking allocations': 'שיוכי הזמנות פעילים',
+      'No active booking allocations.': 'אין שיוכי הזמנות פעילים.', 'Mapped booking': 'הזמנה משויכת',
+      'Release allocation': 'שחרור שיוך', 'adults': 'מבוגרים', 'children': 'ילדים',
+      'commitment': 'התחייבות', 'commitments': 'התחייבויות', 'Expires': 'תפוגה',
+      'Server stay preview': 'תצוגת שהייה מהשרת', 'Checks pricing and availability without creating a booking or hold.': 'בדיקת מחיר וזמינות ללא יצירת הזמנה או החזקה.',
+      'Arrival': 'הגעה', 'Departure': 'עזיבה', 'Adults': 'מבוגרים', 'Child ages': 'גילי ילדים',
+      'Room Type (optional)': 'סוג חדר (אופציונלי)', 'Room Rate (optional)': 'תעריף חדר (אופציונלי)',
+      'Rate Plan (optional)': 'תוכנית תעריף (אופציונלי)', 'Allocation rule ID (optional)': 'מזהה כלל שיוך (אופציונלי)',
+      'Automatic': 'אוטומטי', 'Preview stay': 'תצוגת שהייה', 'Total': 'סה״כ', 'Requested units': 'יחידות מבוקשות',
+      'Available for stay': 'זמין לשהייה', 'Yes': 'כן', 'No': 'לא', 'Room': 'חדר',
+      'Nightly availability': 'זמינות לילית', 'Departure boundary': 'גבול עזיבה', 'Open': 'פתוח', 'Close': 'סגירה',
+      'Configuration is complete for this stay.': 'התצורה מלאה עבור שהייה זו.',
+      'This stay is blocked by the current reviewed configuration.': 'השהייה חסומה לפי התצורה שנבדקה.',
+      'Preview only: no booking, inventory hold or public activation is created.': 'תצוגה בלבד: לא נוצרת הזמנה, החזקת מלאי או הפעלה ציבורית.',
+      'Exact allocation': 'שיוך מדויק', 'Room Rate': 'תעריף חדר', 'Units required': 'יחידות נדרשות',
+      'Physical guest counts': 'ספירת אורחים פיזית', 'Pricing guest counts': 'ספירת אורחים לתמחור',
+      'Physical Units': 'יחידות פיזיות', 'Remove allocation': 'הסרת שיוך', 'Allocation': 'שיוך',
+      'Select exact active Units for this Room.': 'יש לבחור יחידות פעילות מדויקות לחדר זה.',
+      'Pooled inventory uses no physical Unit IDs.': 'מלאי מאוחד אינו משתמש במזהי יחידות פיזיות.',
+      'Map exact booking allocation': 'שיוך מדויק של הזמנה', 'Review booking allocation': 'בדיקת שיוך הזמנה',
+      'Review booking allocation release': 'בדיקת שחרור שיוך הזמנה',
+      'Server-authoritative Room inventory, product restrictions, physical Units, holds and exact booking allocation. Prices are read-only.': 'מלאי חדרים מהשרת, הגבלות מוצרים, יחידות פיזיות, החזקות ושיוך הזמנות מדויק. המחירים לקריאה בלבד.',
+      'selected': 'נבחרו', 'active': 'פעיל', 'inactive': 'לא פעיל', 'No Room Rate products.': 'אין מוצרי תעריף חדר.',
+      'Room Type': 'סוג חדר', 'base': 'בסיס', 'Block dates': 'חסימת תאריכים', 'Edit': 'עריכה', 'Disable': 'השבתה',
+      'sellable': 'למכירה', 'blocked': 'חסום', 'Closed': 'סגור',
+      'Exact-date operational overrides': 'הגבלות תפעוליות לתאריך מדויק', 'No exact operational override rows in this range.': 'אין הגבלות מדויקות בטווח זה.',
+      'Disable availability fields': 'השבתת שדות זמינות', 'Shared Rate Rule restrictions': 'הגבלות כלל תעריף משותף',
+      'Only CTA / CTD availability fields are editable here. Pricing, dates, weekdays and row lifecycle remain ADMIN-C-owned.': 'רק שדות הזמינות CTA / CTD ניתנים לעריכה כאן. מחיר, תאריכים, ימי שבוע ומחזור חיי השורה נשארים בבעלות ADMIN-C.',
+      'No shared Rate Rule availability fields in this range.': 'אין שדות זמינות של כללי תעריף משותפים בטווח זה.',
+      'Edit CTA / CTD': 'עריכת CTA / CTD', 'Clear': 'ניקוי', 'The server built the only plan eligible for Save.': 'השרת בנה את התוכנית היחידה המותרת לשמירה.',
+      'No semantic change. No database mutation will be sent.': 'אין שינוי סמנטי. לא תישלח פעולת שינוי למסד הנתונים.',
+      'Entity': 'ישות', 'Action': 'פעולה', 'Affected Rooms / Rates': 'חדרים / תעריפים מושפעים',
+      'No prices, payments, Partner assignment, architecture, flags or public behavior are part of this plan.': 'התוכנית אינה כוללת מחירים, תשלומים, שיוך שותף, ארכיטקטורה, דגלים או התנהגות ציבורית.',
+      'Rooms': 'חדרים', 'Room Rates': 'תעריפי חדר', 'Date range': 'טווח תאריכים', 'Sellable units': 'יחידות למכירה',
+      'No change': 'ללא שינוי', 'Set': 'הגדרה', 'Clear / inherit': 'ניקוי / ירושה', 'Room closure': 'סגירת חדר',
+      'Set closed': 'הגדרה כסגור', 'Set open': 'הגדרה כפתוח', 'Exact-date closure': 'סגירת תאריך מדויק',
+      'Closed to arrival': 'סגור להגעה', 'Closed to departure': 'סגור לעזיבה', 'Allow': 'אפשר',
+      'Temporary expiry': 'תפוגה זמנית', 'Inventory expiry': 'תפוגת מלאי', 'Restriction expiry': 'תפוגת הגבלה',
+      'No change omits the field. CLEAR sends null only after this explicit Review. The server expands weekdays into exact-date reviewed operations and shows every affected product before Save.': 'ללא שינוי משמיט את השדה. ניקוי שולח null רק לאחר הבדיקה המפורשת. השרת מרחיב ימי שבוע לפעולות מדויקות לפי תאריך ומציג כל מוצר מושפע לפני שמירה.',
+      'Edit physical Unit block': 'עריכת חסימת יחידה פיזית', 'Review physical Unit block': 'בדיקת חסימת יחידה פיזית',
+      'From': 'מתאריך', 'To': 'עד תאריך', 'Expiry': 'תפוגה', 'Edit shared Rate Rule availability fields': 'עריכת זמינות של כלל תעריף משותף',
+      'Price, stay limits, dates, weekdays, priority and lifecycle are locked.': 'מחיר, מגבלות שהייה, תאריכים, ימי שבוע, עדיפות ומחזור חיים נעולים.',
+      'Review hold release': 'בדיקת שחרור החזקה', 'Review exact override disable': 'בדיקת השבתת הגבלה מדויקת',
+      'Review physical Unit block disable': 'בדיקת השבתת חסימת יחידה פיזית',
+      'Not calculated': 'לא חושב', 'Reactivate': 'הפעלה מחדש', 'Missing': 'חסר',
+      'Review physical Unit block update': 'בדיקת עדכון חסימת יחידה פיזית',
+      'Review shared Rate Rule availability update': 'בדיקת עדכון זמינות של כלל תעריף משותף',
+      'Allocation rule (optional)': 'כלל שיוך (אופציונלי)',
+      'No Room Types.': 'אין סוגי חדרים.', 'create': 'נוצר', 'update': 'עודכן', 'disable': 'הושבת',
+      'delete': 'נמחק', 'daily inventory': 'מלאי יומי', 'calendar override': 'הגבלת לוח שנה',
+      'unit calendar block': 'חסימת יחידה', 'booking allocation': 'שיוך הזמנה', 'inventory hold': 'החזקת מלאי',
+      'pooled': 'מלאי מאוחד', 'unitized': 'יחידות פיזיות', 'reviewed': 'נבדק', 'requires review': 'דורש בדיקה',
+      'pending': 'ממתינה', 'confirmed': 'מאושרת', 'released': 'שוחרר', 'expired': 'פג תוקף', 'consumed': 'נצרך',
+      'maintenance': 'תחזוקה', 'disabled': 'מושבת', 'draft': 'טיוטה',
+      'operational closed': 'סגור תפעולית', 'safety closed': 'סגור מטעמי בטיחות', 'inventory exhausted': 'המלאי אזל',
+      'room rate inactive': 'תעריף החדר לא פעיל', 'insufficient availability': 'אין מספיק זמינות',
+      'public activation off': 'ההפעלה הציבורית כבויה', 'unmapped bookings require allocation': 'הזמנות דורשות שיוך',
+      'product restriction blocked': 'הגבלת מוצר חוסמת', 'pricing configuration blocked': 'תצורת התמחור חסומה',
+      'exact booking allocation required': 'נדרש שיוך הזמנה מדויק', 'stale booking allocation': 'שיוך הזמנה לא עדכני',
+      'operational override': 'הגבלה מדויקת', 'rate rule operational restriction': 'הגבלת כלל תעריף',
+      'hold': 'החזקת מלאי', 'map': 'שיוך', 'release': 'שחרור', 'clear': 'ניקוי', 'upsert': 'שמירה',
+      'The reviewed result was already saved.': 'התוצאה שנבדקה כבר נשמרה.', 'Availability changes saved.': 'שינויי הזמינות נשמרו.',
+      'Save result is ambiguous. Reload; this plan will not be retried.': 'תוצאת השמירה אינה חד-משמעית. יש לטעון מחדש; התוכנית לא תישלח שוב.',
+      'A valid explicit expiry is required for SET.': 'נדרש מועד תפוגה מפורש ותקין עבור הגדרה.',
+      'A valid explicit expiry is required.': 'נדרש מועד תפוגה מפורש ותקין.',
+      'Sellable units must be a whole number.': 'מספר היחידות למכירה חייב להיות שלם.',
+      'Choose at least one structured change.': 'יש לבחור לפחות שינוי מובנה אחד.',
+      'Choose an exact Room Rate.': 'יש לבחור תעריף חדר מדויק.',
+      'Expiry must be a valid future instant.': 'מועד התפוגה חייב להיות זמן עתידי תקין.',
+      'Daily inventory overrides': 'חריגות מלאי יומיות', 'Delete override': 'מחיקת חריגה',
+      'Review daily inventory override delete': 'בדיקת מחיקת חריגת מלאי יומית',
+    }),
+  });
+
+  function availabilityUiText(value) {
+    const source = String(value == null ? '' : value);
+    return AVAILABILITY_UI_TEXT[pricingUiLanguage()]?.[source] || pricingUiText(source);
   }
 
-  function openOccupancyTierEditor(tierId = null) {
-    const existing = tierId ? Core.asArray(state.calendar.data?.occupancy_tiers).find((tier) => tier.id === tierId) : null;
-    const products = existing ? calendarProducts().filter((product) => product.id === existing.room_rate_id) : selectedCalendarProducts();
-    if (!products.length) { toast('Select at least one Room × Rate Plan product.', 'error'); return; }
-    openModal({
-      title: existing ? 'Edit occupancy / stay tier' : 'Add occupancy / stay tier',
-      body: `<form id="hotelOccupancyTierForm" class="hotel-workspace-form"><p>${existing ? 'Edit this exact tier.' : `Create one reviewed tier for each of ${products.length} selected products.`}</p><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Guest count</span><input name="guest_count" type="number" min="1" step="1" value="${escapeAttr(existing?.guest_count ?? '')}" required /></label><label class="admin-form-field"><span>From stay length</span><input name="threshold_nights" type="number" min="1" step="1" value="${escapeAttr(existing?.threshold_nights ?? '')}" required /><small>Selected nightly rate applies to the complete stay.</small></label><label class="admin-form-field"><span>Nightly rate</span><input name="nightly_rate" type="number" min="0" step="0.01" value="${escapeAttr(existing?.nightly_rate ?? '')}" required /></label><label class="admin-checkbox-field"><input name="is_active" type="checkbox" ${existing?.is_active === false ? '' : 'checked'} /> Active</label></div><p class="hotel-workspace-safety-note">A duplicate exact product + guest count + threshold is rejected. Pricing conversion remains shadow-only until its complete legacy oracle passes.</p></form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="hotelOccupancyTierForm">Review tier</button>',
-      onReady(overlay) {
-        overlay.querySelector('#hotelOccupancyTierForm')?.addEventListener('submit', (event) => {
-          event.preventDefault();
-          const fd = new FormData(event.currentTarget);
-          const payload = { guest_count: Number(fd.get('guest_count')), threshold_nights: Number(fd.get('threshold_nights')), nightly_rate: Number(fd.get('nightly_rate')), is_active: fd.has('is_active') };
-          if (!Number.isInteger(payload.guest_count) || payload.guest_count <= 0 || !Number.isInteger(payload.threshold_nights) || payload.threshold_nights <= 0 || !Number.isFinite(payload.nightly_rate) || payload.nightly_rate < 0) {
-            toast('Guest count, stay threshold and nightly rate are required.', 'error'); return;
-          }
-          const operations = products.map((product) => ({ entity: 'occupancy_tier', type: existing ? 'update' : 'create', id: existing?.id || Core.newUuid(), expected_version: existing ? Number(existing.version) : 0, payload: { ...payload, room_rate_id: product.id } }));
-          const plan = buildCalendarPlan(operations, { product_ids: products.map((product) => product.id) });
-          closeModal({ restoreFocus: false });
-          void openCalendarReview({ title: 'Review occupancy / stay tier', plan, rows: [
-            { field: 'Products', before: existing ? existing.room_rate_id : 'No tiers', after: products.map((product) => `${product.room_name} · ${product.rate_plan_name}`) },
-            { field: 'Tier', before: existing || 'Not configured', after: payload },
-          ], successMessage: existing ? 'Occupancy tier updated.' : 'Occupancy tiers created atomically.' });
-        });
-      },
-    });
+  function availabilityUiHtml(value) { return escapeHtml(availabilityUiText(value)); }
+
+  function availabilityCodeText(value) {
+    return availabilityUiText(String(value == null ? '' : value).replaceAll('_', ' '));
   }
 
-  function openAuthoritativeRatePreview() {
-    const [product] = selectedCalendarProducts();
-    if (!product || state.calendar.selected_product_ids.length !== 1) { toast('Select exactly one product to preview.', 'error'); return; }
-    const range = activeCalendarRange();
-    const arrival = state.calendar.selection_start || range.start;
-    const departure = addCalendarDays(state.calendar.selection_end || arrival, 1);
+  function availabilityBusinessName(row, fallback) {
+    return Core.i18nText(row?.name_i18n, pricingUiLanguage(), '')
+      || Core.i18nText(row?.name_i18n, 'en', '') || String(row?.code || fallback);
+  }
+
+  function availabilityRateLabel(control, rate) {
+    const room = control.room_types.find((entry) => entry.id === rate.room_type_id);
+    const plan = state.workspace.rate_plans.find((entry) => entry.id === rate.rate_plan_id);
+    const roomName = availabilityBusinessName(room, room?.code || 'Room');
+    const planName = plan ? availabilityBusinessName(plan, plan.code || 'Rate Plan') : 'Rate Plan';
+    return `${roomName} · ${planName}`;
+  }
+
+  function availabilityUnitBlockCanReactivate(control, block) {
+    const unit = control.units.find((entry) => entry.id === block.unit_id);
+    const room = control.room_types.find((entry) => entry.id === block.room_type_id);
+    return block.is_active === false && unit?.status === 'active'
+      && room?.status === 'active' && room.inventory_mode === 'unitized';
+  }
+
+  function availabilityActiveBookingMarkup(control) {
+    const active = control.booking_allocations.filter((row) => row.status === 'active');
+    const bookings = [...new Set(active.map((row) => row.booking_id))];
+    if (!bookings.length) return `<p>${availabilityUiHtml('No active booking allocations.')}</p>`;
+    return bookings.map((bookingId) => {
+      const rows = active.filter((row) => row.booking_id === bookingId);
+      const summary = rows.map((row) => `${availabilityRateLabel(control, control.room_rates.find((rate) => rate.id === row.room_rate_id))} × ${row.units_required}`).join(' · ');
+      return `<article class="hotel-availability-row"><span><strong>${availabilityUiHtml('Mapped booking')}</strong><small>${escapeHtml(summary)}</small></span><button class="btn-secondary" type="button" data-availability-release-booking="${escapeAttr(bookingId)}">${availabilityUiHtml('Release allocation')}</button></article>`;
+    }).join('');
+  }
+
+  function availabilityStayPreviewMarkup(control, range) {
+    const nextDate = new Date(`${range.start}T00:00:00Z`);
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    const departure = nextDate.toISOString().slice(0, 10);
+    const rateOptions = control.room_rates.map((rate) => `<option value="${escapeAttr(rate.id)}">${escapeHtml(availabilityRateLabel(control, rate))}</option>`).join('');
+    const roomOptions = control.room_types.map((room) => `<option value="${escapeAttr(room.id)}">${escapeHtml(availabilityBusinessName(room, room.code))}</option>`).join('');
+    const planOptions = state.workspace.rate_plans.map((plan) => `<option value="${escapeAttr(plan.id)}">${escapeHtml(availabilityBusinessName(plan, plan.code || 'Rate Plan'))}</option>`).join('');
+    const allocationRules = Core.asArray(state.pricingControl?.allocation_rules || state.h3Configuration?.allocation_rules);
+    const allocationOptions = allocationRules.map((rule) => `<option value="${escapeAttr(rule.id)}">${escapeHtml(rule.code || `${rule.min_guest_count}–${rule.max_guest_count}`)}</option>`).join('');
+    return `<section class="hotel-workspace-card hotel-availability-stay-preview"><div class="hotel-workspace-section-title"><div><h4>${availabilityUiHtml('Server stay preview')}</h4><p>${availabilityUiHtml('Checks pricing and availability without creating a booking or hold.')}</p></div></div><form data-availability-stay-form class="hotel-workspace-form"><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${availabilityUiHtml('Arrival')}</span><input name="arrival_date" type="date" value="${escapeAttr(range.start)}" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Departure')}</span><input name="departure_date" type="date" value="${escapeAttr(departure)}" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Adults')}</span><input name="adults" type="number" min="1" max="50" value="2" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Child ages')}</span><input name="child_ages" inputmode="numeric" placeholder="15, 17"/></label><label class="admin-form-field"><span>${availabilityUiHtml('Room Type (optional)')}</span><select name="room_type_id"><option value="">${availabilityUiHtml('Automatic')}</option>${roomOptions}</select></label><label class="admin-form-field"><span>${availabilityUiHtml('Room Rate (optional)')}</span><select name="room_rate_id"><option value="">${availabilityUiHtml('Automatic')}</option>${rateOptions}</select></label><label class="admin-form-field"><span>${availabilityUiHtml('Rate Plan (optional)')}</span><select name="rate_plan_id"><option value="">${availabilityUiHtml('Automatic')}</option>${planOptions}</select></label><label class="admin-form-field"><span>${availabilityUiHtml('Allocation rule (optional)')}</span><select name="allocation_rule_id"><option value="">${availabilityUiHtml('Automatic')}</option>${allocationOptions}</select></label></div><button class="btn-primary" type="submit">${availabilityUiHtml('Preview stay')}</button></form></section>`;
+  }
+
+  function availabilityCellD(control, roomId, date) {
+    return control.cells.find((cell) => cell.room_type_id === roomId && cell.stay_date === date);
+  }
+
+  function availabilityProductCellD(control, rateId, date) {
+    return control.product_cells.find((cell) => cell.room_rate_id === rateId && cell.stay_date === date);
+  }
+
+  function availabilityCellMarkupD(cell, targetId, date, product = false) {
+    if (!cell) return `<span class="hotel-workspace-status hotel-workspace-status--danger">${availabilityUiHtml('Missing')}</span>`;
+    const closed = cell.operational_closed || cell.safety_closed || (product && (cell.closed_to_arrival || cell.closed_to_departure));
+    const label = product
+      ? `${cell.closed_to_arrival ? 'CTA ' : ''}${cell.closed_to_departure ? 'CTD ' : ''}${availabilityUiText(closed ? 'Closed' : 'Open')}`
+      : `${cell.available_units} ${availabilityUiText('Available')} · ${cell.held_units} ${availabilityUiText('Held')} · ${cell.booked_units} ${availabilityUiText('Booked')}`;
+    return `<button class="hotel-calendar-cell ${closed ? 'is-closed' : ''}" type="button" data-availability-cell data-target-id="${escapeAttr(targetId)}" data-date="${escapeAttr(date)}" aria-label="${escapeAttr(label)}"><strong>${escapeHtml(label)}</strong>${!product ? `<small>${cell.configured_sellable_units} ${availabilityUiHtml('sellable')} · ${cell.blocked_unit_count} ${availabilityUiHtml('blocked')}</small>` : `<small>${cell.blocking_reasons.map((reason) => escapeHtml(availabilityCodeText(reason))).join(' · ')}</small>`}</button>`;
+  }
+
+  function renderAvailabilityRoomD(control, room, dates) {
+    const rates = control.room_rates.filter((rate) => rate.room_type_id === room.id);
+    const units = control.units.filter((unit) => unit.room_type_id === room.id);
+    const dailyRows = control.daily_inventory.filter((row) => row.room_type_id === room.id);
+    return `<section class="hotel-workspace-card hotel-availability-room" data-room-id="${escapeAttr(room.id)}">
+      <header><label class="hotel-calendar-mobile__select"><input type="checkbox" data-availability-target value="${escapeAttr(room.id)}" ${state.calendar.selected_product_ids.includes(room.id) ? 'checked' : ''}/><span><strong>${escapeHtml(availabilityBusinessName(room, availabilityUiText('Room Type')))}</strong><small>${escapeHtml(room.code)} · ${escapeHtml(availabilityCodeText(room.inventory_mode))} · ${availabilityUiHtml('base')} ${room.base_inventory_count}</small></span></label><span class="hotel-workspace-status">${escapeHtml(availabilityCodeText(room.status))}</span></header>
+      <div class="hotel-calendar-grid-shell"><table class="hotel-calendar-grid"><thead><tr><th>${availabilityUiHtml('Inventory')}</th>${dates.map((date) => `<th><span>${escapeHtml(calendarDateLabel(date))}</span><small>${escapeHtml(date.slice(5))}</small></th>`).join('')}</tr></thead><tbody><tr><th><span>${availabilityUiHtml('Available')}</span><small>${availabilityUiHtml('Held')} / ${availabilityUiHtml('Booked')} / ${availabilityUiHtml('Blocked')}</small></th>${dates.map((date) => `<td>${availabilityCellMarkupD(availabilityCellD(control, room.id, date), room.id, date)}</td>`).join('')}</tr></tbody></table></div>
+      ${dailyRows.length ? `<details><summary>${dailyRows.length} ${availabilityUiHtml('Daily inventory overrides')}</summary>${dailyRows.map((row) => `<article class="hotel-availability-row"><span><strong>${escapeHtml(row.stay_date)}</strong><small>${row.sellable_units} ${availabilityUiHtml('sellable')} · ${availabilityUiHtml(row.closed ? 'Closed' : 'Open')}${row.expires_at ? ` · ${availabilityUiHtml('Expires')} ${escapeHtml(row.expires_at)}` : ''}</small></span><button class="btn-secondary" type="button" data-availability-delete-daily data-room-type-id="${escapeAttr(row.room_type_id)}" data-stay-date="${escapeAttr(row.stay_date)}">${availabilityUiHtml('Delete override')}</button></article>`).join('')}</details>` : ''}
+      <details class="hotel-availability-room__products"><summary>${rates.length} ${availabilityUiHtml('Room Rate restrictions')}</summary>${rates.map((rate) => `<div class="hotel-availability-product"><label><input type="checkbox" data-availability-target value="${escapeAttr(rate.id)}" ${state.calendar.selected_product_ids.includes(rate.id) ? 'checked' : ''}/><span><strong>${escapeHtml(availabilityRateLabel(control, rate))}</strong><small>${escapeHtml(availabilityCodeText(rate.review_status))} · ${rate.is_active ? availabilityUiHtml('active') : availabilityUiHtml('inactive')}</small></span></label><div class="hotel-calendar-mobile__days">${dates.map((date) => `<article><header><small>${escapeHtml(date)}</small></header>${availabilityCellMarkupD(availabilityProductCellD(control, rate.id, date), rate.id, date, true)}</article>`).join('')}</div></div>`).join('') || `<p>${availabilityUiHtml('No Room Rate products.')}</p>`}</details>
+      <details><summary>${units.length} ${availabilityUiHtml('Physical units')}</summary>${units.length ? `<ul>${units.map((unit) => `<li><code>${escapeHtml(unit.code)}</code> · ${escapeHtml(availabilityBusinessName(unit, unit.code))} · ${escapeHtml(availabilityCodeText(unit.status))} ${unit.status === 'active' ? `<button class="btn-secondary" type="button" data-availability-block-unit="${escapeAttr(unit.id)}">${availabilityUiHtml('Block dates')}</button>` : ''}</li>`).join('')}</ul>` : `<p>${availabilityUiHtml('Pooled inventory uses no physical Unit IDs.')}</p>`}${control.unit_calendar_blocks.filter((block) => block.room_type_id === room.id).map((block) => `<article class="hotel-availability-row"><span><strong>${escapeHtml(block.from_date)} → ${escapeHtml(block.to_date)}</strong><small>${escapeHtml(control.units.find((unit) => unit.id === block.unit_id)?.code || block.unit_id)} · ${availabilityUiHtml(block.is_active ? 'active' : 'inactive')}${block.expires_at ? ` · ${availabilityUiHtml('Expires')} ${escapeHtml(block.expires_at)}` : ''}</small></span><span>${block.is_active ? `<button class="btn-secondary" type="button" data-availability-edit-unit-block="${escapeAttr(block.id)}">${availabilityUiHtml('Edit')}</button><button class="btn-secondary" type="button" data-availability-disable-unit-block="${escapeAttr(block.id)}">${availabilityUiHtml('Disable')}</button>` : (availabilityUnitBlockCanReactivate(control, block) ? `<button class="btn-secondary" type="button" data-availability-reactivate-unit-block="${escapeAttr(block.id)}">${availabilityUiHtml('Reactivate')}</button>` : '')}</span></article>`).join('')}</details>
+    </section>`;
+  }
+
+  function renderCalendarLoaded(panel, range, control) {
+    const dates = enumerateCalendarDates(range.start, range.end);
+    const selectedCount = state.calendar.selected_product_ids.length;
+    const selection = state.calendar.selection_start
+      ? `${state.calendar.selection_start} → ${state.calendar.selection_end || state.calendar.selection_start}` : availabilityUiText('Select a Room or Room Rate and dates first.');
+    panel.innerHTML = `${workspacePanelHeader(availabilityUiText('Calendar & Availability'), availabilityUiText('Server-authoritative Room inventory, product restrictions, physical Units, holds and exact booking allocation. Prices are read-only.'))}
+      <section class="hotel-calendar-toolbar hotel-workspace-card"><div class="hotel-calendar-toolbar__navigation"><button class="btn-secondary" type="button" data-calendar-shift="-1">←</button><button class="btn-secondary" type="button" data-calendar-today>${availabilityUiHtml('Today')}</button><button class="btn-secondary" type="button" data-calendar-shift="1">→</button><strong>${escapeHtml(calendarMonthTitle(range))}</strong></div><div class="hotel-calendar-toolbar__actions"><label><span>${availabilityUiHtml('View')}</span><select data-calendar-view><option value="week" ${state.calendar.view === 'week' ? 'selected' : ''}>${availabilityUiHtml('Week')}</option><option value="month" ${state.calendar.view === 'month' ? 'selected' : ''}>${availabilityUiHtml('Month')}</option><option value="two_months" ${state.calendar.view === 'two_months' ? 'selected' : ''}>${availabilityUiHtml('2 months')}</option></select></label><button class="btn-primary" type="button" data-calendar-edit-range ${selectedCount && state.calendar.selection_start ? '' : 'disabled'}>${availabilityUiHtml('Edit selected range')}</button></div><div class="hotel-calendar-selection" aria-live="polite"><strong>${selectedCount} ${availabilityUiHtml('selected')}</strong><span>${escapeHtml(selection)}</span><button type="button" data-calendar-clear-selection>${availabilityUiHtml('Clear dates')}</button></div></section>
+      <div class="hotel-availability-control">${control.room_types.map((room) => renderAvailabilityRoomD(control, room, dates)).join('') || `<section class="hotel-workspace-card"><p>${availabilityUiHtml('No Room Types.')}</p></section>`}</div>
+      <div class="hotel-calendar-layout"><section class="hotel-workspace-card"><h4>${availabilityUiHtml('Exact-date operational overrides')}</h4>${control.operational_overrides.length ? control.operational_overrides.map((row) => { const rate = control.room_rates.find((entry) => entry.id === row.room_rate_id); return `<article class="hotel-availability-row"><span><strong>${escapeHtml(row.stay_date)} · ${escapeHtml(rate ? availabilityRateLabel(control, rate) : row.room_rate_id)}</strong><small>${row.closed ? `${availabilityUiHtml('Closed')} · ` : ''}${row.closed_to_arrival ? 'CTA · ' : ''}${row.closed_to_departure ? 'CTD · ' : ''}${availabilityUiHtml(row.availability_active ? 'active' : 'inactive')}</small></span>${row.availability_active ? `<button class="btn-secondary" type="button" data-availability-disable-override="${escapeAttr(row.id)}">${availabilityUiHtml('Disable availability fields')}</button>` : ''}</article>`; }).join('') : `<p>${availabilityUiHtml('No exact operational override rows in this range.')}</p>`}</section><section class="hotel-workspace-card"><h4>${availabilityUiHtml('Shared Rate Rule restrictions')}</h4><p>${availabilityUiHtml('Only CTA / CTD availability fields are editable here. Pricing, dates, weekdays and row lifecycle remain ADMIN-C-owned.')}</p>${control.rate_rule_operational_restrictions.length ? control.rate_rule_operational_restrictions.map((row) => { const rate = control.room_rates.find((entry) => entry.id === row.room_rate_id); return `<article class="hotel-availability-row"><span><strong>${escapeHtml(rate ? availabilityRateLabel(control, rate) : row.room_rate_id)}</strong><small>${escapeHtml(row.valid_from)} → ${escapeHtml(row.valid_to)} · ${row.closed_to_arrival ? 'CTA · ' : ''}${row.closed_to_departure ? 'CTD · ' : ''}v${row.availability_version}</small></span><span><button class="btn-secondary" type="button" data-availability-edit-rule="${escapeAttr(row.id)}">${availabilityUiHtml('Edit CTA / CTD')}</button><button class="btn-secondary" type="button" data-availability-clear-rule="${escapeAttr(row.id)}">${availabilityUiHtml('Clear')}</button></span></article>`; }).join('') : `<p>${availabilityUiHtml('No shared Rate Rule availability fields in this range.')}</p>`}</section></div>
+      <div class="hotel-calendar-layout"><section class="hotel-workspace-card"><h4>${availabilityUiHtml('Active booking allocations')}</h4>${availabilityActiveBookingMarkup(control)}<h4>${availabilityUiHtml('Bookings requiring mapping')}</h4>${control.unmapped_booking_blockers.length ? control.unmapped_booking_blockers.map((blocker) => `<article class="hotel-availability-row"><span><strong>${escapeHtml(blocker.arrival_date)} → ${escapeHtml(blocker.departure_date)}</strong><small>${blocker.num_adults} ${availabilityUiHtml('adults')} · ${blocker.num_children} ${availabilityUiHtml('children')} · ${escapeHtml(availabilityCodeText(blocker.status))} · ${escapeHtml(availabilityCodeText(blocker.reason))}</small></span><button class="btn-primary" type="button" data-availability-map-booking="${escapeAttr(blocker.booking_id)}">${availabilityUiHtml('Map booking')}</button></article>`).join('') : `<p>${availabilityUiHtml('No booking mapping blockers.')}</p>`}</section><section class="hotel-workspace-card"><h4>${availabilityUiHtml('Active holds')}</h4>${control.holds.filter((hold) => hold.status === 'active').length ? control.holds.filter((hold) => hold.status === 'active').map((hold) => `<article class="hotel-availability-row"><span><strong>${hold.commitments.length} ${availabilityUiHtml(hold.commitments.length === 1 ? 'commitment' : 'commitments')}</strong><small>${availabilityUiHtml('Expires')} ${escapeHtml(new Date(hold.expires_at).toLocaleString(document.documentElement.lang || 'en'))}</small></span><button class="btn-secondary" type="button" data-availability-release-hold="${escapeAttr(hold.id)}">${availabilityUiHtml('Release hold')}</button></article>`).join('') : `<p>${availabilityUiHtml('No active holds in this range.')}</p>`}</section></div>
+      ${availabilityStayPreviewMarkup(control, range)}
+      <section class="hotel-workspace-card"><h4>${availabilityUiHtml('Recent activity')}</h4>${control.recent_activity.length ? `<ul>${control.recent_activity.map((activity) => `<li><strong>${availabilityUiHtml(activity.action)}</strong> · ${availabilityUiHtml(activity.entity_type.replaceAll('_', ' '))} <small>${escapeHtml(new Date(activity.created_at).toLocaleString(document.documentElement.lang || 'en'))}</small></li>`).join('')}</ul>` : `<p>${availabilityUiHtml('No availability activity yet.')}</p>`}<details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(control.snapshot_token)}</code><code>${escapeHtml(control.snapshot_as_of)}</code></details></section>`;
+    bindCalendarPanel(panel, control.room_rates, range);
+  }
+
+  function bindCalendarPanel(panel, _products, _range) {
+    panel.querySelectorAll('[data-availability-target]').forEach((checkbox) => checkbox.addEventListener('change', () => {
+      state.calendar.selected_product_ids = checkbox.checked
+        ? [...new Set([...state.calendar.selected_product_ids, checkbox.value])]
+        : state.calendar.selected_product_ids.filter((id) => id !== checkbox.value);
+      renderActivePanel();
+    }));
+    panel.querySelectorAll('[data-availability-cell]').forEach((button) => button.addEventListener('click', (event) => chooseCalendarDate(button.dataset.targetId, button.dataset.date, event.shiftKey)));
+    panel.querySelectorAll('[data-calendar-shift]').forEach((button) => button.addEventListener('click', () => shiftCalendar(Number(button.dataset.calendarShift))));
+    panel.querySelector('[data-calendar-today]')?.addEventListener('click', () => { state.calendar.anchor_date = todayIsoDate(); state.calendar.data = null; renderActivePanel(); });
+    panel.querySelector('[data-calendar-view]')?.addEventListener('change', (event) => { state.calendar.view = event.currentTarget.value; state.calendar.data = null; renderActivePanel(); });
+    panel.querySelector('[data-calendar-clear-selection]')?.addEventListener('click', () => { state.calendar.selection_start = null; state.calendar.selection_end = null; state.calendar.selection_anchor = null; renderActivePanel(); });
+    panel.querySelector('[data-calendar-edit-range]')?.addEventListener('click', openCalendarRangeEditor);
+    panel.querySelectorAll('[data-availability-release-hold]').forEach((button) => button.addEventListener('click', () => { void openAvailabilityHoldRelease(button.dataset.availabilityReleaseHold); }));
+    panel.querySelectorAll('[data-availability-map-booking]').forEach((button) => button.addEventListener('click', () => openAvailabilityBookingMap(button.dataset.availabilityMapBooking)));
+    panel.querySelectorAll('[data-availability-release-booking]').forEach((button) => button.addEventListener('click', () => { void openAvailabilityBookingRelease(button.dataset.availabilityReleaseBooking); }));
+    panel.querySelectorAll('[data-availability-block-unit]').forEach((button) => button.addEventListener('click', () => openAvailabilityUnitBlock(button.dataset.availabilityBlockUnit)));
+    panel.querySelectorAll('[data-availability-edit-unit-block]').forEach((button) => button.addEventListener('click', () => openAvailabilityUnitBlock(null, button.dataset.availabilityEditUnitBlock)));
+    panel.querySelectorAll('[data-availability-reactivate-unit-block]').forEach((button) => button.addEventListener('click', () => openAvailabilityUnitBlock(null, button.dataset.availabilityReactivateUnitBlock)));
+    panel.querySelectorAll('[data-availability-disable-unit-block]').forEach((button) => button.addEventListener('click', () => openAvailabilityReasonIntent('unit_calendar_block', 'disable', button.dataset.availabilityDisableUnitBlock, 'Review physical Unit block disable')));
+    panel.querySelectorAll('[data-availability-delete-daily]').forEach((button) => button.addEventListener('click', () => openAvailabilityReasonIntent('daily_inventory', 'delete', null, 'Review daily inventory override delete', { room_type_id: button.dataset.roomTypeId, stay_date: button.dataset.stayDate })));
+    panel.querySelectorAll('[data-availability-disable-override]').forEach((button) => button.addEventListener('click', () => openAvailabilityReasonIntent('operational_override', 'disable', button.dataset.availabilityDisableOverride, 'Review exact override disable')));
+    panel.querySelectorAll('[data-availability-edit-rule]').forEach((button) => button.addEventListener('click', () => openAvailabilityRateRule(button.dataset.availabilityEditRule, false)));
+    panel.querySelectorAll('[data-availability-clear-rule]').forEach((button) => button.addEventListener('click', () => openAvailabilityRateRule(button.dataset.availabilityClearRule, true)));
+    panel.querySelector('[data-availability-stay-form]')?.addEventListener('submit', previewAvailabilityStayFromForm);
+  }
+
+  async function previewAvailabilityDraft(intents, title, options = {}) {
+    let preview;
+    try {
+      const draft = Core.buildAvailabilityDraft(options.control || state.calendar.data, intents);
+      preview = await Repository.previewAvailabilityPlan(draft);
+    } catch (error) {
+      toast(error.userMessage || error.message, 'error');
+      return;
+    }
+    openAvailabilityReview(title, preview, options);
+  }
+
+  function openAvailabilityReview(title, preview, options = {}) {
+    const blockers = preview.blocking_reasons;
+    const canSave = preview.changed && !blockers.length && preview.reviewed_plan.operations.length > 0;
+    state.pendingReview = { availabilityPreview: Core.clone(preview) };
     openModal({
-      title: 'Preview authoritative stay rate',
-      body: `<form id="hotelRatePreviewForm" class="hotel-workspace-form"><p><strong>${escapeHtml(product.room_name)} · ${escapeHtml(product.rate_plan_name)}</strong></p><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Check-in</span><input name="check_in" type="date" value="${escapeAttr(arrival)}" required /></label><label class="admin-form-field"><span>Check-out</span><input name="check_out" type="date" value="${escapeAttr(departure)}" required /></label><label class="admin-form-field"><span>Guests</span><input name="guest_count" type="number" min="1" step="1" value="2" required /></label></div><div data-rate-preview-result aria-live="polite"></div></form>`,
-      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Close</button><button class="btn-primary" type="submit" form="hotelRatePreviewForm">Resolve preview</button>',
+      title,
+      className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
+      body: `<section class="hotel-review-summary"><p>${availabilityUiHtml(preview.changed ? 'The server built the only plan eligible for Save.' : 'No semantic change. No database mutation will be sent.')}</p><dl><div><dt>${availabilityUiHtml('Operations')}</dt><dd>${preview.reviewed_plan.operations.length}</dd></div><div><dt>${availabilityUiHtml('Impacts')}</dt><dd>${preview.impacts.length}</dd></div></dl>${blockers.length ? `<ul class="hotel-readiness-list hotel-readiness-list--blockers">${blockers.map((reason) => `<li>${escapeHtml(availabilityCodeText(reason))}</li>`).join('')}</ul>` : ''}<details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(preview.plan_fingerprint)}</code><code>${escapeHtml(preview.current_control.snapshot_token)}</code></details></section><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>${availabilityUiHtml('Entity')}</th><th>${availabilityUiHtml('Action')}</th><th>${availabilityUiHtml('Affected Rooms / Rates')}</th></tr></thead><tbody>${preview.impacts.map((impact) => { const roomNames = impact.affected_room_type_ids.map((id) => availabilityBusinessName(preview.current_control.room_types.find((room) => room.id === id), id)); const rateNames = impact.affected_room_rate_ids.map((id) => { const rate = preview.current_control.room_rates.find((entry) => entry.id === id); return rate ? availabilityRateLabel(preview.current_control, rate) : id; }); return `<tr><td>${escapeHtml(availabilityCodeText(impact.entity))}</td><td>${escapeHtml(availabilityCodeText(impact.action))}</td><td>${[...roomNames, ...rateNames].map(escapeHtml).join('<br/>')}<small>${escapeHtml(impact.from)} → ${escapeHtml(impact.to)}</small><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary>${[...impact.affected_room_type_ids, ...impact.affected_room_rate_ids].map((id) => `<code>${escapeHtml(id)}</code>`).join('')}</details></td></tr>`; }).join('')}</tbody></table></div><p class="hotel-workspace-safety-note">${availabilityUiHtml('No prices, payments, Partner assignment, architecture, flags or public behavior are part of this plan.')}</p>`,
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button>${canSave ? `<button class="btn-primary" type="button" data-availability-confirm>${availabilityUiHtml('Save reviewed changes')}</button>` : ''}`,
       onReady(overlay) {
-        overlay.querySelector('#hotelRatePreviewForm')?.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          const form = event.currentTarget;
-          const fd = new FormData(form);
-          const resultBox = form.querySelector('[data-rate-preview-result]');
-          resultBox.innerHTML = '<span class="hotel-workspace-spinner" aria-hidden="true"></span> Resolving on server…';
+        overlay.querySelector('[data-availability-confirm]')?.addEventListener('click', async (event) => {
+          const button = event.currentTarget; button.disabled = true; setModalSaving(overlay, true);
+          const correlation = Core.newUuid();
           try {
-            const result = await Repository.resolveRate(product.id, fd.get('check_in'), fd.get('check_out'), Number(fd.get('guest_count')));
-            const total = result.total ?? result.total_price ?? result.quote_total;
-            const nights = result.nights ?? Core.asArray(result.nightly_rates).length;
-            resultBox.innerHTML = `<section class="hotel-rate-preview-result"><span class="hotel-workspace-eyebrow">Authoritative read-only preview</span><h4>${total == null ? 'See nightly breakdown' : escapeHtml(formatMoney(total, product.currency))}</h4><p>${Number(nights || 0)} night${Number(nights) === 1 ? '' : 's'} · ${escapeHtml(result.status || (result.ok === false ? 'Blocked' : 'Resolved'))}</p><pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre></section>`;
+            const result = await Repository.applyAvailabilityControlPlan(preview.reviewed_plan, correlation, `availability:${correlation}`);
+            state.calendar.data = options.restoreViewport ? null : result.availability_control;
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            renderActivePanel();
+            toast(availabilityUiText(result.replayed ? 'The reviewed result was already saved.' : 'Availability changes saved.'), 'success');
           } catch (error) {
-            resultBox.innerHTML = `<p class="hotel-property-card__blocker">${escapeHtml(error.message || 'Authoritative preview failed closed.')}</p>`;
+            setModalSaving(overlay, false); button.disabled = false;
+            toast(error.userMessage || (error.isAmbiguousOutcome ? availabilityUiText('Save result is ambiguous. Reload; this plan will not be retried.') : error.message), error.isAmbiguousOutcome ? 'warning' : 'error');
           }
         });
       },
     });
+  }
+
+  async function previewAvailabilityStayFromForm(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    const fd = new FormData(form);
+    const childText = String(fd.get('child_ages') || '').trim();
+    const childAges = childText ? childText.split(',').map((value) => Number(value.trim())) : [];
+    const optionalId = (name) => String(fd.get(name) || '').trim() || null;
+    const request = {
+      contract_version: 'hotels_v2_admin_d_stay_preview_request_v1',
+      hotel_id: state.calendar.data.hotel_id,
+      arrival_date: String(fd.get('arrival_date') || ''),
+      departure_date: String(fd.get('departure_date') || ''),
+      adults: Number(fd.get('adults')),
+      child_ages: childAges,
+      room_type_id: optionalId('room_type_id'),
+      room_rate_id: optionalId('room_rate_id'),
+      rate_plan_id: optionalId('rate_plan_id'),
+      allocation_rule_id: optionalId('allocation_rule_id'),
+      availability_snapshot_token: '',
+    };
+    button.disabled = true;
+    try {
+      const stayControl = await Repository.getAvailabilityControl(request.hotel_id, request.arrival_date, request.departure_date);
+      request.availability_snapshot_token = stayControl.snapshot_token;
+      const result = await Repository.previewAvailabilityStay(request);
+      const currency = result.pricing.currency || state.calendar.data.property.currency;
+      openModal({
+        title: availabilityUiText('Server stay preview'),
+        className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
+        body: `<section class="hotel-review-summary"><p>${result.ok ? availabilityUiHtml('Configuration is complete for this stay.') : availabilityUiHtml('This stay is blocked by the current reviewed configuration.')}</p><dl><div><dt>${availabilityUiHtml('Total')}</dt><dd>${result.pricing.customer_total === null ? availabilityUiHtml('Not calculated') : escapeHtml(formatMoney(result.pricing.customer_total, currency))}</dd></div><div><dt>${availabilityUiHtml('Requested units')}</dt><dd>${result.availability.requested_units}</dd></div><div><dt>${availabilityUiHtml('Available for stay')}</dt><dd>${result.availability.available_for_stay ? availabilityUiHtml('Yes') : availabilityUiHtml('No')}</dd></div></dl>${result.blocking_reasons.length ? `<ul class="hotel-readiness-list hotel-readiness-list--blockers">${result.blocking_reasons.map((reason) => `<li>${escapeHtml(availabilityCodeText(reason))}</li>`).join('')}</ul>` : ''}</section><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>${availabilityUiHtml('Room')}</th><th>${availabilityUiHtml('Nightly availability')}</th><th>${availabilityUiHtml('Departure boundary')}</th></tr></thead><tbody>${result.availability.rooms.map((room) => { const rate = state.calendar.data.room_rates.find((entry) => entry.id === room.room_rate_id); return `<tr><td>${escapeHtml(rate ? availabilityRateLabel(state.calendar.data, rate) : room.room_type_id)}<small>#${room.unit_sequence}</small></td><td>${room.nights.map((night) => `${escapeHtml(night.stay_date)}: ${night.available_units}`).join('<br/>')}</td><td>${room.departure_boundary_product.closed_to_departure ? 'CTD' : availabilityUiHtml('Open')}</td></tr>`; }).join('')}</tbody></table></div><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(result.configuration_fingerprint)}</code><code>${escapeHtml(result.availability.snapshot_token)}</code><pre>${escapeHtml(JSON.stringify(result.pricing.nightly_breakdown, null, 2))}</pre></details><p class="hotel-workspace-safety-note">${availabilityUiHtml('Preview only: no booking, inventory hold or public activation is created.')}</p>`,
+        footer: `<button class="btn-primary" type="button" data-hotel-modal-close>${availabilityUiHtml('Close')}</button>`,
+      });
+    } catch (error) {
+      toast(error.userMessage || error.message, 'error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function openCalendarRangeEditor() {
+    const control = state.calendar.data;
+    const selected = new Set(state.calendar.selected_product_ids);
+    const rooms = control.room_types.filter((room) => selected.has(room.id));
+    const rates = control.room_rates.filter((rate) => selected.has(rate.id));
+    const from = state.calendar.selection_start;
+    const to = state.calendar.selection_end || from;
+    if ((!rooms.length && !rates.length) || !from || !to) { toast(availabilityUiText('Select a Room or Room Rate and dates first.'), 'error'); return; }
+    openModal({
+      title: availabilityUiText('Edit selected range'), className: 'hotel-workspace-modal--wide',
+      body: `<form id="hotelAvailabilityRangeForm" class="hotel-workspace-form"><div class="hotel-calendar-edit-context"><div><span>${availabilityUiHtml('Rooms')}</span><strong>${rooms.length}</strong></div><div><span>${availabilityUiHtml('Room Rates')}</span><strong>${rates.length}</strong></div><div><span>${availabilityUiHtml('Date range')}</span><strong>${escapeHtml(from)} → ${escapeHtml(to)}</strong></div></div><fieldset><legend>${availabilityUiHtml('Inventory')}</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${availabilityUiHtml('Sellable units')}</span><select name="sellable_units_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set">${availabilityUiHtml('Set')}</option><option value="clear">${availabilityUiHtml('Clear / inherit')}</option></select><input name="sellable_units" type="number" min="0" step="1" value="0"/></label><label class="admin-form-field"><span>${availabilityUiHtml('Room closure')}</span><select name="closed_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set_true">${availabilityUiHtml('Set closed')}</option><option value="set_false">${availabilityUiHtml('Set open')}</option><option value="clear">${availabilityUiHtml('Clear / inherit')}</option></select></label></div></fieldset><fieldset><legend>${availabilityUiHtml('Room Rate restrictions')}</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${availabilityUiHtml('Exact-date closure')}</span><select name="rate_closed_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set_true">${availabilityUiHtml('Set closed')}</option><option value="set_false">${availabilityUiHtml('Set open')}</option><option value="clear">${availabilityUiHtml('Clear / inherit')}</option></select></label><label class="admin-form-field"><span>${availabilityUiHtml('Closed to arrival')}</span><select name="cta_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set_true">${availabilityUiHtml('Close')}</option><option value="set_false">${availabilityUiHtml('Allow')}</option><option value="clear">${availabilityUiHtml('Clear')}</option></select></label><label class="admin-form-field"><span>${availabilityUiHtml('Closed to departure')}</span><select name="ctd_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set_true">${availabilityUiHtml('Close')}</option><option value="set_false">${availabilityUiHtml('Allow')}</option><option value="clear">${availabilityUiHtml('Clear')}</option></select></label></div></fieldset><fieldset><legend>${availabilityUiHtml('Temporary expiry')}</legend><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${availabilityUiHtml('Inventory expiry')}</span><select name="inventory_expiry_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set">${availabilityUiHtml('Set')}</option><option value="clear">${availabilityUiHtml('Clear')}</option></select><input name="inventory_expiry" type="datetime-local"/></label><label class="admin-form-field"><span>${availabilityUiHtml('Restriction expiry')}</span><select name="restriction_expiry_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set">${availabilityUiHtml('Set')}</option><option value="clear">${availabilityUiHtml('Clear')}</option></select><input name="restriction_expiry" type="datetime-local"/></label></div></fieldset><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" type="text" maxlength="500" required/></label><p class="hotel-workspace-safety-note">${availabilityUiHtml('No change omits the field. CLEAR sends null only after this explicit Review. The server expands weekdays into exact-date reviewed operations and shows every affected product before Save.')}</p></form>`,
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="hotelAvailabilityRangeForm">${availabilityUiHtml('Review')}</button>`,
+      onReady(overlay) {
+        overlay.querySelector('#hotelAvailabilityRangeForm')?.addEventListener('submit', (event) => {
+          event.preventDefault(); const fd = new FormData(event.currentTarget); const reason = String(fd.get('reason') || '');
+          const mode = (name) => String(fd.get(name) || 'no_change');
+          const booleanPatch = (name) => mode(name) === 'clear' ? [null, 'clear'] : [mode(name) === 'set_true', 'set'];
+          const expiryPatch = (modeName, valueName) => {
+            if (mode(modeName) === 'no_change') return { present: false, value: undefined };
+            if (mode(modeName) === 'clear') return { present: true, value: null };
+            const parsed = new Date(String(fd.get(valueName) || ''));
+            if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) throw new Error(availabilityUiText('Expiry must be a valid future instant.'));
+            return { present: true, value: parsed.toISOString() };
+          };
+          const intents = [];
+          let inventoryExpiry; let restrictionExpiry;
+          try { inventoryExpiry = expiryPatch('inventory_expiry_mode', 'inventory_expiry'); restrictionExpiry = expiryPatch('restriction_expiry_mode', 'restriction_expiry'); }
+          catch (error) { toast(error.message, 'error'); return; }
+          if (mode('sellable_units_mode') !== 'no_change' || mode('closed_mode') !== 'no_change' || inventoryExpiry.present) {
+            const sellable = Number(fd.get('sellable_units'));
+            if (mode('sellable_units_mode') === 'set' && (!Number.isInteger(sellable) || sellable < 0)) { toast(availabilityUiText('Sellable units must be a whole number.'), 'error'); return; }
+            rooms.forEach((room) => enumerateCalendarDates(from, to).forEach((stayDate) => {
+              const closed = booleanPatch('closed_mode');
+              const payload = { room_type_id: room.id, stay_date: stayDate, reason };
+              if (inventoryExpiry.present) payload.expires_at = inventoryExpiry.value;
+              if (mode('sellable_units_mode') !== 'no_change') Object.assign(payload, { sellable_units: mode('sellable_units_mode') === 'clear' ? null : sellable, sellable_units_mode: mode('sellable_units_mode') === 'clear' ? 'clear' : 'set' });
+              if (mode('closed_mode') !== 'no_change') Object.assign(payload, { closed: closed[1] === 'clear' ? null : closed[0], closed_mode: closed[1] });
+              intents.push({ entity: 'daily_inventory', action: 'upsert', id: null, payload });
+            }));
+          }
+          if (['rate_closed_mode', 'cta_mode', 'ctd_mode'].some((name) => mode(name) !== 'no_change') || restrictionExpiry.present) {
+            const closed = booleanPatch('rate_closed_mode'); const cta = booleanPatch('cta_mode'); const ctd = booleanPatch('ctd_mode');
+            rates.forEach((rate) => {
+              const payload = { room_rate_id: rate.id, valid_from: from, valid_to: to, weekdays: [1, 2, 3, 4, 5, 6, 7], reason };
+              if (restrictionExpiry.present) payload.availability_expires_at = restrictionExpiry.value;
+              if (mode('rate_closed_mode') !== 'no_change') Object.assign(payload, { closed: closed[0], closed_mode: closed[1] });
+              if (mode('cta_mode') !== 'no_change') Object.assign(payload, { closed_to_arrival: cta[0], closed_to_arrival_mode: cta[1] });
+              if (mode('ctd_mode') !== 'no_change') Object.assign(payload, { closed_to_departure: ctd[0], closed_to_departure_mode: ctd[1] });
+              intents.push({ entity: 'operational_override_range', action: 'expand', id: null, payload });
+            });
+          }
+          if (!intents.length) { toast(availabilityUiText('Choose at least one structured change.'), 'error'); return; }
+          closeModal({ restoreFocus: false }); void previewAvailabilityDraft(intents, availabilityUiText('Review changes'));
+        });
+      },
+    });
+  }
+
+  async function openAvailabilityHoldRelease(holdId) {
+    const viewportControl = state.calendar.data;
+    const viewportHold = viewportControl.holds.find((hold) => hold.id === holdId && hold.status === 'active');
+    if (!viewportHold?.active_commitment_from || !viewportHold.active_commitment_to) return;
+    let control;
+    try {
+      control = await Repository.getAvailabilityControl(
+        viewportControl.hotel_id, viewportHold.active_commitment_from, viewportHold.active_commitment_to,
+      );
+    } catch (error) {
+      toast(error.userMessage || error.message, 'error');
+      return;
+    }
+    const currentHold = control.holds.find((hold) => hold.id === holdId && hold.status === 'active');
+    if (!currentHold) { toast(availabilityUiText('No active holds in this range.'), 'error'); return; }
+    openAvailabilityReasonIntent('hold', 'release', holdId, 'Review hold release', {}, { control, restoreViewport: true });
+  }
+
+  function openAvailabilityUnitBlock(unitId, blockId = null) {
+    const existing = blockId ? state.calendar.data.unit_calendar_blocks.find((row) => row.id === blockId) : null;
+    const unit = state.calendar.data.units.find((row) => row.id === (existing?.unit_id || unitId));
+    if (!unit) return;
+    const id = existing?.id || Core.newUuid(); const range = activeCalendarRange();
+    openModal({ title: availabilityUiText(existing ? 'Edit physical Unit block' : 'Review physical Unit block'), body: `<form id="hotelAvailabilityUnitBlockForm" class="hotel-workspace-form"><label class="admin-form-field"><span>${availabilityUiHtml('From')}</span><input name="from" type="date" value="${escapeAttr(existing?.from_date || range.start)}" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('To')}</span><input name="to" type="date" value="${escapeAttr(existing?.to_date || range.end)}" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Expiry')}</span><select name="expiry_mode"><option value="no_change">${availabilityUiHtml('No change')}</option><option value="set">${availabilityUiHtml('Set')}</option><option value="clear">${availabilityUiHtml('Clear')}</option></select><input name="expiry" type="datetime-local"/></label><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" type="text" maxlength="500" required value="${escapeAttr(existing?.reason || '')}"/></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="hotelAvailabilityUnitBlockForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('form')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const expiryMode = String(fd.get('expiry_mode')); let expiresAt = existing?.expires_at || null; if (expiryMode === 'clear') expiresAt = null; if (expiryMode === 'set') { const parsed = new Date(String(fd.get('expiry') || '')); if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) { toast(availabilityUiText('Expiry must be a valid future instant.'), 'error'); return; } expiresAt = parsed.toISOString(); } const intent = { entity: 'unit_calendar_block', action: existing ? 'update' : 'create', id, payload: { unit_id: unit.id, room_type_id: unit.room_type_id, from_date: String(fd.get('from')), to_date: String(fd.get('to')), blocked: true, reason: String(fd.get('reason') || ''), expires_at: expiresAt, is_active: true } }; closeModal({ restoreFocus: false }); void previewAvailabilityDraft([intent], availabilityUiText(existing ? 'Review physical Unit block update' : 'Review physical Unit block')); }); } });
+  }
+
+  function openAvailabilityReasonIntent(entity, action, id, title, payloadBase = {}, previewOptions = {}) {
+    openModal({ title: availabilityUiText(title), body: `<form id="hotelAvailabilityReasonForm" class="hotel-workspace-form"><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" type="text" maxlength="500" required/></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="hotelAvailabilityReasonForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('form')?.addEventListener('submit', (event) => { event.preventDefault(); const reason = String(new FormData(event.currentTarget).get('reason') || ''); closeModal({ restoreFocus: false }); void previewAvailabilityDraft([{ entity, action, id, payload: { ...payloadBase, reason } }], availabilityUiText(title), previewOptions); }); } });
+  }
+
+  async function openAvailabilityBookingRelease(bookingId) {
+    const viewportControl = state.calendar.data;
+    const viewportRows = viewportControl.booking_allocations
+      .filter((row) => row.booking_id === bookingId && row.status === 'active');
+    const booking = viewportRows[0];
+    if (!booking) return;
+    const lastNight = new Date(`${booking.departure_date}T00:00:00Z`);
+    lastNight.setUTCDate(lastNight.getUTCDate() - 1);
+    const from = [booking.arrival_date, ...viewportRows.map((row) => row.active_commitment_from).filter(Boolean)].sort()[0];
+    const to = [lastNight.toISOString().slice(0, 10), ...viewportRows.map((row) => row.active_commitment_to).filter(Boolean)].sort().slice(-1)[0];
+    let control;
+    try {
+      control = await Repository.getAvailabilityControl(
+        viewportControl.hotel_id, from, to,
+      );
+    } catch (error) {
+      toast(error.userMessage || error.message, 'error');
+      return;
+    }
+    const currentRows = control.booking_allocations
+      .filter((row) => row.booking_id === bookingId && row.status === 'active');
+    if (!currentRows.length) {
+      toast(availabilityUiText('No active booking allocations.'), 'error');
+      return;
+    }
+    openAvailabilityReasonIntent('booking_allocation', 'release', bookingId,
+      'Review booking allocation release', { booking_id: bookingId }, { control, restoreViewport: true });
+  }
+
+  function openAvailabilityRateRule(ruleId, clear) {
+    const rule = state.calendar.data.rate_rule_operational_restrictions.find((row) => row.id === ruleId);
+    if (!rule) return;
+    if (clear) { openAvailabilityReasonIntent('rate_rule_operational_restriction', 'clear', rule.id, 'Review shared Rate Rule restriction clear'); return; }
+    openModal({ title: availabilityUiText('Edit shared Rate Rule availability fields'), body: `<form id="hotelAvailabilityRateRuleForm" class="hotel-workspace-form"><p>${escapeHtml(rule.valid_from)} → ${escapeHtml(rule.valid_to)}. ${availabilityUiHtml('Price, stay limits, dates, weekdays, priority and lifecycle are locked.')}</p><label class="admin-checkbox-field"><input name="cta" type="checkbox" ${rule.closed_to_arrival ? 'checked' : ''}/><span>${availabilityUiHtml('Closed to arrival')}</span></label><label class="admin-checkbox-field"><input name="ctd" type="checkbox" ${rule.closed_to_departure ? 'checked' : ''}/><span>${availabilityUiHtml('Closed to departure')}</span></label><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" type="text" maxlength="500" required/></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="hotelAvailabilityRateRuleForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('form')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const intent = { entity: 'rate_rule_operational_restriction', action: 'update', id: rule.id, payload: { closed_to_arrival: fd.has('cta'), closed_to_departure: fd.has('ctd'), reason: String(fd.get('reason') || '') } }; closeModal({ restoreFocus: false }); void previewAvailabilityDraft([intent], availabilityUiText('Review shared Rate Rule availability update')); }); } });
+  }
+
+  async function openAvailabilityBookingMap(bookingId) {
+    const viewportControl = state.calendar.data;
+    const viewportBlocker = viewportControl.unmapped_booking_blockers.find((row) => row.booking_id === bookingId);
+    if (!viewportBlocker) return;
+    const viewportRows = viewportControl.booking_allocations
+      .filter((row) => row.booking_id === bookingId && row.status === 'active');
+    const lastNight = new Date(`${viewportBlocker.departure_date}T00:00:00Z`);
+    lastNight.setUTCDate(lastNight.getUTCDate() - 1);
+    const from = [viewportBlocker.arrival_date, ...viewportRows.map((row) => row.active_commitment_from).filter(Boolean)].sort()[0];
+    const to = [lastNight.toISOString().slice(0, 10), ...viewportRows.map((row) => row.active_commitment_to).filter(Boolean)].sort().slice(-1)[0];
+    let control;
+    try {
+      control = await Repository.getAvailabilityControl(viewportControl.hotel_id, from, to);
+    } catch (error) {
+      toast(error.userMessage || error.message, 'error');
+      return;
+    }
+    const blocker = control.unmapped_booking_blockers.find((row) => row.booking_id === bookingId);
+    if (!blocker) return;
+    const allocationRow = () => `<fieldset class="hotel-availability-allocation-row"><legend>${availabilityUiHtml('Exact allocation')}</legend><label class="admin-form-field"><span>${availabilityUiHtml('Room Rate')}</span><select name="room_rate_id" required>${control.room_rates.map((rate) => `<option value="${escapeAttr(rate.id)}" data-room-type-id="${escapeAttr(rate.room_type_id)}">${escapeHtml(availabilityRateLabel(control, rate))}</option>`).join('')}</select></label><label class="admin-form-field"><span>${availabilityUiHtml('Units required')}</span><input name="units_required" type="number" min="1" max="100" value="1" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Physical guest counts')}</span><input name="allocated_guest_counts" placeholder="3, 2" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Pricing guest counts')}</span><input name="pricing_guest_counts" placeholder="2, 2" required/></label><label class="admin-form-field"><span>${availabilityUiHtml('Physical Units')}</span><select name="unit_ids" multiple>${control.units.filter((unit) => unit.status === 'active').map((unit) => `<option value="${escapeAttr(unit.id)}" data-room-type-id="${escapeAttr(unit.room_type_id)}">${escapeHtml(availabilityBusinessName(unit, unit.code))}</option>`).join('')}</select><small data-unit-guidance></small></label><button class="btn-secondary" type="button" data-remove-allocation>${availabilityUiHtml('Remove allocation')}</button></fieldset>`;
+    const bindAllocationRows = (overlay) => {
+      overlay.querySelectorAll('.hotel-availability-allocation-row').forEach((row) => {
+        const rateSelect = row.querySelector('[name="room_rate_id"]');
+        const unitSelect = row.querySelector('[name="unit_ids"]');
+        const syncUnits = () => {
+          const rate = control.room_rates.find((entry) => entry.id === rateSelect.value);
+          const room = control.room_types.find((entry) => entry.id === rate?.room_type_id);
+          [...unitSelect.options].forEach((option) => { const related = room?.inventory_mode === 'unitized' && option.dataset.roomTypeId === room.id; option.hidden = !related; option.disabled = !related; if (!related) option.selected = false; });
+          unitSelect.disabled = room?.inventory_mode !== 'unitized';
+          row.querySelector('[data-unit-guidance]').textContent = room?.inventory_mode === 'unitized' ? availabilityUiText('Select exact active Units for this Room.') : availabilityUiText('Pooled inventory uses no physical Unit IDs.');
+        };
+        rateSelect.onchange = syncUnits; syncUnits();
+        row.querySelector('[data-remove-allocation]').onclick = () => row.remove();
+      });
+    };
+    openModal({ title: availabilityUiText('Map exact booking allocation'), className: 'hotel-workspace-modal--wide', body: `<form id="hotelAvailabilityBookingMapForm" class="hotel-workspace-form"><p>${blocker.num_adults} ${availabilityUiHtml('adults')} · ${blocker.num_children} ${availabilityUiHtml('children')} · ${escapeHtml(blocker.arrival_date)} → ${escapeHtml(blocker.departure_date)}</p><div data-allocation-rows>${allocationRow()}</div><button class="btn-secondary" type="button" data-add-allocation>+ ${availabilityUiHtml('Allocation')}</button></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="hotelAvailabilityBookingMapForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { const rows = overlay.querySelector('[data-allocation-rows]'); bindAllocationRows(overlay); overlay.querySelector('[data-add-allocation]')?.addEventListener('click', () => { rows.insertAdjacentHTML('beforeend', allocationRow()); bindAllocationRows(overlay); }); overlay.querySelector('form')?.addEventListener('submit', (event) => { event.preventDefault(); try { const allocations = [...rows.querySelectorAll('.hotel-availability-allocation-row')].map((row) => { const rate = control.room_rates.find((entry) => entry.id === row.querySelector('[name="room_rate_id"]').value); if (!rate) throw new Error(availabilityUiText('Choose an exact Room Rate.')); const counts = (name) => row.querySelector(`[name="${name}"]`).value.split(',').map((value) => Number(value.trim())); return { id: Core.newUuid(), room_type_id: rate.room_type_id, rate_plan_id: rate.rate_plan_id, room_rate_id: rate.id, unit_ids: [...row.querySelector('[name="unit_ids"]').selectedOptions].map((option) => option.value), units_required: Number(row.querySelector('[name="units_required"]').value), allocated_guest_counts: counts('allocated_guest_counts'), pricing_guest_counts: counts('pricing_guest_counts') }; }); const intent = { entity: 'booking_allocation', action: 'map', id: null, payload: { booking_id: blocker.booking_id, booking_updated_at: blocker.booking_updated_at, allocations } }; closeModal({ restoreFocus: false }); void previewAvailabilityDraft([intent], availabilityUiText('Review booking allocation'), { control, restoreViewport: true }); } catch (error) { toast(error.message, 'error'); } }); } });
   }
 
   function h3ExactId(existing) {
@@ -4002,65 +7867,31 @@
     return `${formatMoney(policy.amount, policy.currency)} / allocated room / night`;
   }
 
-  function sevenKamaresAllocationRule(configuration, code, minGuests, maxGuests, mode, allocations, sortOrder) {
-    const existing = configuration.allocation_rules.find((rule) => rule.code === code);
-    const existingItems = new Map(Core.asArray(existing?.items).map((item) => [item.room_type_id, item]));
-    return {
-      ...(existing || {}), id: h3ExactId(existing), hotel_id: configuration.hotel_id, code,
-      min_guest_count: minGuests, max_guest_count: maxGuests, allocation_mode: mode,
-      is_active: true, review_status: 'reviewed', sort_order: sortOrder,
-      version: existing?.version || 1, items_fingerprint: existing?.items_fingerprint || null,
-      items: allocations.map((allocation, index) => {
-        const current = existingItems.get(allocation.room_type_id);
-        return {
-          ...(current || {}), id: h3ExactId(current), room_type_id: allocation.room_type_id,
-          units_required: allocation.units_required || 1,
-          allocated_guest_count: allocation.allocated_guest_count ?? null,
-          pricing_guest_count: allocation.pricing_guest_count ?? null,
-          sort_order: (index + 1) * 100,
-        };
-      }),
-    };
-  }
-
   function sevenKamaresH3Template(configuration, options = {}) {
     const base = Core.normalizeH3Configuration(configuration);
-    const pricingPromotionReviewed = options.pricingPromotionReviewed === true;
-    const upperId = Core.SEVEN_ARCHES_SHADOW_IDS.upper_room_type;
-    const groundId = Core.SEVEN_ARCHES_SHADOW_IDS.ground_room_type;
-    const choiceRooms = [
-      { room_type_id: upperId, units_required: 1, allocated_guest_count: null, pricing_guest_count: null },
-      { room_type_id: groundId, units_required: 1, allocated_guest_count: null, pricing_guest_count: null },
-    ];
-    const split = (upperGuests, groundGuests, upperPricingGuests, groundPricingGuests) => [
-      { room_type_id: upperId, units_required: 1, allocated_guest_count: upperGuests, pricing_guest_count: pricingPromotionReviewed ? upperPricingGuests : null },
-      { room_type_id: groundId, units_required: 1, allocated_guest_count: groundGuests, pricing_guest_count: pricingPromotionReviewed ? groundPricingGuests : null },
-    ];
+    void options;
     const paymentCode = 'seven-kamares-request-confirmation';
     const payment = base.payment_policies.find((entry) => entry.code === paymentCode);
     const currentTerms = new Map(Core.asArray(payment?.terms).map((term) => [term.sequence, term]));
     const commissionCode = 'seven-kamares-platform-commission';
     const commission = base.commission_policies.find((entry) => entry.code === commissionCode);
     const manual = base.calendar_sources.find((entry) => entry.source_type === 'manual');
+    const reviewedCurrency = base.property.currency || state.workspace.property.currency;
+    if (!/^[A-Z]{3}$/.test(String(reviewedCurrency || ''))) {
+      throw new Error('A reviewed property currency is required before preparing payment or commission terms.');
+    }
     return Core.normalizeH3Configuration({
       ...base,
-      property: { ...base.property, minimum_stay_nights: 2 },
-      pricing_schedules: base.pricing_schedules.map((entry) => ({ ...entry, minimum_billable_occupancy: 2 })),
-      rate_plans: base.rate_plans.map((entry) => ({
-        ...entry,
-        price_inclusions: Core.normalizeStringSet([...entry.price_inclusions, 'cleaning', 'taxes']),
-      })),
-      allocation_rules: [
-        sevenKamaresAllocationRule(base, 'guests-1-4-choice', 1, 4, 'customer_choice', choiceRooms, 100),
-        sevenKamaresAllocationRule(base, 'guests-5-bundle', 5, 5, 'required_bundle', split(3, 2, 2, 2), 200),
-        sevenKamaresAllocationRule(base, 'guests-6-bundle', 6, 6, 'required_bundle', split(3, 3, 3, 3), 300),
-        sevenKamaresAllocationRule(base, 'guests-7-bundle', 7, 7, 'required_bundle', split(4, 3, 4, 4), 400),
-        sevenKamaresAllocationRule(base, 'guests-8-bundle', 8, 8, 'required_bundle', split(4, 4, 4, 4), 500),
-      ],
+      // ADMIN-C is the sole pricing/allocation mutation plane. This older
+      // setup template preserves those exact rows byte-for-byte.
+      property: Core.clone(base.property),
+      pricing_schedules: Core.clone(base.pricing_schedules),
+      rate_plans: Core.clone(base.rate_plans),
+      allocation_rules: Core.clone(base.allocation_rules),
       payment_policies: [{
         ...(payment || {}), id: h3ExactId(payment), hotel_id: base.hotel_id, code: paymentCode,
         name_i18n: { pl: 'Płatność po akceptacji partnera', en: 'Payment after partner acceptance', he: 'תשלום לאחר אישור השותף' },
-        currency: base.property.currency || state.workspace.property.currency || 'EUR',
+        currency: reviewedCurrency,
         is_active: true, review_status: 'reviewed', version: payment?.version || 1,
         terms_fingerprint: payment?.terms_fingerprint || null,
         terms: [
@@ -4079,7 +7910,7 @@
       commission_policies: [{
         ...(commission || {}), id: h3ExactId(commission), hotel_id: base.hotel_id, code: commissionCode,
         commission_mode: 'per_allocated_room_per_night', amount: 10,
-        currency: base.property.currency || state.workspace.property.currency || 'EUR',
+        currency: reviewedCurrency,
         is_active: true, review_status: 'reviewed', version: commission?.version || 1,
       }],
       calendar_sources: [{
@@ -4101,36 +7932,19 @@
     const normalized = Core.normalizeH3Configuration(configuration);
     const useTemplate = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
       && (options.forceTemplate === true || !h3ConfigurationHasReviewedRows(normalized));
-    const pricingPromotionReviewed = state.pricingPromotionPreview?.promotion?.status === 'reviewed';
-    return useTemplate ? sevenKamaresH3Template(normalized, { pricingPromotionReviewed }) : normalized;
+    return useTemplate ? sevenKamaresH3Template(normalized) : normalized;
   }
 
   function h3AllocationRuleEditorMarkup(rule) {
-    const rooms = state.workspace.room_types.filter((room) => room.status !== 'disabled');
-    const itemMap = new Map(rule.items.map((item) => [item.room_type_id, item]));
-    const pricingLocked = state.workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID;
-    const pricingReviewed = state.pricingPromotionPreview?.promotion?.status === 'reviewed';
-    return `<section class="hotel-h3-allocation-rule" data-h3-allocation-rule data-rule-id="${escapeAttr(rule.id)}" data-rule-code="${escapeAttr(rule.code)}">
-      <header><div><span class="hotel-workspace-eyebrow">Guest allocation</span><strong>${escapeHtml(rule.code)}</strong></div><button class="btn-secondary hotel-danger-action" type="button" data-remove-h3-rule>${rule.created_at ? 'Disable rule' : 'Remove draft'}</button></header>
-      <div class="hotel-workspace-form-grid">
-        <label class="admin-form-field"><span>From guests</span><input data-h3-rule-min type="number" min="1" max="50" step="1" value="${rule.min_guest_count}" required /></label>
-        <label class="admin-form-field"><span>To guests</span><input data-h3-rule-max type="number" min="1" max="50" step="1" value="${rule.max_guest_count}" required /></label>
-        <label class="admin-form-field"><span>Allocation behavior</span><select data-h3-rule-mode><option value="customer_choice" ${rule.allocation_mode === 'customer_choice' ? 'selected' : ''}>Customer chooses one room</option><option value="required_bundle" ${rule.allocation_mode === 'required_bundle' ? 'selected' : ''}>Required bundle · exact rooms</option></select></label>
-        <label class="admin-checkbox-field"><input data-h3-rule-active type="checkbox" ${rule.is_active ? 'checked' : ''} /><span>Enabled in shadow configuration</span></label>
-      </div>
-      <div class="hotel-h3-room-allocation-list">${rooms.map((room) => {
-        const item = itemMap.get(room.id);
-        return `<div class="hotel-h3-room-allocation" data-h3-room-allocation data-room-id="${escapeAttr(room.id)}" data-item-id="${escapeAttr(item?.id || Core.newUuid())}">
-          <label class="admin-checkbox-field"><input data-h3-room-selected type="checkbox" ${item ? 'checked' : ''} /><span>${escapeHtml(h3RoomName(room))}</span></label>
-          <label class="admin-form-field"><span>Units</span><input data-h3-room-units type="number" min="1" max="${Math.max(1, room.base_inventory_count)}" step="1" value="${item?.units_required || 1}" /></label>
-          <label class="admin-form-field" data-h3-allocated-guests-field><span>Physical guests</span><input data-h3-room-guests type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.allocated_guest_count ?? ''}" /></label>
-          <label class="admin-form-field" data-h3-pricing-guests-field><span>Pricing occupancy</span><input data-h3-room-pricing-guests ${pricingLocked ? 'data-h3-pricing-locked="1" readonly aria-readonly="true"' : ''} type="number" min="1" max="${Math.max(1, room.effective_max_occupancy)}" step="1" value="${item?.pricing_guest_count ?? ''}" placeholder="${pricingLocked && !pricingReviewed ? 'Dedicated Review pending' : ''}" /><small>${pricingLocked ? (pricingReviewed ? 'Preserved from the dedicated 70-case pricing Review.' : 'Set only by the dedicated legacy pricing Review; Booking setup cannot promote it.') : 'May differ from the physical split only when explicitly reviewed for legacy parity.'}</small></label>
-          <small>Capacity ${room.effective_max_occupancy} · inventory ${room.base_inventory_count}</small>
-        </div>`;
-      }).join('')}</div>
-    </section>`;
+    const items = Core.asArray(rule.items).map((item) => {
+      const room = state.workspace.room_types.find((candidate) => candidate.id === item.room_type_id);
+      return `<li><strong>${escapeHtml(h3RoomName(room))}</strong><span>${Number(item.units_required)} unit${Number(item.units_required) === 1 ? '' : 's'} · physical ${escapeHtml(Core.asArray(item.allocated_guest_counts).join(' + ') || item.allocated_guest_count || 'customer choice')} · priced ${escapeHtml(Core.asArray(item.pricing_guest_counts).join(' + ') || item.pricing_guest_count || 'requested occupancy')}</span></li>`;
+    });
+    return `<article class="hotel-workspace-card hotel-h3-allocation-rule" data-h3-allocation-summary>
+      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(rule.code)}</span><strong>${Number(rule.min_guest_count)}–${Number(rule.max_guest_count)} guests · ${escapeHtml(String(rule.allocation_mode).replaceAll('_', ' '))}</strong></div><span class="hotel-workspace-status hotel-workspace-status--${rule.is_active ? 'success' : 'warning'}">${rule.is_active ? 'ENABLED SHADOW' : 'INACTIVE'}</span></header>
+      <ul>${items.join('') || '<li>No exact Room Type items</li>'}</ul>
+    </article>`;
   }
-
   function h3PaymentTermMarkup(term) {
     const dueLabels = { at_booking: 'At booking', after_partner_acceptance: 'After partner acceptance', before_arrival: 'Before arrival', on_arrival: 'On arrival' };
     const amountLabels = { percent_total: 'Percent of total', flat: 'Flat amount', remaining_balance: 'Remaining balance' };
@@ -4151,17 +7965,6 @@
     const renumberTerms = () => form.querySelectorAll('[data-h3-payment-term]').forEach((term, index) => {
       const label = term.querySelector('[data-h3-term-number]'); if (label) label.textContent = String(index + 1);
     });
-    const updateRuleMode = (ruleElement) => {
-      const bundle = ruleElement.querySelector('[data-h3-rule-mode]')?.value === 'required_bundle';
-      ruleElement.querySelectorAll('[data-h3-allocated-guests-field]').forEach((field) => { field.hidden = !bundle; });
-      ruleElement.querySelectorAll('[data-h3-pricing-guests-field]').forEach((field) => { field.hidden = !bundle; });
-    };
-    form.querySelectorAll('[data-h3-allocation-rule]').forEach((rule) => {
-      if (rule.dataset.h3Bound === '1') return;
-      rule.dataset.h3Bound = '1'; updateRuleMode(rule);
-      rule.querySelector('[data-h3-rule-mode]')?.addEventListener('change', () => updateRuleMode(rule));
-      rule.querySelector('[data-remove-h3-rule]')?.addEventListener('click', () => rule.remove());
-    });
     const updateTermMode = (term) => {
       const remaining = term.querySelector('[data-h3-term-mode]')?.value === 'remaining_balance';
       const field = term.querySelector('[data-h3-term-amount-field]');
@@ -4179,57 +7982,13 @@
   function readH3ConfigurationForm(form, draft) {
     const next = Core.clone(draft);
     const persisted = Core.normalizeH3Configuration(state.h3Configuration);
-    const minimumStayValue = String(form.elements.minimum_stay_nights.value || '').trim();
-    next.property.minimum_stay_nights = minimumStayValue ? Number(minimumStayValue) : null;
-    next.pricing_schedules = next.pricing_schedules.map((schedule) => ({
-      ...schedule,
-      minimum_billable_occupancy: Number(form.querySelector(`[data-h3-schedule-id="${schedule.id}"]`)?.value),
-    }));
-    next.rate_plans = next.rate_plans.map((plan) => ({
-      ...plan,
-      price_inclusions: Core.normalizeStringSet([
-        ...plan.price_inclusions.filter((value) => !Core.HOTEL_PRICE_INCLUSIONS.includes(value)),
-        ...Array.from(form.querySelectorAll(`[data-h3-inclusion-plan="${plan.id}"]:checked`)).map((input) => input.value),
-      ]),
-    }));
-    const editedAllocationRules = Array.from(form.querySelectorAll('[data-h3-allocation-rule]')).map((rule, index) => {
-      const mode = rule.querySelector('[data-h3-rule-mode]').value;
-      const existing = next.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
-      const persistedRule = persisted.allocation_rules.find((candidate) => candidate.id === rule.dataset.ruleId);
-      const items = Array.from(rule.querySelectorAll('[data-h3-room-allocation]'))
-        .filter((row) => row.querySelector('[data-h3-room-selected]').checked)
-        .map((row, itemIndex) => {
-          const roomTypeId = Core.normalizeUuid(row.dataset.roomId);
-          const pricingInput = row.querySelector('[data-h3-room-pricing-guests]');
-          const existingItem = existing?.items.find((item) => item.room_type_id === roomTypeId);
-          return {
-            id: Core.normalizeUuid(row.dataset.itemId) || Core.newUuid(),
-            room_type_id: roomTypeId,
-            units_required: Number(row.querySelector('[data-h3-room-units]').value),
-            allocated_guest_count: mode === 'required_bundle' ? Number(row.querySelector('[data-h3-room-guests]').value) : null,
-            pricing_guest_count: mode !== 'required_bundle'
-              ? null
-              : pricingInput?.dataset.h3PricingLocked === '1'
-                ? existingItem?.pricing_guest_count ?? null
-                : Number(pricingInput?.value),
-            sort_order: (itemIndex + 1) * 100,
-          };
-        });
-      const isActive = rule.querySelector('[data-h3-rule-active]').checked;
-      return {
-        ...(existing || {}), id: Core.normalizeUuid(rule.dataset.ruleId) || Core.newUuid(), hotel_id: next.hotel_id,
-        code: rule.dataset.ruleCode || `guest-allocation-${index + 1}`,
-        min_guest_count: Number(rule.querySelector('[data-h3-rule-min]').value),
-        max_guest_count: Number(rule.querySelector('[data-h3-rule-max]').value),
-        allocation_mode: mode, is_active: isActive,
-        review_status: isActive || persistedRule?.review_status === 'reviewed' ? 'reviewed' : 'requires_review',
-        sort_order: (index + 1) * 100, items,
-      };
-    });
-    next.allocation_rules = [
-      ...editedAllocationRules,
-      ...next.allocation_rules.filter((rule) => rule.review_status === 'disabled'),
-    ];
+    // ADMIN-C owns every pricing and allocation writer. The older H3.1 setup
+    // editor preserves those exact persisted rows byte-for-byte and can only
+    // update its remaining payment/commission/manual-source fields.
+    next.property = Core.clone(persisted.property);
+    next.pricing_schedules = Core.clone(persisted.pricing_schedules);
+    next.rate_plans = Core.clone(persisted.rate_plans);
+    next.allocation_rules = Core.clone(persisted.allocation_rules);
     const policyElement = form.querySelector('[data-h3-payment-policy]');
     const currentPolicy = next.payment_policies.find((entry) => entry.id === policyElement.dataset.policyId);
     const persistedPolicy = persisted.payment_policies.find((entry) => entry.id === policyElement.dataset.policyId);
@@ -4248,7 +8007,7 @@
       ...(currentPolicy || {}), id: Core.normalizeUuid(policyElement.dataset.policyId) || Core.newUuid(), hotel_id: next.hotel_id,
       code: policyElement.dataset.policyCode || 'request-confirmation-payment',
       name_i18n: readI18n(new FormData(form), 'h3_payment_policy_name'),
-      currency: state.workspace.property.currency || 'EUR', is_active: form.elements.payment_policy_active.checked,
+      currency: state.workspace.property.currency, is_active: form.elements.payment_policy_active.checked,
       review_status: form.elements.payment_policy_active.checked || persistedPolicy?.review_status === 'reviewed'
         ? 'reviewed' : 'requires_review', terms,
     };
@@ -4258,7 +8017,7 @@
     const reviewedCommission = {
       ...(currentCommission || {}), id: h3ExactId(currentCommission), hotel_id: next.hotel_id,
       code: currentCommission?.code || 'platform-commission', commission_mode: form.elements.commission_mode.value,
-      amount: Number(form.elements.commission_amount.value), currency: state.workspace.property.currency || 'EUR',
+      amount: Number(form.elements.commission_amount.value), currency: state.workspace.property.currency,
       is_active: form.elements.commission_active.checked,
       review_status: form.elements.commission_active.checked || persistedCommission?.review_status === 'reviewed'
         ? 'reviewed' : 'requires_review',
@@ -4340,16 +8099,17 @@
         <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Stay rules</span><h4>Minimums and inclusions</h4></div></header>
           ${isSevenKamares ? '<p class="hotel-workspace-safety-note"><strong>Pricing provenance:</strong> Future customer pricing is the sum of exact allocated Room Rates using the room_occupancy schedule. The inactive 63-tier property_booking_party schedule remains a legacy parity preview only and is never customer pricing.</p>' : ''}
           <div class="hotel-workspace-form-grid">
-            <label class="admin-form-field"><span>Minimum stay (nights)</span><input name="minimum_stay_nights" type="number" min="1" max="365" step="1" value="${draft.property.minimum_stay_nights ?? ''}" placeholder="Not reviewed" /><small>Leave blank while preparing another draft section; readiness stays blocked.</small></label>
+            <label class="admin-form-field"><span>Minimum stay (nights) · read only here</span><input name="minimum_stay_nights" type="number" value="${draft.property.minimum_stay_nights ?? ''}" disabled /><small>Manage property stay bounds in Overview and pricing overrides in Rates & Pricing.</small></label>
             <div class="hotel-h3-overview-link"><span>${isSevenKamares ? '7 Kamares arrival and departure' : 'Arrival and departure'}</span><strong>Current: ${escapeHtml(currentCheckIn)} → ${escapeHtml(currentCheckOut)}</strong>${isSevenKamares ? `<small>Required for H3 readiness: check-in ${Core.SEVEN_ARCHES_CHECK_IN_FROM} · check-out ${Core.SEVEN_ARCHES_CHECK_OUT_UNTIL}. Saved separately with Review in Overview.</small>` : ''}<button class="btn-secondary" type="button" data-h3-open-overview>${isSevenKamares ? 'Review times in Overview' : 'Manage in Overview'}</button></div>
           </div>
-          <div class="hotel-h3-config-list">${draft.pricing_schedules.map((schedule) => `<label class="admin-form-field"><span>Minimum billable occupancy · ${escapeHtml(schedule.name || schedule.code || schedule.id)}</span><input data-h3-schedule-id="${schedule.id}" type="number" min="1" max="${Math.max(1, Number(schedule.maximum_party_size || 64))}" step="1" value="${schedule.minimum_billable_occupancy ?? 1}" required /><small>${schedule.application_scope === 'property_booking_party' ? 'Legacy property-party parity preview only; never customer pricing.' : 'Room occupancy schedule used by exact allocated Room Rates; a one-guest stay may use this reviewed minimum occupancy price.'}</small></label>`).join('') || '<p class="hotel-property-card__blocker">No pricing schedule is available. Configure Rooms & Rates before saving H3.1.</p>'}</div>
+          <div class="hotel-h3-config-list">${draft.pricing_schedules.map((schedule) => `<div class="admin-form-field"><span>Minimum billable occupancy · ${escapeHtml(schedule.name || schedule.code || 'Pricing schedule')}</span><strong>${Number(schedule.minimum_billable_occupancy ?? 1)}</strong><small>${schedule.application_scope === 'property_booking_party' ? 'Legacy property-party parity preview only; never customer pricing.' : 'Edit this schedule only in Rates & Pricing.'}</small></div>`).join('') || '<p class="hotel-property-card__blocker">No pricing schedule is configured.</p>'}</div>
           <div class="hotel-h3-config-list">${draft.rate_plans.map((plan) => {
             const preserved = plan.price_inclusions.filter((value) => !Core.HOTEL_PRICE_INCLUSIONS.includes(value));
-            return `<fieldset><legend>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code || 'Rate Plan'))} inclusions</legend><div class="hotel-h3-method-grid">${Core.HOTEL_PRICE_INCLUSIONS.map((value) => `<label class="admin-checkbox-field"><input data-h3-inclusion-plan="${plan.id}" type="checkbox" value="${value}" ${plan.price_inclusions.includes(value) ? 'checked' : ''} /><span>${value === 'taxes' ? 'Taxes included' : 'Cleaning included'}</span></label>`).join('')}</div>${preserved.length ? `<small>Preserved custom inclusions: ${escapeHtml(preserved.join(', '))}</small>` : ''}</fieldset>`;
+            return `<section class="hotel-workspace-card"><strong>${escapeHtml(Core.i18nText(plan.name_i18n, 'en', plan.code || 'Rate Plan'))}</strong><p>${escapeHtml(plan.price_inclusions.join(' · ') || 'No inclusions configured')}</p>${preserved.length ? `<small>Preserved custom inclusions: ${escapeHtml(preserved.join(', '))}</small>` : ''}</section>`;
           }).join('')}</div>
+          <button class="btn-primary" type="button" data-h3-open-pricing>Open Rates & Pricing</button>
         </section>
-        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Guest → Room Type</span><h4>Allocation rules</h4></div><button class="btn-secondary" type="button" data-add-h3-rule>+ Allocation rule</button></header><p>Choice rules let the customer select one exact Room Type. Bundle rules allocate exact rooms and an exact guest split. Persisted rules are disabled, not deleted.</p>${isSevenKamares ? `<p class="hotel-workspace-safety-note"><strong>Pricing occupancy is ${pricingPromotionReviewed ? 'reviewed and locked' : 'pending and locked'}.</strong> This generic setup preserves it; only the dedicated legacy pricing Review can promote the mapping.</p>` : ''}<div data-h3-allocation-rules>${draft.allocation_rules.filter((rule) => rule.review_status !== 'disabled').map(h3AllocationRuleEditorMarkup).join('')}</div></section>
+        <section class="hotel-h3-editor-section"><header><div><span class="hotel-workspace-eyebrow">Guest → Room Type · read only here</span><h4>Allocation rules</h4></div></header><p>Physical and pricing occupancy are shown here for context. All allocation edits now use the dedicated Rates & Pricing Review.</p>${isSevenKamares ? `<p class="hotel-workspace-safety-note"><strong>Pricing occupancy is ${pricingPromotionReviewed ? 'reviewed and locked' : 'pending and locked'}.</strong> The accepted H3.1P graph remains unchanged.</p>` : ''}<div data-h3-allocation-rules inert aria-disabled="true">${draft.allocation_rules.filter((rule) => rule.review_status !== 'disabled').map(h3AllocationRuleEditorMarkup).join('')}</div><button class="btn-primary" type="button" data-h3-open-pricing>Open Rates & Pricing</button></section>
         <section class="hotel-h3-editor-section" data-h3-payment-policy data-policy-id="${escapeAttr(payment.id)}" data-policy-code="${escapeAttr(payment.code)}"><header><div><span class="hotel-workspace-eyebrow">Customer payment</span><h4>Reviewed payment terms</h4></div><button class="btn-secondary" type="button" data-add-h3-term>+ Payment step</button></header>
           ${i18nFields('h3_payment_policy_name', 'Policy label', payment.name_i18n)}<label class="admin-checkbox-field"><input name="payment_policy_active" type="checkbox" ${payment.is_active ? 'checked' : ''} /><span>Use these terms in future shadow quotes</span></label><div data-h3-payment-terms>${payment.terms.map(h3PaymentTermMarkup).join('')}</div>
           <p class="hotel-workspace-safety-note">These terms do not collect money, accept a booking, change central Deposit Settings or create a payout.</p>
@@ -4373,12 +8133,9 @@
         form.querySelector('[data-h3-open-overview]')?.addEventListener('click', () => {
           closeModal({ restoreFocus: false }); state.activeTab = 'overview'; renderWorkspace();
         });
-        form.querySelector('[data-add-h3-rule]')?.addEventListener('click', () => {
-          const index = form.querySelectorAll('[data-h3-allocation-rule]').length + 1;
-          const rule = { id: Core.newUuid(), code: `guest-allocation-${Core.newUuid().slice(0, 8)}`, min_guest_count: 1, max_guest_count: 1, allocation_mode: 'customer_choice', is_active: true, items: [], sort_order: index * 100 };
-          const holder = document.createElement('div'); holder.innerHTML = h3AllocationRuleEditorMarkup(rule);
-          form.querySelector('[data-h3-allocation-rules]').append(holder.firstElementChild); bindH3DynamicEditor(form);
-        });
+        form.querySelectorAll('[data-h3-open-pricing]').forEach((button) => button.addEventListener('click', () => {
+          closeModal({ restoreFocus: false }); state.activeTab = 'pricing'; renderWorkspace();
+        }));
         form.querySelector('[data-add-h3-term]')?.addEventListener('click', () => {
           const sequence = form.querySelectorAll('[data-h3-payment-term]').length + 1;
           const holder = document.createElement('div'); holder.innerHTML = h3PaymentTermMarkup({ id: Core.newUuid(), sequence, due_event: 'after_partner_acceptance', amount_mode: 'percent_total', amount_value: 50, recipient: 'partner', payment_methods: ['bank_transfer'], instructions_i18n: {} });

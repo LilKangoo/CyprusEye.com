@@ -38,17 +38,22 @@ describe('Hotels V2 H2B Calendar & Rates Admin UI contract', () => {
     expect(css).toMatch(/@media \(max-width:760px\)[\s\S]*\.hotel-calendar-mobile \{ display:grid;/);
   });
 
-  test('supports exact range, seasonal rule, occupancy tier and authoritative preview workflows', () => {
+  test('keeps Calendar operational while routing price, tier and preview work to ADMIN-C', () => {
     expect(ui).toContain('function openCalendarRangeEditor');
-    expect(ui).toContain('function openCalendarRuleEditor');
-    expect(ui).toContain('function openOccupancyTierEditor');
-    expect(ui).toContain('function openAuthoritativeRatePreview');
+    expect(ui).not.toContain('function openCalendarRuleEditor');
+    expect(ui).not.toContain('function openOccupancyTierEditor');
+    expect(ui).not.toContain('function openAuthoritativeRatePreview');
+    expect(ui).toContain('function openPricingRuleEditor');
+    expect(ui).toContain('function openProductTierEditor');
+    expect(ui).toContain('function openPricingPreview');
+    expect(ui).toContain('data-calendar-open-pricing');
+    expect(ui).toContain('Nightly prices and stay limits are edited only in Rates & Pricing.');
     expect(ui).toContain("entity: 'calendar_override'");
     expect(ui).toContain("entity: 'daily_inventory'");
     expect(ui).toContain("entity: 'rate_rule'");
-    expect(ui).toContain("entity: 'occupancy_tier'");
-    expect(ui).toContain('Repository.resolveRate');
     expect(ui).toContain('Unresolved — reload required');
+    expect(ui).not.toContain("entity: 'occupancy_tier'");
+    expect(ui).not.toContain('Repository.resolveRate');
     expect(ui).not.toContain("?? rateRow?.nightly_rate ?? product.base_nightly_rate");
   });
 
@@ -57,7 +62,7 @@ describe('Hotels V2 H2B Calendar & Rates Admin UI contract', () => {
     expect(ui).toContain('function dailyInventoryOperations');
     expect(ui).toContain('if (!roomById.has(product.room_type_id))');
     expect(ui).toContain("expected_version: existing ? Number(existing.version) : 0");
-    expect(ui).toContain('Repository.applyCalendarPlan(plan)');
+    expect(ui).toContain('Repository.applyAvailabilityControlPlan(preview.reviewed_plan, correlation');
     expect(ui).toContain('One exact-property Calendar transaction');
     expect(ui).toContain('function calendarExactReviewRows');
     expect(ui).toContain('const snapshotStart = state.calendar.data?.start_date');

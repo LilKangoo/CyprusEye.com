@@ -66,7 +66,7 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
   });
 
   test('there is one shared adapter and no copied price calculator or city fee table', () => {
-    const adapterFiles = childProcess.execFileSync('rg', ['--files', 'js'], { encoding: 'utf8' })
+    const adapterFiles = childProcess.execFileSync('git', ['ls-files', 'js'], { encoding: 'utf8' })
       .trim().split('\n').filter((file) => /car-rental-availability-adapter\.js$/.test(file));
     expect(adapterFiles).toEqual([adapterPath]);
     expect(read('js/car-rental-paphos.js')).toContain("from './car-rental-availability-adapter.js'");

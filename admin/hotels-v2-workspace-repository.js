@@ -28,9 +28,17 @@
     applyLegacyPricingPromotion: 'hotel_v2_admin_apply_legacy_pricing_promotion',
     partnerHotelPermissions: 'hotel_v2_admin_get_partner_hotel_permissions',
     applyPartnerHotelPermissions: 'hotel_v2_admin_apply_partner_hotel_permissions',
+    pricingControl: 'hotel_v2_admin_get_pricing_control',
+    applyPricingControl: 'hotel_v2_admin_apply_pricing_control_plan',
+    previewPricingQuote: 'hotel_v2_admin_preview_pricing_quote',
+    availabilityControl: 'hotel_v2_admin_get_availability_control',
+    previewAvailabilityPlan: 'hotel_v2_admin_preview_availability_plan',
+    applyAvailabilityControl: 'hotel_v2_admin_apply_availability_control_plan',
+    previewAvailabilityStay: 'hotel_v2_admin_preview_stay',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  const reviewedAvailabilityPlans = new Map();
 
   function getClient() {
     const client = typeof window !== 'undefined' && typeof window.getSupabase === 'function'
@@ -42,6 +50,48 @@
 
   function reviewedShadowUserMessage(message) {
     const key = String(message || '').trim().toLowerCase();
+    if (/hotels_v2_admin_d_(?:stale_availability_snapshot|stale_hold|stale_daily_inventory|stale_unit_calendar_block|stale_operational_override|stale_rate_rule_operational_restriction|stale_booking_allocation|booking_stale|concurrent_availability_conflict|review_required|expiry_elapsed_since_review|reviewed_operation_state_changed)/.test(key)) {
+      return 'Availability changed after Review. Reload the exact range and explicitly review fresh values; nothing was retried.';
+    }
+    if (/hotels_v2_admin_d_(?:idempotency_conflict|correlation_conflict)/.test(key)) {
+      return 'This availability request identifier was already used for different reviewed values. Reload and prepare a new Review.';
+    }
+    if (/hotels_v2_admin_d_(?:insufficient_availability|capacity_below_commitments|unit_blocked|unit_already_committed)/.test(key)) {
+      return 'The reviewed availability would conflict with committed bookings or active holds. Inspect the server blockers; nothing was changed.';
+    }
+    if (/hotels_v2_admin_d_booking_mapping_required/.test(key)) {
+      return 'An exact booking allocation must be reviewed before this inventory change can be saved.';
+    }
+    if (/hotels_v2_admin_d_[a-z0-9_]*scope[a-z0-9_]*locked/.test(key)) {
+      return 'This shared pricing scope still has reviewed availability restrictions. Clear those availability fields in Calendar first, then prepare a fresh separate pricing Review.';
+    }
+    if (/hotels_v2_admin_d_(?:pricing_smuggling_denied|public_activation_guard)/.test(key)) {
+      return 'Availability may not change prices, public activation, architecture, payments, commission or Partner assignment.';
+    }
+    if (/hotels_v2_admin_d_(?:hold_not_found|foreign|invalid)/.test(key)) {
+      return 'The reviewed availability target is invalid, missing or outside this exact property. Reload the authoritative range.';
+    }
+    if (/hotels_v2_admin_c_(?:stale|version|children_fingerprint|link_fingerprint|snapshot|[a-z0-9_]*original_mismatch)/.test(key)) {
+      return 'Pricing changed after Review. Fresh exact values must be loaded and explicitly reviewed before a separate Save; nothing was retried.';
+    }
+    if (/hotels_v2_admin_c_(?:idempotency_conflict|correlation_conflict)/.test(key)) {
+      return 'This pricing request identifier was already used for different reviewed values. Refresh and prepare a new Review.';
+    }
+    if (/hotels_v2_admin_c_(?:h3_1p|immutable|protected)/.test(key)) {
+      return 'This pricing object belongs to the accepted legacy-parity contract and cannot be changed through ADMIN-C.';
+    }
+    if (/hotels_v2_admin_c_(?:cross_property|relationship|foreign|room_rate_missing|schedule_relink)/.test(key)) {
+      return 'The reviewed pricing relationships no longer match this exact property. Refresh and inspect the Room Type, Rate Plan and pricing source links.';
+    }
+    if (/hotels_v2_admin_c_(?:active|activation|readiness|not_ready|external_redirect)/.test(key)) {
+      return 'The requested active pricing state is not ready. Review the server readiness blockers and required external redirect before activating.';
+    }
+    if (/hotels_v2_admin_c_technical_limit_exceeded/.test(key)) {
+      return 'This pricing snapshot or reviewed plan exceeds the supported technical capacity. Narrow or archive the configuration, then prepare a new explicit Review; nothing was retried.';
+    }
+    if (/hotels_v2_admin_c_(?:invalid|unsupported|duplicate|overlap|requires)/.test(key)) {
+      return 'The reviewed pricing values are invalid or incomplete. Inspect the structured fields and server readiness blockers; no pricing change was saved.';
+    }
     if (/hotels_v2_h3_pricing_promotion_stale_review/.test(key)) {
       return 'The legacy source, shadow pricing schedule or reviewed allocation changed after Review. Fresh exact values are required before an explicit second Save.';
     }
@@ -115,7 +165,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^(?:hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -123,7 +173,7 @@
     // H2A/H2B RPCs until their contracts are migrated independently.
     normalized.isStale = code === 'PT409'
       || code === '40001'
-      || /stale|version|concurrent|changed after review/i.test(message);
+      || /stale|version|original_mismatch|concurrent|changed after review/i.test(message);
     normalized.isFoundationMissing = code === '42883' || /hotel_v2_admin_|schema cache|could not find the function/i.test(message);
     // A structured PostgreSQL/PostgREST rejection is returned only after the
     // request transaction has failed. Network/transport failures are
@@ -363,6 +413,69 @@
       correlation_id: payload.correlation_id || correlation,
       calendar: calendar.hotel_id ? calendar : null,
     };
+  }
+
+  async function getAvailabilityControl(hotelId, startDate, endDate) {
+    const id = Core.normalizeUuid(hotelId);
+    const from = String(startDate || '').trim();
+    const to = String(endDate || '').trim();
+    if (!id || !Core.isExactIsoDate(from) || !Core.isExactIsoDate(to) || to < from) {
+      throw new Error('A valid exact property and availability range are required.');
+    }
+    const data = await runRpc(RPC.availabilityControl, {
+      p_hotel_id: id,
+      p_from: from,
+      p_to: to,
+    }, 'Load Admin availability control');
+    const control = Core.normalizeAvailabilityControl(data);
+    if (control.hotel_id !== id || control.from !== from || control.to !== to) {
+      throw new Error('Availability control returned a different exact property or range.');
+    }
+    return control;
+  }
+
+  async function previewAvailabilityPlan(draft) {
+    const reviewedDraft = Core.validateAvailabilityDraft(Core.clone(draft));
+    const data = await runRpc(RPC.previewAvailabilityPlan, {
+      p_draft: reviewedDraft,
+    }, 'Preview reviewed availability changes');
+    const preview = Core.validateAvailabilityPlanPreview(data, reviewedDraft);
+    if (preview.hotel_id !== reviewedDraft.hotel_id) {
+      throw new Error('Availability preview returned a different exact property.');
+    }
+    reviewedAvailabilityPlans.clear();
+    reviewedAvailabilityPlans.set(preview.plan_fingerprint, JSON.stringify(preview.reviewed_plan));
+    return preview;
+  }
+
+  async function applyAvailabilityControlPlan(plan, correlationId, idempotencyKey) {
+    const reviewedPlan = Core.validateAvailabilityPlan(Core.clone(plan));
+    const correlation = Core.normalizeUuid(correlationId);
+    const idempotency = typeof idempotencyKey === 'string' ? idempotencyKey : '';
+    const cachedPlan = reviewedAvailabilityPlans.get(reviewedPlan.plan_fingerprint);
+    if (!correlation || correlation !== correlationId
+        || idempotency !== idempotency.trim()
+        || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,119}$/.test(idempotency)) {
+      throw new Error('Availability Save requires the exact reviewed correlation and idempotency identifiers.');
+    }
+    if (!cachedPlan || cachedPlan !== JSON.stringify(reviewedPlan)) {
+      throw new Error('Availability Save requires the exact server-reviewed plan from the current explicit Review.');
+    }
+    reviewedAvailabilityPlans.delete(reviewedPlan.plan_fingerprint);
+    const data = await runRpc(RPC.applyAvailabilityControl, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+    }, 'Save reviewed Admin availability changes');
+    return Core.validateAvailabilityApplyResult(data, reviewedPlan, correlation, idempotency);
+  }
+
+  async function previewAvailabilityStay(request) {
+    const reviewedRequest = Core.validateAvailabilityStayRequest(Core.clone(request));
+    const data = await runRpc(RPC.previewAvailabilityStay, {
+      p_request: reviewedRequest,
+    }, 'Preview authoritative available stay');
+    return Core.validateAvailabilityStayPreview(data, reviewedRequest);
   }
 
   async function resolveRate(roomRateId, checkIn, checkOut, guestCount) {
@@ -720,6 +833,203 @@
     return optimizedUploader(safeSlug, exactRoomId, files);
   }
 
+  async function getPricingControl(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id) throw new Error('A valid property ID is required.');
+    return Core.validatePricingControl(await runRpc(RPC.pricingControl, {
+      p_hotel_id: id,
+    }, 'Load Admin pricing control'), id);
+  }
+
+  async function applyPricingControlPlan(plan, correlationId, idempotencyKey) {
+    const reviewedPlan = Core.validatePricingControlPlan(plan);
+    const correlation = correlationId === undefined || correlationId === null
+      ? Core.newUuid()
+      : Core.normalizeUuid(correlationId);
+    if (!correlation) throw new Error('Pricing correlation ID must be an exact UUID; an invalid supplied ID is never replaced.');
+    const idempotency = idempotencyKey === undefined || idempotencyKey === null
+      ? Core.newUuid()
+      : idempotencyKey;
+    if (typeof idempotency !== 'string'
+        || idempotency !== idempotency.trim()
+        || idempotency.length < 8 || idempotency.length > 120
+        || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(idempotency)) {
+      throw new Error('Pricing idempotency key must be an exact reviewed string; an invalid supplied key is never replaced.');
+    }
+    const data = Core.asObject(await runRpc(RPC.applyPricingControl, {
+      p_plan: reviewedPlan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+    }, 'Save reviewed pricing changes'));
+    const exactResponseKeys = [
+      'contract_version', 'hotel_id', 'correlation_id', 'idempotency_key',
+      'replayed', 'changed', 'activity', 'pricing_control',
+    ];
+    if (JSON.stringify(Object.keys(data).sort()) !== JSON.stringify(exactResponseKeys.sort())
+        || data.contract_version !== Core.PRICING_CONTROL_CONTRACT
+        || Core.normalizeUuid(data.hotel_id) !== reviewedPlan.hotel_id
+        || Core.normalizeUuid(data.correlation_id) !== correlation
+        || typeof data.idempotency_key !== 'string'
+        || data.idempotency_key !== idempotency
+        || typeof data.changed !== 'boolean'
+        || typeof data.replayed !== 'boolean'
+        || !Array.isArray(data.activity)
+        || data.activity.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))) {
+      throw new Error('Saved pricing control returned a different exact request identity.');
+    }
+    const activityKeys = [
+      'id', 'entity_type', 'entity_id', 'action', 'correlation_id', 'actor_type',
+      'actor_id', 'source', 'created_at', 'before_state', 'after_state',
+    ];
+    const exactActivityEntity = {
+      rate_plan: 'rate_plan',
+      room_rate: 'room_rate',
+      pricing_schedule: 'pricing_schedule',
+      room_rate_tier_set: 'occupancy_tier',
+      rate_rule: 'rate_rule',
+      exact_date_price: 'calendar_override',
+      allocation_rule: 'allocation_rule',
+      property_pricing_default: 'property_pricing_default',
+    };
+    const expectedActivityAction = (operation) => (
+      operation.entity === 'pricing_schedule' && operation.action === 'clone'
+        ? 'duplicate'
+        : operation.action
+    );
+    const operationForActivity = (activity) => reviewedPlan.operations.find((operation) => (
+      exactActivityEntity[operation.entity] === activity.entity_type
+      && operation.id === Core.normalizeUuid(activity.entity_id)
+      && expectedActivityAction(operation) === activity.action
+    ));
+    const validJsonState = (value) => value === null
+      || (typeof value === 'object' && !Array.isArray(value));
+    if (data.activity.some((activity) => (
+      JSON.stringify(Object.keys(Core.asObject(activity)).sort()) !== JSON.stringify([...activityKeys].sort())
+      || !Core.normalizeUuid(activity.id)
+      || !Core.normalizeUuid(activity.entity_id)
+      || Core.normalizeUuid(activity.correlation_id) !== correlation
+      || activity.actor_type !== 'admin'
+      || !Core.normalizeUuid(activity.actor_id)
+      || activity.source !== 'hotels_v2_admin_c_pricing_control'
+      || typeof activity.created_at !== 'string' || !Number.isFinite(Date.parse(activity.created_at))
+      || !validJsonState(activity.before_state) || !validJsonState(activity.after_state)
+      || !operationForActivity(activity)
+    )) || (data.changed === false && data.activity.length > 0)
+      || (data.changed === true && data.activity.length === 0)) {
+      throw new Error('Saved pricing control returned invalid or unrelated activity receipts.');
+    }
+    const pricingControl = Core.validatePricingControl(data.pricing_control, reviewedPlan.hotel_id);
+    const receiptActivityProbe = Core.clone(data.pricing_control);
+    receiptActivityProbe.recent_activity = Core.clone(data.activity);
+    Core.validatePricingControl(receiptActivityProbe, reviewedPlan.hotel_id);
+    if (data.replayed !== true && data.activity.some((activity) => !pricingControl.recent_activity.some((recent) => (
+      JSON.stringify(recent) === JSON.stringify(activity)
+    )))) {
+      throw new Error('Saved pricing activity was not present in the exact sanitized pricing snapshot.');
+    }
+    const collectionFor = (entity) => ({
+      rate_plan: pricingControl.rate_plans,
+      room_rate: pricingControl.room_rates,
+      pricing_schedule: pricingControl.pricing_schedules,
+      room_rate_tier_set: pricingControl.room_rates,
+      rate_rule: pricingControl.rate_rules,
+      exact_date_price: pricingControl.exact_date_prices,
+      allocation_rule: pricingControl.allocation_rules,
+      property_pricing_default: pricingControl.property_pricing_default
+        ? [pricingControl.property_pricing_default] : [],
+    }[entity] || []);
+    const exactDateDeletionConfirmed = (operation) => operation.entity === 'exact_date_price'
+      && operation.action === 'disable'
+      && data.activity.some((activity) => activity.entity_type === 'calendar_override'
+        && Core.normalizeUuid(activity.entity_id) === operation.id
+        && activity.action === 'disable' && activity.after_state === null);
+    if (reviewedPlan.operations.some((operation) => !collectionFor(operation.entity)
+      .some((entry) => Core.normalizeUuid(entry.id) === operation.id)
+      && !exactDateDeletionConfirmed(operation))) {
+      throw new Error('Saved pricing control did not return every exact reviewed mutation target.');
+    }
+    const withoutVersions = (value) => JSON.parse(JSON.stringify(value, (key, nested) => (
+      key === 'version' ? undefined : nested
+    )));
+    for (const operation of reviewedPlan.operations) {
+      const saved = collectionFor(operation.entity)
+        .find((entry) => Core.normalizeUuid(entry.id) === operation.id) || null;
+      if (operation.action === 'disable') {
+        const disabled = operation.entity === 'exact_date_price'
+          ? (!saved || saved.pricing_configured === false)
+          : operation.entity === 'rate_rule'
+            ? saved?.is_active === false
+            : saved?.lifecycle_status === 'disabled';
+        if (!disabled) throw new Error('Saved pricing control did not confirm the reviewed disable state.');
+        continue;
+      }
+      if (operation.action === 'clone') {
+        const savedState = Core.pricingBusinessState('pricing_schedule', saved, {
+          id: operation.id, hotelId: reviewedPlan.hotel_id,
+        });
+        const savedSource = pricingControl.pricing_schedules
+          .find((entry) => entry.id === Core.normalizeUuid(operation.payload.source_schedule_id));
+        const pairedRelink = reviewedPlan.operations.find((candidate) => candidate.entity === 'room_rate'
+          && candidate.action === 'update'
+          && Core.normalizeUuid(candidate.payload.pricing_schedule_id) === operation.id);
+        const expectedLinkedIds = pairedRelink ? [pairedRelink.id] : [];
+        const expectedTiers = operation.payload.tiers.map((tier) => ({ ...Core.clone(tier) }));
+        if (!savedSource
+            || savedState.code !== operation.payload.code
+            || JSON.stringify(savedState.name_i18n) !== JSON.stringify(operation.payload.name_i18n)
+            || savedState.sharing_mode !== operation.payload.sharing_mode
+            || savedState.lifecycle_status !== 'draft'
+            || savedState.application_scope !== savedSource.application_scope
+            || savedState.currency !== savedSource.currency
+            || savedState.maximum_party_size !== savedSource.maximum_party_size
+            || savedState.minimum_billable_occupancy !== savedSource.minimum_billable_occupancy
+            || JSON.stringify([...saved.linked_room_rate_ids].sort()) !== JSON.stringify(expectedLinkedIds.sort())
+            || JSON.stringify(withoutVersions(savedState.tiers)) !== JSON.stringify(withoutVersions(expectedTiers))) {
+          throw new Error('Saved pricing control did not confirm the exact reviewed schedule clone.');
+        }
+        continue;
+      }
+      const savedState = Core.pricingBusinessState(operation.entity,
+        operation.entity === 'room_rate_tier_set'
+          ? { ...saved, tiers: saved.independent_tiers }
+          : saved,
+        { id: operation.id, hotelId: reviewedPlan.hotel_id, create: operation.action === 'create' });
+      if (JSON.stringify(withoutVersions(savedState)) !== JSON.stringify(withoutVersions(operation.payload))) {
+        throw new Error('Saved pricing control did not confirm every exact reviewed business value.');
+      }
+    }
+    let currentPricingControl = pricingControl;
+    if (data.replayed === true) {
+      try {
+        currentPricingControl = await getPricingControl(reviewedPlan.hotel_id);
+      } catch (cause) {
+        const refreshError = new Error('The stored pricing save receipt was validated, but the current pricing state could not be refreshed. Check current state; the mutation will not be retried.');
+        refreshError.isAmbiguousOutcome = true;
+        refreshError.isDefinitiveFailure = false;
+        refreshError.userMessage = refreshError.message;
+        refreshError.cause = cause;
+        throw refreshError;
+      }
+    }
+    return {
+      contract_version: data.contract_version,
+      hotel_id: reviewedPlan.hotel_id,
+      correlation_id: correlation,
+      idempotency_key: idempotency,
+      changed: data.changed,
+      replayed: data.replayed,
+      activity: data.activity,
+      pricing_control: currentPricingControl,
+    };
+  }
+
+  async function previewPricingQuote(request) {
+    const reviewedRequest = Core.validatePricingPreviewRequest(request);
+    return Core.validatePricingPreview(await runRpc(RPC.previewPricingQuote, {
+      p_request: reviewedRequest,
+    }, 'Preview server pricing'), reviewedRequest);
+  }
+
   return Object.freeze({
     RPC,
     getClient,
@@ -730,6 +1040,10 @@
     createPropertyDraft,
     getCalendar,
     applyCalendarPlan,
+    getAvailabilityControl,
+    previewAvailabilityPlan,
+    applyAvailabilityControlPlan,
+    previewAvailabilityStay,
     resolveRate,
     applyGuestPolicyPlan,
     applyRoomTypePlan,
@@ -744,5 +1058,8 @@
     getPartnerHotelPermissions,
     applyPartnerHotelPermissionsPlan,
     uploadRoomGallery,
+    getPricingControl,
+    applyPricingControlPlan,
+    previewPricingQuote,
   });
 });

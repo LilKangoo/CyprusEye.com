@@ -231,7 +231,7 @@ describe('Hotels V2 ADMIN-B independent adversarial security contract', () => {
     expect(ui).toContain('if (acceptMatchingTarget && reviewedRoomFields.every');
     expect(ui).toContain('if (ambiguousPending) {\n              await reconcileAmbiguousOutcome(button);\n              return;');
     expect(ui).toContain('ambiguousPending = true;\n            overlay.hotelWorkspaceOnClose = null;');
-    expect(ui).toContain('setModalSaving(overlay, true);\n            button.disabled = false;\n            button.textContent = \'Check current state\'');
+    expect(ui).toContain("setModalSaving(overlay, true);\n            button.disabled = false;\n            button.textContent = pricingUi ? pricingUiText('Check current state') : 'Check current state'");
     expect(ui).toContain('closeModal({ restoreFocus: false, skipCleanup: true, force: true });');
     expect(ui).toContain('nothing was retried automatically');
   });

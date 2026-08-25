@@ -80,11 +80,12 @@ describe('Hotels H2B.1 Admin UX static safety', () => {
     expect(core).toContain('Cancellation terms require review');
     expect(core).toContain('pricing_schedule_id: normalizeUuid(source.pricing_schedule_id) || null');
     expect(core).toContain('Confirm cancellation terms before activating this Rate Plan.');
-    expect(ui).toContain('Requires confirmation');
-    expect(ui).toContain('Shared schedule');
-    expect(ui).toContain('Shared ${scheduleTierCount}-tier shadow schedule');
-    expect(ui).toContain('Its base rate is not an executable €0 price.');
-    expect(ui).toContain('Generic Room Rate editing is locked until H3');
+    expect(ui).toContain('Requires review');
+    expect(ui).toContain('Shared schedules disclose every affected Room product before Save.');
+    expect(ui).toContain('A linked schedule always outranks independent tiers');
+    expect(ui).toContain('Stored base rate:');
+    expect(ui).toContain('not authoritative while this pricing source is linked.');
+    expect(ui).toContain("['pricing', 'Rates & Pricing']");
   });
 
   test('shows shared schedules as shadow configuration with exact room/date rows instead of a generic unresolved cell', () => {

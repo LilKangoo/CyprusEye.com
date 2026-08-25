@@ -280,9 +280,10 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
 
   test('presents one Room Type with several property Rate Plans rather than duplicate room semantics', () => {
     expect(ui).toContain('One Room Type may use several Rate Plans.');
-    expect(ui).toContain('Create once and connect to one or many Room Types.');
+    expect(ui).toContain('Pricing products are reviewed in the dedicated Rates & Pricing control plane.');
+    expect(ui).toContain('Create a Rate Plan, then connect it to an exact Room Type.');
     expect(ui).toContain("state.workspace.room_rates.filter((rate) => rate.room_type_id === room.id)");
-    expect(ui).toContain("state.workspace.room_rates.filter((rate) => rate.rate_plan_id === plan.id)");
+    expect(ui).toContain("state.pricingControl.room_rates.filter((rate) => rate.rate_plan_id === plan.id)");
     expect(core).toContain('This Room Type and Rate Plan are already connected.');
     expect(core).toContain('Cross-property room-rate combinations are not allowed.');
   });
@@ -308,20 +309,22 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(ui).toContain('Repository.applyWorkspacePlan');
   });
 
-  test('provides Room, Unit, Rate Plan, Room Rate and safe duplicate Review flows', () => {
+  test('provides Room, Unit and dedicated ADMIN-C Rate Plan / Room Rate Review flows', () => {
     for (const declaration of [
       'function openRoomEditor',
       'function openUnitEditor',
-      'function openRatePlanEditor',
-      'function openRoomRateEditor',
+      'function openPricingPlanEditor',
+      'function openPricingProductEditor',
       'function duplicateRoom',
       'function disableRoom',
     ]) expect(ui).toContain(declaration);
     expect(ui).toContain('Core.buildDuplicateRoom');
     expect(ui).toContain("Core.operationForEntity('room_type'");
     expect(ui).toContain("Core.operationForEntity('unit'");
-    expect(ui).toContain("Core.operationForEntity('rate_plan'");
-    expect(ui).toContain("Core.operationForEntity('room_rate'");
+    expect(ui).toContain("pricingOperationForTarget(state.pricingControl, 'rate_plan'");
+    expect(ui).toContain("pricingOperationForTarget(state.pricingControl, 'room_rate'");
+    expect(ui).not.toContain('function openRatePlanEditor');
+    expect(ui).not.toContain('function openRoomRateEditor');
   });
 
   test('keeps legacy/public Hotels inert and never publishes Rooms V2 from H2A', () => {

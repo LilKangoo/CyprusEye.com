@@ -22,6 +22,81 @@
   const HOTEL_CALENDAR_SOURCES = Object.freeze(['manual', 'booking_com', 'airbnb', 'ical']);
   const H3_REVIEW_STATUSES = Object.freeze(['requires_review', 'reviewed', 'disabled']);
   const H3_2A_PARTNER_PERMISSIONS_CONTRACT = 'hotels_v2_h3_2a_partner_permissions_v1';
+  const PRICING_CONTROL_READ_CONTRACT = 'hotels_v2_admin_c_pricing_control_v1';
+  const PRICING_CONTROL_CONTRACT = 'hotels_v2_admin_c_pricing_plan_v1';
+  const PRICING_PREVIEW_CONTRACT = 'hotels_v2_admin_c_pricing_preview_v1';
+  const AVAILABILITY_CONTROL_READ_CONTRACT = 'hotels_v2_admin_d_availability_control_v1';
+  const AVAILABILITY_CONTROL_DRAFT_CONTRACT = 'hotels_v2_admin_d_availability_draft_v1';
+  const AVAILABILITY_CONTROL_PREVIEW_CONTRACT = 'hotels_v2_admin_d_availability_plan_preview_v1';
+  const AVAILABILITY_CONTROL_PLAN_CONTRACT = 'hotels_v2_admin_d_availability_plan_v1';
+  const AVAILABILITY_CONTROL_APPLY_CONTRACT = 'hotels_v2_admin_d_availability_apply_result_v1';
+  const AVAILABILITY_STAY_REQUEST_CONTRACT = 'hotels_v2_admin_d_stay_preview_request_v1';
+  const AVAILABILITY_STAY_PREVIEW_CONTRACT = 'hotels_v2_admin_d_available_stay_preview_v1';
+  const AVAILABILITY_CONTROL_ENTITIES = Object.freeze([
+    'daily_inventory',
+    'unit_calendar_block',
+    'operational_override',
+    'rate_rule_operational_restriction',
+    'booking_allocation',
+    'hold',
+  ]);
+  const AVAILABILITY_CONTROL_DRAFT_ENTITIES = Object.freeze([
+    ...AVAILABILITY_CONTROL_ENTITIES,
+    'operational_override_range',
+  ]);
+  const AVAILABILITY_CONTROL_ACTIONS = Object.freeze([
+    'upsert', 'delete', 'create', 'update', 'clear', 'disable', 'map', 'release',
+  ]);
+  const AVAILABILITY_CONTROL_READ_LIMITS = Object.freeze({
+    room_types: 1000,
+    room_rates: 5000,
+    inventory_days: 62000,
+    restriction_days: 310000,
+    holds: 10000,
+    recent_activity: 100,
+    snapshot_bytes: 20 * 1024 * 1024,
+  });
+  const AVAILABILITY_BLOCKING_REASONS = Object.freeze([
+    'operational_closed',
+    'safety_closed',
+    'inventory_exhausted',
+    'room_rate_inactive',
+    'insufficient_availability',
+    'public_activation_off',
+  ]);
+  const AVAILABILITY_STAY_BLOCKING_REASONS = Object.freeze([
+    ...AVAILABILITY_BLOCKING_REASONS,
+    'unmapped_bookings_require_allocation',
+    'product_restriction_blocked',
+    'pricing_configuration_blocked',
+  ]);
+  const PRICING_CONTROL_ENTITIES = Object.freeze([
+    'rate_plan',
+    'room_rate',
+    'pricing_schedule',
+    'room_rate_tier_set',
+    'rate_rule',
+    'exact_date_price',
+    'allocation_rule',
+    'property_pricing_default',
+  ]);
+  const PRICING_CONTROL_ACTIONS = Object.freeze(['create', 'update', 'disable', 'clone']);
+  const PRICING_LIFECYCLE_STATUSES = Object.freeze(['draft', 'inactive', 'active', 'disabled']);
+  const PRICING_SCHEDULE_SHARING_MODES = Object.freeze(['shared', 'independent']);
+  const PRICING_CONTROL_READ_LIMITS = Object.freeze({
+    rate_plans: 200,
+    room_types: 1000,
+    room_rates: 5000,
+    pricing_schedules: 1000,
+    rate_rules: 10000,
+    exact_date_prices: 50000,
+    allocation_rules: 500,
+    recent_activity: 100,
+    schedule_tiers: 50000,
+    independent_tiers: 50000,
+    allocation_items: 10000,
+    snapshot_bytes: 20 * 1024 * 1024,
+  });
   const HOTEL_PARTNER_CAPABILITIES = Object.freeze([
     'edit_property_content',
     'edit_property_photos',
@@ -164,6 +239,13 @@
   function newUuid() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     throw new Error('Secure UUID generation is unavailable in this browser.');
+  }
+
+  function exactUuidOrNew(value, label = 'Identifier') {
+    if (value === undefined || value === null) return newUuid();
+    const normalized = normalizeUuid(value);
+    if (!normalized) throw new Error(`${label} must be an exact UUID; an invalid supplied ID is never replaced.`);
+    return normalized;
   }
 
   function normalizeI18n(value, options = {}) {
@@ -3184,6 +3266,3310 @@
     return prices.length ? Math.min(...prices) : null;
   }
 
+  function hasExactKeys(value, keys) {
+    const expected = [...keys].sort();
+    const actual = Object.keys(asObject(value)).sort();
+    return JSON.stringify(actual) === JSON.stringify(expected);
+  }
+
+  function isExactInteger(value, minimum = Number.MIN_SAFE_INTEGER, maximum = Number.MAX_SAFE_INTEGER) {
+    return typeof value === 'number'
+      && Number.isSafeInteger(value)
+      && value >= minimum
+      && value <= maximum;
+  }
+
+  function isExactNumber(value, minimum = -Number.MAX_VALUE, maximum = Number.MAX_VALUE) {
+    return typeof value === 'number'
+      && Number.isFinite(value)
+      && value >= minimum
+      && value <= maximum;
+  }
+
+  function isExactMoney(value, minimum = 0, maximum = 9999999999.99) {
+    return isExactNumber(value, minimum, maximum)
+      && Number(value.toFixed(2)) === value;
+  }
+
+  function isExactIsoDate(value) {
+    if (typeof value !== 'string') return false;
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return false;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day <= days[month - 1];
+  }
+
+  function isExactIsoTimestamp(value) {
+    if (typeof value !== 'string') return false;
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+    if (!match || !isExactIsoDate(match[1])) return false;
+    const hour = Number(match[2]);
+    const minute = Number(match[3]);
+    const second = Number(match[4]);
+    if (hour > 23 || minute > 59 || second > 59) return false;
+    if (match[5] === 'Z') return true;
+    const offsetHour = Number(match[6]);
+    const offsetMinute = Number(match[7]);
+    return offsetHour <= 14 && offsetMinute <= 59
+      && (offsetHour < 14 || offsetMinute === 0);
+  }
+
+  function isExactFingerprint(value, nullable = true) {
+    return (nullable && value === null)
+      || (typeof value === 'string' && /^[0-9a-f]{32}$/.test(value));
+  }
+
+  function isExactSnapshotToken(value) {
+    return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+  }
+
+  function isExactHttpsUrl(value) {
+    if (typeof value !== 'string' || value.length < 1 || value.length > 2048
+        || value !== value.trim() || /[\s\u0000-\u001f\u007f]/u.test(value)) return false;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'https:' && Boolean(parsed.hostname)
+        && !parsed.username && !parsed.password;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function jsonUtf8ByteLength(value) {
+    try {
+      return encodeURIComponent(JSON.stringify(value)).replace(/%[0-9a-f]{2}/gi, 'x').length;
+    } catch (_error) {
+      return Number.POSITIVE_INFINITY;
+    }
+  }
+
+  function isExactI18n(value, maximumLength = 20000) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const keys = Object.keys(value);
+    return keys.every((key) => LANGUAGES.includes(key))
+      && keys.every((key) => typeof value[key] === 'string'
+        && value[key] === value[key].trim()
+        && value[key].length >= 1 && value[key].length <= maximumLength
+        && !/[\u0000-\u001f\u007f]/.test(value[key]));
+  }
+
+  function canonicalPricingDescriptionI18n(value, maximumLength = 5000) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const keys = Object.keys(value);
+    if (!keys.every((key) => LANGUAGES.includes(key))) return null;
+    const canonical = {};
+    for (const key of keys) {
+      if (typeof value[key] !== 'string') return null;
+      const normalized = value[key].replace(/\r\n?/g, '\n');
+      if (normalized !== normalized.trim()
+          || normalized.length < 1 || normalized.length > maximumLength
+          || /[\u0000-\u0009\u000b-\u001f\u007f]/.test(normalized)) return null;
+      canonical[key] = normalized;
+    }
+    return canonical;
+  }
+
+  function isExactPricingDescriptionI18n(value, maximumLength = 5000) {
+    const canonical = canonicalPricingDescriptionI18n(value, maximumLength);
+    return canonical !== null && JSON.stringify(canonical) === JSON.stringify(value);
+  }
+
+  function isExactCancellationPolicy(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const allowed = new Set(['type', 'deadline_hours', 'penalty_mode', 'penalty_value', 'reason']);
+    if (Object.keys(value).some((key) => !allowed.has(key))
+        || !['flexible', 'non_refundable', 'custom', 'requires_review'].includes(value.type)) return false;
+    if (value.type === 'requires_review') {
+      return !Object.hasOwn(value, 'deadline_hours')
+        && !Object.hasOwn(value, 'penalty_mode')
+        && !Object.hasOwn(value, 'penalty_value')
+        && typeof value.reason === 'string'
+        && value.reason === value.reason.trim()
+        && value.reason.length >= 1 && value.reason.length <= 160
+        && !/[\u0000-\u001f\u007f]/.test(value.reason);
+    }
+    if (Object.hasOwn(value, 'reason')) return false;
+    if (value.type !== 'custom') {
+      return !Object.hasOwn(value, 'deadline_hours')
+        && !Object.hasOwn(value, 'penalty_mode')
+        && !Object.hasOwn(value, 'penalty_value');
+    }
+    if (!isExactInteger(value.deadline_hours, 0, 87600)
+        || !['none', 'flat', 'percent'].includes(value.penalty_mode)) return false;
+    if (value.penalty_mode === 'none') {
+      return !Object.hasOwn(value, 'penalty_value');
+    }
+    return isExactMoney(value.penalty_value, 0,
+      value.penalty_mode === 'percent' ? 100 : 9999999999.99);
+  }
+
+  function normalizePricingControl(value) {
+    const source = asObject(value);
+    const property = asObject(source.property);
+    const roomTypes = asArray(source.room_types).map((entry) => ({
+      ...clone(asObject(entry)),
+      id: normalizeUuid(entry?.id),
+      hotel_id: normalizeUuid(entry?.hotel_id),
+      name_i18n: normalizeI18n(entry?.name_i18n),
+    }));
+    const ratePlans = asArray(source.rate_plans).map((entry) => ({
+      ...normalizeRatePlan(entry),
+      price_inclusions: normalizeStringSet(entry?.price_inclusions),
+      lifecycle_status: asText(entry?.lifecycle_status) || (entry?.is_active === true ? 'active' : 'inactive'),
+      review_status: asText(entry?.review_status) || null,
+      review_basis: clone(entry?.review_basis ?? null),
+      protected: entry?.protected === true,
+      immutable_contract: clone(entry?.immutable_contract ?? null),
+      activation_blockers: asArray(entry?.activation_blockers).map((item) => clone(item)),
+      mutation_blockers: asArray(entry?.mutation_blockers).map((item) => clone(item)),
+    }));
+    const roomRates = asArray(source.room_rates).map((entry) => ({
+      ...normalizeRoomRate(entry),
+      pricing_source: asText(entry?.pricing_source) || (entry?.pricing_schedule_id ? 'pricing_schedule' : 'base_nightly_rate'),
+      base_nightly_rate_authoritative: entry?.base_nightly_rate_authoritative === true,
+      lifecycle_status: asText(entry?.lifecycle_status) || (entry?.is_active === true ? 'active' : 'inactive'),
+      review_status: asText(entry?.review_status) || null,
+      review_basis: clone(entry?.review_basis ?? null),
+      independent_tiers: asArray(entry?.independent_tiers).map((tier) => ({
+        ...clone(asObject(tier)),
+        id: normalizeUuid(tier?.id),
+        hotel_id: normalizeUuid(tier?.hotel_id),
+        room_rate_id: normalizeUuid(tier?.room_rate_id),
+        guest_count: asInteger(tier?.guest_count, 0),
+        threshold_nights: asInteger(tier?.threshold_nights, 0),
+        nightly_rate: asNumber(tier?.nightly_rate, null),
+        is_active: tier?.is_active !== false,
+        version: asInteger(tier?.version, 0),
+      })).sort((a, b) => a.guest_count - b.guest_count || a.threshold_nights - b.threshold_nights || String(a.id).localeCompare(String(b.id))),
+      independent_tiers_fingerprint: asNullableText(entry?.independent_tiers_fingerprint),
+      protected: entry?.protected === true,
+      immutable_contract: clone(entry?.immutable_contract ?? null),
+      activation_blockers: asArray(entry?.activation_blockers).map((item) => clone(item)),
+      mutation_blockers: asArray(entry?.mutation_blockers).map((item) => clone(item)),
+    }));
+    const schedules = asArray(source.pricing_schedules).map((entry) => ({
+      ...clone(asObject(entry)),
+      id: normalizeUuid(entry?.id),
+      hotel_id: normalizeUuid(entry?.hotel_id),
+      name_i18n: normalizeI18n(entry?.name_i18n),
+      linked_room_rate_ids: asArray(entry?.linked_room_rate_ids).map(normalizeUuid).filter(Boolean).sort(),
+      tiers: asArray(entry?.tiers).map((tier) => ({
+        ...clone(asObject(tier)),
+        id: normalizeUuid(tier?.id),
+        schedule_id: normalizeUuid(tier?.schedule_id || entry?.id),
+        guest_count: asInteger(tier?.guest_count, 0),
+        threshold_nights: asInteger(tier?.threshold_nights, 0),
+        nightly_rate: asNumber(tier?.nightly_rate, null),
+        is_active: tier?.is_active !== false,
+        version: Math.max(0, asInteger(tier?.version, 0)),
+      })).sort((a, b) => a.guest_count - b.guest_count || a.threshold_nights - b.threshold_nights || String(a.id).localeCompare(String(b.id))),
+      lifecycle_status: asText(entry?.lifecycle_status) || (entry?.is_active === true ? 'active' : 'inactive'),
+      review_status: asText(entry?.review_status) || null,
+      sharing_mode: asText(entry?.sharing_mode),
+      protected: entry?.protected === true,
+      immutable_contract: clone(entry?.immutable_contract ?? null),
+      activation_blockers: asArray(entry?.activation_blockers).map((item) => clone(item)),
+      mutation_blockers: asArray(entry?.mutation_blockers).map((item) => clone(item)),
+      version: asInteger(entry?.version, 0),
+    }));
+    const normalizeVersioned = (entry) => ({
+      ...clone(asObject(entry)),
+      id: normalizeUuid(entry?.id),
+      hotel_id: normalizeUuid(entry?.hotel_id),
+      version: asInteger(entry?.version, 0),
+      protected: entry?.protected === true,
+      mutation_blockers: asArray(entry?.mutation_blockers).map((item) => clone(item)),
+    });
+    const propertyPricingDefault = source.property_pricing_default == null
+      ? null
+      : normalizeVersioned(source.property_pricing_default);
+    return {
+      contract_version: asText(source.contract_version),
+      hotel_id: normalizeUuid(source.hotel_id),
+      property: clone(property),
+      feature_flags: clone(asObject(source.feature_flags)),
+      legacy_safety: clone(asObject(source.legacy_safety)),
+      snapshot_token: asText(source.snapshot_token),
+      rate_plans: ratePlans,
+      room_types: roomTypes,
+      room_rates: roomRates,
+      pricing_schedules: schedules,
+      rate_rules: asArray(source.rate_rules).map(normalizeVersioned),
+      exact_date_prices: asArray(source.exact_date_prices).map(normalizeVersioned),
+      allocation_rules: asArray(source.allocation_rules).map(normalizeVersioned),
+      property_pricing_default: propertyPricingDefault,
+      recent_activity: asArray(source.recent_activity).map((entry) => clone(entry)),
+    };
+  }
+
+  function validatePricingControl(value, expectedHotelId = null) {
+    const exactTopLevelKeys = [
+      'contract_version', 'hotel_id', 'property', 'feature_flags', 'legacy_safety',
+      'snapshot_token', 'rate_plans', 'room_types', 'room_rates', 'pricing_schedules',
+      'rate_rules', 'exact_date_prices', 'allocation_rules', 'property_pricing_default',
+      'recent_activity',
+    ];
+    const raw = asObject(value);
+    if (!hasExactKeys(raw, exactTopLevelKeys)) throw new Error('The pricing control response has an unexpected field envelope.');
+    for (const key of ['rate_plans', 'room_types', 'room_rates', 'pricing_schedules', 'rate_rules', 'exact_date_prices', 'allocation_rules', 'recent_activity']) {
+      if (!Array.isArray(raw[key])) throw new Error(`The pricing control ${key.replaceAll('_', ' ')} collection is invalid.`);
+    }
+    const collectionCeilings = Object.fromEntries(
+      ['rate_plans', 'room_types', 'room_rates', 'pricing_schedules', 'rate_rules',
+        'exact_date_prices', 'allocation_rules', 'recent_activity']
+        .map((key) => [key, PRICING_CONTROL_READ_LIMITS[key]]),
+    );
+    const nestedCeilingsExceeded = raw.pricing_schedules
+      .reduce((count, schedule) => count + asArray(schedule?.tiers).length, 0) > PRICING_CONTROL_READ_LIMITS.schedule_tiers
+      || raw.room_rates.reduce((count, rate) => count + asArray(rate?.independent_tiers).length, 0) > PRICING_CONTROL_READ_LIMITS.independent_tiers
+      || raw.allocation_rules.reduce((count, rule) => count + asArray(rule?.items).length, 0) > PRICING_CONTROL_READ_LIMITS.allocation_items;
+    if (Object.entries(collectionCeilings).some(([key, maximum]) => raw[key].length > maximum)
+        || nestedCeilingsExceeded
+        || jsonUtf8ByteLength(raw) > PRICING_CONTROL_READ_LIMITS.snapshot_bytes) {
+      throw new Error('The pricing control response exceeds the reviewed technical capacity limit. Narrow or archive configuration before retrying; no mutation was attempted.');
+    }
+    const propertyKeys = [
+      'id', 'updated_at', 'architecture_version', 'currency',
+      'minimum_stay_nights', 'maximum_stay_nights', 'children_policy',
+      'minimum_child_age', 'booking_mode',
+    ];
+    const flagKeys = [
+      'hotel_rooms_v2_enabled', 'hotel_external_sync_enabled',
+      'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled',
+    ];
+    const legacyKeys = [
+      'architecture_version', 'legacy_pricing_authoritative',
+      'legacy_pricing_rule_count', 'legacy_pricing_fingerprint', 'public_change',
+    ];
+    const immutableContractIsExact = (contract) => contract === null || (
+      hasExactKeys(contract, ['locked', 'contract_version', 'reason'])
+      && contract.locked === true
+      && [
+        'seven_kamares_legacy_to_h3_pricing_v1:accepted_h3_1p_hotel_pricing_graph',
+        'pricing_source_provenance_v1:nonmanual_source_read_only',
+        'pre_admin_c_calendar_pricing_v1:legacy_exact_pricing_read_only',
+      ].includes(`${contract.contract_version}:${contract.reason}`)
+    );
+    const immutableContractMatches = (contract, contractVersion, reason) => (
+      immutableContractIsExact(contract)
+      && contract !== null
+      && contract.contract_version === contractVersion
+      && contract.reason === reason
+    );
+    const activationBlockersAreExact = (blockers) => Array.isArray(blockers)
+      && blockers.every((blocker) => typeof blocker === 'string'
+        && blocker === blocker.trim() && blocker.length > 0);
+    const recentActivityKeys = [
+      'id', 'entity_type', 'entity_id', 'action', 'correlation_id', 'actor_type',
+      'actor_id', 'source', 'created_at', 'before_state', 'after_state',
+    ];
+    const jsonStateIsExact = (state) => state === null || (
+      typeof state === 'object' && !Array.isArray(state)
+      && JSON.stringify(state).length <= 200000
+    );
+    const activityActions = new Set(['create', 'update', 'disable', 'duplicate', 'delete']);
+    const activityStateKeySets = {
+      rate_plan: [[
+        'code', 'name_i18n', 'description_i18n', 'meal_plan_code',
+        'cancellation_policy', 'booking_mode_override', 'price_inclusions',
+        'lifecycle_status', 'sort_order',
+      ]],
+      room_rate: [[
+        'room_type_id', 'rate_plan_id', 'pricing_schedule_id', 'base_nightly_rate',
+        'currency', 'external_redirect_url', 'lifecycle_status', 'sort_order',
+      ]],
+      pricing_schedule: [[
+        'code', 'name_i18n', 'application_scope', 'currency', 'maximum_party_size',
+        'minimum_billable_occupancy', 'sharing_mode', 'lifecycle_status', 'tiers',
+      ], [
+        'code', 'name_i18n', 'application_scope', 'currency', 'maximum_party_size',
+        'minimum_billable_occupancy', 'sharing_mode', 'lifecycle_status',
+        'tiers_fingerprint',
+      ], [
+        'source_schedule_id', 'target_schedule_id', 'sharing_mode',
+        'lifecycle_status', 'tiers_fingerprint',
+      ]],
+      occupancy_tier: [['tiers'], ['tiers', 'tiers_fingerprint']],
+      rate_rule: [[
+        'room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'nightly_rate',
+        'minimum_stay', 'maximum_stay', 'closed_to_arrival',
+        'closed_to_departure', 'priority', 'is_active',
+      ]],
+      calendar_override: [[
+        'nightly_rate_mode', 'nightly_rate', 'minimum_stay_mode', 'minimum_stay',
+        'maximum_stay_mode', 'maximum_stay', 'reason', 'expires_at',
+        'pricing_source', 'pricing_actor_type', 'pricing_actor_id',
+        'pricing_updated_at', 'pricing_correlation_id',
+      ]],
+      allocation_rule: [[
+        'code', 'allocation_mode', 'min_guest_count', 'max_guest_count',
+        'lifecycle_status', 'sort_order', 'items',
+      ], [
+        'code', 'allocation_mode', 'min_guest_count', 'max_guest_count',
+        'lifecycle_status', 'sort_order', 'items_fingerprint',
+      ]],
+      property_pricing_default: [['nightly_rate', 'currency', 'lifecycle_status']],
+    };
+    const activityTierIsExact = (tier, parentKey, options = {}) => {
+      const keys = [
+        'id', ...(options.hotelId ? ['hotel_id'] : []), parentKey, 'guest_count',
+        'threshold_nights', 'nightly_rate', 'is_active', 'version',
+      ];
+      return hasExactKeys(tier, keys)
+        && Boolean(normalizeUuid(tier.id))
+        && Boolean(normalizeUuid(tier[parentKey]))
+        && (!options.hotelId || Boolean(normalizeUuid(tier.hotel_id)))
+        && isExactInteger(tier.guest_count, 1, 50)
+        && isExactInteger(tier.threshold_nights, 1, 3650)
+        && isExactMoney(tier.nightly_rate)
+        && typeof tier.is_active === 'boolean'
+        && isExactInteger(tier.version, 0, Number.MAX_SAFE_INTEGER);
+    };
+    const activityAllocationItemIsExact = (item) => {
+      if (!hasExactKeys(item, [
+        'id', 'hotel_id', 'allocation_rule_id', 'room_type_id', 'units_required',
+        'allocated_guest_count', 'pricing_guest_count', 'allocated_guest_counts',
+        'pricing_guest_counts', 'sort_order',
+      ]) || !normalizeUuid(item.id) || !normalizeUuid(item.hotel_id)
+          || !normalizeUuid(item.allocation_rule_id) || !normalizeUuid(item.room_type_id)
+          || !isExactInteger(item.units_required, 1, 50)
+          || !isExactInteger(item.sort_order, 0, 1000000)) return false;
+      const physical = item.allocated_guest_counts;
+      const priced = item.pricing_guest_counts;
+      const exactCounts = (counts) => counts === null || (Array.isArray(counts)
+        && counts.length === item.units_required
+        && counts.every((count) => isExactInteger(count, 1, 50)));
+      return (item.allocated_guest_count === null
+          || isExactInteger(item.allocated_guest_count, 1, 2500))
+        && (item.pricing_guest_count === null
+          || isExactInteger(item.pricing_guest_count, 1, 2500))
+        && exactCounts(physical) && exactCounts(priced)
+        && (physical === null
+          || item.allocated_guest_count === physical.reduce((sum, count) => sum + count, 0))
+        && (priced === null
+          || item.pricing_guest_count === priced.reduce((sum, count) => sum + count, 0));
+    };
+    const activityExactDateStateIsExact = (state) => {
+      if (!hasExactKeys(state, activityStateKeySets.calendar_override[0])) return false;
+      const modes = ['nightly_rate', 'minimum_stay', 'maximum_stay'];
+      const configured = modes.some((field) => state[`${field}_mode`] !== null);
+      if (!configured) {
+        return modes.every((field) => state[`${field}_mode`] === null && state[field] === null)
+          && state.reason === null && state.expires_at === null
+          && state.pricing_source === null && state.pricing_actor_type === null
+          && state.pricing_actor_id === null && state.pricing_updated_at === null
+          && state.pricing_correlation_id === null;
+      }
+      if (state.pricing_source !== 'manual'
+          || state.pricing_actor_type !== 'admin'
+          || !normalizeUuid(state.pricing_actor_id)
+          || !isExactIsoTimestamp(state.pricing_updated_at)
+          || !normalizeUuid(state.pricing_correlation_id)
+          || typeof state.reason !== 'string' || state.reason !== state.reason.trim()
+          || !state.reason || state.reason.length > 500
+          || !(state.expires_at === null || isExactIsoTimestamp(state.expires_at))) return false;
+      return configured
+        && modes.every((field) => {
+          const mode = state[`${field}_mode`];
+          const stateValue = state[field];
+          return [null, 'set', 'clear'].includes(mode)
+            && ((mode === null || mode === 'clear') ? stateValue === null
+              : field === 'nightly_rate'
+                ? isExactMoney(stateValue)
+                : isExactInteger(stateValue, 1, 3650));
+        })
+        && (state.minimum_stay === null || state.maximum_stay === null
+          || state.maximum_stay >= state.minimum_stay);
+    };
+    const activityStateIsExact = (entity, state) => {
+      if (state === null || !activityStateKeySets[entity]?.some((keys) => hasExactKeys(state, keys))) return false;
+      if (entity === 'rate_plan') {
+        return typeof state.code === 'string' && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(state.code)
+          && isExactI18n(state.name_i18n, 240) && isExactPricingDescriptionI18n(state.description_i18n, 5000)
+          && (state.meal_plan_code === null || (typeof state.meal_plan_code === 'string'
+            && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(state.meal_plan_code)))
+          && isExactCancellationPolicy(state.cancellation_policy)
+          && (state.booking_mode_override === null || BOOKING_MODES.includes(state.booking_mode_override))
+          && Array.isArray(state.price_inclusions) && state.price_inclusions.length <= 200
+          && state.price_inclusions.every((entry) => typeof entry === 'string'
+            && entry === entry.trim() && entry.length > 0)
+          && new Set(state.price_inclusions).size === state.price_inclusions.length
+          && PRICING_LIFECYCLE_STATUSES.includes(state.lifecycle_status)
+          && isExactInteger(state.sort_order, 0, 1000000);
+      }
+      if (entity === 'room_rate') return Boolean(normalizeUuid(state.room_type_id))
+        && Boolean(normalizeUuid(state.rate_plan_id))
+        && (state.pricing_schedule_id === null || Boolean(normalizeUuid(state.pricing_schedule_id)))
+        && isExactMoney(state.base_nightly_rate)
+        && typeof state.currency === 'string' && /^[A-Z]{3}$/.test(state.currency)
+        && (state.external_redirect_url === null || isExactHttpsUrl(state.external_redirect_url))
+        && PRICING_LIFECYCLE_STATUSES.includes(state.lifecycle_status)
+        && isExactInteger(state.sort_order, 0, 1000000);
+      if (entity === 'pricing_schedule') {
+        if (Object.hasOwn(state, 'source_schedule_id')) return normalizeUuid(state.source_schedule_id)
+          && normalizeUuid(state.target_schedule_id)
+          && PRICING_SCHEDULE_SHARING_MODES.includes(state.sharing_mode)
+          && state.lifecycle_status === 'draft'
+          && isExactFingerprint(state.tiers_fingerprint, false);
+        const exactParent = typeof state.code === 'string'
+          && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(state.code)
+          && isExactI18n(state.name_i18n, 240)
+          && state.application_scope === 'room_occupancy'
+          && typeof state.currency === 'string' && /^[A-Z]{3}$/.test(state.currency)
+          && isExactInteger(state.maximum_party_size, 1, 50)
+          && isExactInteger(state.minimum_billable_occupancy, 1, state.maximum_party_size)
+          && PRICING_SCHEDULE_SHARING_MODES.includes(state.sharing_mode)
+          && PRICING_LIFECYCLE_STATUSES.includes(state.lifecycle_status);
+        if (!exactParent) return false;
+        if (Object.hasOwn(state, 'tiers_fingerprint')) return isExactFingerprint(state.tiers_fingerprint, false);
+        return Array.isArray(state.tiers) && state.tiers.length <= 500
+          && state.tiers.every((tier) => activityTierIsExact(tier, 'schedule_id'));
+      }
+      if (entity === 'occupancy_tier') return Array.isArray(state.tiers)
+        && state.tiers.length <= 500
+        && state.tiers.every((tier) => activityTierIsExact(tier, 'room_rate_id', { hotelId: true }))
+        && (!Object.hasOwn(state, 'tiers_fingerprint')
+          || isExactFingerprint(state.tiers_fingerprint, false));
+      if (entity === 'rate_rule') return normalizeUuid(state.room_rate_id)
+        && isExactIsoDate(state.valid_from) && isExactIsoDate(state.valid_to)
+        && state.valid_to >= state.valid_from
+        && Array.isArray(state.weekdays) && state.weekdays.length >= 1
+        && state.weekdays.length <= 7
+        && state.weekdays.every((day) => isExactInteger(day, 1, 7))
+        && new Set(state.weekdays).size === state.weekdays.length
+        && isExactMoney(state.nightly_rate)
+        && (state.minimum_stay === null || isExactInteger(state.minimum_stay, 1, 3650))
+        && (state.maximum_stay === null || isExactInteger(state.maximum_stay, 1, 3650))
+        && (state.minimum_stay === null || state.maximum_stay === null
+          || state.maximum_stay >= state.minimum_stay)
+        && typeof state.closed_to_arrival === 'boolean'
+        && typeof state.closed_to_departure === 'boolean'
+        && isExactInteger(state.priority, -32768, 32767)
+        && typeof state.is_active === 'boolean';
+      if (entity === 'calendar_override') return activityExactDateStateIsExact(state);
+      if (entity === 'allocation_rule') {
+        const exactParent = typeof state.code === 'string'
+          && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(state.code)
+          && ROOM_ALLOCATION_MODES.includes(state.allocation_mode)
+          && isExactInteger(state.min_guest_count, 1, 50)
+          && isExactInteger(state.max_guest_count, state.min_guest_count, 50)
+          && PRICING_LIFECYCLE_STATUSES.includes(state.lifecycle_status)
+          && isExactInteger(state.sort_order, 0, 1000000);
+        if (!exactParent) return false;
+        if (Object.hasOwn(state, 'items_fingerprint')) return isExactFingerprint(state.items_fingerprint, false);
+        return Array.isArray(state.items) && state.items.length <= 100
+          && state.items.every(activityAllocationItemIsExact);
+      }
+      return entity === 'property_pricing_default'
+        && isExactMoney(state.nightly_rate, 0.01)
+        && typeof state.currency === 'string' && /^[A-Z]{3}$/.test(state.currency)
+        && PRICING_LIFECYCLE_STATUSES.includes(state.lifecycle_status);
+    };
+    const activitySourceIsExact = (activity) => {
+      if (activity.source === 'hotels_v2_admin_c_pricing_control') {
+        if (activity.actor_type !== 'admin' || activity.action === 'delete') return false;
+        const beforeIsExpected = activity.action === 'create' || activity.action === 'duplicate'
+          ? activity.before_state === null
+          : activityStateIsExact(activity.entity_type, activity.before_state);
+        const afterIsExpected = activity.action === 'disable'
+          && activity.entity_type === 'calendar_override'
+          && activity.after_state === null
+          ? true
+          : activityStateIsExact(activity.entity_type, activity.after_state);
+        return beforeIsExpected && afterIsExpected;
+      }
+      return activity.source === 'historical_pricing_activity'
+        && activity.before_state === null
+        && activity.after_state === null;
+    };
+    if (!hasExactKeys(raw.property, propertyKeys)
+        || !normalizeUuid(raw.property.id)
+        || !isExactIsoTimestamp(raw.property.updated_at)
+        || !['legacy', 'rooms_v2'].includes(raw.property.architecture_version)
+        || typeof raw.property.currency !== 'string'
+        || !/^[A-Z]{3}$/.test(raw.property.currency)
+        || !(raw.property.minimum_stay_nights === null
+          || isExactInteger(raw.property.minimum_stay_nights, 1, 3650))
+        || !(raw.property.maximum_stay_nights === null
+          || isExactInteger(raw.property.maximum_stay_nights, 1, 3650))
+        || (raw.property.minimum_stay_nights !== null
+          && raw.property.maximum_stay_nights !== null
+          && raw.property.maximum_stay_nights < raw.property.minimum_stay_nights)
+        || !(raw.property.children_policy === null
+          || CHILDREN_POLICIES.includes(raw.property.children_policy))
+        || !(raw.property.minimum_child_age === null
+          || isExactInteger(raw.property.minimum_child_age, CHILD_AGE_MIN, CHILD_AGE_MAX))
+        || !BOOKING_MODES.includes(raw.property.booking_mode)) {
+      throw new Error('The pricing control property snapshot is invalid.');
+    }
+    if (!hasExactKeys(raw.feature_flags, flagKeys)
+        || flagKeys.some((key) => typeof raw.feature_flags[key] !== 'boolean')) {
+      throw new Error('The pricing control feature-flag snapshot is invalid.');
+    }
+    if (!hasExactKeys(raw.legacy_safety, legacyKeys)
+        || raw.legacy_safety.architecture_version !== raw.property.architecture_version
+        || typeof raw.legacy_safety.legacy_pricing_authoritative !== 'boolean'
+        || raw.legacy_safety.legacy_pricing_authoritative !== (raw.property.architecture_version === 'legacy')
+        || !(raw.legacy_safety.legacy_pricing_rule_count === null
+          || isExactInteger(raw.legacy_safety.legacy_pricing_rule_count, 0, 1000000))
+        || !isExactFingerprint(raw.legacy_safety.legacy_pricing_fingerprint)
+        || raw.legacy_safety.public_change !== false) {
+      throw new Error('The pricing control legacy-safety snapshot is invalid.');
+    }
+    if (!isExactSnapshotToken(raw.snapshot_token)) {
+      throw new Error('The pricing control snapshot token is invalid.');
+    }
+    raw.recent_activity.forEach((activity) => {
+      if (!hasExactKeys(activity, recentActivityKeys)
+          || !normalizeUuid(activity.id)
+          || !normalizeUuid(activity.entity_id)
+          || !normalizeUuid(activity.correlation_id)
+          || !['admin', 'partner', 'sync', 'system'].includes(activity.actor_type)
+          || (['admin', 'partner'].includes(activity.actor_type) && !normalizeUuid(activity.actor_id))
+          || !(activity.actor_id === null || normalizeUuid(activity.actor_id))
+          || typeof activity.entity_type !== 'string' || !activity.entity_type
+          || !activityActions.has(activity.action)
+          || !activitySourceIsExact(activity)
+          || !isExactIsoTimestamp(activity.created_at)
+          || !jsonStateIsExact(activity.before_state)
+          || !jsonStateIsExact(activity.after_state)) {
+        throw new Error('The pricing control activity projection is invalid.');
+      }
+    });
+    const exactRowKeys = {
+      room_types: [
+        'id', 'hotel_id', 'code', 'name_i18n', 'status', 'max_occupancy',
+        'capacity_adults', 'capacity_children', 'children_policy_override',
+        'minimum_child_age_override', 'inventory_mode', 'base_inventory_count',
+        'active_unit_count', 'version', 'updated_at',
+      ],
+      rate_plans: [
+        'id', 'hotel_id', 'code', 'name_i18n', 'description_i18n', 'meal_plan_code',
+        'cancellation_policy', 'booking_mode_override', 'price_inclusions', 'is_active',
+        'review_status', 'lifecycle_status', 'review_basis', 'sort_order', 'version',
+        'updated_at', 'immutable_contract', 'activation_blockers',
+      ],
+      room_rates: [
+        'id', 'hotel_id', 'room_type_id', 'rate_plan_id', 'pricing_schedule_id',
+        'base_nightly_rate', 'currency', 'external_redirect_url', 'is_active',
+        'review_status', 'lifecycle_status', 'review_basis', 'sort_order', 'version',
+        'updated_at', 'pricing_source', 'base_nightly_rate_authoritative',
+        'independent_tiers', 'independent_tiers_fingerprint', 'immutable_contract',
+        'activation_blockers',
+      ],
+      pricing_schedules: [
+        'id', 'hotel_id', 'code', 'name_i18n', 'application_scope', 'currency',
+        'maximum_party_size', 'minimum_billable_occupancy', 'is_active',
+        'review_status', 'lifecycle_status', 'source', 'source_reference', 'version',
+        'updated_at', 'linked_room_rate_ids', 'link_fingerprint', 'sharing_mode',
+        'tiers', 'tiers_fingerprint', 'immutable_contract', 'activation_blockers',
+      ],
+      rate_rules: [
+        'id', 'hotel_id', 'room_rate_id', 'valid_from', 'valid_to', 'weekdays',
+        'nightly_rate', 'minimum_stay', 'maximum_stay', 'closed_to_arrival',
+        'closed_to_departure', 'priority', 'is_active', 'source', 'version',
+        'updated_at', 'immutable_contract',
+      ],
+      exact_date_prices: [
+        'id', 'hotel_id', 'room_rate_id', 'stay_date', 'nightly_rate',
+        'nightly_rate_mode', 'minimum_stay', 'minimum_stay_mode', 'maximum_stay',
+        'maximum_stay_mode', 'pricing_active', 'pricing_source', 'pricing_reason',
+        'pricing_expires_at', 'pricing_actor_type', 'pricing_actor_id',
+        'pricing_updated_at', 'pricing_correlation_id', 'shared_with_calendar',
+        'pricing_configured', 'version', 'updated_at', 'immutable_contract',
+      ],
+      allocation_rules: [
+        'id', 'hotel_id', 'code', 'allocation_mode', 'min_guest_count',
+        'max_guest_count', 'is_active', 'review_status', 'lifecycle_status',
+        'sort_order', 'version', 'updated_at', 'items_fingerprint', 'items',
+        'immutable_contract', 'activation_blockers',
+      ],
+    };
+    Object.entries(exactRowKeys).forEach(([collection, keys]) => {
+      raw[collection].forEach((row) => {
+        if (!hasExactKeys(row, keys)) throw new Error(`The pricing control ${collection.replaceAll('_', ' ')} row has an unexpected field envelope.`);
+      });
+    });
+    const propertyDefaultKeys = [
+      'id', 'hotel_id', 'nightly_rate', 'currency', 'is_active', 'review_status',
+      'lifecycle_status', 'version', 'updated_at', 'immutable_contract',
+      'activation_blockers',
+    ];
+    if (raw.property_pricing_default !== null
+        && !hasExactKeys(raw.property_pricing_default, propertyDefaultKeys)) {
+      throw new Error('The property pricing default has an unexpected field envelope.');
+    }
+    for (const row of [...raw.rate_plans, ...raw.room_rates, ...raw.pricing_schedules, ...raw.rate_rules,
+      ...raw.exact_date_prices, ...raw.allocation_rules,
+      ...(raw.property_pricing_default ? [raw.property_pricing_default] : [])]) {
+      if (!immutableContractIsExact(row.immutable_contract)) {
+        throw new Error('A pricing control row returned an invalid immutable-contract marker.');
+      }
+    }
+    for (const row of [...raw.rate_plans, ...raw.room_rates, ...raw.pricing_schedules, ...raw.allocation_rules,
+      ...(raw.property_pricing_default ? [raw.property_pricing_default] : [])]) {
+      if (!activationBlockersAreExact(row.activation_blockers)) {
+        throw new Error('A pricing control row returned invalid activation blockers.');
+      }
+    }
+    const exactTierKeys = [
+      'id', 'hotel_id', 'room_rate_id', 'guest_count', 'threshold_nights',
+      'nightly_rate', 'is_active', 'source', 'immutable_contract', 'version',
+      'updated_at',
+    ];
+    raw.room_rates.forEach((rate) => {
+      if (!Array.isArray(rate.independent_tiers)
+          || rate.independent_tiers.length > 500
+          || rate.independent_tiers.some((tier) => !hasExactKeys(tier, exactTierKeys)
+            || !immutableContractIsExact(tier.immutable_contract))) {
+        throw new Error('A Room Rate returned an invalid independent tier set.');
+      }
+    });
+    const exactScheduleTierKeys = [
+      'id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate',
+      'is_active', 'version', 'updated_at',
+    ];
+    raw.pricing_schedules.forEach((schedule) => {
+      if (!Array.isArray(schedule.linked_room_rate_ids)
+          || schedule.linked_room_rate_ids.length > 1000
+          || !Array.isArray(schedule.tiers)
+          || schedule.tiers.length > 500
+          || schedule.tiers.some((tier) => !hasExactKeys(tier, exactScheduleTierKeys))) {
+        throw new Error('A pricing schedule returned an invalid exact child set.');
+      }
+    });
+    const exactAllocationItemKeys = [
+      'id', 'hotel_id', 'allocation_rule_id', 'room_type_id', 'units_required',
+      'allocated_guest_count', 'pricing_guest_count', 'allocated_guest_counts',
+      'pricing_guest_counts', 'sort_order', 'version',
+    ];
+    raw.allocation_rules.forEach((rule) => {
+      if (!Array.isArray(rule.items)
+          || rule.items.length > 100
+          || rule.items.some((item) => !hasExactKeys(item, exactAllocationItemKeys))) {
+        throw new Error('An allocation rule returned an invalid exact child set.');
+      }
+    });
+    const normalized = normalizePricingControl(value);
+    const expected = normalizeUuid(expectedHotelId);
+    if (normalized.contract_version !== PRICING_CONTROL_READ_CONTRACT
+        || !normalized.hotel_id
+        || (expected && normalized.hotel_id !== expected)
+        || !normalized.snapshot_token
+        || normalizeUuid(normalized.property?.id) !== normalized.hotel_id) {
+      throw new Error('The pricing control response does not match this exact property.');
+    }
+    const requiredOffFlags = [
+      'hotel_rooms_v2_enabled', 'hotel_external_sync_enabled',
+      'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled',
+    ];
+    const architecture = asText(normalized.property?.architecture_version);
+    if (requiredOffFlags.some((key) => normalized.feature_flags[key] !== false)
+        || !['legacy', 'rooms_v2'].includes(architecture)
+        || (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID && architecture !== 'legacy')) {
+      throw new Error('Pricing control requires a supported inert Hotel architecture, all Hotels V2 flags OFF and the exact 7 Kamares legacy lock.');
+    }
+    if (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID
+        && (raw.legacy_safety.legacy_pricing_rule_count !== 63
+          || raw.legacy_safety.legacy_pricing_fingerprint !== SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT
+          || raw.legacy_safety.legacy_pricing_authoritative !== true)) {
+      throw new Error('The accepted 7 Kamares legacy pricing fingerprint is not intact.');
+    }
+    const exactIds = [
+      ...normalized.rate_plans, ...normalized.room_types, ...normalized.room_rates,
+      ...normalized.pricing_schedules, ...normalized.rate_rules,
+      ...normalized.exact_date_prices, ...normalized.allocation_rules,
+      ...(normalized.property_pricing_default ? [normalized.property_pricing_default] : []),
+    ];
+    if (exactIds.some((entry) => !entry.id)) throw new Error('Pricing control returned a row without an exact identifier.');
+    if (normalized.room_rates.some((rate) => (
+      !normalized.room_types.some((room) => room.id === rate.room_type_id)
+      || !normalized.rate_plans.some((plan) => plan.id === rate.rate_plan_id)
+      || (rate.pricing_schedule_id && !normalized.pricing_schedules.some((schedule) => schedule.id === rate.pricing_schedule_id))
+    ))) throw new Error('Pricing control returned a cross-property or missing product relationship.');
+    const requireExactHotel = (rows) => rows.every((entry) => normalizeUuid(entry?.hotel_id) === normalized.hotel_id);
+    if (!requireExactHotel(raw.rate_plans)
+        || !requireExactHotel(raw.room_types)
+        || !requireExactHotel(raw.room_rates)
+        || !requireExactHotel(raw.pricing_schedules)
+        || !requireExactHotel(raw.rate_rules)
+        || !requireExactHotel(raw.exact_date_prices)
+        || !requireExactHotel(raw.allocation_rules)
+        || (raw.property_pricing_default !== null
+          && normalizeUuid(raw.property_pricing_default.hotel_id) !== normalized.hotel_id)) {
+      throw new Error('Pricing control returned a row outside the exact property.');
+    }
+    const requireUniqueExactIds = (rows) => {
+      const ids = rows.map((entry) => normalizeUuid(entry?.id));
+      return ids.every(Boolean) && new Set(ids).size === ids.length;
+    };
+    if (![raw.rate_plans, raw.room_types, raw.room_rates, raw.pricing_schedules, raw.rate_rules, raw.exact_date_prices, raw.allocation_rules]
+      .every(requireUniqueExactIds)) {
+      throw new Error('Pricing control returned a duplicate or malformed exact identifier.');
+    }
+    const roomRateIds = new Set(normalized.room_rates.map((rate) => rate.id));
+    const roomTypeIds = new Set(normalized.room_types.map((room) => room.id));
+    const ratePlanIds = new Set(normalized.rate_plans.map((plan) => plan.id));
+    const scheduleIds = new Set(normalized.pricing_schedules.map((schedule) => schedule.id));
+    if (raw.property_pricing_default && (
+      !isExactMoney(raw.property_pricing_default.nightly_rate, 0.01)
+      || raw.property_pricing_default.currency !== raw.property.currency
+      || typeof raw.property_pricing_default.is_active !== 'boolean'
+      || !H3_REVIEW_STATUSES.includes(raw.property_pricing_default.review_status)
+      || !PRICING_LIFECYCLE_STATUSES.includes(raw.property_pricing_default.lifecycle_status)
+      || !isExactIsoTimestamp(raw.property_pricing_default.updated_at)
+    )) throw new Error('The property pricing default projection is invalid.');
+    if (raw.rate_rules.some((row) => !roomRateIds.has(normalizeUuid(row.room_rate_id)))
+        || raw.exact_date_prices.some((row) => !roomRateIds.has(normalizeUuid(row.room_rate_id)))) {
+      throw new Error('Pricing control returned a foreign Room Rate child.');
+    }
+    if (raw.exact_date_prices.some((row) => (
+      !isExactIsoDate(row.stay_date)
+      || typeof row.pricing_active !== 'boolean'
+      || typeof row.shared_with_calendar !== 'boolean'
+      || typeof row.pricing_configured !== 'boolean'
+      || !['set', 'clear', null].includes(row.nightly_rate_mode)
+      || !['set', 'clear', null].includes(row.minimum_stay_mode)
+      || !['set', 'clear', null].includes(row.maximum_stay_mode)
+      || (row.nightly_rate_mode === null && row.nightly_rate !== null)
+      || (row.minimum_stay_mode === null && row.minimum_stay !== null)
+      || (row.maximum_stay_mode === null && row.maximum_stay !== null)
+      || (row.nightly_rate_mode === 'set' && !isExactMoney(row.nightly_rate))
+      || (row.minimum_stay_mode === 'set' && !isExactInteger(row.minimum_stay, 1, 3650))
+      || (row.maximum_stay_mode === 'set' && !isExactInteger(row.maximum_stay, 1, 3650))
+      || (row.nightly_rate_mode === 'clear' && row.nightly_rate !== null)
+      || (row.minimum_stay_mode === 'clear' && row.minimum_stay !== null)
+      || (row.maximum_stay_mode === 'clear' && row.maximum_stay !== null)
+      || row.pricing_configured !== [row.nightly_rate_mode, row.minimum_stay_mode, row.maximum_stay_mode]
+        .some((mode) => mode !== null)
+    ))) throw new Error('Pricing control returned an invalid exact-date pricing projection.');
+    if (raw.room_types.some((room) => (
+      typeof room.code !== 'string' || !room.code
+      || !isExactI18n(room.name_i18n, 240)
+      || !ROOM_STATUSES.includes(room.status)
+      || !(room.max_occupancy === null || isExactInteger(room.max_occupancy, 1, 50))
+      || !(room.capacity_adults === null || isExactInteger(room.capacity_adults, 0, 50))
+      || !(room.capacity_children === null || isExactInteger(room.capacity_children, 0, 50))
+      || !(room.children_policy_override === null
+        || ROOM_CHILDREN_POLICY_OVERRIDES.includes(room.children_policy_override))
+      || !(room.minimum_child_age_override === null
+        || isExactInteger(room.minimum_child_age_override, CHILD_AGE_MIN, CHILD_AGE_MAX))
+      || (room.children_policy_override === 'minimum_age'
+        ? room.minimum_child_age_override === null
+        : room.minimum_child_age_override !== null)
+      || !INVENTORY_MODES.includes(room.inventory_mode)
+      || !isExactInteger(room.base_inventory_count, 0, 1000000)
+      || !isExactInteger(room.active_unit_count, 0, 1000000)
+      || !isExactIsoTimestamp(room.updated_at)
+    ))) throw new Error('Pricing control returned an invalid Room Type projection.');
+    if (raw.rate_plans.some((plan) => (
+      typeof plan.code !== 'string' || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(plan.code)
+      || !isExactI18n(plan.name_i18n, 240) || !isExactPricingDescriptionI18n(plan.description_i18n, 5000)
+      || !isExactCancellationPolicy(plan.cancellation_policy)
+      || !(plan.meal_plan_code === null || (typeof plan.meal_plan_code === 'string'
+        && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(plan.meal_plan_code)))
+      || !(plan.booking_mode_override === null || BOOKING_MODES.includes(plan.booking_mode_override))
+      || !Array.isArray(plan.price_inclusions)
+      || plan.price_inclusions.length > 200
+      || plan.price_inclusions.some((entry) => typeof entry !== 'string'
+        || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(entry))
+      || new Set(plan.price_inclusions).size !== plan.price_inclusions.length
+      || JSON.stringify(plan.price_inclusions) !== JSON.stringify([...plan.price_inclusions].sort())
+      || typeof plan.is_active !== 'boolean'
+      || !H3_REVIEW_STATUSES.includes(plan.review_status)
+      || !PRICING_LIFECYCLE_STATUSES.includes(plan.lifecycle_status)
+      || !['stored', 'h3_1p_promotion'].includes(plan.review_basis)
+      || !isExactInteger(plan.sort_order, 0, 1000000)
+      || !isExactIsoTimestamp(plan.updated_at)
+    ))) throw new Error('Pricing control returned an invalid Rate Plan projection.');
+    if (raw.room_rates.some((rate) => (
+      !ratePlanIds.has(normalizeUuid(rate.rate_plan_id))
+      || !roomTypeIds.has(normalizeUuid(rate.room_type_id))
+      || !(rate.pricing_schedule_id === null || scheduleIds.has(normalizeUuid(rate.pricing_schedule_id)))
+      || !isExactMoney(rate.base_nightly_rate)
+      || typeof rate.currency !== 'string' || !/^[A-Z]{3}$/.test(rate.currency)
+      || !(rate.external_redirect_url === null || isExactHttpsUrl(rate.external_redirect_url))
+      || typeof rate.is_active !== 'boolean'
+      || !H3_REVIEW_STATUSES.includes(rate.review_status)
+      || !PRICING_LIFECYCLE_STATUSES.includes(rate.lifecycle_status)
+      || !['stored', 'h3_1p_promotion'].includes(rate.review_basis)
+      || !['pricing_schedule', 'independent_tiers', 'base_nightly_rate',
+        'property_default', 'missing'].includes(rate.pricing_source)
+      || typeof rate.base_nightly_rate_authoritative !== 'boolean'
+      || !isExactFingerprint(rate.independent_tiers_fingerprint)
+      || !isExactInteger(rate.sort_order, 0, 1000000)
+      || !isExactIsoTimestamp(rate.updated_at)
+    ))) throw new Error('Pricing control returned an invalid Room Rate projection.');
+    const activeReviewedPropertyDefault = raw.property_pricing_default
+      && raw.property_pricing_default.is_active === true
+      && raw.property_pricing_default.review_status === 'reviewed'
+      && raw.property_pricing_default.currency === raw.property.currency;
+    if (raw.room_rates.some((rate) => {
+      const expectedSource = rate.pricing_schedule_id !== null
+        ? 'pricing_schedule'
+        : rate.independent_tiers.some((tier) => tier.is_active === true)
+          ? 'independent_tiers'
+          : rate.base_nightly_rate > 0
+            ? 'base_nightly_rate'
+            : activeReviewedPropertyDefault && raw.property_pricing_default.currency === rate.currency
+              ? 'property_default'
+              : 'missing';
+      return rate.pricing_source !== expectedSource
+        || rate.base_nightly_rate_authoritative !== (expectedSource === 'base_nightly_rate');
+    })) throw new Error('A Room Rate returned a pricing-source authority mismatch.');
+    raw.room_rates.forEach((rate) => {
+      if (!requireUniqueExactIds(rate.independent_tiers)
+          || rate.independent_tiers.some((tier) => (
+            normalizeUuid(tier.hotel_id) !== normalized.hotel_id
+            || normalizeUuid(tier.room_rate_id) !== normalizeUuid(rate.id)
+            || typeof tier.version !== 'number' || !Number.isInteger(tier.version) || tier.version < 1
+            || typeof tier.guest_count !== 'number' || !Number.isInteger(tier.guest_count) || tier.guest_count < 1
+            || typeof tier.threshold_nights !== 'number' || !Number.isInteger(tier.threshold_nights) || tier.threshold_nights < 1
+            || !isExactMoney(tier.nightly_rate)
+            || typeof tier.is_active !== 'boolean'
+            || !['manual', 'legacy_preview', 'system'].includes(tier.source)
+            || (tier.source === 'manual' && tier.immutable_contract !== null)
+            || (tier.source !== 'manual' && !immutableContractMatches(
+              tier.immutable_contract,
+              'pricing_source_provenance_v1',
+              'nonmanual_source_read_only',
+            ))
+            || !isExactIsoTimestamp(tier.updated_at)
+          ))) throw new Error('Pricing control returned an invalid Room Rate tier relationship.');
+    });
+    raw.pricing_schedules.forEach((schedule) => {
+      const scheduleId = normalizeUuid(schedule.id);
+      const linkedIds = schedule.linked_room_rate_ids.map(normalizeUuid);
+      if (!requireUniqueExactIds(schedule.tiers)
+          || linkedIds.some((id) => !id || !roomRateIds.has(id))
+          || new Set(linkedIds).size !== linkedIds.length
+          || !PRICING_SCHEDULE_SHARING_MODES.includes(schedule.sharing_mode)
+          || !isExactFingerprint(schedule.tiers_fingerprint)
+          || !isExactFingerprint(schedule.link_fingerprint)
+          || (schedule.sharing_mode === 'independent' && linkedIds.length > 1)
+          || schedule.tiers.some((tier) => (
+            normalizeUuid(tier.schedule_id) !== scheduleId
+            || typeof tier.version !== 'number' || !Number.isInteger(tier.version) || tier.version < 1
+            || typeof tier.guest_count !== 'number' || !Number.isInteger(tier.guest_count) || tier.guest_count < 1
+            || typeof tier.threshold_nights !== 'number' || !Number.isInteger(tier.threshold_nights) || tier.threshold_nights < 1
+            || !isExactMoney(tier.nightly_rate)
+            || typeof tier.is_active !== 'boolean'
+            || !isExactIsoTimestamp(tier.updated_at)
+          ))) throw new Error('Pricing control returned an invalid schedule child or link relationship.');
+    });
+    const sourceReferenceIsExact = (schedule) => {
+      const reference = schedule.source_reference;
+      if (!hasExactKeys(reference, [
+        'kind', 'cloned_from_schedule_id', 'pricing_model', 'pricing_fingerprint',
+        'rule_count', 'guest_counts', 'migration_blocker',
+      ]) || reference.kind !== schedule.source) return false;
+      if (schedule.source === 'manual') {
+        return (reference.cloned_from_schedule_id === null
+            || Boolean(normalizeUuid(reference.cloned_from_schedule_id)))
+          && reference.pricing_model === null
+          && reference.pricing_fingerprint === null
+          && reference.rule_count === null
+          && reference.guest_counts === null
+          && reference.migration_blocker === null;
+      }
+      if (schedule.source === 'system') {
+        return reference.cloned_from_schedule_id === null
+          && reference.pricing_model === null
+          && reference.pricing_fingerprint === null
+          && reference.rule_count === null
+          && reference.guest_counts === null
+          && reference.migration_blocker === null;
+      }
+      return schedule.source === 'legacy_preview'
+        && reference.cloned_from_schedule_id === null
+        && (reference.pricing_model === null || (typeof reference.pricing_model === 'string'
+          && reference.pricing_model === reference.pricing_model.trim()
+          && reference.pricing_model.length >= 1 && reference.pricing_model.length <= 80))
+        && (reference.pricing_fingerprint === null
+          || (typeof reference.pricing_fingerprint === 'string'
+            && /^[0-9a-f]{32}$/.test(reference.pricing_fingerprint)))
+        && (reference.rule_count === null || isExactInteger(reference.rule_count, 0, 500))
+        && (reference.guest_counts === null || (Array.isArray(reference.guest_counts)
+          && reference.guest_counts.length <= 50
+          && reference.guest_counts.every((count) => isExactInteger(count, 1, 50))))
+        && (reference.migration_blocker === null
+          || (typeof reference.migration_blocker === 'string'
+            && reference.migration_blocker === reference.migration_blocker.trim()
+            && reference.migration_blocker.length >= 1
+            && reference.migration_blocker.length <= 160));
+    };
+    if (raw.pricing_schedules.some((schedule) => (
+      typeof schedule.code !== 'string' || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(schedule.code)
+      || !isExactI18n(schedule.name_i18n, 240)
+      || !['room_occupancy', 'property_booking_party'].includes(schedule.application_scope)
+      || typeof schedule.currency !== 'string' || !/^[A-Z]{3}$/.test(schedule.currency)
+      || !isExactInteger(schedule.maximum_party_size, 1, 50)
+      || !isExactInteger(schedule.minimum_billable_occupancy, 1, schedule.maximum_party_size)
+      || typeof schedule.is_active !== 'boolean'
+      || !H3_REVIEW_STATUSES.includes(schedule.review_status)
+      || !PRICING_LIFECYCLE_STATUSES.includes(schedule.lifecycle_status)
+      || !['manual', 'legacy_preview', 'system'].includes(schedule.source)
+      || !sourceReferenceIsExact(schedule)
+      || (schedule.source !== 'manual'
+        && !immutableContractMatches(schedule.immutable_contract,
+          'pricing_source_provenance_v1', 'nonmanual_source_read_only')
+        && !immutableContractMatches(schedule.immutable_contract,
+          'seven_kamares_legacy_to_h3_pricing_v1', 'accepted_h3_1p_hotel_pricing_graph'))
+      || !isExactIsoTimestamp(schedule.updated_at)
+    ))) throw new Error('Pricing control returned an invalid pricing schedule projection.');
+    if (raw.rate_rules.some((rule) => (
+      !isExactIsoDate(rule.valid_from) || !isExactIsoDate(rule.valid_to) || rule.valid_to < rule.valid_from
+      || !Array.isArray(rule.weekdays) || !rule.weekdays.length
+      || rule.weekdays.some((day) => !isExactInteger(day, 1, 7))
+      || new Set(rule.weekdays).size !== rule.weekdays.length
+      || !isExactMoney(rule.nightly_rate)
+      || !(rule.minimum_stay === null || isExactInteger(rule.minimum_stay, 1, 3650))
+      || !(rule.maximum_stay === null || isExactInteger(rule.maximum_stay, 1, 3650))
+      || (rule.minimum_stay !== null && rule.maximum_stay !== null && rule.maximum_stay < rule.minimum_stay)
+      || typeof rule.closed_to_arrival !== 'boolean' || typeof rule.closed_to_departure !== 'boolean'
+      || !isExactInteger(rule.priority, -32768, 32767) || typeof rule.is_active !== 'boolean'
+      || !['manual', 'legacy_preview', 'system'].includes(rule.source)
+      || (rule.source !== 'manual'
+        && !immutableContractMatches(rule.immutable_contract,
+          'pricing_source_provenance_v1', 'nonmanual_source_read_only')
+        && !immutableContractMatches(rule.immutable_contract,
+          'seven_kamares_legacy_to_h3_pricing_v1', 'accepted_h3_1p_hotel_pricing_graph'))
+      || !isExactIsoTimestamp(rule.updated_at)
+    ))) throw new Error('Pricing control returned an invalid seasonal / weekday rule projection.');
+    if (raw.exact_date_prices.some((row) => {
+      const configured = row.pricing_configured === true;
+      const actorNeedsId = ['admin', 'partner'].includes(row.pricing_actor_type);
+      const legacyDerived = immutableContractMatches(
+        row.immutable_contract,
+        'pre_admin_c_calendar_pricing_v1',
+        'legacy_exact_pricing_read_only',
+      );
+      return typeof row.pricing_active !== 'boolean'
+        || !isExactIsoTimestamp(row.updated_at)
+        || (!configured && (
+          row.pricing_active !== false
+          || row.pricing_source !== null || row.pricing_reason !== null
+          || row.pricing_expires_at !== null || row.pricing_actor_type !== null
+          || row.pricing_actor_id !== null || row.pricing_updated_at !== null
+          || row.pricing_correlation_id !== null
+        ))
+        || (configured && (
+          !(legacyDerived
+            ? ['legacy_preview', 'manual', 'system'].includes(row.pricing_source)
+            : ['manual', 'partner', 'sync', 'system'].includes(row.pricing_source))
+          || typeof row.pricing_reason !== 'string'
+          || row.pricing_reason !== row.pricing_reason.trim()
+          || !row.pricing_reason || row.pricing_reason.length > 500
+          || !(row.pricing_expires_at === null || isExactIsoTimestamp(row.pricing_expires_at))
+          || !['admin', 'partner', 'sync', 'system'].includes(row.pricing_actor_type)
+          || (actorNeedsId && !normalizeUuid(row.pricing_actor_id))
+          || (!actorNeedsId && !(row.pricing_actor_id === null || normalizeUuid(row.pricing_actor_id)))
+          || !isExactIsoTimestamp(row.pricing_updated_at)
+          || (legacyDerived
+            ? row.pricing_correlation_id !== null
+            : !normalizeUuid(row.pricing_correlation_id))
+        ));
+    })) throw new Error('Pricing control returned invalid exact-date pricing provenance.');
+    raw.allocation_rules.forEach((rule) => {
+      const ruleId = normalizeUuid(rule.id);
+      if (!requireUniqueExactIds(rule.items)
+          || typeof rule.code !== 'string' || !rule.code
+          || !ROOM_ALLOCATION_MODES.includes(rule.allocation_mode)
+          || !isExactInteger(rule.min_guest_count, 1, 50)
+          || !isExactInteger(rule.max_guest_count, rule.min_guest_count, 50)
+          || typeof rule.is_active !== 'boolean'
+          || !H3_REVIEW_STATUSES.includes(rule.review_status)
+          || !PRICING_LIFECYCLE_STATUSES.includes(rule.lifecycle_status)
+          || !isExactInteger(rule.sort_order, 0, 1000000)
+          || !isExactFingerprint(rule.items_fingerprint)
+          || !isExactIsoTimestamp(rule.updated_at)
+          || rule.items.some((item) => (
+            normalizeUuid(item.hotel_id) !== normalized.hotel_id
+            || normalizeUuid(item.allocation_rule_id) !== ruleId
+            || !roomTypeIds.has(normalizeUuid(item.room_type_id))
+            || typeof item.version !== 'number' || !Number.isInteger(item.version) || item.version < 1
+            || !isExactInteger(item.units_required, 1, 50)
+            || !isExactInteger(item.sort_order, 0, 1000000)
+            || !(item.allocated_guest_count === null
+              || isExactInteger(item.allocated_guest_count, 1, 2500))
+            || !(item.pricing_guest_count === null
+              || isExactInteger(item.pricing_guest_count, 1, 2500))
+            || !(item.allocated_guest_counts === null || (
+              Array.isArray(item.allocated_guest_counts)
+              && item.allocated_guest_counts.length === item.units_required
+              && item.allocated_guest_counts.every((count) => isExactInteger(count, 1, 50))
+              && item.allocated_guest_count === item.allocated_guest_counts.reduce((sum, count) => sum + count, 0)
+            ))
+            || !(item.pricing_guest_counts === null || (
+              Array.isArray(item.pricing_guest_counts)
+              && item.pricing_guest_counts.length === item.units_required
+              && item.pricing_guest_counts.every((count) => isExactInteger(count, 1, 50))
+              && item.pricing_guest_count === item.pricing_guest_counts.reduce((sum, count) => sum + count, 0)
+            ))
+          ))) throw new Error('Pricing control returned an invalid allocation child relationship.');
+    });
+    if (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID) {
+      const accepted = [
+        ...raw.rate_plans, ...raw.room_rates, ...raw.pricing_schedules,
+        ...raw.rate_rules, ...raw.exact_date_prices, ...raw.allocation_rules,
+      ];
+      if (accepted.some((row) => row.immutable_contract?.locked !== true
+          || row.immutable_contract.reason !== 'accepted_h3_1p_hotel_pricing_graph')) {
+        throw new Error('The accepted 7 Kamares ADMIN-C pricing graph is not uniformly immutable.');
+      }
+      if (raw.property_pricing_default !== null) {
+        throw new Error('The accepted 7 Kamares pricing graph cannot contain a property pricing default.');
+      }
+    }
+    const pricingActivityIds = {
+      rate_plan: new Set(raw.rate_plans.map((row) => normalizeUuid(row.id))),
+      room_rate: new Set(raw.room_rates.map((row) => normalizeUuid(row.id))),
+      pricing_schedule: new Set(raw.pricing_schedules.map((row) => normalizeUuid(row.id))),
+      occupancy_tier: new Set([
+        ...raw.room_rates,
+        ...raw.room_rates.flatMap((row) => row.independent_tiers),
+        ...raw.pricing_schedules.flatMap((row) => row.tiers),
+      ].map((row) => normalizeUuid(row.id))),
+      rate_rule: new Set(raw.rate_rules.map((row) => normalizeUuid(row.id))),
+      calendar_override: new Set(raw.exact_date_prices.map((row) => normalizeUuid(row.id))),
+      allocation_rule: new Set(raw.allocation_rules.map((row) => normalizeUuid(row.id))),
+      property_pricing_default: new Set(raw.property_pricing_default
+        ? [normalizeUuid(raw.property_pricing_default.id)] : []),
+    };
+    if (raw.recent_activity.some((activity) => (
+      !Object.hasOwn(pricingActivityIds, activity.entity_type)
+      || !/^[a-z0-9_]+$/.test(activity.action)
+      || !/^[a-z0-9_]+$/.test(activity.source)
+    ))) throw new Error('Pricing control returned malformed or non-pricing activity.');
+    const versionedRows = [
+      ...raw.rate_plans, ...raw.room_types, ...raw.room_rates, ...raw.pricing_schedules,
+      ...raw.rate_rules, ...raw.exact_date_prices, ...raw.allocation_rules,
+      ...(raw.property_pricing_default ? [raw.property_pricing_default] : []),
+    ];
+    if (versionedRows.some((entry) => typeof entry.version !== 'number' || !Number.isInteger(entry.version) || entry.version < 1)) {
+      throw new Error('Pricing control returned an invalid optimistic version.');
+    }
+    return normalized;
+  }
+
+  function validatePricingControlOperation(operation) {
+    const source = asObject(operation);
+    const exactKeys = [
+      'entity', 'action', 'id', 'expected_version', 'expected_children_fingerprint',
+      'expected_link_fingerprint', 'expected_linked_room_rate_ids',
+      'shared_impact_acknowledged', 'activation_acknowledged', 'expected_original', 'payload',
+    ];
+    if (!hasExactKeys(source, exactKeys)
+        || !PRICING_CONTROL_ENTITIES.includes(asText(source.entity))
+        || !PRICING_CONTROL_ACTIONS.includes(asText(source.action))
+        || (source.action === 'clone' && source.entity !== 'pricing_schedule')
+        || (source.entity === 'room_rate_tier_set' && source.action !== 'update')
+        || !normalizeUuid(source.id)
+        || typeof source.expected_version !== 'number'
+        || !Number.isInteger(source.expected_version)
+        || source.expected_version < 0
+        || !isExactFingerprint(source.expected_children_fingerprint)
+        || !isExactFingerprint(source.expected_link_fingerprint)
+        || !Array.isArray(source.expected_linked_room_rate_ids)
+        || source.expected_linked_room_rate_ids.some((id) => !normalizeUuid(id))
+        || source.expected_linked_room_rate_ids.length > 1000
+        || new Set(source.expected_linked_room_rate_ids.map(normalizeUuid)).size !== source.expected_linked_room_rate_ids.length
+        || typeof source.shared_impact_acknowledged !== 'boolean'
+        || typeof source.activation_acknowledged !== 'boolean'
+        || typeof source.expected_original !== 'object' || Array.isArray(source.expected_original) || source.expected_original == null
+        || typeof source.payload !== 'object' || Array.isArray(source.payload) || source.payload == null) {
+      throw new Error('Every pricing operation must use the exact reviewed operation envelope.');
+    }
+    if (source.action === 'create' && (source.expected_version !== 0 || Object.keys(source.expected_original).length)) {
+      throw new Error('A pricing create must start from an exact empty original and version 0.');
+    }
+    if (source.action !== 'create' && source.action !== 'clone' && source.expected_version < 1) {
+      throw new Error('A pricing update requires an exact positive version.');
+    }
+    const payloadKeys = {
+      rate_plan: [
+        'code', 'name_i18n', 'description_i18n', 'meal_plan_code',
+        'cancellation_policy', 'booking_mode_override', 'price_inclusions',
+        'lifecycle_status', 'sort_order',
+      ],
+      room_rate: [
+        'room_type_id', 'rate_plan_id', 'pricing_schedule_id', 'base_nightly_rate',
+        'currency', 'external_redirect_url', 'lifecycle_status', 'sort_order',
+      ],
+      pricing_schedule: [
+        'code', 'name_i18n', 'application_scope', 'currency', 'maximum_party_size',
+        'minimum_billable_occupancy', 'sharing_mode', 'lifecycle_status', 'tiers',
+      ],
+      room_rate_tier_set: ['tiers'],
+      rate_rule: [
+        'room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'nightly_rate',
+        'minimum_stay', 'maximum_stay', 'closed_to_arrival',
+        'closed_to_departure', 'priority', 'is_active',
+      ],
+      allocation_rule: [
+        'code', 'allocation_mode', 'min_guest_count', 'max_guest_count',
+        'lifecycle_status', 'sort_order', 'items',
+      ],
+      property_pricing_default: ['nightly_rate', 'currency', 'lifecycle_status'],
+    };
+    const propertyDefaultCreate = ['hotel_id', 'nightly_rate', 'currency', 'lifecycle_status'];
+    const exactDateCreate = [
+      'hotel_id', 'room_rate_id', 'stay_date', 'nightly_rate_mode', 'nightly_rate',
+      'minimum_stay_mode', 'minimum_stay', 'maximum_stay_mode', 'maximum_stay',
+      'reason', 'expires_at',
+    ];
+    const exactDateUpdate = [
+      'nightly_rate_mode', 'nightly_rate', 'minimum_stay_mode', 'minimum_stay',
+      'maximum_stay_mode', 'maximum_stay', 'reason', 'expires_at',
+    ];
+    const cloneKeys = ['source_schedule_id', 'expected_source_version', 'code', 'name_i18n', 'sharing_mode', 'tiers'];
+    if (source.action === 'disable') {
+      if (Object.keys(source.payload).length) throw new Error('A pricing disable operation must have an exact empty payload.');
+    } else {
+      const expectedPayloadKeys = source.action === 'clone'
+        ? cloneKeys
+        : source.entity === 'exact_date_price'
+          ? (source.action === 'create' ? exactDateCreate : exactDateUpdate)
+          : source.entity === 'property_pricing_default' && source.action === 'create'
+            ? propertyDefaultCreate
+          : payloadKeys[source.entity];
+      if (!expectedPayloadKeys || !hasExactKeys(source.payload, expectedPayloadKeys)) {
+        throw new Error(`The ${source.entity} pricing payload has an unexpected field envelope.`);
+      }
+    }
+    if (source.action === 'clone') {
+      if (source.expected_version !== 0
+          || !normalizeUuid(source.payload.source_schedule_id)
+          || typeof source.payload.expected_source_version !== 'number'
+          || !Number.isInteger(source.payload.expected_source_version)
+          || source.payload.expected_source_version < 1
+          || typeof source.payload.code !== 'string'
+          || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(source.payload.code)
+          || !isExactI18n(source.payload.name_i18n, 240)
+          || !PRICING_SCHEDULE_SHARING_MODES.includes(source.payload.sharing_mode)
+          || !isExactFingerprint(source.expected_children_fingerprint, false)
+          || !isExactFingerprint(source.expected_link_fingerprint, false)
+          || (source.expected_linked_room_rate_ids.length > 0 && source.shared_impact_acknowledged !== true)) {
+        throw new Error('A schedule clone must bind the exact source version and reviewed sharing mode.');
+      }
+    }
+    const lifecycle = asText(source.payload.lifecycle_status);
+    if (lifecycle && !PRICING_LIFECYCLE_STATUSES.includes(lifecycle)) {
+      throw new Error('The pricing lifecycle state is invalid.');
+    }
+    if (source.action !== 'disable' && lifecycle === 'disabled') {
+      throw new Error('Pricing must use the dedicated disable action; create/update cannot target disabled.');
+    }
+    if (lifecycle === 'active' && source.activation_acknowledged !== true) {
+      throw new Error('Active pricing requires an explicit activation acknowledgement.');
+    }
+    if (source.entity === 'pricing_schedule' && source.action !== 'clone' && source.action !== 'disable') {
+      if (!PRICING_SCHEDULE_SHARING_MODES.includes(source.payload.sharing_mode)
+          || !Array.isArray(source.payload.tiers)) {
+        throw new Error('A pricing schedule requires an exact sharing mode and complete tier set.');
+      }
+    }
+    const validateTierRows = (tiers, keys, parentKey, parentId) => {
+      if (!Array.isArray(tiers) || tiers.length > 500) return false;
+      const ids = tiers.map((tier) => normalizeUuid(tier?.id));
+      return ids.every(Boolean)
+        && new Set(ids).size === ids.length
+        && tiers.every((tier) => (
+          hasExactKeys(tier, keys)
+          && normalizeUuid(tier[parentKey]) === parentId
+          && typeof tier.guest_count === 'number' && Number.isInteger(tier.guest_count) && tier.guest_count > 0
+          && typeof tier.threshold_nights === 'number' && Number.isInteger(tier.threshold_nights) && tier.threshold_nights > 0
+          && isExactMoney(tier.nightly_rate)
+          && typeof tier.is_active === 'boolean'
+          && typeof tier.version === 'number' && Number.isInteger(tier.version) && tier.version >= 0
+        ));
+    };
+    const isNullableExactInteger = (value, minimum, maximum) => value === null
+      || isExactInteger(value, minimum, maximum);
+    const validateBusinessState = (entity, value, options = {}) => {
+      const row = asObject(value);
+      if (entity === 'rate_plan') {
+        const cancellation = asObject(row.cancellation_policy);
+        return hasExactKeys(row, payloadKeys.rate_plan)
+          && typeof row.code === 'string' && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(row.code)
+          && isExactI18n(row.name_i18n, 240) && isExactPricingDescriptionI18n(row.description_i18n, 5000)
+          && (row.meal_plan_code === null || (typeof row.meal_plan_code === 'string' && row.meal_plan_code === row.meal_plan_code.trim().toLowerCase()))
+          && isExactCancellationPolicy(cancellation)
+          && (row.booking_mode_override === null || BOOKING_MODES.includes(row.booking_mode_override))
+          && Array.isArray(row.price_inclusions)
+          && row.price_inclusions.length <= 200
+          && row.price_inclusions.every((entry) => typeof entry === 'string' && entry === entry.trim() && entry.length > 0)
+          && new Set(row.price_inclusions).size === row.price_inclusions.length
+          && PRICING_LIFECYCLE_STATUSES.includes(row.lifecycle_status)
+          && isExactInteger(row.sort_order, 0, 1000000);
+      }
+      if (entity === 'room_rate') return hasExactKeys(row, payloadKeys.room_rate)
+        && Boolean(normalizeUuid(row.room_type_id)) && Boolean(normalizeUuid(row.rate_plan_id))
+        && (row.pricing_schedule_id === null || Boolean(normalizeUuid(row.pricing_schedule_id)))
+        && isExactMoney(row.base_nightly_rate)
+        && typeof row.currency === 'string' && /^[A-Z]{3}$/.test(row.currency)
+        && (row.external_redirect_url === null || isExactHttpsUrl(row.external_redirect_url))
+        && PRICING_LIFECYCLE_STATUSES.includes(row.lifecycle_status)
+        && isExactInteger(row.sort_order, 0, 1000000);
+      if (entity === 'pricing_schedule') return hasExactKeys(row, payloadKeys.pricing_schedule)
+        && typeof row.code === 'string' && /^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(row.code)
+        && isExactI18n(row.name_i18n, 240) && row.application_scope === 'room_occupancy'
+        && typeof row.currency === 'string' && /^[A-Z]{3}$/.test(row.currency)
+        && isExactInteger(row.maximum_party_size, 1, 50)
+        && isExactInteger(row.minimum_billable_occupancy, 1, row.maximum_party_size)
+        && PRICING_SCHEDULE_SHARING_MODES.includes(row.sharing_mode)
+        && PRICING_LIFECYCLE_STATUSES.includes(row.lifecycle_status)
+        && validateTierRows(row.tiers, [
+          'id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version',
+        ], 'schedule_id', normalizeUuid(source.id));
+      if (entity === 'room_rate_tier_set') return hasExactKeys(row, payloadKeys.room_rate_tier_set)
+        && validateTierRows(row.tiers, [
+          'id', 'hotel_id', 'room_rate_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version',
+        ], 'room_rate_id', normalizeUuid(source.id))
+        && row.tiers.every((tier) => Boolean(normalizeUuid(tier.hotel_id)));
+      if (entity === 'rate_rule') return hasExactKeys(row, payloadKeys.rate_rule)
+        && Boolean(normalizeUuid(row.room_rate_id))
+        && isExactIsoDate(row.valid_from) && isExactIsoDate(row.valid_to) && row.valid_to >= row.valid_from
+        && Array.isArray(row.weekdays) && row.weekdays.length > 0
+        && row.weekdays.every((day) => isExactInteger(day, 1, 7))
+        && new Set(row.weekdays).size === row.weekdays.length
+        && JSON.stringify([...row.weekdays].sort((a, b) => a - b)) === JSON.stringify(row.weekdays)
+        && isExactMoney(row.nightly_rate)
+        && isNullableExactInteger(row.minimum_stay, 1, 3650)
+        && isNullableExactInteger(row.maximum_stay, 1, 3650)
+        && (row.minimum_stay === null || row.maximum_stay === null || row.maximum_stay >= row.minimum_stay)
+        && typeof row.closed_to_arrival === 'boolean' && typeof row.closed_to_departure === 'boolean'
+        && isExactInteger(row.priority, -32768, 32767) && typeof row.is_active === 'boolean';
+      if (entity === 'exact_date_price') {
+        const expectedKeys = options.create === true ? exactDateCreate : exactDateUpdate;
+        if (!hasExactKeys(row, expectedKeys)) return false;
+        if ((options.create === true && (!normalizeUuid(row.hotel_id)
+          || !normalizeUuid(row.room_rate_id) || !isExactIsoDate(row.stay_date)))) return false;
+        const hasConfiguredMode = [row.nightly_rate_mode, row.minimum_stay_mode, row.maximum_stay_mode]
+          .some((mode) => mode !== null);
+        if ((!hasConfiguredMode && options.original !== true)
+          || (hasConfiguredMode && (typeof row.reason !== 'string'
+            || row.reason !== row.reason.trim() || !row.reason || row.reason.length > 500))
+          || (!hasConfiguredMode && row.reason !== null)
+          || !(row.expires_at === null || isExactIsoTimestamp(row.expires_at))) return false;
+        return ['nightly_rate', 'minimum_stay', 'maximum_stay'].every((field) => {
+          const mode = row[`${field}_mode`];
+          const fieldValue = row[field];
+          return [null, 'set', 'clear'].includes(mode) && ((mode === null || mode === 'clear') ? fieldValue === null
+            : field === 'nightly_rate' ? isExactMoney(fieldValue)
+              : isExactInteger(fieldValue, 1, 3650));
+        }) && (row.minimum_stay === null || row.maximum_stay === null || row.maximum_stay >= row.minimum_stay);
+      }
+      if (entity === 'allocation_rule') {
+        if (!hasExactKeys(row, payloadKeys.allocation_rule)
+          || typeof row.code !== 'string' || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(row.code)
+          || !ROOM_ALLOCATION_MODES.includes(row.allocation_mode)
+          || !isExactInteger(row.min_guest_count, 1, 50)
+          || !isExactInteger(row.max_guest_count, row.min_guest_count, 50)
+          || !PRICING_LIFECYCLE_STATUSES.includes(row.lifecycle_status)
+          || !isExactInteger(row.sort_order, 0, 1000000)
+          || !Array.isArray(row.items) || !row.items.length || row.items.length > 100) return false;
+        return row.items.every((item) => {
+          const physical = item.allocated_guest_counts;
+          const priced = item.pricing_guest_counts;
+          const validCounts = (counts) => counts === null || (Array.isArray(counts)
+            && counts.every((count) => isExactInteger(count, 1, 50)));
+          return hasExactKeys(item, [
+            'id', 'hotel_id', 'allocation_rule_id', 'room_type_id', 'units_required',
+            'allocated_guest_count', 'pricing_guest_count', 'allocated_guest_counts',
+            'pricing_guest_counts', 'sort_order',
+          ]) && Boolean(normalizeUuid(item.id)) && Boolean(normalizeUuid(item.hotel_id))
+            && normalizeUuid(item.allocation_rule_id) === normalizeUuid(source.id)
+            && Boolean(normalizeUuid(item.room_type_id)) && isExactInteger(item.units_required, 1, 50)
+            && isNullableExactInteger(item.allocated_guest_count, 1, 2500)
+            && isNullableExactInteger(item.pricing_guest_count, 1, 2500)
+            && validCounts(physical) && validCounts(priced)
+            && (physical === null || (physical.length === item.units_required
+              && item.allocated_guest_count === physical.reduce((sum, count) => sum + count, 0)))
+            && (priced === null || (priced.length === item.units_required
+              && item.pricing_guest_count === priced.reduce((sum, count) => sum + count, 0)))
+            && isExactInteger(item.sort_order, 0, 1000000);
+        });
+      }
+      if (entity === 'property_pricing_default') {
+        const expectedKeys = options.create === true
+          ? propertyDefaultCreate
+          : payloadKeys.property_pricing_default;
+        return hasExactKeys(row, expectedKeys)
+          && (options.create !== true || Boolean(normalizeUuid(row.hotel_id)))
+          && isExactMoney(row.nightly_rate, 0.01)
+          && typeof row.currency === 'string' && /^[A-Z]{3}$/.test(row.currency)
+          && PRICING_LIFECYCLE_STATUSES.includes(row.lifecycle_status);
+      }
+      return false;
+    };
+
+    if (!['disable', 'clone'].includes(source.action)
+        && !validateBusinessState(source.entity, source.payload, { create: source.action === 'create' })) {
+      throw new Error(`The ${source.entity} pricing payload contains an invalid or coerced business value.`);
+    }
+    const validDisableOriginal = (() => {
+      if (source.action !== 'disable') return true;
+      return source.entity !== 'room_rate_tier_set'
+        && validateBusinessState(source.entity, source.expected_original, { create: false, original: true });
+    })();
+    if (!validDisableOriginal) {
+      throw new Error(`The ${source.entity} disable must bind its exact supported original state.`);
+    }
+    if (!['create', 'clone', 'disable'].includes(source.action)
+        && !validateBusinessState(source.entity, source.expected_original, { create: false, original: true })) {
+      throw new Error(`The ${source.entity} reviewed original contains an invalid or incomplete business state.`);
+    }
+    if (source.entity === 'rate_rule' && source.action === 'update'
+        && normalizeUuid(source.payload.room_rate_id) !== normalizeUuid(source.expected_original.room_rate_id)) {
+      throw new Error('A seasonal pricing rule cannot be moved to another Room Rate; create a new reviewed rule instead.');
+    }
+    if (source.entity === 'pricing_schedule' && source.action !== 'clone' && source.action !== 'disable'
+        && !validateTierRows(source.payload.tiers, [
+          'id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version',
+        ], 'schedule_id', normalizeUuid(source.id))) {
+      throw new Error('A pricing schedule must carry a complete exact tier set.');
+    }
+    if (source.entity === 'pricing_schedule' && source.action === 'clone'
+        && !validateTierRows(source.payload.tiers, [
+          'id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version',
+        ], 'schedule_id', normalizeUuid(source.id))) {
+      throw new Error('A schedule clone must bind every exact reviewed target tier.');
+    }
+    if (source.entity === 'room_rate_tier_set' && source.action === 'update'
+        && !validateTierRows(source.payload.tiers, [
+          'id', 'hotel_id', 'room_rate_id', 'guest_count', 'threshold_nights',
+          'nightly_rate', 'is_active', 'version',
+        ], 'room_rate_id', normalizeUuid(source.id))) {
+      throw new Error('A Room Rate tier update must carry a complete exact child set.');
+    }
+    if (source.entity === 'allocation_rule' && !['disable'].includes(source.action)) {
+      const items = source.payload.items;
+      const itemIds = asArray(items).map((item) => normalizeUuid(item?.id));
+      const exactItemKeys = [
+        'id', 'hotel_id', 'allocation_rule_id', 'room_type_id', 'units_required',
+        'allocated_guest_count', 'pricing_guest_count', 'allocated_guest_counts',
+        'pricing_guest_counts', 'sort_order',
+      ];
+      if (!Array.isArray(items) || !itemIds.every(Boolean) || new Set(itemIds).size !== itemIds.length
+          || items.some((item) => (
+            !hasExactKeys(item, exactItemKeys)
+            || normalizeUuid(item.allocation_rule_id) !== normalizeUuid(source.id)
+            || !normalizeUuid(item.hotel_id) || !normalizeUuid(item.room_type_id)
+            || typeof item.units_required !== 'number' || !Number.isInteger(item.units_required) || item.units_required < 1
+            || (item.units_required > 1 && (!Array.isArray(item.allocated_guest_counts)
+              || item.allocated_guest_counts.length !== item.units_required
+              || !Array.isArray(item.pricing_guest_counts)
+              || item.pricing_guest_counts.length !== item.units_required))
+            || (item.allocated_guest_counts != null && !Array.isArray(item.allocated_guest_counts))
+            || (item.pricing_guest_counts != null && !Array.isArray(item.pricing_guest_counts))
+          ))) throw new Error('An allocation update must carry the complete exact child set.');
+    }
+    if (source.entity === 'exact_date_price' && !['disable'].includes(source.action)) {
+      for (const field of ['nightly_rate', 'minimum_stay', 'maximum_stay']) {
+        const mode = source.payload[`${field}_mode`];
+        const value = source.payload[field];
+        if (![null, 'set', 'clear'].includes(mode)
+            || ((mode === null || mode === 'clear') && value !== null)
+            || (mode === 'set' && (field === 'nightly_rate'
+              ? !isExactMoney(value)
+              : !isExactInteger(value, 1, 3650)))
+            ) {
+          throw new Error('Exact-date price and stay fields require exact no-change, SET or CLEAR values.');
+        }
+      }
+      if (![source.payload.nightly_rate_mode, source.payload.minimum_stay_mode,
+        source.payload.maximum_stay_mode].some((mode) => mode !== null)) {
+        throw new Error('Configure at least one exact-date price or stay field before Review.');
+      }
+      if (source.payload.minimum_stay_mode === 'set' && source.payload.maximum_stay_mode === 'set'
+          && source.payload.maximum_stay < source.payload.minimum_stay) {
+        throw new Error('Exact-date maximum stay cannot be below its minimum stay.');
+      }
+    }
+    if (source.entity === 'rate_rule' && source.action === 'update'
+        && source.expected_original.is_active === true && source.payload.is_active === false) {
+      throw new Error('An enabled pricing rule must use the dedicated disable action.');
+    }
+    if (['pricing_schedule', 'room_rate_tier_set', 'allocation_rule'].includes(source.entity)
+        && !['create', 'clone'].includes(source.action)
+        && !isExactFingerprint(source.expected_children_fingerprint, false)) {
+      throw new Error('Aggregate pricing updates require the exact child fingerprint.');
+    }
+    if (source.entity === 'pricing_schedule' && !['create', 'clone'].includes(source.action)) {
+      const expectedLinks = source.expected_linked_room_rate_ids.map(normalizeUuid).sort();
+      if (!isExactFingerprint(source.expected_link_fingerprint, false)
+          || JSON.stringify(expectedLinks) !== JSON.stringify(source.expected_linked_room_rate_ids)
+          || (expectedLinks.length > 0 && source.shared_impact_acknowledged !== true)) {
+        throw new Error('A schedule update requires the exact reviewed link impact and acknowledgement.');
+      }
+    }
+    if (source.entity === 'room_rate' && ['create', 'update'].includes(source.action)) {
+      const beforeSchedule = normalizeUuid(source.expected_original.pricing_schedule_id);
+      const afterSchedule = normalizeUuid(source.payload.pricing_schedule_id);
+      if (beforeSchedule !== afterSchedule
+          && (!isExactFingerprint(source.expected_link_fingerprint, false)
+            || source.shared_impact_acknowledged !== true)) {
+        throw new Error('A Room Rate schedule link change requires the exact reviewed link impact and acknowledgement.');
+      }
+    }
+    return {
+      entity: asText(source.entity),
+      action: asText(source.action),
+      id: normalizeUuid(source.id),
+      expected_version: source.expected_version,
+      expected_children_fingerprint: asNullableText(source.expected_children_fingerprint),
+      expected_link_fingerprint: asNullableText(source.expected_link_fingerprint),
+      expected_linked_room_rate_ids: asArray(source.expected_linked_room_rate_ids).map(normalizeUuid).filter(Boolean).sort(),
+      shared_impact_acknowledged: source.shared_impact_acknowledged === true,
+      activation_acknowledged: source.activation_acknowledged === true,
+      expected_original: clone(source.expected_original),
+      payload: clone(source.payload),
+    };
+  }
+
+  function validatePricingControlPlan(value) {
+    const source = asObject(value);
+    if (!hasExactKeys(source, ['contract_version', 'hotel_id', 'snapshot_token', 'reviewed_at', 'operations'])
+        || source.contract_version !== PRICING_CONTROL_CONTRACT
+        || !normalizeUuid(source.hotel_id)
+        || !isExactSnapshotToken(source.snapshot_token)
+        || !isExactIsoTimestamp(source.reviewed_at)
+        || !Array.isArray(source.operations)
+        || source.operations.length < 1
+        || source.operations.length > 100
+        || jsonUtf8ByteLength(source) > 5 * 1024 * 1024) {
+      throw new Error('A reviewed exact-property pricing plan is required.');
+    }
+    return {
+      contract_version: PRICING_CONTROL_CONTRACT,
+      hotel_id: normalizeUuid(source.hotel_id),
+      snapshot_token: source.snapshot_token,
+      reviewed_at: asText(source.reviewed_at),
+      operations: source.operations.map(validatePricingControlOperation),
+    };
+  }
+
+  function buildPricingControlPlan(pricingControl, operations, options = {}) {
+    const control = validatePricingControl(pricingControl, pricingControl?.hotel_id);
+    return validatePricingControlPlan({
+      contract_version: PRICING_CONTROL_CONTRACT,
+      hotel_id: control.hotel_id,
+      snapshot_token: control.snapshot_token,
+      reviewed_at: options.reviewedAt || new Date().toISOString(),
+      operations: asArray(operations),
+    });
+  }
+
+  function pricingTierPayload(tier, parentKey, parentId, options = {}) {
+    const source = asObject(tier);
+    if (typeof source.is_active !== 'boolean') {
+      throw new Error('Pricing tier active state must be an exact reviewed boolean.');
+    }
+    const payload = {
+      id: exactUuidOrNew(source.id, 'Pricing tier ID'),
+      [parentKey]: normalizeUuid(parentId),
+      guest_count: source.guest_count,
+      threshold_nights: source.threshold_nights,
+      nightly_rate: source.nightly_rate,
+      is_active: source.is_active,
+      version: source.version == null ? 0 : source.version,
+    };
+    if (options.hotelId) payload.hotel_id = normalizeUuid(options.hotelId);
+    return payload;
+  }
+
+  function pricingAllocationItemPayload(item, hotelId, allocationRuleId) {
+    const source = asObject(item);
+    return {
+      id: exactUuidOrNew(source.id, 'Allocation item ID'),
+      hotel_id: normalizeUuid(hotelId),
+      allocation_rule_id: normalizeUuid(allocationRuleId),
+      room_type_id: normalizeUuid(source.room_type_id),
+      units_required: source.units_required,
+      allocated_guest_count: source.allocated_guest_count == null ? null : source.allocated_guest_count,
+      pricing_guest_count: source.pricing_guest_count == null ? null : source.pricing_guest_count,
+      allocated_guest_counts: source.allocated_guest_counts == null ? null : clone(source.allocated_guest_counts),
+      pricing_guest_counts: source.pricing_guest_counts == null ? null : clone(source.pricing_guest_counts),
+      sort_order: source.sort_order,
+    };
+  }
+
+  function pricingBusinessState(entity, value, options = {}) {
+    const source = asObject(value);
+    const id = normalizeUuid(source.id || options.id);
+    const hotelId = normalizeUuid(source.hotel_id || options.hotelId);
+    if (entity === 'rate_plan') {
+      const inclusions = source.price_inclusions;
+      const descriptionI18n = canonicalPricingDescriptionI18n(source.description_i18n, 5000);
+      if (typeof source.code !== 'string'
+          || !(source.meal_plan_code === null || typeof source.meal_plan_code === 'string')
+          || !(source.booking_mode_override === null || typeof source.booking_mode_override === 'string')
+          || typeof source.lifecycle_status !== 'string'
+          || !isExactI18n(source.name_i18n, 240)
+          || !descriptionI18n
+          || !Array.isArray(inclusions)
+          || inclusions.length > 200
+          || inclusions.some((entry) => typeof entry !== 'string'
+            || entry !== entry.trim().toLowerCase()
+            || !/^[a-z0-9](?:[a-z0-9_-]{0,79})$/.test(entry))
+          || new Set(inclusions).size !== inclusions.length
+          || JSON.stringify(inclusions) !== JSON.stringify([...inclusions].sort())) {
+        throw new Error('Rate Plan localized content or inclusions contain an invalid or coerced string value.');
+      }
+      return {
+      code: asText(source.code).toLowerCase(),
+      name_i18n: normalizeI18n(source.name_i18n),
+      description_i18n: descriptionI18n,
+      meal_plan_code: asNullableText(source.meal_plan_code)?.toLowerCase() || null,
+      cancellation_policy: clone(asObject(source.cancellation_policy)),
+      booking_mode_override: asNullableText(source.booking_mode_override),
+      price_inclusions: normalizeStringSet(source.price_inclusions),
+      lifecycle_status: asText(source.lifecycle_status),
+      sort_order: source.sort_order,
+      };
+    }
+    if (entity === 'room_rate') {
+      if (typeof source.currency !== 'string'
+          || !(source.external_redirect_url === null || typeof source.external_redirect_url === 'string')
+          || !(source.pricing_schedule_id === null || Boolean(normalizeUuid(source.pricing_schedule_id)))
+          || typeof source.lifecycle_status !== 'string') {
+        throw new Error('Room Rate text fields contain an invalid or coerced value.');
+      }
+      return {
+      room_type_id: normalizeUuid(source.room_type_id),
+      rate_plan_id: normalizeUuid(source.rate_plan_id),
+      pricing_schedule_id: normalizeUuid(source.pricing_schedule_id) || null,
+      base_nightly_rate: source.base_nightly_rate,
+      currency: asText(source.currency).toUpperCase(),
+      external_redirect_url: asNullableText(source.external_redirect_url),
+      lifecycle_status: asText(source.lifecycle_status),
+      sort_order: source.sort_order,
+      };
+    }
+    if (entity === 'pricing_schedule') {
+      if (typeof source.code !== 'string'
+          || typeof source.application_scope !== 'string'
+          || typeof source.currency !== 'string'
+          || typeof source.sharing_mode !== 'string'
+          || typeof source.lifecycle_status !== 'string'
+          || !isExactI18n(source.name_i18n, 240)) {
+        throw new Error('Pricing schedule names contain an invalid or coerced localized string value.');
+      }
+      return {
+      code: asText(source.code).toLowerCase(),
+      name_i18n: normalizeI18n(source.name_i18n),
+      application_scope: asText(source.application_scope),
+      currency: asText(source.currency).toUpperCase(),
+      maximum_party_size: source.maximum_party_size,
+      minimum_billable_occupancy: source.minimum_billable_occupancy,
+      sharing_mode: asText(source.sharing_mode),
+      lifecycle_status: asText(source.lifecycle_status),
+      tiers: asArray(source.tiers).map((tier) => pricingTierPayload(tier, 'schedule_id', id)),
+      };
+    }
+    if (entity === 'room_rate_tier_set') return {
+      tiers: asArray(source.tiers || source.independent_tiers).map((tier) => (
+        pricingTierPayload(tier, 'room_rate_id', id, { hotelId })
+      )),
+    };
+    if (entity === 'rate_rule') {
+      if (typeof source.valid_from !== 'string' || typeof source.valid_to !== 'string'
+          || typeof source.closed_to_arrival !== 'boolean'
+          || typeof source.closed_to_departure !== 'boolean'
+          || typeof source.is_active !== 'boolean') {
+        throw new Error('Seasonal pricing dates contain an invalid or coerced value.');
+      }
+      return {
+      room_rate_id: normalizeUuid(source.room_rate_id),
+      valid_from: asText(source.valid_from),
+      valid_to: asText(source.valid_to),
+      weekdays: asArray(source.weekdays).map((weekday) => weekday),
+      nightly_rate: source.nightly_rate,
+      minimum_stay: source.minimum_stay == null ? null : source.minimum_stay,
+      maximum_stay: source.maximum_stay == null ? null : source.maximum_stay,
+      closed_to_arrival: source.closed_to_arrival,
+      closed_to_departure: source.closed_to_departure,
+      priority: source.priority,
+      is_active: source.is_active,
+      };
+    }
+    if (entity === 'exact_date_price') {
+      const reasonValue = Object.hasOwn(source, 'reason') ? source.reason : source.pricing_reason;
+      const expiresValue = Object.hasOwn(source, 'expires_at') ? source.expires_at : source.pricing_expires_at;
+      if (!(reasonValue === null || typeof reasonValue === 'string')
+          || !(expiresValue === null || typeof expiresValue === 'string')
+          || ['nightly_rate', 'minimum_stay', 'maximum_stay'].some((field) => (
+            !(source[`${field}_mode`] === null || typeof source[`${field}_mode`] === 'string')
+          ))
+          || (options.create === true && typeof source.stay_date !== 'string')) {
+        throw new Error('Exact-date pricing text, mode or date fields contain an invalid or coerced value.');
+      }
+      const exact = {
+        nightly_rate_mode: source.nightly_rate_mode == null ? null : asText(source.nightly_rate_mode),
+        nightly_rate: source.nightly_rate == null ? null : source.nightly_rate,
+        minimum_stay_mode: source.minimum_stay_mode == null ? null : asText(source.minimum_stay_mode),
+        minimum_stay: source.minimum_stay == null ? null : source.minimum_stay,
+        maximum_stay_mode: source.maximum_stay_mode == null ? null : asText(source.maximum_stay_mode),
+        maximum_stay: source.maximum_stay == null ? null : source.maximum_stay,
+        reason: reasonValue == null
+          ? null
+          : asText(reasonValue),
+        expires_at: expiresValue == null
+          ? null
+          : asText(expiresValue),
+      };
+      if (options.create === true) {
+        return {
+          hotel_id: hotelId,
+          room_rate_id: normalizeUuid(source.room_rate_id),
+          stay_date: asText(source.stay_date),
+          ...exact,
+        };
+      }
+      return exact;
+    }
+    if (entity === 'allocation_rule') {
+      if (typeof source.code !== 'string'
+          || typeof source.allocation_mode !== 'string'
+          || typeof source.lifecycle_status !== 'string') {
+        throw new Error('Allocation rule text fields contain an invalid or coerced value.');
+      }
+      return {
+      code: asText(source.code).toLowerCase(),
+      allocation_mode: asText(source.allocation_mode),
+      min_guest_count: source.min_guest_count,
+      max_guest_count: source.max_guest_count,
+      lifecycle_status: asText(source.lifecycle_status),
+      sort_order: source.sort_order,
+      items: asArray(source.items).map((item) => pricingAllocationItemPayload(item, hotelId, id)),
+      };
+    }
+    if (entity === 'property_pricing_default') {
+      if (typeof source.currency !== 'string' || typeof source.lifecycle_status !== 'string') {
+        throw new Error('Property fallback text fields contain an invalid or coerced value.');
+      }
+      return {
+        ...(options.create === true ? { hotel_id: hotelId } : {}),
+        nightly_rate: source.nightly_rate,
+        currency: asText(source.currency).toUpperCase(),
+        lifecycle_status: asText(source.lifecycle_status),
+      };
+    }
+    throw new Error(`Unsupported pricing entity: ${entity}.`);
+  }
+
+  function buildPricingControlOperation(pricingControl, entity, nextValue, previousValue = null, options = {}) {
+    const control = validatePricingControl(pricingControl, pricingControl?.hotel_id);
+    if (control.hotel_id === SEVEN_ARCHES_PROPERTY_ID) {
+      throw new Error('The accepted 7 Kamares H3.1P pricing graph is read-only in ADMIN-C.');
+    }
+    const next = asObject(nextValue);
+    const previous = previousValue ? asObject(previousValue) : null;
+    const previousLocked = previous?.immutable_contract?.locked === true;
+    const childSourceLocked = entity === 'room_rate_tier_set'
+      && asArray(previous?.independent_tiers).some((tier) => (
+        tier?.immutable_contract?.locked === true || tier?.source !== 'manual'
+      ));
+    if (previousLocked || childSourceLocked) {
+      throw new Error('This exact pricing source is read-only. Clone a supported schedule into a new manual draft instead.');
+    }
+    const suppliedId = Object.hasOwn(next, 'id') ? next.id : previous?.id;
+    const id = exactUuidOrNew(suppliedId, 'Pricing entity ID');
+    const action = asText(options.action) || (previous ? 'update' : 'create');
+    const isCreate = action === 'create';
+    const payload = action === 'disable'
+      ? {}
+      : pricingBusinessState(entity, { ...clone(next), id, hotel_id: control.hotel_id }, {
+        id, hotelId: control.hotel_id, create: isCreate,
+      });
+    if (entity === 'property_pricing_default'
+        && action !== 'disable'
+        && payload.currency !== control.property.currency) {
+      throw new Error('The property pricing fallback must use the exact reviewed property currency.');
+    }
+    const expectedOriginal = isCreate
+      ? {}
+      : pricingBusinessState(entity, { ...clone(previous), id, hotel_id: control.hotel_id }, {
+        id, hotelId: control.hotel_id, create: false,
+      });
+    let linkSchedule = null;
+    if (entity === 'room_rate') {
+      const currentScheduleId = normalizeUuid(previous?.pricing_schedule_id);
+      const targetScheduleId = normalizeUuid(next.pricing_schedule_id);
+      if (currentScheduleId && targetScheduleId && currentScheduleId !== targetScheduleId) {
+        throw new Error('Detach this Room Rate from its current schedule, Save, refresh, then attach the new schedule in a separate Review.');
+      }
+      if (currentScheduleId !== targetScheduleId && (currentScheduleId || targetScheduleId)) {
+        linkSchedule = control.pricing_schedules.find((schedule) => schedule.id === (targetScheduleId || currentScheduleId));
+        if (!linkSchedule) throw new Error('The exact pricing schedule link snapshot is missing.');
+      }
+    }
+    const operation = {
+      entity,
+      action,
+      id,
+      expected_version: isCreate ? 0 : previous?.version,
+      expected_children_fingerprint: entity === 'pricing_schedule'
+        ? (previous?.tiers_fingerprint || null)
+        : entity === 'room_rate_tier_set'
+          ? (previous?.independent_tiers_fingerprint || null)
+          : entity === 'allocation_rule' ? (previous?.items_fingerprint || null) : null,
+      expected_link_fingerprint: entity === 'pricing_schedule'
+        ? (previous?.link_fingerprint || null)
+        : (linkSchedule?.link_fingerprint || null),
+      expected_linked_room_rate_ids: (entity === 'pricing_schedule'
+        ? asArray(previous?.linked_room_rate_ids)
+        : asArray(linkSchedule?.linked_room_rate_ids)).map(normalizeUuid).filter(Boolean).sort(),
+      shared_impact_acknowledged: options.sharedImpactAcknowledged === true,
+      activation_acknowledged: options.activationAcknowledged === true,
+      expected_original: expectedOriginal,
+      payload,
+    };
+    return validatePricingControlOperation(operation);
+  }
+
+  function buildPricingScheduleCloneOperationFromValidatedControl(control, sourceSchedule, values, options = {}) {
+    if (control.hotel_id === SEVEN_ARCHES_PROPERTY_ID) {
+      throw new Error('The accepted 7 Kamares H3.1P pricing graph is read-only in ADMIN-C.');
+    }
+    const source = asObject(sourceSchedule);
+    if (!isExactI18n(values?.name_i18n, 240)) {
+      throw new Error('Pricing schedule clone names contain an invalid or coerced localized string value.');
+    }
+    const targetCode = values?.code;
+    if (typeof targetCode !== 'string'
+        || targetCode !== targetCode.trim().toLowerCase()) {
+      throw new Error('Pricing schedule clone code must be an exact lowercase reviewed string.');
+    }
+    if (control.pricing_schedules.some((schedule) => schedule.code === targetCode)) {
+      throw new Error('Pricing schedule clone code already exists for this Hotel. Choose a unique code.');
+    }
+    const targetId = exactUuidOrNew(values?.id, 'Pricing schedule clone target ID');
+    const operation = {
+      entity: 'pricing_schedule',
+      action: 'clone',
+      id: targetId,
+      expected_version: 0,
+      expected_children_fingerprint: asText(source.tiers_fingerprint) || null,
+      expected_link_fingerprint: asText(source.link_fingerprint) || null,
+      expected_linked_room_rate_ids: asArray(source.linked_room_rate_ids).map(normalizeUuid).filter(Boolean).sort(),
+      shared_impact_acknowledged: options.sharedImpactAcknowledged === true,
+      activation_acknowledged: false,
+      expected_original: {},
+      payload: {
+        source_schedule_id: normalizeUuid(source.id),
+        expected_source_version: source.version,
+        code: targetCode,
+        name_i18n: normalizeI18n(values?.name_i18n),
+        sharing_mode: asText(values?.sharing_mode),
+        tiers: asArray(values?.tiers).map((tier) => pricingTierPayload(tier, 'schedule_id', targetId)),
+      },
+    };
+    void control;
+    return validatePricingControlOperation(operation);
+  }
+
+  function buildPricingScheduleCloneOperation(pricingControl, sourceSchedule, values, options = {}) {
+    const control = validatePricingControl(pricingControl, pricingControl?.hotel_id);
+    return buildPricingScheduleCloneOperationFromValidatedControl(
+      control, sourceSchedule, values, options,
+    );
+  }
+
+  function buildPricingScheduleCloneForRoomRateOperations(pricingControl, sourceSchedule, roomRate, values) {
+    const control = validatePricingControl(pricingControl, pricingControl?.hotel_id);
+    const source = control.pricing_schedules.find((entry) => entry.id === normalizeUuid(sourceSchedule?.id));
+    const rate = control.room_rates.find((entry) => entry.id === normalizeUuid(roomRate?.id));
+    const targetId = normalizeUuid(values?.id);
+    if (!source || !rate || !targetId
+        || rate.pricing_schedule_id !== source.id
+        || !source.linked_room_rate_ids.includes(rate.id)) {
+      throw new Error('Clone for this product requires the exact current Room Rate and linked source schedule.');
+    }
+    const cloneOperation = buildPricingScheduleCloneOperationFromValidatedControl(control, source, {
+      id: targetId,
+      code: values.code,
+      name_i18n: values.name_i18n,
+      sharing_mode: 'independent',
+      tiers: values.tiers,
+    }, { sharedImpactAcknowledged: true });
+    const targetRate = {
+      ...clone(rate),
+      pricing_schedule_id: targetId,
+      lifecycle_status: 'inactive',
+    };
+    const relinkOperation = validatePricingControlOperation({
+      entity: 'room_rate',
+      action: 'update',
+      id: rate.id,
+      expected_version: rate.version,
+      expected_children_fingerprint: null,
+      expected_link_fingerprint: source.link_fingerprint,
+      expected_linked_room_rate_ids: [...source.linked_room_rate_ids].sort(),
+      shared_impact_acknowledged: true,
+      activation_acknowledged: false,
+      expected_original: pricingBusinessState('room_rate', rate),
+      payload: pricingBusinessState('room_rate', targetRate),
+    });
+    return [cloneOperation, relinkOperation];
+  }
+
+  function reconcilePricingBusinessState(entity, originalValue, currentValue, requestedValue, options = {}) {
+    const withoutOptimisticVersions = (value) => JSON.parse(JSON.stringify(value, (key, nested) => (
+      key === 'version' ? undefined : nested
+    )));
+    const original = withoutOptimisticVersions(pricingBusinessState(entity, originalValue, options));
+    const current = withoutOptimisticVersions(pricingBusinessState(entity, currentValue, options));
+    const requested = withoutOptimisticVersions(pricingBusinessState(entity, requestedValue, options));
+    const fields = Array.from(new Set([...Object.keys(original), ...Object.keys(current), ...Object.keys(requested)])).sort();
+    const conflicts = [];
+    const safeRebases = [];
+    const merged = clone(current);
+    fields.forEach((field) => {
+      const originalText = JSON.stringify(original[field]);
+      const currentText = JSON.stringify(current[field]);
+      const requestedText = JSON.stringify(requested[field]);
+      if (requestedText === originalText) return;
+      if (currentText !== originalText && currentText !== requestedText) {
+        conflicts.push({ field, original: clone(original[field]), current: clone(current[field]), requested: clone(requested[field]) });
+      } else {
+        merged[field] = clone(requested[field]);
+        if (currentText !== originalText) safeRebases.push(field);
+      }
+    });
+    return { safe: conflicts.length === 0, conflicts, safe_rebases: safeRebases, merged };
+  }
+
+  function validatePricingPreviewRequest(value) {
+    const source = asObject(value);
+    const exactKeys = [
+      'contract_version', 'hotel_id', 'snapshot_token', 'rate_plan_id',
+      'allocation_rule_id', 'selected_room_type_id', 'check_in', 'check_out',
+      'adults', 'child_ages',
+    ];
+    const childAges = asArray(source.child_ages);
+    const checkIn = asText(source.check_in);
+    const checkOut = asText(source.check_out);
+    const requestedNights = Math.round((Date.parse(`${checkOut}T00:00:00Z`)
+      - Date.parse(`${checkIn}T00:00:00Z`)) / 86400000);
+    const validIsoCalendarDate = (date) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+      if (!match) return false;
+      const parsed = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      return parsed.getUTCFullYear() === Number(match[1])
+        && parsed.getUTCMonth() + 1 === Number(match[2])
+        && parsed.getUTCDate() === Number(match[3]);
+    };
+    if (!hasExactKeys(source, exactKeys)
+        || source.contract_version !== PRICING_PREVIEW_CONTRACT
+        || !normalizeUuid(source.hotel_id)
+        || !isExactSnapshotToken(source.snapshot_token)
+        || (source.rate_plan_id != null && !normalizeUuid(source.rate_plan_id))
+        || (source.allocation_rule_id != null && !normalizeUuid(source.allocation_rule_id))
+        || (source.selected_room_type_id != null && !normalizeUuid(source.selected_room_type_id))
+        || !validIsoCalendarDate(checkIn)
+        || !validIsoCalendarDate(checkOut)
+        || checkOut <= checkIn
+        || !Number.isInteger(requestedNights) || requestedNights < 1 || requestedNights > 365
+        || typeof source.adults !== 'number' || !Number.isInteger(source.adults) || source.adults < 1 || source.adults > 50
+        || childAges.some((age) => typeof age !== 'number' || !Number.isInteger(age) || age < CHILD_AGE_MIN || age > CHILD_AGE_MAX)
+        || childAges.length > 50
+        || !Array.isArray(source.child_ages)
+        || source.adults + childAges.length > 50) {
+      throw new Error('A valid exact-property pricing preview request is required.');
+    }
+    return {
+      contract_version: PRICING_PREVIEW_CONTRACT,
+      hotel_id: normalizeUuid(source.hotel_id),
+      snapshot_token: source.snapshot_token,
+      rate_plan_id: normalizeUuid(source.rate_plan_id) || null,
+      allocation_rule_id: normalizeUuid(source.allocation_rule_id) || null,
+      selected_room_type_id: normalizeUuid(source.selected_room_type_id) || null,
+      check_in: checkIn,
+      check_out: checkOut,
+      adults: source.adults,
+      child_ages: [...childAges],
+    };
+  }
+
+  function validatePricingPreview(value, request) {
+    const source = asObject(value);
+    const exactKeys = [
+      'contract_version', 'hotel_id', 'snapshot_token', 'ok', 'requestable',
+      'blocking_reasons', 'currency', 'check_in', 'check_out', 'nights', 'adults',
+      'child_ages', 'guest_count', 'allocation', 'products', 'nightly_breakdown',
+      'customer_total', 'pricing_precedence', 'legacy_authoritative', 'public_change',
+    ];
+    const blockerKeys = ['code', 'entity', 'entity_id', 'stay_date', 'detail'];
+    const allocationKeys = [
+      'allocation_rule_id', 'allocation_mode', 'room_type_id', 'units_required',
+      'allocated_guest_count', 'pricing_guest_count', 'allocated_guest_counts',
+      'pricing_guest_counts',
+    ];
+    const productKeys = [
+      'room_type_id', 'room_rate_id', 'rate_plan_id', 'unit_sequence',
+      'allocated_guest_count', 'requested_pricing_guest_count',
+      'resolved_pricing_guest_count', 'minimum_billable_occupancy',
+      'base_pricing_source', 'base_pricing_source_id', 'los_threshold_nights',
+      'subtotal', 'currency', 'booking_mode', 'cancellation_policy',
+      'price_inclusions', 'effective_minimum_stay', 'effective_maximum_stay',
+      'stay_allowed',
+    ];
+    const nightKeys = [
+      'stay_date', 'room_type_id', 'room_rate_id', 'rate_plan_id', 'unit_sequence',
+      'allocated_guest_count', 'requested_pricing_guest_count',
+      'resolved_pricing_guest_count', 'minimum_billable_occupancy',
+      'base_pricing_source', 'base_pricing_source_id', 'los_threshold_nights',
+      'weekday_rule_id', 'seasonal_range_rule_id', 'exact_date_price_id',
+      'final_pricing_source', 'nightly_rate', 'currency',
+      'effective_minimum_stay', 'effective_maximum_stay',
+      'minimum_stay_source', 'minimum_stay_source_id',
+      'maximum_stay_source', 'maximum_stay_source_id',
+    ];
+    const expectedPrecedence = [
+      'exact_date_price', 'seasonal_range_rule', 'weekday_rule',
+      'pricing_schedule_tier', 'independent_occupancy_tier',
+      'room_rate_base_nightly_rate', 'property_default',
+    ];
+    const nullableUuid = (value) => value === null || Boolean(normalizeUuid(value));
+    const nullableStay = (value) => value === null || isExactInteger(value, 1, 3650);
+    const countArrayIsExact = (value, units, sum) => Array.isArray(value)
+      && value.length === units
+      && value.every((count) => isExactInteger(count, 1, 50))
+      && value.reduce((total, count) => total + count, 0) === sum;
+    const baseSources = [
+      'pricing_schedule_tier', 'independent_occupancy_tier', 'base_nightly_rate',
+      'property_default',
+    ];
+    const finalSources = [...baseSources, 'weekday_rule', 'seasonal_range_rule', 'exact_date_price'];
+    const staySources = [null, 'property', 'weekday_rule', 'seasonal_range_rule', 'exact_date_price'];
+    const requestedNights = Math.round((Date.parse(`${request.check_out}T00:00:00Z`)
+      - Date.parse(`${request.check_in}T00:00:00Z`)) / 86400000);
+    if (!hasExactKeys(source, exactKeys)
+        || source.contract_version !== PRICING_PREVIEW_CONTRACT
+        || normalizeUuid(source.hotel_id) !== request.hotel_id
+        || !isExactSnapshotToken(source.snapshot_token)
+        || source.snapshot_token !== request.snapshot_token
+        || asText(source.check_in) !== request.check_in
+        || asText(source.check_out) !== request.check_out
+        || typeof source.ok !== 'boolean'
+        || typeof source.requestable !== 'boolean'
+        || typeof source.nights !== 'number' || !Number.isInteger(source.nights)
+        || source.nights !== requestedNights
+        || source.adults !== request.adults
+        || !Array.isArray(source.child_ages)
+        || JSON.stringify(source.child_ages) !== JSON.stringify(request.child_ages)
+        || typeof source.guest_count !== 'number' || !Number.isInteger(source.guest_count)
+        || source.guest_count !== request.adults + request.child_ages.length
+        || !Array.isArray(source.blocking_reasons)
+        || !Array.isArray(source.allocation)
+        || !Array.isArray(source.products)
+        || !Array.isArray(source.nightly_breakdown)
+        || !/^[A-Z]{3}$/.test(asText(source.currency))
+        || (source.customer_total != null && !isExactMoney(source.customer_total))
+        || source.blocking_reasons.some((entry) => (
+          !hasExactKeys(entry, blockerKeys)
+          || typeof entry.code !== 'string' || !/^[a-z0-9_]+$/.test(entry.code)
+          || !(entry.entity === null || (typeof entry.entity === 'string' && /^[a-z0-9_]+$/.test(entry.entity)))
+          || !nullableUuid(entry.entity_id)
+          || !(entry.stay_date === null || isExactIsoDate(entry.stay_date))
+          || !(entry.detail === null || (typeof entry.detail === 'object' && !Array.isArray(entry.detail)))
+        ))
+        || source.allocation.some((entry) => (
+          !hasExactKeys(entry, allocationKeys)
+          || !normalizeUuid(entry.allocation_rule_id) || !ROOM_ALLOCATION_MODES.includes(entry.allocation_mode)
+          || !normalizeUuid(entry.room_type_id) || !isExactInteger(entry.units_required, 1, 50)
+          || !isExactInteger(entry.allocated_guest_count, 1, 2500)
+          || !isExactInteger(entry.pricing_guest_count, 1, 2500)
+          || !countArrayIsExact(entry.allocated_guest_counts, entry.units_required, entry.allocated_guest_count)
+          || !countArrayIsExact(entry.pricing_guest_counts, entry.units_required, entry.pricing_guest_count)
+        ))
+        || source.products.some((entry) => (
+          !hasExactKeys(entry, productKeys)
+          || !normalizeUuid(entry.room_type_id) || !normalizeUuid(entry.room_rate_id)
+          || !normalizeUuid(entry.rate_plan_id) || !isExactInteger(entry.unit_sequence, 1, 50)
+          || !isExactInteger(entry.allocated_guest_count, 1, 50)
+          || !isExactInteger(entry.requested_pricing_guest_count, 1, 50)
+          || !(entry.resolved_pricing_guest_count === null
+            || isExactInteger(entry.resolved_pricing_guest_count, 1, 50))
+          || !(entry.minimum_billable_occupancy === null
+            || isExactInteger(entry.minimum_billable_occupancy, 1, 50))
+          || !(entry.base_pricing_source === null || baseSources.includes(entry.base_pricing_source))
+          || !nullableUuid(entry.base_pricing_source_id)
+          || !(entry.los_threshold_nights === null || isExactInteger(entry.los_threshold_nights, 1, 3650))
+          || !(entry.subtotal === null || isExactMoney(entry.subtotal))
+          || !(entry.currency === null || entry.currency === source.currency)
+          || !(entry.booking_mode === null || BOOKING_MODES.includes(entry.booking_mode))
+          || !(entry.cancellation_policy === null || isExactCancellationPolicy(entry.cancellation_policy))
+          || !(entry.price_inclusions === null || (Array.isArray(entry.price_inclusions)
+            && entry.price_inclusions.every((item) => typeof item === 'string' && item.trim())
+            && new Set(entry.price_inclusions).size === entry.price_inclusions.length))
+          || !nullableStay(entry.effective_minimum_stay)
+          || !nullableStay(entry.effective_maximum_stay)
+          || (entry.effective_minimum_stay !== null && entry.effective_maximum_stay !== null
+            && entry.effective_maximum_stay < entry.effective_minimum_stay)
+          || !(entry.stay_allowed === null || typeof entry.stay_allowed === 'boolean')
+          || (entry.subtotal === null && (
+            entry.resolved_pricing_guest_count !== null
+            || entry.minimum_billable_occupancy !== null
+            || entry.base_pricing_source !== null
+            || entry.base_pricing_source_id !== null
+            || entry.currency !== null || entry.booking_mode !== null
+            || entry.cancellation_policy !== null || entry.price_inclusions !== null
+            || entry.stay_allowed !== null
+          ))
+        ))
+        || source.nightly_breakdown.some((entry) => (
+          !hasExactKeys(entry, nightKeys)
+          || !isExactIsoDate(entry.stay_date)
+          || entry.stay_date < request.check_in || entry.stay_date >= request.check_out
+          || !normalizeUuid(entry.room_type_id) || !normalizeUuid(entry.room_rate_id)
+          || !normalizeUuid(entry.rate_plan_id) || !isExactInteger(entry.unit_sequence, 1, 50)
+          || !isExactInteger(entry.allocated_guest_count, 1, 50)
+          || !isExactInteger(entry.requested_pricing_guest_count, 1, 50)
+          || !isExactInteger(entry.resolved_pricing_guest_count, 1, 50)
+          || !isExactInteger(entry.minimum_billable_occupancy, 1, 50)
+          || !baseSources.includes(entry.base_pricing_source)
+          || !normalizeUuid(entry.base_pricing_source_id)
+          || !(entry.los_threshold_nights === null || isExactInteger(entry.los_threshold_nights, 1, 3650))
+          || !nullableUuid(entry.weekday_rule_id) || !nullableUuid(entry.seasonal_range_rule_id)
+          || !nullableUuid(entry.exact_date_price_id)
+          || !finalSources.includes(entry.final_pricing_source)
+          || !isExactMoney(entry.nightly_rate) || entry.currency !== source.currency
+          || !nullableStay(entry.effective_minimum_stay) || !nullableStay(entry.effective_maximum_stay)
+          || !staySources.includes(entry.minimum_stay_source)
+          || !staySources.includes(entry.maximum_stay_source)
+          || (entry.minimum_stay_source === null) !== (entry.minimum_stay_source_id === null)
+          || (entry.maximum_stay_source === null) !== (entry.maximum_stay_source_id === null)
+          || !nullableUuid(entry.minimum_stay_source_id) || !nullableUuid(entry.maximum_stay_source_id)
+        ))
+        || JSON.stringify(source.pricing_precedence) !== JSON.stringify(expectedPrecedence)
+        || typeof source.legacy_authoritative !== 'boolean'
+        || (request.hotel_id === SEVEN_ARCHES_PROPERTY_ID && source.legacy_authoritative !== true)
+        || source.public_change !== false) {
+      throw new Error('The server pricing preview returned an unexpected or unsafe response.');
+    }
+    const allocationRuleIds = new Set(source.allocation.map((entry) => normalizeUuid(entry.allocation_rule_id)));
+    const allocatedRoomIds = new Set(source.allocation.map((entry) => normalizeUuid(entry.room_type_id)));
+    const productKeysByUnit = new Map();
+    for (const product of source.products) {
+      const key = `${product.room_rate_id}:${product.unit_sequence}`;
+      if (productKeysByUnit.has(key)
+          || !allocatedRoomIds.has(normalizeUuid(product.room_type_id))
+          || (request.rate_plan_id && normalizeUuid(product.rate_plan_id) !== request.rate_plan_id)) {
+        throw new Error('The server pricing preview returned a duplicate or unrelated Room product.');
+      }
+      productKeysByUnit.set(key, product);
+    }
+    if (allocationRuleIds.size > 1
+        || new Set(source.products.map((entry) => normalizeUuid(entry.rate_plan_id))).size > 1
+        || (request.selected_room_type_id
+        && (source.allocation.length !== 1
+          || normalizeUuid(source.allocation[0].room_type_id) !== request.selected_room_type_id))
+        || (request.allocation_rule_id
+          && [...allocationRuleIds].some((id) => id !== request.allocation_rule_id))) {
+      throw new Error('The server pricing preview did not preserve the reviewed allocation selection.');
+    }
+    const nightsByProduct = new Map();
+    for (const night of source.nightly_breakdown) {
+      const key = `${night.room_rate_id}:${night.unit_sequence}`;
+      const product = productKeysByUnit.get(key);
+      if (!product
+          || normalizeUuid(night.room_type_id) !== normalizeUuid(product.room_type_id)
+          || normalizeUuid(night.rate_plan_id) !== normalizeUuid(product.rate_plan_id)
+          || night.allocated_guest_count !== product.allocated_guest_count
+          || night.requested_pricing_guest_count !== product.requested_pricing_guest_count
+          || night.resolved_pricing_guest_count !== product.resolved_pricing_guest_count
+          || night.minimum_billable_occupancy !== product.minimum_billable_occupancy
+          || night.base_pricing_source !== product.base_pricing_source
+          || normalizeUuid(night.base_pricing_source_id) !== normalizeUuid(product.base_pricing_source_id)
+          || night.los_threshold_nights !== product.los_threshold_nights) {
+        throw new Error('The server pricing preview returned an unrelated nightly price row.');
+      }
+      const rows = nightsByProduct.get(key) || [];
+      rows.push(night);
+      nightsByProduct.set(key, rows);
+    }
+    for (const [key, product] of productKeysByUnit) {
+      const rows = (nightsByProduct.get(key) || []).sort((a, b) => a.stay_date.localeCompare(b.stay_date));
+      const expectedRows = product.subtotal === null ? 0 : source.nights;
+      if (rows.length !== expectedRows
+          || new Set(rows.map((row) => row.stay_date)).size !== expectedRows
+          || (product.subtotal !== null
+            && Number(rows.reduce((sum, row) => sum + row.nightly_rate, 0).toFixed(2)) !== product.subtotal)) {
+        throw new Error('The server pricing preview returned an incomplete or inconsistent nightly breakdown.');
+      }
+    }
+    const productTotal = Number(source.products.reduce((sum, product) => sum + (product.subtotal || 0), 0).toFixed(2));
+    const allocatedUnitCount = source.allocation
+      .reduce((sum, allocation) => sum + allocation.units_required, 0);
+    if ((source.ok && source.customer_total !== productTotal)
+        || (source.ok && (source.allocation.length === 0
+          || source.products.length === 0
+          || source.products.length !== allocatedUnitCount
+          || source.nightly_breakdown.length !== source.products.length * source.nights))
+        || (!source.ok && source.customer_total !== null)
+        || (source.ok && source.products.some((product) => product.subtotal === null))
+        || source.requestable !== false) {
+      throw new Error('The server pricing preview returned an inconsistent or publicly requestable total.');
+    }
+    return clone(source);
+  }
+
+  function availabilityRowIdentity(entity, row) {
+    const source = asObject(row);
+    if (entity === 'daily_inventory') {
+      return `${normalizeUuid(source.room_type_id) || ''}:${asText(source.stay_date)}`;
+    }
+    if (entity === 'operational_override') {
+      return `${normalizeUuid(source.room_rate_id) || ''}:${asText(source.stay_date)}`;
+    }
+    return normalizeUuid(source.id) || asText(source.id);
+  }
+
+  function isExactAvailabilityI18n(value, options = {}) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).some((key) => !LANGUAGES.includes(key))
+        || (options.exact === true && LANGUAGES.some((key) => !Object.hasOwn(value, key)))
+        || Object.values(value).some((entry) => typeof entry !== 'string' || entry.length > 1000)) return false;
+    return options.required !== true || LANGUAGES.some((key) => value[key].trim());
+  }
+
+  function availabilityUtf8Bytes(value) {
+    return Array.from(JSON.stringify(value)).reduce((total, character) => {
+      const code = character.codePointAt(0);
+      return total + (code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4);
+    }, 0);
+  }
+
+  function availabilityDateRange(from, to) {
+    if (!isExactIsoDate(from) || !isExactIsoDate(to) || to < from) return [];
+    const dates = [];
+    const cursor = new Date(`${from}T00:00:00.000Z`);
+    const end = new Date(`${to}T00:00:00.000Z`);
+    while (cursor <= end && dates.length <= 3660) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    return dates;
+  }
+
+  function availabilityUuidFieldsAreCanonical(value, field = '') {
+    if (field === 'id' || field.endsWith('_id')) {
+      return value === null || (typeof value === 'string' && normalizeUuid(value) === value);
+    }
+    if (field.endsWith('_ids')) {
+      return Array.isArray(value) && value.every((entry) => typeof entry === 'string' && normalizeUuid(entry) === entry);
+    }
+    if (Array.isArray(value)) return value.every((entry) => availabilityUuidFieldsAreCanonical(entry));
+    if (!value || typeof value !== 'object') return true;
+    return Object.entries(value).every(([key, nested]) => availabilityUuidFieldsAreCanonical(nested, key));
+  }
+
+  function normalizeAvailabilityActivityRows(rows, options = {}) {
+    const activityKeys = ['id', 'entity_type', 'entity_id', 'action', 'before_state', 'after_state', 'actor_type', 'source', 'correlation_id', 'created_at'];
+    const maximum = options.maximum || AVAILABILITY_CONTROL_READ_LIMITS.recent_activity;
+    if (!Array.isArray(rows) || !availabilityUuidFieldsAreCanonical(rows)
+        || rows.length > maximum || rows.some((row) => !hasExactKeys(row, activityKeys))) {
+      throw new Error('The Admin availability activity projection is invalid or exceeds its exact limit.');
+    }
+    const normalized = rows.map((row) => ({
+      ...clone(row), id: normalizeUuid(row.id), entity_id: normalizeUuid(row.entity_id), correlation_id: normalizeUuid(row.correlation_id),
+    }));
+    const validActivityState = (state) => state === null || (hasExactKeys(state, ['fingerprint', 'redacted'])
+      && /^[0-9a-f]{64}$/.test(state.fingerprint) && state.redacted === true);
+    const actions = options.apply === true
+      ? ['create', 'update', 'disable', 'upsert', 'delete', 'map', 'release', 'clear']
+      : ['create', 'update', 'disable', 'duplicate', 'delete'];
+    if (normalized.some((row) => !row.id || !row.entity_id || !row.correlation_id
+        || !['daily_inventory', 'calendar_override', 'unit_calendar_block', 'rate_rule_operational_restriction', 'booking_allocation', 'inventory_hold'].includes(row.entity_type)
+        || !actions.includes(row.action)
+        || !validActivityState(row.before_state) || !validActivityState(row.after_state)
+        || (row.before_state === null && row.after_state === null)
+        || !['admin', 'partner', 'sync', 'system'].includes(row.actor_type)
+        || typeof row.source !== 'string' || !row.source.trim() || row.source !== row.source.trim() || row.source.length > 120
+        || !isExactIsoTimestamp(row.created_at))
+        || new Set(normalized.map((row) => row.id)).size !== normalized.length) {
+      throw new Error('The Admin availability activity projection is invalid.');
+    }
+    return normalized;
+  }
+
+  function normalizeAvailabilityControl(value) {
+    const source = asObject(clone(value));
+    const requiredKeys = [
+      'contract_version', 'hotel_id', 'from', 'to', 'snapshot_token',
+      'snapshot_as_of', 'snapshot_valid_until', 'property', 'room_types', 'room_rates',
+      'units', 'cells', 'product_cells', 'daily_inventory', 'unit_calendar_blocks',
+      'operational_overrides', 'rate_rule_operational_restrictions',
+      'booking_allocations', 'holds', 'unmapped_booking_blockers', 'recent_activity',
+      'public_change',
+    ];
+    if (!hasExactKeys(source, requiredKeys) || !availabilityUuidFieldsAreCanonical(source)
+        || source.contract_version !== AVAILABILITY_CONTROL_READ_CONTRACT
+        || !normalizeUuid(source.hotel_id)
+        || !isExactIsoDate(source.from) || !isExactIsoDate(source.to) || source.to < source.from
+        || !/^[0-9a-f]{64}$/.test(asText(source.snapshot_token))
+        || !isExactIsoTimestamp(source.snapshot_as_of)
+        || !(source.snapshot_valid_until === null || isExactIsoTimestamp(source.snapshot_valid_until))
+        || (source.snapshot_valid_until !== null
+          && Date.parse(source.snapshot_valid_until) < Date.parse(source.snapshot_as_of))
+        || source.public_change !== false
+        || requiredKeys.slice(requiredKeys.indexOf('room_types'), requiredKeys.indexOf('public_change'))
+          .filter((key) => !['property'].includes(key))
+          .some((key) => !Array.isArray(source[key]))
+        || availabilityUtf8Bytes(source) > AVAILABILITY_CONTROL_READ_LIMITS.snapshot_bytes) {
+      throw new Error('The Admin availability snapshot contract is invalid or incomplete.');
+    }
+    const hotelId = normalizeUuid(source.hotel_id);
+    const property = asObject(source.property);
+    const propertyKeys = ['id', 'name_i18n', 'architecture_version', 'timezone', 'currency', 'booking_mode', 'minimum_stay_nights', 'maximum_stay_nights', 'updated_at'];
+    if (!hasExactKeys(property, propertyKeys) || normalizeUuid(property.id) !== hotelId
+        || !isExactAvailabilityI18n(property.name_i18n, { exact: true, required: true })
+        || !['legacy', 'rooms_v2'].includes(property.architecture_version)
+        || typeof property.timezone !== 'string' || !property.timezone.trim()
+        || typeof property.currency !== 'string' || !/^[A-Z]{3}$/.test(property.currency)
+        || typeof property.booking_mode !== 'string'
+        || !isExactInteger(property.minimum_stay_nights, 1, 3650)
+        || !(property.maximum_stay_nights === null || isExactInteger(property.maximum_stay_nights, property.minimum_stay_nights, 3650))
+        || !isExactIsoTimestamp(property.updated_at)) {
+      throw new Error('The Admin availability snapshot returned a foreign property.');
+    }
+    const exactRows = (rows, keys, label, limit) => {
+      if (!Array.isArray(rows) || rows.length > limit || rows.some((row) => !hasExactKeys(row, keys))) {
+        throw new Error(`The Admin availability ${label} projection is invalid or exceeds its technical limit.`);
+      }
+      return rows.map(clone);
+    };
+    const roomKeys = ['id', 'hotel_id', 'code', 'name_i18n', 'inventory_mode', 'base_inventory_count', 'status', 'sort_order', 'max_occupancy', 'capacity_adults', 'capacity_children', 'version', 'updated_at'];
+    const roomTypes = source.room_types.map((room) => {
+      if (!hasExactKeys(room, roomKeys)) throw new Error('The Admin availability Room Type projection contains unsupported fields.');
+      const normalized = { ...clone(room), id: normalizeUuid(room.id), hotel_id: normalizeUuid(room.hotel_id) };
+      if (!normalized.id || normalized.hotel_id !== hotelId || !asText(normalized.code)
+          || !isExactAvailabilityI18n(normalized.name_i18n, { exact: true, required: true })
+          || !INVENTORY_MODES.includes(normalized.inventory_mode)
+          || !ROOM_STATUSES.includes(normalized.status)
+          || !isExactInteger(normalized.base_inventory_count, 0, 10000)
+          || !isExactInteger(normalized.sort_order, 0, 1000000)
+          || !(normalized.max_occupancy === null || isExactInteger(normalized.max_occupancy, 1, 50))
+          || !(normalized.capacity_adults === null || isExactInteger(normalized.capacity_adults, 1, 50))
+          || !(normalized.capacity_children === null || isExactInteger(normalized.capacity_children, 0, 50))
+          || !isExactInteger(normalized.version, 1) || !isExactIsoTimestamp(normalized.updated_at)) {
+        throw new Error('The Admin availability snapshot returned an invalid or foreign Room Type.');
+      }
+      return normalized;
+    });
+    if (roomTypes.length > AVAILABILITY_CONTROL_READ_LIMITS.room_types
+        || new Set(roomTypes.map((room) => room.id)).size !== roomTypes.length) {
+      throw new Error('The Admin availability Room Type snapshot exceeds its exact limits or contains duplicates.');
+    }
+    const roomById = new Map(roomTypes.map((room) => [room.id, room]));
+    const rateKeys = ['id', 'hotel_id', 'room_type_id', 'rate_plan_id', 'is_active', 'review_status', 'sort_order', 'version', 'updated_at'];
+    const roomRates = exactRows(source.room_rates, rateKeys, 'Room Rate', AVAILABILITY_CONTROL_READ_LIMITS.room_rates).map((rate) => ({
+      ...rate, id: normalizeUuid(rate.id), hotel_id: normalizeUuid(rate.hotel_id),
+      room_type_id: normalizeUuid(rate.room_type_id), rate_plan_id: normalizeUuid(rate.rate_plan_id),
+    }));
+    if (roomRates.some((rate) => !rate.id || rate.hotel_id !== hotelId || !roomById.has(rate.room_type_id)
+        || !rate.rate_plan_id || typeof rate.is_active !== 'boolean' || !['requires_review', 'reviewed'].includes(rate.review_status)
+        || !isExactInteger(rate.sort_order, 0, 1000000) || !isExactInteger(rate.version, 1)
+        || !isExactIsoTimestamp(rate.updated_at))
+        || new Set(roomRates.map((rate) => rate.id)).size !== roomRates.length) {
+      throw new Error('The Admin availability Room Rate snapshot exceeds its technical limit.');
+    }
+    const rateById = new Map(roomRates.map((rate) => [rate.id, rate]));
+    const unitKeys = ['id', 'room_type_id', 'code', 'name_i18n', 'status', 'version', 'updated_at'];
+    const units = exactRows(source.units, unitKeys, 'physical unit', AVAILABILITY_CONTROL_READ_LIMITS.room_types * 100).map((unit) => ({
+      ...unit, id: normalizeUuid(unit.id), room_type_id: normalizeUuid(unit.room_type_id),
+    }));
+    if (units.some((unit) => !unit.id || !roomById.has(unit.room_type_id) || !asText(unit.code)
+        || !isExactAvailabilityI18n(unit.name_i18n)
+        || !UNIT_STATUSES.includes(unit.status) || !isExactInteger(unit.version, 1)
+        || !isExactIsoTimestamp(unit.updated_at))
+        || new Set(units.map((unit) => unit.id)).size !== units.length) {
+      throw new Error('The Admin availability unit snapshot is invalid, foreign or duplicated.');
+    }
+    const unitById = new Map(units.map((unit) => [unit.id, unit]));
+    const activeUnitsByRoom = new Map(roomTypes.map((room) => [room.id,
+      units.filter((unit) => unit.room_type_id === room.id && unit.status === 'active').length]));
+    const cells = source.cells.map((cell) => {
+      const row = clone(cell);
+      const keys = [
+        'room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity',
+        'configured_sellable_units', 'blocked_unit_count', 'blocked_unit_ids',
+        'operational_closed', 'safety_closed',
+        'held_units', 'booked_units', 'committed_units', 'available_units',
+        'requestable', 'blocking_reasons', 'earliest_hold_expiry', 'provenance', 'inventory_version',
+      ];
+      if (!hasExactKeys(row, keys)) throw new Error('An Admin availability cell contains unsupported fields.');
+      row.room_type_id = normalizeUuid(row.room_type_id);
+      const room = roomById.get(row.room_type_id);
+      if (!room || !isExactIsoDate(row.stay_date)
+          || row.stay_date < source.from || row.stay_date > source.to
+          || row.inventory_mode !== room.inventory_mode
+          || !['physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'held_units', 'booked_units', 'committed_units', 'available_units']
+            .every((key) => isExactInteger(row[key], 0, 1000000))
+          || typeof row.operational_closed !== 'boolean' || typeof row.safety_closed !== 'boolean'
+          || typeof row.requestable !== 'boolean' || row.requestable !== false || !Array.isArray(row.blocking_reasons)
+          || !row.blocking_reasons.length
+          || !row.blocking_reasons.every((reason) => AVAILABILITY_BLOCKING_REASONS.includes(reason))
+          || !row.blocking_reasons.includes('public_activation_off')
+          || new Set(row.blocking_reasons).size !== row.blocking_reasons.length
+          || !Array.isArray(row.blocked_unit_ids) || !row.blocked_unit_ids.every((id) => {
+            const unit = unitById.get(normalizeUuid(id));
+            return unit && unit.room_type_id === row.room_type_id && unit.status === 'active';
+          })
+          || new Set(row.blocked_unit_ids).size !== row.blocked_unit_ids.length
+          || row.blocked_unit_count !== row.blocked_unit_ids.length
+          || row.physical_capacity !== (row.inventory_mode === 'unitized'
+            ? activeUnitsByRoom.get(row.room_type_id) : room.base_inventory_count)
+          || row.committed_units !== row.held_units + row.booked_units
+          || row.available_units !== (row.operational_closed || row.safety_closed ? 0 : Math.max(0,
+            Math.min(row.physical_capacity - row.blocked_unit_count, row.configured_sellable_units)
+              - row.committed_units))
+          || (row.operational_closed && !row.blocking_reasons.includes('operational_closed'))
+          || (row.safety_closed && !row.blocking_reasons.includes('safety_closed'))
+          || (row.available_units < 1 && !row.blocking_reasons.includes('inventory_exhausted'))
+          || !(row.earliest_hold_expiry === null || isExactIsoTimestamp(row.earliest_hold_expiry))
+          || !isExactInteger(row.inventory_version, 0, Number.MAX_SAFE_INTEGER)
+          || !hasExactKeys(row.provenance, ['capacity', 'inventory', 'commitments'])
+          || row.provenance.capacity !== 'room_type_or_active_units'
+          || row.provenance.inventory !== 'hotel_daily_inventory'
+          || row.provenance.commitments !== 'server_authoritative') {
+        throw new Error('An Admin availability cell is invalid or outside the reviewed range.');
+      }
+      return row;
+    });
+    if (cells.length > AVAILABILITY_CONTROL_READ_LIMITS.inventory_days
+        || new Set(cells.map((row) => availabilityRowIdentity('daily_inventory', row))).size !== cells.length) {
+      throw new Error('The Admin availability cells exceed their exact limit or contain duplicates.');
+    }
+    const dates = availabilityDateRange(source.from, source.to);
+    if (dates.length > 367) {
+      throw new Error('The Admin availability snapshot exceeds the exact 367-day technical window.');
+    }
+    const expectedCellKeys = new Set(roomTypes.flatMap((room) => dates.map((date) => `${room.id}:${date}`)));
+    if (cells.length !== expectedCellKeys.size
+        || cells.some((row) => !expectedCellKeys.has(`${row.room_type_id}:${row.stay_date}`))) {
+      throw new Error('The Admin availability snapshot omitted a required Room Type/date cell.');
+    }
+    const productCellKeys = ['room_type_id', 'room_rate_id', 'rate_plan_id', 'stay_date', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'requestable', 'blocking_reasons', 'provenance'];
+    const productCells = exactRows(source.product_cells, productCellKeys, 'product cell', AVAILABILITY_CONTROL_READ_LIMITS.restriction_days).map((row) => ({
+      ...row, room_type_id: normalizeUuid(row.room_type_id), room_rate_id: normalizeUuid(row.room_rate_id), rate_plan_id: normalizeUuid(row.rate_plan_id),
+    }));
+    if (productCells.some((row) => {
+      const rate = rateById.get(row.room_rate_id);
+      return !rate || rate.room_type_id !== row.room_type_id || rate.rate_plan_id !== row.rate_plan_id
+        || !isExactIsoDate(row.stay_date) || row.stay_date < source.from || row.stay_date > source.to
+        || !['operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'requestable'].every((key) => typeof row[key] === 'boolean')
+        || row.requestable !== false || !Array.isArray(row.blocking_reasons) || !row.blocking_reasons.length
+        || !row.blocking_reasons.every((reason) => AVAILABILITY_BLOCKING_REASONS.includes(reason))
+        || !row.blocking_reasons.includes('public_activation_off')
+        || new Set(row.blocking_reasons).size !== row.blocking_reasons.length
+        || (row.operational_closed && !row.blocking_reasons.includes('operational_closed'))
+        || (row.safety_closed && !row.blocking_reasons.includes('safety_closed'))
+        || (!rate.is_active && !row.blocking_reasons.includes('room_rate_inactive'))
+        || !hasExactKeys(row.provenance, ['exact_override_id', 'daily_rate', 'availability_version'])
+        || !(row.provenance.exact_override_id === null || normalizeUuid(row.provenance.exact_override_id))
+        || typeof row.provenance.daily_rate !== 'boolean'
+        || !(row.provenance.availability_version === null || isExactInteger(row.provenance.availability_version, 1));
+    }) || new Set(productCells.map((row) => `${row.room_rate_id}:${row.stay_date}`)).size !== productCells.length) {
+      throw new Error('The Admin availability product cells are invalid, foreign or duplicated.');
+    }
+    const expectedProductCellKeys = new Set(roomRates.flatMap((rate) => dates.map((date) => `${rate.id}:${date}`)));
+    if (productCells.length !== expectedProductCellKeys.size
+        || productCells.some((row) => !expectedProductCellKeys.has(`${row.room_rate_id}:${row.stay_date}`))) {
+      throw new Error('The Admin availability snapshot omitted a required Room Rate/date product cell.');
+    }
+
+    const inventoryKeys = ['room_type_id', 'stay_date', 'sellable_units', 'sellable_units_mode', 'closed', 'closed_mode', 'reason', 'expires_at', 'version', 'updated_at'];
+    const dailyInventory = exactRows(source.daily_inventory, inventoryKeys, 'daily inventory', AVAILABILITY_CONTROL_READ_LIMITS.inventory_days).map((row) => ({ ...row, room_type_id: normalizeUuid(row.room_type_id) }));
+    if (dailyInventory.some((row) => !roomById.has(row.room_type_id) || !isExactIsoDate(row.stay_date)
+        || row.stay_date < source.from || row.stay_date > source.to
+        || !isExactInteger(row.sellable_units, 0, 1000000) || !['set', 'clear'].includes(row.sellable_units_mode)
+        || typeof row.closed !== 'boolean' || !['set', 'clear'].includes(row.closed_mode)
+        || !(row.reason === null || typeof row.reason === 'string') || !(row.expires_at === null || isExactIsoTimestamp(row.expires_at))
+        || !isExactInteger(row.version, 1) || !isExactIsoTimestamp(row.updated_at))
+        || new Set(dailyInventory.map((row) => `${row.room_type_id}:${row.stay_date}`)).size !== dailyInventory.length) {
+      throw new Error('The Admin availability daily inventory rows are invalid or duplicated.');
+    }
+
+    const unitBlockKeys = ['id', 'hotel_id', 'room_type_id', 'unit_id', 'from_date', 'to_date', 'blocked', 'reason', 'expires_at', 'is_active', 'version', 'updated_at'];
+    const unitCalendarBlocks = exactRows(source.unit_calendar_blocks, unitBlockKeys, 'unit block', AVAILABILITY_CONTROL_READ_LIMITS.inventory_days).map((row) => ({ ...row, id: normalizeUuid(row.id), hotel_id: normalizeUuid(row.hotel_id), room_type_id: normalizeUuid(row.room_type_id), unit_id: normalizeUuid(row.unit_id) }));
+    if (unitCalendarBlocks.some((row) => !row.id || row.hotel_id !== hotelId || !unitById.has(row.unit_id)
+        || unitById.get(row.unit_id).room_type_id !== row.room_type_id || !isExactIsoDate(row.from_date) || !isExactIsoDate(row.to_date) || row.to_date < row.from_date
+        || row.to_date < source.from || row.from_date > source.to
+        || typeof row.blocked !== 'boolean' || typeof row.reason !== 'string' || !(row.expires_at === null || isExactIsoTimestamp(row.expires_at))
+        || typeof row.is_active !== 'boolean' || !isExactInteger(row.version, 1) || !isExactIsoTimestamp(row.updated_at))
+        || new Set(unitCalendarBlocks.map((row) => row.id)).size !== unitCalendarBlocks.length) {
+      throw new Error('The Admin availability unit blocks are invalid or foreign.');
+    }
+
+    const overrideKeys = ['id', 'hotel_id', 'room_rate_id', 'stay_date', 'closed', 'closed_mode', 'closed_to_arrival', 'closed_to_arrival_mode', 'closed_to_departure', 'closed_to_departure_mode', 'availability_active', 'availability_expires_at', 'availability_version', 'availability_reason', 'availability_updated_at'];
+    const operationalOverrides = exactRows(source.operational_overrides, overrideKeys, 'exact operational override', AVAILABILITY_CONTROL_READ_LIMITS.restriction_days).map((row) => ({ ...row, id: normalizeUuid(row.id), hotel_id: normalizeUuid(row.hotel_id), room_rate_id: normalizeUuid(row.room_rate_id) }));
+    if (operationalOverrides.some((row) => !row.id || row.hotel_id !== hotelId || !rateById.has(row.room_rate_id) || !isExactIsoDate(row.stay_date)
+        || row.stay_date < source.from || row.stay_date > source.to
+        || !['closed', 'closed_to_arrival', 'closed_to_departure'].every((key) => row[key] === null || typeof row[key] === 'boolean')
+        || typeof row.availability_active !== 'boolean'
+        || !['closed_mode', 'closed_to_arrival_mode', 'closed_to_departure_mode'].every((key) => row[key] === null || ['set', 'clear'].includes(row[key]))
+        || !['closed', 'closed_to_arrival', 'closed_to_departure'].every((key) => (
+          row[`${key}_mode`] === 'set' ? typeof row[key] === 'boolean'
+            : (['clear', null].includes(row[`${key}_mode`]) && row[key] === null)))
+        || !(row.availability_reason === null || typeof row.availability_reason === 'string')
+        || !(row.availability_expires_at === null || isExactIsoTimestamp(row.availability_expires_at))
+        || !isExactInteger(row.availability_version, 1)
+        || !(row.availability_updated_at === null || isExactIsoTimestamp(row.availability_updated_at)))
+        || new Set(operationalOverrides.map((row) => row.id)).size !== operationalOverrides.length
+        || new Set(operationalOverrides.map((row) => `${row.room_rate_id}:${row.stay_date}`)).size !== operationalOverrides.length) {
+      throw new Error('The Admin exact operational overrides are invalid or foreign.');
+    }
+
+    const rateRestrictionKeys = ['id', 'room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'closed_to_arrival', 'closed_to_departure', 'availability_version', 'availability_reason', 'availability_actor_id', 'availability_correlation_id', 'availability_updated_at'];
+    const rateRuleRestrictions = exactRows(source.rate_rule_operational_restrictions, rateRestrictionKeys, 'shared Rate Rule restriction', AVAILABILITY_CONTROL_READ_LIMITS.restriction_days).map((row) => ({ ...row, id: normalizeUuid(row.id), room_rate_id: normalizeUuid(row.room_rate_id) }));
+    if (rateRuleRestrictions.some((row) => !row.id || !rateById.has(row.room_rate_id) || !isExactIsoDate(row.valid_from) || !isExactIsoDate(row.valid_to) || row.valid_to < row.valid_from
+        || row.valid_to < source.from || row.valid_from > source.to
+        || !Array.isArray(row.weekdays) || !row.weekdays.length || !row.weekdays.every((day) => isExactInteger(day, 1, 7)) || new Set(row.weekdays).size !== row.weekdays.length
+        || !(row.closed_to_arrival === null || typeof row.closed_to_arrival === 'boolean')
+        || !(row.closed_to_departure === null || typeof row.closed_to_departure === 'boolean')
+        || !isExactInteger(row.availability_version, 1) || !(row.availability_reason === null || typeof row.availability_reason === 'string')
+        || !(row.availability_actor_id === null || normalizeUuid(row.availability_actor_id))
+        || !(row.availability_correlation_id === null || normalizeUuid(row.availability_correlation_id))
+        || !(row.availability_updated_at === null || isExactIsoTimestamp(row.availability_updated_at)))
+        || new Set(rateRuleRestrictions.map((row) => row.id)).size !== rateRuleRestrictions.length) {
+      throw new Error('The Admin shared Rate Rule restrictions are invalid or foreign.');
+    }
+
+    const allocationKeys = ['id', 'booking_id', 'arrival_date', 'departure_date', 'current_booking_updated_at', 'current_booking_status', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts', 'booking_updated_at', 'status', 'version', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'active_commitments'];
+    const rawBookingAllocations = exactRows(source.booking_allocations, allocationKeys, 'booking allocation', AVAILABILITY_CONTROL_READ_LIMITS.holds);
+    if (rawBookingAllocations.some((row) => !Array.isArray(row.unit_ids)
+        || !Array.isArray(row.allocated_guest_counts) || !Array.isArray(row.pricing_guest_counts)
+        || !Array.isArray(row.active_commitments))) {
+      throw new Error('The Admin booking allocation projection has an invalid nested collection.');
+    }
+    const bookingAllocations = rawBookingAllocations.map((row) => ({ ...row, id: normalizeUuid(row.id), booking_id: normalizeUuid(row.booking_id), room_type_id: normalizeUuid(row.room_type_id), rate_plan_id: normalizeUuid(row.rate_plan_id), room_rate_id: normalizeUuid(row.room_rate_id), unit_ids: row.unit_ids.map(normalizeUuid), active_commitments: row.active_commitments.map((commitment) => ({ ...commitment, room_type_id: normalizeUuid(commitment.room_type_id), unit_id: commitment.unit_id === null ? null : normalizeUuid(commitment.unit_id) })) }));
+    if (bookingAllocations.some((row) => {
+      const rate = rateById.get(row.room_rate_id);
+      const room = roomById.get(row.room_type_id);
+      const liveAllocation = row.status === 'active' && ['pending', 'confirmed'].includes(row.current_booking_status);
+      const roomCapacity = room?.max_occupancy ?? (room && room.capacity_adults !== null && room.capacity_children !== null
+        ? room.capacity_adults + room.capacity_children : null);
+      const activeDates = row.active_commitments.map((commitment) => commitment.stay_date).sort();
+      return !row.id || !row.booking_id || !rate || rate.room_type_id !== row.room_type_id || rate.rate_plan_id !== row.rate_plan_id
+        || !isExactIsoDate(row.arrival_date) || !isExactIsoDate(row.departure_date) || row.departure_date <= row.arrival_date
+        || !isExactIsoTimestamp(row.current_booking_updated_at)
+        || !['pending', 'confirmed', 'completed', 'cancelled'].includes(row.current_booking_status)
+        || !room || !Array.isArray(row.unit_ids) || row.unit_ids.some((id) => !unitById.has(id)
+          || unitById.get(id).room_type_id !== row.room_type_id
+          || (liveAllocation && unitById.get(id).status !== 'active'))
+        || new Set(row.unit_ids).size !== row.unit_ids.length || !isExactInteger(row.units_required, 1, 1000)
+        || (liveAllocation
+          ? (room.inventory_mode === 'pooled' ? row.unit_ids.length !== 0 : row.unit_ids.length !== row.units_required)
+          : !(row.unit_ids.length === 0 || row.unit_ids.length === row.units_required))
+        || !Array.isArray(row.allocated_guest_counts) || !row.allocated_guest_counts.every((count) => isExactInteger(count, 1, 50))
+        || !Array.isArray(row.pricing_guest_counts) || !row.pricing_guest_counts.every((count) => isExactInteger(count, 1, 50))
+        || row.allocated_guest_counts.length !== row.units_required || row.pricing_guest_counts.length !== row.units_required
+        || roomCapacity === null || row.allocated_guest_counts.some((count) => count > roomCapacity)
+        || row.pricing_guest_counts.some((count) => count > roomCapacity)
+        || !isExactIsoTimestamp(row.booking_updated_at)
+        || Date.parse(row.current_booking_updated_at) < Date.parse(row.booking_updated_at)
+        || !['active', 'released'].includes(row.status)
+        || !((row.active_commitment_from === null && row.active_commitment_to === null && row.active_commitments.length === 0)
+          || (isExactIsoDate(row.active_commitment_from) && isExactIsoDate(row.active_commitment_to)
+            && row.active_commitment_to >= row.active_commitment_from && row.active_commitments.length > 0
+            && activeDates[0] === row.active_commitment_from && activeDates[activeDates.length - 1] === row.active_commitment_to))
+        || row.active_commitments.some((commitment) => !hasExactKeys(commitment, ['room_type_id', 'stay_date', 'unit_id', 'units', 'status'])
+          || commitment.room_type_id !== row.room_type_id || !isExactIsoDate(commitment.stay_date)
+          || commitment.status !== 'active' || !isExactInteger(commitment.units, 1, 1000)
+          || (commitment.unit_id !== null && commitment.units !== 1)
+          || (liveAllocation
+            ? (room.inventory_mode === 'pooled' ? commitment.unit_id !== null
+              : !(commitment.unit_id && unitById.get(commitment.unit_id)?.room_type_id === row.room_type_id
+                && unitById.get(commitment.unit_id)?.status === 'active'
+                && row.unit_ids.includes(commitment.unit_id)))
+            : !(commitment.unit_id === null || unitById.get(commitment.unit_id)?.room_type_id === row.room_type_id)))
+        || new Set(row.active_commitments.map((commitment) => `${commitment.room_type_id}:${commitment.stay_date}:${commitment.unit_id || 'pooled'}`)).size !== row.active_commitments.length
+        || !(row.arrival_date <= source.to && row.departure_date > source.from
+          || (row.active_commitment_from !== null && row.active_commitment_from <= source.to
+            && row.active_commitment_to >= source.from))
+        || !isExactInteger(row.version, 1) || !isExactIsoTimestamp(row.updated_at);
+    }) || new Set(bookingAllocations.map((row) => row.id)).size !== bookingAllocations.length
+      || bookingAllocations.some((row) => bookingAllocations.some((other) => other.booking_id === row.booking_id
+        && (other.arrival_date !== row.arrival_date || other.departure_date !== row.departure_date
+          || other.current_booking_updated_at !== row.current_booking_updated_at
+          || other.current_booking_status !== row.current_booking_status)))
+      || bookingAllocations.some((row) => row.status === 'active' && bookingAllocations.some((other) => (
+        other.id !== row.id && other.booking_id === row.booking_id && other.status === 'active'
+        && row.unit_ids.some((unitId) => other.unit_ids.includes(unitId)))))) {
+      throw new Error('The Admin booking allocation projection is invalid or foreign.');
+    }
+
+    const holdKeys = ['id', 'status', 'expires_at', 'version', 'created_at', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'commitments'];
+    const commitmentKeys = ['room_type_id', 'stay_date', 'unit_id', 'units', 'status'];
+    const rawHolds = exactRows(source.holds, holdKeys, 'hold', AVAILABILITY_CONTROL_READ_LIMITS.holds);
+    if (rawHolds.some((hold) => !Array.isArray(hold.commitments))) {
+      throw new Error('The Admin hold projection has an invalid commitments collection.');
+    }
+    const holds = rawHolds.map((hold) => ({ ...hold, id: normalizeUuid(hold.id), commitments: hold.commitments.map((row) => ({ ...row, room_type_id: normalizeUuid(row.room_type_id), unit_id: row.unit_id === null ? null : normalizeUuid(row.unit_id) })) }));
+    if (holds.some((hold) => {
+      const liveHold = hold.status === 'active' && isExactIsoTimestamp(hold.expires_at)
+        && Date.parse(hold.expires_at) > Date.parse(source.snapshot_as_of);
+      return !hold.id || !['active', 'released', 'expired', 'consumed'].includes(hold.status) || !isExactIsoTimestamp(hold.expires_at)
+        || !((hold.active_commitment_from === null && hold.active_commitment_to === null)
+          || (isExactIsoDate(hold.active_commitment_from) && isExactIsoDate(hold.active_commitment_to)
+            && hold.active_commitment_to >= hold.active_commitment_from))
+        || !isExactInteger(hold.version, 1) || !isExactIsoTimestamp(hold.created_at) || !isExactIsoTimestamp(hold.updated_at)
+        || !Array.isArray(hold.commitments) || !hold.commitments.length || hold.commitments.some((row) => !hasExactKeys(row, commitmentKeys)
+          || !roomById.has(row.room_type_id) || !isExactIsoDate(row.stay_date)
+          || (liveHold && row.status === 'active'
+            ? (roomById.get(row.room_type_id).inventory_mode === 'pooled'
+              ? row.unit_id !== null
+              : !(row.unit_id !== null && unitById.has(row.unit_id)
+                && unitById.get(row.unit_id).room_type_id === row.room_type_id
+                && unitById.get(row.unit_id).status === 'active'))
+            : !(row.unit_id === null || (unitById.has(row.unit_id)
+              && unitById.get(row.unit_id).room_type_id === row.room_type_id)))
+          || row.stay_date < source.from || row.stay_date > source.to
+          || !isExactInteger(row.units, 1, 1000)
+          || (row.unit_id !== null && row.units !== 1)
+          || !['active', 'released', 'expired'].includes(row.status))
+        || new Set(hold.commitments.map((row) => `${row.room_type_id}:${row.stay_date}:${row.unit_id || 'pooled'}`)).size !== hold.commitments.length;
+    })
+        || new Set(holds.map((hold) => hold.id)).size !== holds.length) {
+      throw new Error('The Admin hold projection is invalid, foreign or exposes unsupported data.');
+    }
+
+    const blockerKeys = ['booking_id', 'booking_updated_at', 'arrival_date', 'departure_date', 'num_adults', 'num_children', 'status', 'reason'];
+    const unmappedBookingBlockers = exactRows(source.unmapped_booking_blockers, blockerKeys, 'unmapped booking blocker', AVAILABILITY_CONTROL_READ_LIMITS.holds).map((row) => ({ ...row, booking_id: normalizeUuid(row.booking_id) }));
+    if (unmappedBookingBlockers.some((row) => !row.booking_id || !isExactIsoTimestamp(row.booking_updated_at)
+        || !isExactIsoDate(row.arrival_date) || !isExactIsoDate(row.departure_date) || row.departure_date <= row.arrival_date
+        || row.departure_date <= source.from || row.arrival_date > source.to
+        || !isExactInteger(row.num_adults, 1, 50) || !isExactInteger(row.num_children, 0, 50)
+        || row.num_adults + row.num_children > 50
+        || !['pending', 'confirmed'].includes(row.status)
+        || !['exact_booking_allocation_required', 'stale_booking_allocation'].includes(row.reason))
+        || new Set(unmappedBookingBlockers.map((row) => row.booking_id)).size !== unmappedBookingBlockers.length) {
+      throw new Error('The Admin unmapped booking blockers are invalid.');
+    }
+
+    const recentActivity = normalizeAvailabilityActivityRows(source.recent_activity);
+    return {
+      ...source,
+      hotel_id: hotelId,
+      property: clone(property),
+      room_types: roomTypes,
+      room_rates: roomRates,
+      units,
+      cells,
+      product_cells: productCells,
+      operational_overrides: operationalOverrides,
+      daily_inventory: dailyInventory,
+      unit_calendar_blocks: unitCalendarBlocks,
+      rate_rule_operational_restrictions: rateRuleRestrictions,
+      booking_allocations: bookingAllocations,
+      holds,
+      unmapped_booking_blockers: unmappedBookingBlockers,
+      recent_activity: recentActivity,
+    };
+  }
+
+  function availabilityIntentTargetKey(intent) {
+    const source = asObject(intent);
+    const payload = asObject(source.payload);
+    if (source.entity === 'daily_inventory') return `${source.entity}:${normalizeUuid(payload.room_type_id) || ''}:${asText(payload.stay_date)}`;
+    if (source.entity === 'operational_override_range') {
+      return `${source.entity}:${normalizeUuid(payload.room_rate_id) || ''}:${asText(payload.valid_from)}:${asText(payload.valid_to)}:${asArray(payload.weekdays).join(',')}`;
+    }
+    if (source.entity === 'operational_override' && source.action === 'create') {
+      return `${source.entity}:${normalizeUuid(payload.room_rate_id) || ''}:${asText(payload.stay_date)}`;
+    }
+    if (source.entity === 'unit_calendar_block' && source.action === 'create') {
+      return `${source.entity}:${normalizeUuid(payload.unit_id) || ''}:${asText(payload.from_date)}:${asText(payload.to_date)}`;
+    }
+    if (source.entity === 'booking_allocation' && source.action === 'map') {
+      return `${source.entity}:${normalizeUuid(payload.booking_id) || ''}`;
+    }
+    return `${source.entity}:${normalizeUuid(source.id) || ''}`;
+  }
+
+  function availabilityIntentIdIsValid(entity, action, id) {
+    if (entity === 'operational_override_range' || entity === 'daily_inventory'
+        || (entity === 'booking_allocation' && action === 'map')) return id === null;
+    return Boolean(normalizeUuid(id));
+  }
+
+  function availabilityContainsForbiddenMutationKey(value) {
+    const forbidden = new Set([
+      'nightly_rate', 'price', 'currency', 'commission', 'payment_policy', 'partner_id',
+      'architecture_version', 'feature_flag', 'feature_flags', 'customer_email',
+      'customer_name', 'email', 'phone', 'notes',
+    ]);
+    if (Array.isArray(value)) return value.some(availabilityContainsForbiddenMutationKey);
+    if (!value || typeof value !== 'object') return false;
+    return Object.entries(value).some(([key, nested]) => forbidden.has(key.toLowerCase())
+      || availabilityContainsForbiddenMutationKey(nested));
+  }
+
+  function availabilityPayloadIsValid(entity, action, payload, control = null, options = {}) {
+    const row = asObject(payload);
+    const snapshot = control ? (options.normalized === true ? control : normalizeAvailabilityControl(control)) : null;
+    const roomById = new Map(snapshot?.room_types.map((room) => [room.id, room]) || []);
+    const rateById = new Map(snapshot?.room_rates.map((rate) => [rate.id, rate]) || []);
+    const unitById = new Map(snapshot?.units.map((unit) => [unit.id, unit]) || []);
+    const reasonValid = (reason) => typeof reason === 'string' && reason.length > 0 && reason.length <= 500
+      && reason === reason.trim() && !/[\u0000-\u001f\u007f-\u009f]/.test(reason);
+    const expiryValid = (value) => value === null
+      || (isExactIsoTimestamp(value) && Date.parse(value) > Date.now());
+    if (entity === 'daily_inventory') {
+      if (action === 'delete') return hasExactKeys(row, ['room_type_id', 'stay_date', 'reason'])
+        && Boolean(normalizeUuid(row.room_type_id)) && (!snapshot || roomById.has(normalizeUuid(row.room_type_id)))
+        && isExactIsoDate(row.stay_date) && reasonValid(row.reason);
+      const allowed = ['room_type_id', 'stay_date', 'sellable_units', 'sellable_units_mode', 'closed', 'closed_mode', 'reason', 'expires_at'];
+      const sellablePresent = Object.hasOwn(row, 'sellable_units') || Object.hasOwn(row, 'sellable_units_mode');
+      const closedPresent = Object.hasOwn(row, 'closed') || Object.hasOwn(row, 'closed_mode');
+      return action === 'upsert' && Object.keys(row).every((key) => allowed.includes(key))
+        && ['room_type_id', 'stay_date', 'reason'].every((key) => Object.hasOwn(row, key))
+        && (sellablePresent || closedPresent || Object.hasOwn(row, 'expires_at'))
+        && Boolean(normalizeUuid(row.room_type_id)) && (!snapshot || roomById.has(normalizeUuid(row.room_type_id)))
+        && isExactIsoDate(row.stay_date)
+        && (!sellablePresent || (Object.hasOwn(row, 'sellable_units') && Object.hasOwn(row, 'sellable_units_mode')
+          && ['set', 'clear'].includes(row.sellable_units_mode)
+          && (row.sellable_units_mode === 'set' ? isExactInteger(row.sellable_units, 0, 1000000) : row.sellable_units === null)))
+        && (!closedPresent || (Object.hasOwn(row, 'closed') && Object.hasOwn(row, 'closed_mode')
+          && ['set', 'clear'].includes(row.closed_mode)
+          && (row.closed_mode === 'set' ? typeof row.closed === 'boolean' : row.closed === null)))
+        && reasonValid(row.reason) && (!Object.hasOwn(row, 'expires_at') || expiryValid(row.expires_at));
+    }
+    if (entity === 'unit_calendar_block') {
+      if (action === 'disable') return hasExactKeys(row, ['reason']) && reasonValid(row.reason);
+      const unitId = normalizeUuid(row.unit_id);
+      const roomTypeId = normalizeUuid(row.room_type_id);
+      return ['create', 'update'].includes(action)
+        && hasExactKeys(row, ['unit_id', 'room_type_id', 'from_date', 'to_date', 'blocked', 'reason', 'expires_at', 'is_active'])
+        && Boolean(unitId) && Boolean(roomTypeId)
+        && (!snapshot || (unitById.get(unitId)?.room_type_id === roomTypeId
+          && unitById.get(unitId)?.status === 'active'
+          && roomById.get(roomTypeId)?.status === 'active'
+          && roomById.get(roomTypeId)?.inventory_mode === 'unitized'))
+        && isExactIsoDate(row.from_date) && isExactIsoDate(row.to_date) && row.to_date >= row.from_date
+        && typeof row.blocked === 'boolean' && reasonValid(row.reason) && expiryValid(row.expires_at)
+        && typeof row.is_active === 'boolean';
+    }
+    if (entity === 'operational_override') {
+      if (action === 'disable') return hasExactKeys(row, ['reason']) && reasonValid(row.reason);
+      const allowed = ['room_rate_id', 'stay_date', 'closed', 'closed_mode', 'closed_to_arrival', 'closed_to_arrival_mode', 'closed_to_departure', 'closed_to_departure_mode', 'reason', 'availability_expires_at', 'availability_active'];
+      const fields = ['closed', 'closed_to_arrival', 'closed_to_departure'];
+      return ['create', 'update'].includes(action) && Object.keys(row).every((key) => allowed.includes(key))
+        && ['room_rate_id', 'stay_date', 'reason', 'availability_active'].every((key) => Object.hasOwn(row, key))
+        && Boolean(normalizeUuid(row.room_rate_id)) && (!snapshot || rateById.has(normalizeUuid(row.room_rate_id)))
+        && isExactIsoDate(row.stay_date)
+        && (fields.some((key) => Object.hasOwn(row, key) || Object.hasOwn(row, `${key}_mode`))
+          || Object.hasOwn(row, 'availability_expires_at'))
+        && fields.every((key) => (!Object.hasOwn(row, key) && !Object.hasOwn(row, `${key}_mode`))
+          || (Object.hasOwn(row, key) && Object.hasOwn(row, `${key}_mode`)
+            && ['set', 'clear'].includes(row[`${key}_mode`])
+            && (row[`${key}_mode`] === 'set' ? typeof row[key] === 'boolean' : row[key] === null)))
+        && reasonValid(row.reason) && (!Object.hasOwn(row, 'availability_expires_at') || expiryValid(row.availability_expires_at))
+        && typeof row.availability_active === 'boolean';
+    }
+    if (entity === 'operational_override_range') {
+      const allowed = ['room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'closed', 'closed_mode', 'closed_to_arrival', 'closed_to_arrival_mode', 'closed_to_departure', 'closed_to_departure_mode', 'reason', 'availability_expires_at'];
+      const fields = ['closed', 'closed_to_arrival', 'closed_to_departure'];
+      return action === 'expand' && Object.keys(row).every((key) => allowed.includes(key))
+        && ['room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'reason'].every((key) => Object.hasOwn(row, key))
+        && Boolean(normalizeUuid(row.room_rate_id)) && (!snapshot || rateById.has(normalizeUuid(row.room_rate_id)))
+        && isExactIsoDate(row.valid_from) && isExactIsoDate(row.valid_to) && row.valid_to >= row.valid_from
+        && (!snapshot || (row.valid_from >= snapshot.from && row.valid_to <= snapshot.to))
+        && Array.isArray(row.weekdays) && row.weekdays.length > 0
+        && row.weekdays.every((day) => isExactInteger(day, 1, 7))
+        && new Set(row.weekdays).size === row.weekdays.length
+        && JSON.stringify([...row.weekdays].sort((a, b) => a - b)) === JSON.stringify(row.weekdays)
+        && (fields.some((key) => Object.hasOwn(row, key) || Object.hasOwn(row, `${key}_mode`))
+          || Object.hasOwn(row, 'availability_expires_at'))
+        && fields.every((key) => (!Object.hasOwn(row, key) && !Object.hasOwn(row, `${key}_mode`))
+          || (Object.hasOwn(row, key) && Object.hasOwn(row, `${key}_mode`)
+            && ['set', 'clear'].includes(row[`${key}_mode`])
+            && (row[`${key}_mode`] === 'set' ? typeof row[key] === 'boolean' : row[key] === null)))
+        && reasonValid(row.reason) && (!Object.hasOwn(row, 'availability_expires_at') || expiryValid(row.availability_expires_at));
+    }
+    if (entity === 'rate_rule_operational_restriction') {
+      if (action === 'clear') return hasExactKeys(row, ['reason']) && reasonValid(row.reason);
+      return action === 'update' && hasExactKeys(row, ['closed_to_arrival', 'closed_to_departure', 'reason'])
+        && [row.closed_to_arrival, row.closed_to_departure].every((value) => value === null || typeof value === 'boolean')
+        && reasonValid(row.reason);
+    }
+    if (entity === 'booking_allocation') {
+      if (action === 'release') return hasExactKeys(row, ['booking_id', 'reason'])
+        && Boolean(normalizeUuid(row.booking_id)) && reasonValid(row.reason);
+      if (action !== 'map' || !hasExactKeys(row, ['booking_id', 'booking_updated_at', 'allocations'])
+          || !normalizeUuid(row.booking_id) || !isExactIsoTimestamp(row.booking_updated_at)
+          || !Array.isArray(row.allocations) || !row.allocations.length) return false;
+      const allocationsValid = row.allocations.every((allocation) => {
+        if (!hasExactKeys(allocation, ['id', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts'])
+            || !Array.isArray(allocation.unit_ids) || !Array.isArray(allocation.allocated_guest_counts)
+            || !Array.isArray(allocation.pricing_guest_counts)) return false;
+        const roomTypeId = normalizeUuid(allocation.room_type_id);
+        const room = roomById.get(roomTypeId);
+        const roomCapacity = room?.max_occupancy ?? (room && room.capacity_adults !== null && room.capacity_children !== null
+          ? room.capacity_adults + room.capacity_children : null);
+        const rate = rateById.get(normalizeUuid(allocation.room_rate_id));
+        const unitIds = allocation.unit_ids.map(normalizeUuid);
+        return Boolean(normalizeUuid(allocation.id)) && Boolean(roomTypeId) && Boolean(normalizeUuid(allocation.rate_plan_id))
+          && Boolean(normalizeUuid(allocation.room_rate_id))
+          && (!snapshot || (room && rate?.room_type_id === roomTypeId && rate.rate_plan_id === normalizeUuid(allocation.rate_plan_id)))
+          && unitIds.every(Boolean) && new Set(unitIds).size === unitIds.length
+          && (!snapshot || unitIds.every((id) => unitById.get(id)?.room_type_id === roomTypeId
+            && unitById.get(id)?.status === 'active'))
+          && isExactInteger(allocation.units_required, 1, 1000)
+          && (room?.inventory_mode === 'pooled' ? unitIds.length === 0 : !snapshot || unitIds.length === allocation.units_required)
+          && allocation.allocated_guest_counts.length === allocation.units_required
+          && allocation.pricing_guest_counts.length === allocation.units_required
+          && allocation.allocated_guest_counts.every((count) => isExactInteger(count, 1, 50))
+          && allocation.pricing_guest_counts.every((count) => isExactInteger(count, 1, 50))
+          && (!snapshot || roomCapacity !== null)
+          && (!snapshot || allocation.allocated_guest_counts.every((count) => count <= roomCapacity))
+          && (!snapshot || allocation.pricing_guest_counts.every((count) => count <= roomCapacity));
+      });
+      const selectedUnitIds = row.allocations.flatMap((allocation) => allocation.unit_ids.map(normalizeUuid));
+      return allocationsValid && selectedUnitIds.every(Boolean)
+        && new Set(selectedUnitIds).size === selectedUnitIds.length;
+    }
+    return entity === 'hold' && action === 'release'
+      && hasExactKeys(row, ['reason']) && reasonValid(row.reason);
+  }
+
+  function availabilityTargetMatchesSnapshot(entity, action, id, payload, snapshot) {
+    if (!snapshot) return true;
+    const targetId = normalizeUuid(id);
+    const row = asObject(payload);
+    if (entity === 'daily_inventory' && action === 'delete') {
+      return snapshot.daily_inventory.some((entry) => entry.room_type_id === normalizeUuid(row.room_type_id)
+        && entry.stay_date === row.stay_date);
+    }
+    if (entity === 'unit_calendar_block' && action !== 'create') {
+      const original = snapshot.unit_calendar_blocks.find((entry) => entry.id === targetId);
+      return Boolean(original) && (action === 'disable'
+        || (normalizeUuid(row.unit_id) === original.unit_id
+          && normalizeUuid(row.room_type_id) === original.room_type_id));
+    }
+    if (entity === 'operational_override' && action !== 'create') {
+      const original = snapshot.operational_overrides.find((entry) => entry.id === targetId);
+      return Boolean(original) && (action === 'disable'
+        || (normalizeUuid(row.room_rate_id) === original.room_rate_id && row.stay_date === original.stay_date));
+    }
+    if (entity === 'rate_rule_operational_restriction') {
+      return snapshot.rate_rule_operational_restrictions.some((entry) => entry.id === targetId);
+    }
+    if (entity === 'booking_allocation' && action === 'release') {
+      return targetId === normalizeUuid(row.booking_id)
+        && snapshot.booking_allocations.some((entry) => entry.booking_id === targetId);
+    }
+    if (entity === 'hold') {
+      const hold = snapshot.holds.find((entry) => entry.id === targetId);
+      return Boolean(hold) && hold.status === 'active';
+    }
+    return true;
+  }
+
+  function availabilityBookingReleaseOriginalIsValid(originalValue, snapshot, bookingId) {
+    const original = asObject(originalValue);
+    const originalKeys = ['booking_id', 'booking_updated_at', 'arrival_date', 'departure_date', 'status', 'num_adults', 'num_children', 'allocations', 'commitments'];
+    const allocationKeys = ['id', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts'];
+    const commitmentKeys = ['room_type_id', 'stay_date', 'unit_id', 'units', 'status'];
+    const currentRows = snapshot.booking_allocations.filter((row) => row.booking_id === bookingId && row.status === 'active');
+    const current = currentRows[0];
+    if (!current || !hasExactKeys(original, originalKeys) || normalizeUuid(original.booking_id) !== bookingId
+        || original.booking_updated_at !== current.current_booking_updated_at
+        || original.arrival_date !== current.arrival_date || original.departure_date !== current.departure_date
+        || original.status !== current.current_booking_status
+        || !isExactInteger(original.num_adults, 0, 50) || !isExactInteger(original.num_children, 0, 50)
+        || original.num_adults + original.num_children < 1
+        || !Array.isArray(original.allocations) || !original.allocations.length
+        || !Array.isArray(original.commitments)) return false;
+    const normalizedAllocations = original.allocations.map((allocation) => {
+      if (!hasExactKeys(allocation, allocationKeys) || !Array.isArray(allocation.unit_ids)
+          || !Array.isArray(allocation.allocated_guest_counts) || !Array.isArray(allocation.pricing_guest_counts)) return null;
+      return {
+        ...allocation,
+        id: normalizeUuid(allocation.id), room_type_id: normalizeUuid(allocation.room_type_id),
+        rate_plan_id: normalizeUuid(allocation.rate_plan_id), room_rate_id: normalizeUuid(allocation.room_rate_id),
+        unit_ids: allocation.unit_ids.map(normalizeUuid),
+      };
+    });
+    if (normalizedAllocations.some((row) => !row)) return false;
+    const allocationState = (row) => JSON.stringify({
+      id: row.id, room_type_id: row.room_type_id, rate_plan_id: row.rate_plan_id,
+      room_rate_id: row.room_rate_id, unit_ids: row.unit_ids, units_required: row.units_required,
+      allocated_guest_counts: row.allocated_guest_counts, pricing_guest_counts: row.pricing_guest_counts,
+    });
+    const currentStates = currentRows.map(allocationState).sort();
+    const originalStates = normalizedAllocations.map(allocationState).sort();
+    if (JSON.stringify(currentStates) !== JSON.stringify(originalStates)
+        || normalizedAllocations.reduce((total, row) => total
+          + row.allocated_guest_counts.reduce((sum, count) => sum + count, 0), 0) !== original.num_adults + original.num_children) return false;
+    const unitById = new Map(snapshot.units.map((unit) => [unit.id, unit]));
+    const roomById = new Map(snapshot.room_types.map((room) => [room.id, room]));
+    const normalizedCommitments = original.commitments.map((commitment) => ({
+      ...commitment, room_type_id: normalizeUuid(commitment.room_type_id),
+      unit_id: commitment.unit_id === null ? null : normalizeUuid(commitment.unit_id),
+    }));
+    const commitmentState = (commitment) => `${commitment.room_type_id}:${commitment.stay_date}:${commitment.unit_id || 'pooled'}:${commitment.units}:${commitment.status}`;
+    const currentCommitmentStates = currentRows.flatMap((row) => row.active_commitments).map(commitmentState).sort();
+    if (JSON.stringify(normalizedCommitments.map(commitmentState).sort()) !== JSON.stringify(currentCommitmentStates)) return false;
+    return normalizedCommitments.every((commitment) => {
+      if (!hasExactKeys(commitment, commitmentKeys)) return false;
+      const roomId = commitment.room_type_id;
+      const unitId = commitment.unit_id;
+      const room = roomById.get(roomId);
+      return Boolean(room) && isExactIsoDate(commitment.stay_date)
+        && commitment.status === 'active' && isExactInteger(commitment.units, 1, 1000)
+        && (room.inventory_mode === 'pooled'
+          ? unitId === null
+          : Boolean(unitId && unitById.get(unitId)?.room_type_id === roomId));
+    });
+  }
+
+  function validateAvailabilityIntent(value, control = null, options = {}) {
+    const intent = asObject(clone(value));
+    const allowedActions = {
+      daily_inventory: ['upsert', 'delete'],
+      unit_calendar_block: ['create', 'update', 'disable'],
+      operational_override: ['create', 'update', 'disable'],
+      rate_rule_operational_restriction: ['update', 'clear'],
+      booking_allocation: ['map', 'release'],
+      hold: ['release'],
+      operational_override_range: ['expand'],
+    };
+    if (!hasExactKeys(intent, ['entity', 'action', 'id', 'payload'])
+        || !AVAILABILITY_CONTROL_DRAFT_ENTITIES.includes(intent.entity)
+        || !allowedActions[intent.entity]?.includes(intent.action)
+        || !availabilityIntentIdIsValid(intent.entity, intent.action, intent.id)
+        || !availabilityPayloadIsValid(intent.entity, intent.action, intent.payload, control, options)
+        || !availabilityTargetMatchesSnapshot(intent.entity, intent.action, intent.id, intent.payload,
+          control ? (options.normalized === true ? control : normalizeAvailabilityControl(control)) : null)) {
+      throw new Error('An Admin availability draft intent is invalid, foreign or contains unsupported fields.');
+    }
+    return intent;
+  }
+
+  function validateAvailabilityOperation(value, control = null, options = {}) {
+    const operation = asObject(clone(value));
+    if (!hasExactKeys(operation, ['entity', 'action', 'id', 'expected_version', 'expected_original', 'payload'])
+        || !availabilityUuidFieldsAreCanonical(operation)
+        || !AVAILABILITY_CONTROL_ENTITIES.includes(operation.entity)
+        || !normalizeUuid(operation.id)
+        || !isExactInteger(operation.expected_version, 0, Number.MAX_SAFE_INTEGER)
+        || !operation.expected_original || typeof operation.expected_original !== 'object' || Array.isArray(operation.expected_original)) {
+      throw new Error('A server-reviewed Admin availability operation is invalid or incomplete.');
+    }
+    const allowedActions = {
+      daily_inventory: ['upsert', 'delete'],
+      unit_calendar_block: ['create', 'update', 'disable'],
+      operational_override: ['create', 'update', 'disable'],
+      rate_rule_operational_restriction: ['update', 'clear'],
+      booking_allocation: ['map', 'release'],
+      hold: ['release'],
+    };
+    if (!allowedActions[operation.entity]?.includes(operation.action)
+        || !availabilityPayloadIsValid(operation.entity, operation.action, operation.payload, control, options)
+        || !availabilityTargetMatchesSnapshot(operation.entity, operation.action, operation.id, operation.payload,
+          control ? (options.normalized === true ? control : normalizeAvailabilityControl(control)) : null)) {
+      throw new Error('A server-reviewed Admin availability operation contains an unsupported action or payload.');
+    }
+    if (availabilityUtf8Bytes(operation.expected_original) > 256 * 1024
+        || availabilityContainsForbiddenMutationKey(operation.expected_original)) {
+      throw new Error('The reviewed availability original exposes forbidden or oversized state.');
+    }
+    const snapshot = control ? (options.normalized === true ? control : normalizeAvailabilityControl(control)) : null;
+    if (snapshot && operation.entity === 'booking_allocation' && operation.action === 'release'
+        && (operation.expected_version !== 0
+          || !availabilityBookingReleaseOriginalIsValid(operation.expected_original, snapshot, normalizeUuid(operation.id)))) {
+      throw new Error('The reviewed booking allocation release original is invalid or unrelated to the exact snapshot.');
+    }
+    return operation;
+  }
+
+  function validateAvailabilityDraft(value, control = null) {
+    const draft = asObject(clone(value));
+    const extendedBookingOnly = Array.isArray(draft.intents) && draft.intents.length > 0
+      && draft.intents.every((intent) => ['booking_allocation', 'hold'].includes(asObject(intent).entity)
+        && ['map', 'release'].includes(asObject(intent).action));
+    if (!hasExactKeys(draft, ['contract_version', 'hotel_id', 'from', 'to', 'snapshot_token', 'intents'])
+        || !availabilityUuidFieldsAreCanonical(draft)
+        || draft.contract_version !== AVAILABILITY_CONTROL_DRAFT_CONTRACT || !normalizeUuid(draft.hotel_id)
+        || !isExactIsoDate(draft.from) || !isExactIsoDate(draft.to) || draft.to < draft.from
+        || availabilityDateRange(draft.from, draft.to).length > (extendedBookingOnly ? 365 : 62)
+        || !/^[0-9a-f]{64}$/.test(asText(draft.snapshot_token)) || !Array.isArray(draft.intents)
+        || !draft.intents.length || draft.intents.length > 100) {
+      throw new Error('The Admin availability draft contract is invalid or empty.');
+    }
+    const snapshot = control ? normalizeAvailabilityControl(control) : null;
+    if (snapshot && (draft.hotel_id !== snapshot.hotel_id || draft.from !== snapshot.from
+        || draft.to !== snapshot.to || draft.snapshot_token !== snapshot.snapshot_token)) {
+      throw new Error('The Admin availability draft does not bind the loaded exact-property snapshot.');
+    }
+    draft.intents = draft.intents.map((intent) => validateAvailabilityIntent(intent, snapshot, { normalized: true }));
+    const identities = draft.intents.map(availabilityIntentTargetKey);
+    if (new Set(identities).size !== identities.length || availabilityUtf8Bytes(draft) > 5 * 1024 * 1024) {
+      throw new Error('The Admin availability draft contains duplicate targets or exceeds its technical limit.');
+    }
+    return draft;
+  }
+
+  function validateAvailabilityPlan(value, options = {}) {
+    const plan = asObject(clone(value));
+    const extendedBookingOnly = Array.isArray(plan.operations) && plan.operations.length > 0
+      && plan.operations.every((operation) => ['booking_allocation', 'hold'].includes(asObject(operation).entity)
+        && ['map', 'release'].includes(asObject(operation).action));
+    if (!hasExactKeys(plan, ['contract_version', 'hotel_id', 'from', 'to', 'snapshot_token', 'reviewed_at', 'operations', 'plan_fingerprint'])
+        || !availabilityUuidFieldsAreCanonical(plan)
+        || plan.contract_version !== AVAILABILITY_CONTROL_PLAN_CONTRACT || !normalizeUuid(plan.hotel_id)
+        || !isExactIsoDate(plan.from) || !isExactIsoDate(plan.to) || plan.to < plan.from
+        || availabilityDateRange(plan.from, plan.to).length > (extendedBookingOnly ? 365 : 62)
+        || !/^[0-9a-f]{64}$/.test(asText(plan.snapshot_token)) || !isExactIsoTimestamp(plan.reviewed_at)
+        || !/^[0-9a-f]{64}$/.test(asText(plan.plan_fingerprint)) || !Array.isArray(plan.operations)
+        || (options.allowEmpty !== true && !plan.operations.length) || plan.operations.length > 100) {
+      throw new Error('The server-reviewed Admin availability plan contract is invalid.');
+    }
+    const snapshot = options.control ? (options.controlIsNormalized === true
+      ? options.control : normalizeAvailabilityControl(options.control)) : null;
+    plan.operations = plan.operations.map((operation) => validateAvailabilityOperation(operation, snapshot, { normalized: true }));
+    const identities = plan.operations.map((operation) => `${operation.entity}:${operation.id}`);
+    if (new Set(identities).size !== identities.length || availabilityUtf8Bytes(plan) > 10 * 1024 * 1024) {
+      throw new Error('The reviewed availability plan contains duplicate targets or exceeds its technical limit.');
+    }
+    return plan;
+  }
+
+  function validateAvailabilityPlanPreview(value, draft) {
+    const preview = asObject(clone(value));
+    const reviewedDraft = validateAvailabilityDraft(draft);
+    if (!hasExactKeys(preview, ['contract_version', 'hotel_id', 'changed', 'impacts', 'blocking_reasons', 'reviewed_plan', 'plan_fingerprint', 'current_control'])
+        || !availabilityUuidFieldsAreCanonical(preview)
+        || preview.contract_version !== AVAILABILITY_CONTROL_PREVIEW_CONTRACT
+        || normalizeUuid(preview.hotel_id) !== reviewedDraft.hotel_id || typeof preview.changed !== 'boolean'
+        || !Array.isArray(preview.impacts) || !Array.isArray(preview.blocking_reasons)
+        || !preview.blocking_reasons.every((reason) => typeof reason === 'string' && reason.length)
+        || !/^[0-9a-f]{64}$/.test(asText(preview.plan_fingerprint))) {
+      throw new Error('The Admin availability plan preview contract is invalid.');
+    }
+    const currentControl = normalizeAvailabilityControl(preview.current_control);
+    const reviewedPlan = validateAvailabilityPlan(preview.reviewed_plan, {
+      allowEmpty: !preview.changed, control: currentControl, controlIsNormalized: true,
+    });
+    const impactKeys = ['entity', 'action', 'id', 'changed', 'affected_room_type_ids', 'affected_room_rate_ids', 'from', 'to'];
+    const reviewedImpactTargets = reviewedPlan.operations.map((operation) => `${operation.entity}:${operation.action}:${normalizeUuid(operation.id)}`).sort();
+    const returnedImpactTargets = preview.impacts.map((impact) => `${impact.entity}:${impact.action}:${normalizeUuid(impact.id)}`).sort();
+    const impactScopeIsValid = (impact) => {
+      const operation = reviewedPlan.operations.find((entry) => entry.entity === impact.entity
+        && entry.action === impact.action && entry.id === normalizeUuid(impact.id));
+      if (!operation) return false;
+      const payload = asObject(operation.payload);
+      const original = asObject(operation.expected_original);
+      const exactIds = (actual, expected) => JSON.stringify([...actual].map(normalizeUuid).sort())
+        === JSON.stringify([...new Set(expected.map(normalizeUuid))].sort());
+      if (impact.entity === 'daily_inventory') {
+        return impact.from === payload.stay_date && impact.to === payload.stay_date
+          && exactIds(impact.affected_room_type_ids, [payload.room_type_id])
+          && impact.affected_room_rate_ids.length === 0;
+      }
+      if (impact.entity === 'unit_calendar_block' && ['create', 'update'].includes(impact.action)) {
+        return impact.from === payload.from_date && impact.to === payload.to_date
+          && exactIds(impact.affected_room_type_ids, [payload.room_type_id])
+          && impact.affected_room_rate_ids.length === 0;
+      }
+      if (impact.entity === 'unit_calendar_block' && impact.action === 'disable') {
+        const unit = currentControl.units.find((entry) => entry.id === normalizeUuid(original.unit_id));
+        return Boolean(unit) && impact.from === original.from_date && impact.to === original.to_date
+          && exactIds(impact.affected_room_type_ids, [unit.room_type_id])
+          && impact.affected_room_rate_ids.length === 0;
+      }
+      if (impact.entity === 'operational_override') {
+        const rateId = normalizeUuid(payload.room_rate_id || original.room_rate_id);
+        const stayDate = payload.stay_date || original.stay_date;
+        const rate = currentControl.room_rates.find((entry) => entry.id === rateId);
+        return Boolean(rate) && impact.from === stayDate && impact.to === stayDate
+          && exactIds(impact.affected_room_type_ids, [rate.room_type_id])
+          && exactIds(impact.affected_room_rate_ids, [rate.id]);
+      }
+      if (impact.entity === 'booking_allocation') {
+        const bookingId = normalizeUuid(payload.booking_id);
+        const release = impact.action === 'release';
+        const allocations = release ? asArray(original.allocations) : asArray(payload.allocations);
+        const blocker = release ? null : currentControl.unmapped_booking_blockers.find((entry) => entry.booking_id === bookingId);
+        const bookingFrom = release ? original.arrival_date : blocker?.arrival_date;
+        const departure = release ? original.departure_date : blocker?.departure_date;
+        const bookingTo = bookingFrom && departure
+          ? availabilityDateRange(bookingFrom, departure).slice(-2, -1)[0] : null;
+        const commitmentDates = asArray(original.commitments).map((entry) => asObject(entry).stay_date)
+          .filter(isExactIsoDate);
+        const exactFrom = [bookingFrom, ...commitmentDates].filter(Boolean).sort()[0];
+        const exactTo = [bookingTo, ...commitmentDates].filter(Boolean).sort().slice(-1)[0];
+        return impact.from === exactFrom && impact.to === exactTo
+          && exactIds(impact.affected_room_type_ids, allocations.map((entry) => asObject(entry).room_type_id))
+          && exactIds(impact.affected_room_rate_ids, allocations.map((entry) => asObject(entry).room_rate_id));
+      }
+      if (impact.entity === 'hold') {
+        const hold = currentControl.holds.find((entry) => entry.id === normalizeUuid(operation.id));
+        const commitments = hold?.commitments.filter((entry) => entry.status === 'active') || [];
+        const dates = commitments.map((entry) => entry.stay_date).sort();
+        return dates.length > 0 && impact.from === dates[0] && impact.to === dates[dates.length - 1]
+          && exactIds(impact.affected_room_type_ids, commitments.map((entry) => entry.room_type_id))
+          && impact.affected_room_rate_ids.length === 0;
+      }
+      if (impact.entity !== 'rate_rule_operational_restriction') {
+        return false;
+      }
+      const rate = currentControl.room_rates.find((entry) => entry.id === normalizeUuid(original.room_rate_id));
+      return Boolean(rate) && impact.from === original.valid_from && impact.to === original.valid_to
+        && exactIds(impact.affected_room_rate_ids, [rate.id])
+        && exactIds(impact.affected_room_type_ids, [rate.room_type_id]);
+    };
+    if (preview.impacts.some((impact) => !hasExactKeys(impact, impactKeys)
+        || !AVAILABILITY_CONTROL_ENTITIES.includes(impact.entity) || typeof impact.action !== 'string'
+        || !normalizeUuid(impact.id) || typeof impact.changed !== 'boolean'
+        || !Array.isArray(impact.affected_room_type_ids) || !impact.affected_room_type_ids.every((id) => currentControl.room_types.some((room) => room.id === normalizeUuid(id)))
+        || !Array.isArray(impact.affected_room_rate_ids) || !impact.affected_room_rate_ids.every((id) => currentControl.room_rates.some((rate) => rate.id === normalizeUuid(id)))
+        || new Set(impact.affected_room_type_ids).size !== impact.affected_room_type_ids.length
+        || new Set(impact.affected_room_rate_ids).size !== impact.affected_room_rate_ids.length
+        || !isExactIsoDate(impact.from) || !isExactIsoDate(impact.to) || impact.to < impact.from
+        || !impactScopeIsValid(impact))
+        || new Set(preview.impacts.map((impact) => `${impact.entity}:${impact.id}`)).size !== preview.impacts.length
+        || currentControl.hotel_id !== reviewedDraft.hotel_id || currentControl.from !== reviewedDraft.from
+        || currentControl.to !== reviewedDraft.to || currentControl.snapshot_token !== reviewedDraft.snapshot_token
+        || reviewedPlan.hotel_id !== reviewedDraft.hotel_id || reviewedPlan.from !== reviewedDraft.from
+        || reviewedPlan.to !== reviewedDraft.to || reviewedPlan.snapshot_token !== reviewedDraft.snapshot_token
+        || reviewedPlan.plan_fingerprint !== preview.plan_fingerprint
+        || JSON.stringify(returnedImpactTargets) !== JSON.stringify(reviewedImpactTargets)
+        || (preview.changed !== (reviewedPlan.operations.length > 0))) {
+      throw new Error('The Admin availability preview impact or reviewed-plan binding is inconsistent.');
+    }
+    return { ...preview, hotel_id: reviewedDraft.hotel_id, reviewed_plan: reviewedPlan, current_control: currentControl };
+  }
+
+  function validateAvailabilityApplyResult(value, plan, correlationId, idempotencyKey) {
+    const source = asObject(clone(value));
+    const reviewedPlan = validateAvailabilityPlan(plan);
+    if (!hasExactKeys(source, ['contract_version', 'hotel_id', 'correlation_id', 'idempotency_key', 'replayed', 'changed', 'activity', 'availability_control'])
+        || !availabilityUuidFieldsAreCanonical(source)
+        || source.contract_version !== AVAILABILITY_CONTROL_APPLY_CONTRACT
+        || normalizeUuid(source.hotel_id) !== reviewedPlan.hotel_id
+        || normalizeUuid(source.correlation_id) !== normalizeUuid(correlationId)
+        || source.idempotency_key !== idempotencyKey || typeof source.replayed !== 'boolean'
+        || typeof source.changed !== 'boolean' || !Array.isArray(source.activity)) {
+      throw new Error('The Admin availability apply result is invalid or unrelated to the reviewed Save.');
+    }
+    const availabilityControl = normalizeAvailabilityControl(source.availability_control);
+    if (availabilityControl.hotel_id !== reviewedPlan.hotel_id) throw new Error('Saved availability returned a foreign property.');
+    const activity = normalizeAvailabilityActivityRows(source.activity, { apply: true, maximum: 100 });
+    const activityIds = new Set(availabilityControl.recent_activity.map((row) => row.id));
+    const ledgerEntity = (entity) => entity === 'operational_override' ? 'calendar_override'
+      : (entity === 'hold' ? 'inventory_hold' : entity);
+    const ledgerAction = (operation) => ['create', 'map'].includes(operation.action) ? 'create'
+      : (operation.action === 'upsert' && operation.expected_version === 0 ? 'create'
+        : (operation.action === 'delete' ? 'delete'
+          : (['disable', 'release', 'clear'].includes(operation.action) ? 'disable' : 'update')));
+    const expectedActivityTargets = reviewedPlan.operations.map((operation) => (
+      `${ledgerEntity(operation.entity)}:${normalizeUuid(operation.id)}:${ledgerAction(operation)}`)).sort();
+    const actualActivityTargets = activity.map((row) => `${row.entity_type}:${row.entity_id}:${row.action}`).sort();
+    if (source.changed !== true || activity.length !== reviewedPlan.operations.length
+        || JSON.stringify(actualActivityTargets) !== JSON.stringify(expectedActivityTargets)
+        || activity.some((row) => row.correlation_id !== normalizeUuid(correlationId) || !activityIds.has(row.id))) {
+      throw new Error('Saved availability returned unverified activity rows.');
+    }
+    return { ...source, hotel_id: reviewedPlan.hotel_id, correlation_id: normalizeUuid(correlationId), activity, availability_control: availabilityControl };
+  }
+
+  function validateAvailabilityStayRequest(value) {
+    const request = asObject(clone(value));
+    const required = ['contract_version', 'hotel_id', 'arrival_date', 'departure_date', 'adults', 'child_ages', 'availability_snapshot_token'];
+    const optional = ['room_type_id', 'room_rate_id', 'rate_plan_id', 'allocation_rule_id'];
+    if (Object.keys(request).some((key) => ![...required, ...optional].includes(key))
+        || !availabilityUuidFieldsAreCanonical(request)
+        || required.some((key) => !Object.hasOwn(request, key))
+        || request.contract_version !== AVAILABILITY_STAY_REQUEST_CONTRACT || !normalizeUuid(request.hotel_id)
+        || !isExactIsoDate(request.arrival_date) || !isExactIsoDate(request.departure_date) || request.departure_date <= request.arrival_date
+        || availabilityDateRange(request.arrival_date, request.departure_date).length - 1 > 365
+        || !isExactInteger(request.adults, 1, 50) || !Array.isArray(request.child_ages)
+        || !request.child_ages.every((age) => isExactInteger(age, CHILD_AGE_MIN, CHILD_AGE_MAX))
+        || optional.some((key) => Object.hasOwn(request, key) && !(request[key] === null || normalizeUuid(request[key])))
+        || !/^[0-9a-f]{64}$/.test(asText(request.availability_snapshot_token))) {
+      throw new Error('The authoritative availability stay preview request is invalid.');
+    }
+    return request;
+  }
+
+  function validateAvailabilityStayPreview(value, request) {
+    const source = asObject(clone(value));
+    const reviewedRequest = validateAvailabilityStayRequest(request);
+    if (!hasExactKeys(source, ['contract_version', 'hotel_id', 'pricing', 'availability', 'ok', 'requestable', 'blocking_reasons', 'configuration_fingerprint', 'public_change'])
+        || !availabilityUuidFieldsAreCanonical(source)
+        || source.contract_version !== AVAILABILITY_STAY_PREVIEW_CONTRACT || normalizeUuid(source.hotel_id) !== normalizeUuid(reviewedRequest.hotel_id)
+        || !source.pricing || typeof source.pricing !== 'object' || Array.isArray(source.pricing)
+        || !source.availability || typeof source.availability !== 'object' || Array.isArray(source.availability)
+        || typeof source.ok !== 'boolean' || typeof source.requestable !== 'boolean'
+        || !Array.isArray(source.blocking_reasons) || !source.blocking_reasons.length
+        || !source.blocking_reasons.every((reason) => AVAILABILITY_STAY_BLOCKING_REASONS.includes(reason))
+        || !source.blocking_reasons.includes('public_activation_off')
+        || new Set(source.blocking_reasons).size !== source.blocking_reasons.length
+        || !/^[0-9a-f]{64}$/.test(asText(source.configuration_fingerprint)) || source.public_change !== false
+        || availabilityUtf8Bytes(source) > 5 * 1024 * 1024) {
+      throw new Error('The authoritative availability stay preview response is invalid.');
+    }
+    const pricingRequest = validatePricingPreviewRequest({
+      contract_version: PRICING_PREVIEW_CONTRACT,
+      hotel_id: reviewedRequest.hotel_id,
+      snapshot_token: source.pricing.snapshot_token,
+      rate_plan_id: reviewedRequest.rate_plan_id || null,
+      allocation_rule_id: reviewedRequest.allocation_rule_id || null,
+      selected_room_type_id: reviewedRequest.room_type_id || null,
+      check_in: reviewedRequest.arrival_date,
+      check_out: reviewedRequest.departure_date,
+      adults: reviewedRequest.adults,
+      child_ages: reviewedRequest.child_ages,
+    });
+    const pricing = validatePricingPreview(source.pricing, pricingRequest);
+    if (reviewedRequest.room_rate_id
+        && pricing.products.some((product) => normalizeUuid(product.room_rate_id) !== normalizeUuid(reviewedRequest.room_rate_id))) {
+      throw new Error('The authoritative stay preview returned an unrequested Room Rate product.');
+    }
+    const availability = source.availability;
+    if (!hasExactKeys(availability, ['snapshot_token', 'rooms', 'requested_units', 'available_for_stay'])
+        || availability.snapshot_token !== reviewedRequest.availability_snapshot_token
+        || !Array.isArray(availability.rooms) || !isExactInteger(availability.requested_units, 0, 1000)
+        || typeof availability.available_for_stay !== 'boolean') {
+      throw new Error('The authoritative stay preview availability breakdown is invalid.');
+    }
+    const roomKeys = ['room_type_id', 'room_rate_id', 'rate_plan_id', 'unit_sequence', 'nights', 'departure_boundary_product', 'requestable', 'blocking_reasons'];
+    const cellKeys = [
+      'room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity', 'configured_sellable_units',
+      'blocked_unit_count', 'blocked_unit_ids', 'operational_closed', 'safety_closed', 'held_units',
+      'booked_units', 'committed_units', 'available_units', 'requestable', 'blocking_reasons',
+      'earliest_hold_expiry', 'provenance', 'inventory_version', 'product',
+    ];
+    const productKeys = ['room_type_id', 'room_rate_id', 'rate_plan_id', 'stay_date', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'requestable', 'blocking_reasons', 'provenance'];
+    const expectedDates = availabilityDateRange(reviewedRequest.arrival_date, reviewedRequest.departure_date).slice(0, -1);
+    const productCounts = new Map();
+    const roomDemand = new Map();
+    pricing.products.forEach((product) => {
+      const key = `${normalizeUuid(product.room_type_id)}:${normalizeUuid(product.room_rate_id)}:${normalizeUuid(product.rate_plan_id)}:${product.unit_sequence}`;
+      productCounts.set(key, (productCounts.get(key) || 0) + 1);
+      const roomId = normalizeUuid(product.room_type_id);
+      roomDemand.set(roomId, (roomDemand.get(roomId) || 0) + 1);
+    });
+    const roomCounts = new Map();
+    const invalidRoom = availability.rooms.some((room) => {
+      if (!hasExactKeys(room, roomKeys) || !normalizeUuid(room.room_type_id) || !normalizeUuid(room.room_rate_id)
+          || !normalizeUuid(room.rate_plan_id) || !isExactInteger(room.unit_sequence, 1, 1000) || !Array.isArray(room.nights)
+          || room.requestable !== false || !Array.isArray(room.blocking_reasons)
+          || !room.blocking_reasons.length || !room.blocking_reasons.every((reason) => AVAILABILITY_STAY_BLOCKING_REASONS.includes(reason))
+          || !room.blocking_reasons.includes('public_activation_off')
+          || new Set(room.blocking_reasons).size !== room.blocking_reasons.length) return true;
+      const roomKey = `${normalizeUuid(room.room_type_id)}:${normalizeUuid(room.room_rate_id)}:${normalizeUuid(room.rate_plan_id)}:${room.unit_sequence}`;
+      roomCounts.set(roomKey, (roomCounts.get(roomKey) || 0) + 1);
+      const boundary = room.departure_boundary_product;
+      if (!productCounts.has(roomKey) || room.nights.length !== expectedDates.length
+          || !hasExactKeys(boundary, productKeys)
+          || normalizeUuid(boundary.room_type_id) !== normalizeUuid(room.room_type_id)
+          || normalizeUuid(boundary.room_rate_id) !== normalizeUuid(room.room_rate_id)
+          || normalizeUuid(boundary.rate_plan_id) !== normalizeUuid(room.rate_plan_id)
+          || boundary.stay_date !== reviewedRequest.departure_date
+          || !['operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed'].every((key) => typeof boundary[key] === 'boolean')
+          || boundary.requestable !== false || !Array.isArray(boundary.blocking_reasons)
+          || !boundary.blocking_reasons.includes('public_activation_off')
+          || !boundary.blocking_reasons.every((reason) => AVAILABILITY_BLOCKING_REASONS.includes(reason))
+          || new Set(boundary.blocking_reasons).size !== boundary.blocking_reasons.length
+          || !hasExactKeys(boundary.provenance, ['exact_override_id', 'daily_rate', 'availability_version'])
+          || !(boundary.provenance.exact_override_id === null || normalizeUuid(boundary.provenance.exact_override_id))
+          || typeof boundary.provenance.daily_rate !== 'boolean'
+          || !(boundary.provenance.availability_version === null || isExactInteger(boundary.provenance.availability_version, 1))) return true;
+      return room.nights.some((night, index) => {
+        if (!hasExactKeys(night, cellKeys) || normalizeUuid(night.room_type_id) !== normalizeUuid(room.room_type_id)
+            || night.stay_date !== expectedDates[index] || !INVENTORY_MODES.includes(night.inventory_mode)
+            || !['physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'held_units', 'booked_units', 'committed_units', 'available_units']
+              .every((key) => isExactInteger(night[key], 0, 1000000))
+            || !Array.isArray(night.blocked_unit_ids) || !night.blocked_unit_ids.every(normalizeUuid)
+            || new Set(night.blocked_unit_ids).size !== night.blocked_unit_ids.length
+            || night.blocked_unit_count !== night.blocked_unit_ids.length
+            || typeof night.operational_closed !== 'boolean' || typeof night.safety_closed !== 'boolean'
+            || night.requestable !== false || !Array.isArray(night.blocking_reasons)
+            || !night.blocking_reasons.length || !night.blocking_reasons.every((reason) => AVAILABILITY_BLOCKING_REASONS.includes(reason))
+            || !night.blocking_reasons.includes('public_activation_off')
+            || night.committed_units !== night.held_units + night.booked_units
+            || night.available_units !== (night.operational_closed || night.safety_closed ? 0 : Math.max(0,
+              Math.min(night.physical_capacity - night.blocked_unit_count, night.configured_sellable_units) - night.committed_units))
+            || !(night.earliest_hold_expiry === null || isExactIsoTimestamp(night.earliest_hold_expiry))
+            || !isExactInteger(night.inventory_version, 0)
+            || !hasExactKeys(night.provenance, ['capacity', 'inventory', 'commitments'])
+            || night.provenance.capacity !== 'room_type_or_active_units'
+            || night.provenance.inventory !== 'hotel_daily_inventory'
+            || night.provenance.commitments !== 'server_authoritative'
+            || !hasExactKeys(night.product, productKeys)
+            || normalizeUuid(night.product.room_type_id) !== normalizeUuid(room.room_type_id)
+            || normalizeUuid(night.product.room_rate_id) !== normalizeUuid(room.room_rate_id)
+            || normalizeUuid(night.product.rate_plan_id) !== normalizeUuid(room.rate_plan_id)
+            || night.product.stay_date !== night.stay_date
+            || !['operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed'].every((key) => typeof night.product[key] === 'boolean')
+            || night.product.requestable !== false || !Array.isArray(night.product.blocking_reasons)
+            || !night.product.blocking_reasons.includes('public_activation_off')
+            || !night.product.blocking_reasons.every((reason) => AVAILABILITY_BLOCKING_REASONS.includes(reason))
+            || new Set(night.product.blocking_reasons).size !== night.product.blocking_reasons.length
+            || !hasExactKeys(night.product.provenance, ['exact_override_id', 'daily_rate', 'availability_version'])
+            || !(night.product.provenance.exact_override_id === null || normalizeUuid(night.product.provenance.exact_override_id))
+            || typeof night.product.provenance.daily_rate !== 'boolean'
+            || !(night.product.provenance.availability_version === null || isExactInteger(night.product.provenance.availability_version, 1))) return true;
+        return false;
+      });
+    });
+    const exactProducts = productCounts.size === roomCounts.size
+      && [...productCounts].every(([key, count]) => roomCounts.get(key) === count);
+    const minimumAvailable = availability.rooms.length > 0 && availability.rooms.every((room) => room.nights.every((night, index) => (
+      night.available_units >= roomDemand.get(normalizeUuid(room.room_type_id))
+      && !night.operational_closed && !night.safety_closed
+      && !night.product.operational_closed && !night.product.safety_closed
+      && (index !== 0 || !night.product.closed_to_arrival)))
+      && !room.departure_boundary_product.closed_to_departure
+      && !room.departure_boundary_product.operational_closed
+      && !room.departure_boundary_product.safety_closed);
+    if (invalidRoom || !exactProducts || availability.requested_units !== pricing.products.length
+        || availability.rooms.length !== availability.requested_units
+        || (availability.requested_units === 0 && (pricing.ok || pricing.products.length || availability.rooms.length
+          || availability.available_for_stay || !source.blocking_reasons.includes('pricing_configuration_blocked')))
+        || (availability.available_for_stay && !minimumAvailable)
+        || (!availability.available_for_stay && !source.blocking_reasons.some((reason) => reason !== 'public_activation_off'))
+        || source.ok !== (pricing.ok && availability.available_for_stay)
+        || source.requestable !== false) {
+      throw new Error('The authoritative stay preview is internally inconsistent.');
+    }
+    return { ...source, pricing };
+  }
+
+  function buildAvailabilityDraft(control, intents) {
+    const snapshot = normalizeAvailabilityControl(control);
+    return validateAvailabilityDraft({
+      contract_version: AVAILABILITY_CONTROL_DRAFT_CONTRACT,
+      hotel_id: snapshot.hotel_id,
+      from: snapshot.from,
+      to: snapshot.to,
+      snapshot_token: snapshot.snapshot_token,
+      intents: clone(intents),
+    }, snapshot);
+  }
+
+  function buildHoldReleaseIntent(control, holdId, reason) {
+    const snapshot = normalizeAvailabilityControl(control);
+    const id = normalizeUuid(holdId);
+    const hold = snapshot.holds.find((row) => row.id === id);
+    if (!hold || hold.status !== 'active' || Date.parse(hold.expires_at) <= Date.parse(snapshot.snapshot_as_of)) {
+      throw new Error('Only a current active hold can be released.');
+    }
+    return validateAvailabilityIntent({ entity: 'hold', action: 'release', id, payload: { reason: asText(reason) } }, snapshot, { normalized: true });
+  }
+
   return Object.freeze({
     LANGUAGES,
     ROOM_STATUSES,
@@ -3202,6 +6588,24 @@
     HOTEL_CALENDAR_SOURCES,
     H3_REVIEW_STATUSES,
     H3_2A_PARTNER_PERMISSIONS_CONTRACT,
+    PRICING_CONTROL_READ_CONTRACT,
+    PRICING_CONTROL_CONTRACT,
+    PRICING_PREVIEW_CONTRACT,
+    PRICING_CONTROL_ENTITIES,
+    PRICING_CONTROL_ACTIONS,
+    PRICING_LIFECYCLE_STATUSES,
+    PRICING_SCHEDULE_SHARING_MODES,
+    PRICING_CONTROL_READ_LIMITS,
+    AVAILABILITY_CONTROL_READ_CONTRACT,
+    AVAILABILITY_CONTROL_DRAFT_CONTRACT,
+    AVAILABILITY_CONTROL_PREVIEW_CONTRACT,
+    AVAILABILITY_CONTROL_PLAN_CONTRACT,
+    AVAILABILITY_CONTROL_APPLY_CONTRACT,
+    AVAILABILITY_STAY_REQUEST_CONTRACT,
+    AVAILABILITY_STAY_PREVIEW_CONTRACT,
+    AVAILABILITY_CONTROL_ENTITIES,
+    AVAILABILITY_CONTROL_ACTIONS,
+    AVAILABILITY_CONTROL_READ_LIMITS,
     HOTEL_PARTNER_CAPABILITIES,
     HOTEL_PARTNER_MUTATION_CAPABILITIES,
     CHILD_AGE_MIN,
@@ -3232,6 +6636,10 @@
     normalizeGallery,
     normalizeAmenities,
     normalizeStringSet,
+    isExactMoney,
+    isExactIsoDate,
+    isExactIsoTimestamp,
+    isExactHttpsUrl,
     normalizeHotelPartnerCapabilities,
     hotelPartnerCapabilitiesHaveMutation,
     normalizePartnerHotelPermissions,
@@ -3291,5 +6699,28 @@
     buildReviewRows,
     buildDuplicateRoom,
     priceFrom,
+    normalizePricingControl,
+    validatePricingControl,
+    validatePricingControlOperation,
+    validatePricingControlPlan,
+    buildPricingControlPlan,
+    pricingBusinessState,
+    buildPricingControlOperation,
+    buildPricingScheduleCloneOperation,
+    buildPricingScheduleCloneForRoomRateOperations,
+    reconcilePricingBusinessState,
+    validatePricingPreviewRequest,
+    validatePricingPreview,
+    normalizeAvailabilityControl,
+    validateAvailabilityIntent,
+    validateAvailabilityOperation,
+    validateAvailabilityDraft,
+    validateAvailabilityPlan,
+    validateAvailabilityPlanPreview,
+    validateAvailabilityApplyResult,
+    validateAvailabilityStayRequest,
+    validateAvailabilityStayPreview,
+    buildAvailabilityDraft,
+    buildHoldReleaseIntent,
   });
 });

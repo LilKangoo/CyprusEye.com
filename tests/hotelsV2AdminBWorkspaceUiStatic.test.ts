@@ -24,11 +24,11 @@ describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
     expect(repository).toContain("applyRoomControl: 'hotel_v2_admin_apply_room_control_plan'");
     expect(repository).toContain("applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan'");
     for (const asset of [
-      '/admin/admin.css?v=20260820_1',
-      '/admin/hotels-v2-workspace-core.js?v=20260820_1',
-      '/admin/hotels-v2-workspace-repository.js?v=20260820_1',
-      '/admin/hotels-v2-workspace.js?v=20260820_1',
-      '/admin/admin.js?v=20260820_1',
+      '/admin/admin.css?v=20260821_1',
+      '/admin/hotels-v2-workspace-core.js?v=20260821_1',
+      '/admin/hotels-v2-workspace-repository.js?v=20260821_1',
+      '/admin/hotels-v2-workspace.js?v=20260821_1',
+      '/admin/admin.js?v=20260821_1',
     ]) expect(dashboard).toContain(asset);
   });
 
