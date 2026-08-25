@@ -67,7 +67,7 @@ async function installHarness(page: Page, viewport: { width: number; height: num
       description_i18n: { pl: 'Opis', en: 'Description', he: 'תיאור' },
       city: 'Paphos', address_line: '1 Harbour Street', district: 'Harbour', postal_code: '8041', country: 'Cyprus',
       latitude: 34.77, longitude: 32.42, google_maps_url: 'https://maps.google.com/example', amenities: ['wifi'],
-      check_in_from: '14:00', check_out_until: '11:00', cover_image_url: 'https://example.test/property-a.webp',
+      check_in_from: '14:00:00', check_out_until: '11:00:00', cover_image_url: 'https://example.test/property-a.webp',
       photos: ['https://example.test/property-a.webp'], architecture_version: 'legacy', status: 'active',
       is_published: true, updated_at: '2026-08-25T10:00:00Z',
     };

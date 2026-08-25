@@ -114,6 +114,10 @@
     if (!isIsoTimestamp(value)) fail(`${label} must be an exact timestamp.`);
     return value;
   }
+  function isClockTime(value) {
+    return typeof value === 'string'
+      && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
+  }
   function requireSnapshot(value, label) {
     if (typeof value !== 'string' || !SHA256.test(value)) fail(`${label} must be a lowercase SHA-256 token.`);
     return value;
@@ -188,7 +192,7 @@
     if (row.longitude !== null && (typeof row.longitude !== 'number' || !Number.isFinite(row.longitude) || row.longitude < -180 || row.longitude > 180)) fail('property.longitude is invalid.');
     requireNullableUrl(row.google_maps_url, 'property.google_maps_url');
     requireStringArray(row.amenities, 'property.amenities');
-    [row.check_in_from, row.check_out_until].forEach((value) => { if (value !== null && (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))) fail('Property check-in/check-out time is invalid.'); });
+    [row.check_in_from, row.check_out_until].forEach((value) => { if (value !== null && !isClockTime(value)) fail('Property check-in/check-out time is invalid.'); });
     requireNullableUrl(row.cover_image_url, 'property.cover_image_url');
     requireStringArray(row.photos, 'property.photos', 250);
     if (row.architecture_version !== 'legacy' || typeof row.is_published !== 'boolean') fail('Partner Hotel legacy/public property guard failed.');
@@ -217,7 +221,7 @@
       if (row.content.latitude !== null && (typeof row.content.latitude !== 'number' || !Number.isFinite(row.content.latitude) || row.content.latitude < -90 || row.content.latitude > 90)) fail('Property draft latitude is invalid.');
       if (row.content.longitude !== null && (typeof row.content.longitude !== 'number' || !Number.isFinite(row.content.longitude) || row.content.longitude < -180 || row.content.longitude > 180)) fail('Property draft longitude is invalid.');
       requireNullableUrl(row.content.google_maps_url, 'property_draft.content.google_maps_url'); requireStringArray(row.content.amenities, 'property_draft.content.amenities');
-      [row.content.check_in_from, row.content.check_out_until].forEach((value) => { if (value !== null && (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value))) fail('Property draft time is invalid.'); });
+      [row.content.check_in_from, row.content.check_out_until].forEach((value) => { if (value !== null && !isClockTime(value)) fail('Property draft time is invalid.'); });
     }
     if (Object.keys(row.photos).length) {
       requireExactKeys(row.photos, ['cover_image_url', 'photos'], 'Property draft photos');

@@ -46,7 +46,7 @@ function workspace(): any {
       id: HOTEL, slug: 'exact-hotel', title_i18n: { pl: 'Obiekt', en: 'Property', he: 'נכס' },
       description_i18n: { pl: '', en: '', he: '' }, city: 'Paphos', address_line: null,
       district: null, postal_code: null, country: 'Cyprus', latitude: null, longitude: null,
-      google_maps_url: null, amenities: [], check_in_from: '14:00', check_out_until: '11:00',
+      google_maps_url: null, amenities: [], check_in_from: '14:00:00', check_out_until: '11:00:00',
       cover_image_url: null, photos: [], architecture_version: 'legacy', status: 'approved',
       is_published: true, updated_at: '2026-08-25T12:00:00Z',
     },
