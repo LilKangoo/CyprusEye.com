@@ -5,6 +5,7 @@
 -- pricing-empty before ADMIN-C so generic CRUD/lifecycle can be tested without
 -- touching the accepted 7 Kamares graph.
 \ir hotels-v2-admin-b-content-room-assignment-postgrest-base.sql
+\ir hotels-v2-pgcrypto-production-shim.sql
 
 insert into public.hotels(
   id,slug,title,title_i18n,description,description_i18n,city,country,
@@ -96,7 +97,7 @@ begin
       'payload',jsonb_build_object(
         'hotel_id','c1000000-0000-4000-8000-000000000001',
         'nightly_rate',99,'currency','EUR','lifecycle_status','draft'))));
-  v_hash:=encode(digest(convert_to(jsonb_build_object(
+  v_hash:=encode(extensions.digest(convert_to(jsonb_build_object(
     'plan',v_plan,'correlation_id',v_correlation)::text,'UTF8'),'sha256'),'hex');
   v_result:=jsonb_build_object(
     'contract_version','hotels_v2_admin_c_pricing_plan_v1',

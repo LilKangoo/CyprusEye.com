@@ -1,6 +1,5 @@
 \set ON_ERROR_STOP on
 \ir hotels-v2-admin-c-pricing-control-postgrest-base.sql
-\ir hotels-v2-admin-d-pgcrypto-production-shim.sql
 \ir hotels-v2-admin-d-protected-history-fixture.sql
 alter table public.hotel_bookings add column if not exists num_adults integer default 1,
   add column if not exists num_children integer default 0;
