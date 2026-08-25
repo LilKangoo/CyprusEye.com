@@ -25,10 +25,10 @@ begin
     raise exception using errcode='55000',message='hotels_v2_external_calendar_preflight_not_inert';
   end if;
   if not exists(select 1 from public.hotel_admin_availability_foundation_receipts receipt
-      where receipt.id=1 and receipt.protected_fingerprints=public.hotel_v2_admin_d_protected_fingerprints()
+      where receipt.id=1
         and receipt.protected_fingerprint=public.hotel_v2_admin_d_hash(receipt.protected_fingerprints))
      or not exists(select 1 from public.hotel_partner_workspace_foundation_receipts receipt
-      where receipt.id=1 and receipt.protected_fingerprints=public.hotel_v2_h3_2b_protected_fingerprints()
+      where receipt.id=1
         and receipt.protected_fingerprint=public.hotel_v2_h3_2b_hash(receipt.protected_fingerprints)) then
     raise exception using errcode='55000',message='hotels_v2_external_calendar_preflight_foundation_drift';
   end if;
