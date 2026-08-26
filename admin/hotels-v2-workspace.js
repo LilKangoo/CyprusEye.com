@@ -14,10 +14,14 @@
     workspace: null,
     contentControl: null,
     contentControlError: null,
+    partnerPropertyProposals: null,
+    partnerPropertyProposalsError: null,
     h3Configuration: null,
     h3ConfigurationError: null,
     pricingPromotionPreview: null,
     pricingPromotionError: null,
+    pricingActivation: null,
+    pricingActivationError: null,
     partnerPermissions: null,
     partnerPermissionsError: null,
     pricingControl: null,
@@ -1862,9 +1866,13 @@
         </section>
       </div>
       ${renderMigrationFieldClassifications(preview)}
-      ${pricingPreview.requires_occupancy_los_model ? `<div class="hotel-legacy-pricing-blocker">
-        <strong>Pricing activation remains separate</strong>
-        <p>${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. H2B can preserve the matrix in shadow, but the shared Standard plan remains inactive until cancellation/payment conditions and the complete oracle are reviewed.</p>
+      ${pricingPreview.requires_occupancy_los_model ? `<div class="hotel-legacy-pricing-blocker" data-pricing-oracle-status="${escapeAttr(pricingPreview.oracle_status || 'REVIEW_REQUIRED')}">
+        <strong>${pricingPreview.oracle_status === 'VERIFIED' ? 'H3.1P pricing parity verified' : pricingPreview.oracle_status === 'MISMATCH' ? 'Pricing parity mismatch requires review' : 'Pricing activation remains separate'}</strong>
+        <p>${pricingPreview.oracle_status === 'VERIFIED'
+          ? `${pricingPreview.verified_case_count} authoritative H3.1P cases returned ${pricingPreview.verified_mismatch_count} mismatches. The reviewed shared schedule remains inactive until a separate activation Review passes.`
+          : pricingPreview.oracle_status === 'MISMATCH'
+            ? `The authoritative server evidence returned ${pricingPreview.verified_mismatch_count} nonzero mismatches. Activation remains blocked; the accepted baseline was not refreshed.`
+            : `${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. UUID and 63-rule shape alone do not prove a mismatch or parity; authoritative server Review is still required.`}</p>
         <code>${escapeHtml(pricingPreview.oracle)}</code>
       </div>` : ''}
       ${sevenArches?.eligible
@@ -2104,8 +2112,12 @@
       state.h3ConfigurationError = null;
       state.contentControl = null;
       state.contentControlError = null;
+      state.partnerPropertyProposals = null;
+      state.partnerPropertyProposalsError = null;
       state.pricingPromotionPreview = null;
       state.pricingPromotionError = null;
+      state.pricingActivation = null;
+      state.pricingActivationError = null;
       state.partnerPermissions = null;
       state.partnerPermissionsError = null;
       state.pricingControl = null;
@@ -2124,9 +2136,23 @@
       }
       if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
         try {
-          state.pricingPromotionPreview = await Repository.getLegacyPricingPromotionPreview(id);
+          state.partnerPropertyProposals = await Repository.getPartnerPropertyProposals(id);
         } catch (error) {
-          state.pricingPromotionError = error;
+          state.partnerPropertyProposalsError = error;
+        }
+      }
+      if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
+        try {
+          state.pricingActivation = await Repository.getSevenArchesPricingActivation();
+        } catch (error) {
+          state.pricingActivationError = error;
+        }
+        if (state.pricingActivation?.status !== 'active') {
+          try {
+            state.pricingPromotionPreview = await Repository.getLegacyPricingPromotionPreview(id);
+          } catch (error) {
+            state.pricingPromotionError = error;
+          }
         }
       }
       try {
@@ -2174,8 +2200,12 @@
     state.h3ConfigurationError = null;
     state.contentControl = null;
     state.contentControlError = null;
+    state.partnerPropertyProposals = null;
+    state.partnerPropertyProposalsError = null;
     state.pricingPromotionPreview = null;
     state.pricingPromotionError = null;
+    state.pricingActivation = null;
+    state.pricingActivationError = null;
     state.partnerPermissions = null;
     state.partnerPermissionsError = null;
     state.pricingControl = null;
@@ -2649,11 +2679,122 @@
     });
   }
 
+  function canonicalReviewValue(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalReviewValue).join(',')}]`;
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalReviewValue(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function partnerPropertyProposalPatch(proposal) {
+    return { ...Core.clone(proposal.content), ...Core.clone(proposal.photos) };
+  }
+
+  function partnerPropertyProposalDiff(proposal, property = state.workspace?.property) {
+    const patch = partnerPropertyProposalPatch(proposal);
+    return Object.keys(patch).sort().filter((field) => (
+      canonicalReviewValue(property?.[field] ?? null) !== canonicalReviewValue(patch[field])
+    )).map((field) => ({ field, before: Core.clone(property?.[field] ?? null), after: Core.clone(patch[field]) }));
+  }
+
+  function renderPartnerPropertyProposalPanel(property) {
+    if (property.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
+    if (state.partnerPropertyProposalsError) return `<section class="hotel-workspace-card hotel-property-empty--error"><span class="hotel-workspace-eyebrow">Partner property proposals</span><h4>Pending proposals unavailable</h4><p>${escapeHtml(state.partnerPropertyProposalsError.userMessage || state.partnerPropertyProposalsError.message)}</p></section>`;
+    const proposals = Core.asArray(state.partnerPropertyProposals?.proposals);
+    if (!proposals.length) return `<section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Partner property proposals</span><h4>No pending Admin review</h4><p>Partner property proposals do not alter the canonical Hotel until Admin explicitly accepts one.</p></section>`;
+    return `<section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Partner property proposals</span><h4>${proposals.length} pending Admin review</h4><p>Compare the exact canonical Hotel with the Partner proposal. Accept uses the existing ADMIN-B property control; Reject records a terminal decision without changing the Hotel.</p><div class="hotel-workspace-side-stack">${proposals.map((proposal) => {
+      const rows = partnerPropertyProposalDiff(proposal, property);
+      const stale = proposal.source_property_updated_at !== state.partnerPropertyProposals.property_updated_at;
+      return `<article class="hotel-workspace-card" data-partner-property-proposal="${escapeAttr(proposal.id)}"><header><strong>${stale ? 'Stale proposal · acceptance requires a fresh Partner submission' : 'Pending Admin review'}</strong><span>Version ${proposal.version}</span></header><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Field</th><th>Canonical Hotel</th><th>Partner proposal</th></tr></thead><tbody>${rows.length ? rows.map((row) => `<tr><th>${escapeHtml(reviewFieldLabel(row.field))}</th><td>${reviewValueMarkup(row.before, row.field)}</td><td>${reviewValueMarkup(row.after, row.field)}</td></tr>`).join('') : '<tr><td colspan="3">No semantic difference from the current canonical Hotel.</td></tr>'}</tbody></table></div>${stale ? '<p class="hotel-workspace-safety-note">The canonical Hotel changed after this proposal was prepared. Accept is disabled. Reject remains available to terminalize this obsolete exact-version proposal without changing the canonical Hotel.</p>' : ''}<div class="hotel-workspace-panel-actions"><button class="btn-primary" type="button" data-partner-proposal-action="accept" data-proposal-id="${escapeAttr(proposal.id)}" ${stale ? 'disabled' : ''}>Review Accept</button><button class="btn-secondary" type="button" data-partner-proposal-action="reject" data-proposal-id="${escapeAttr(proposal.id)}">Review Reject</button></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><dl><div><dt>Proposal</dt><dd><code>${escapeHtml(proposal.id)}</code></dd></div><div><dt>Partner</dt><dd><code>${escapeHtml(proposal.partner_id)}</code></dd></div><div><dt>Assignment</dt><dd><code>${escapeHtml(proposal.assignment_id)}</code></dd></div><div><dt>Source property timestamp</dt><dd>${escapeHtml(proposal.source_property_updated_at)}</dd></div></dl></details></article>`;
+    }).join('')}</div></section>`;
+  }
+
+  function openPartnerPropertyProposalAction(proposalId, action, opener) {
+    const control = state.partnerPropertyProposals;
+    const proposal = Core.asArray(control?.proposals).find((row) => row.id === proposalId);
+    if (!proposal || !['accept', 'reject'].includes(action)) {
+      toast('The exact pending Partner property proposal is no longer available.', 'error');
+      return;
+    }
+    openModal({
+      title: action === 'accept' ? 'Review Partner property proposal acceptance' : 'Review Partner property proposal rejection',
+      body: `<p class="hotel-workspace-intro">${action === 'accept' ? 'Acceptance applies only the exact proposed property fields through the existing ADMIN-B property control.' : 'Rejection records a terminal reviewed decision and leaves the canonical Hotel unchanged.'}</p><form id="partnerPropertyProposalReasonForm" class="hotel-workspace-form"><label class="admin-form-field"><span>Review reason</span><input name="reason" minlength="3" maxlength="500" required /><small>Required single-line Admin audit reason.</small></label><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(proposal.id)}</code></details></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="partnerPropertyProposalReasonForm">Prepare Review</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#partnerPropertyProposalReasonForm');
+        form?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const button = form.querySelector('button[type="submit"]') || overlay.querySelector('button[form="partnerPropertyProposalReasonForm"]');
+          const reason = String(new FormData(form).get('reason') || '').trim();
+          const request = {
+            contract_version: Core.PARTNER_PROPERTY_PROPOSAL_REQUEST_CONTRACT,
+            hotel_id: state.workspace.property.id,
+            proposal_id: proposal.id,
+            proposal_version: proposal.version,
+            action,
+            reason,
+          };
+          button && (button.disabled = true);
+          try {
+            const preview = await Repository.previewPartnerPropertyProposalPlan(request, control);
+            const patch = partnerPropertyProposalPatch(proposal);
+            const diffs = partnerPropertyProposalDiff(proposal);
+            const before = action === 'accept'
+              ? Object.fromEntries(diffs.map((row) => [row.field, row.before]))
+              : { status: 'pending_admin_review' };
+            const after = action === 'accept'
+              ? Object.fromEntries(diffs.map((row) => [row.field, patch[row.field]]))
+              : { status: 'rejected' };
+            const correlationId = Core.newUuid();
+            closeModal({ restoreFocus: false, force: true });
+            await openReview({
+              title: action === 'accept' ? 'Review Partner proposal acceptance' : 'Review Partner proposal rejection',
+              entity: 'property_proposal', before, after, operation: preview.reviewed_plan,
+              contextMessage: action === 'accept'
+                ? 'The canonical Hotel changes only after this explicit Save. Architecture, flags, pricing, assignments and historical records remain outside the proposal.'
+                : 'The canonical Hotel remains byte-unchanged. Only this pending proposal becomes terminally rejected.',
+              diagnostics: [{ label: 'Proposal ID', value: proposal.id }, { label: 'Review ID', value: preview.reviewed_plan.review_id }],
+              successMessage: action === 'accept' ? 'Partner property proposal accepted through ADMIN-B.' : 'Partner property proposal rejected; canonical Hotel unchanged.',
+              async onConfirm() {
+                const result = await Repository.applyPartnerPropertyProposalPlan(preview.reviewed_plan, correlationId);
+                state.workspace = result.workspace;
+                state.contentControl = result.content_control;
+                state.contentControlError = null;
+                state.partnerPropertyProposals = result.proposals;
+                state.partnerPropertyProposalsError = null;
+                return result;
+              },
+              async onStaleReview() {
+                const [workspace, contentControl, proposals] = await Promise.all([
+                  Repository.getWorkspace(request.hotel_id),
+                  Repository.getContentControl(request.hotel_id),
+                  Repository.getPartnerPropertyProposals(request.hotel_id),
+                ]);
+                state.workspace = workspace; state.contentControl = contentControl;
+                state.contentControlError = null; state.partnerPropertyProposals = proposals;
+                state.partnerPropertyProposalsError = null;
+                const stale = new Error('The proposal or canonical Hotel changed after Review. Fresh values were loaded; prepare a new explicit Review.');
+                stale.userMessage = stale.message; stale.closeReviewAfterStale = true;
+                throw stale;
+              },
+            });
+          } catch (error) {
+            button && (button.disabled = false);
+            toast(error.userMessage || error.message, error.isStale ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+    state.modal?.querySelector('input[name="reason"]')?.focus();
+    state.lastFocused = opener || state.lastFocused;
+  }
+
   function renderOverviewPanel(panel) {
     const property = propertyControlView();
     const hasContentControl = Boolean(state.contentControl?.operational_profile);
     const readiness = Core.deriveWorkspaceReadiness(state.workspace);
-    const preview = Core.migrationPreview(state.workspace);
+    const preview = Core.migrationPreview(state.workspace, { pricingPromotionPreview: state.pricingPromotionPreview, pricingActivation: state.pricingActivation });
     const legacySummary = property.architecture_version === 'legacy' ? legacyPricingSummary(property) : null;
     const normalizedH3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
     const ratePlansWithInclusions = normalizedH3?.rate_plans || [];
@@ -2672,6 +2813,7 @@
     `).join('');
     panel.innerHTML = `
       ${workspacePanelHeader('Overview', 'Property identity, location and operating configuration. Rooms and prices remain independent.', '<button class="btn-primary" type="submit" form="hotelWorkspaceOverviewForm">Review changes</button>')}
+      ${renderPartnerPropertyProposalPanel(property)}
       <div class="hotel-workspace-overview-grid">
         <form id="hotelWorkspaceOverviewForm" class="hotel-workspace-card hotel-workspace-form">
           <input type="hidden" name="property_id" value="${escapeAttr(property.id)}" />
@@ -2749,6 +2891,9 @@
     panel.querySelector('[data-prepare-seven-arches-apartments]')?.addEventListener('click', openSevenArchesPreparation);
     panel.querySelector('[data-edit-property-child-policy]')?.addEventListener('click', openPropertyChildrenPolicyEditor);
     panel.querySelector('[data-open-rate-inclusions]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
+    panel.querySelectorAll('[data-partner-proposal-action]').forEach((button) => button.addEventListener('click', () => {
+      openPartnerPropertyProposalAction(button.dataset.proposalId, button.dataset.partnerProposalAction, button);
+    }));
   }
 
   function renderReadinessCard(readiness) {
@@ -3072,6 +3217,13 @@
 
   function pricingPromotionWorkspaceState() {
     if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return null;
+    if (state.pricingActivation?.status === 'active') return {
+      available: true,
+      schedule: state.workspace.pricing_schedules.find((entry) => (
+        Core.normalizeUuid(entry?.id) === Core.SEVEN_ARCHES_SHADOW_IDS.pricing_schedule
+      )),
+      reviewStatus: 'reviewed', reviewed: true, activated: true, tierCount: 27,
+    };
     if (!state.pricingPromotionPreview) return {
       available: false,
       error: state.pricingPromotionError,
@@ -3103,20 +3255,121 @@
         <p>${escapeHtml(pricingState.error?.isFoundationMissing ? 'Apply and verify the approved pricing-promotion database contract before exposing this Admin action.' : (pricingState.error?.userMessage || pricingState.error?.message || 'The exact server preview could not be validated.'))}</p>
       </section>`;
     }
-    const status = pricingState.reviewed ? 'REVIEWED' : 'REVIEW REQUIRED';
+    const status = pricingState.activated ? 'ACTIVATED' : pricingState.reviewed ? 'REVIEWED' : 'REVIEW REQUIRED';
     const tone = pricingState.reviewed ? 'success' : 'warning';
     const action = pricingState.reviewed ? 'View pricing mapping' : 'Review legacy → H3 pricing';
     return `<section class="hotel-workspace-card hotel-pricing-promotion-card" data-seven-kamares-pricing-promotion-card>
       <header><div><span class="hotel-workspace-eyebrow">Legacy → H3 pricing preparation</span><h4>63 legacy rules → 27 shared Room tiers</h4></div><span class="hotel-workspace-status hotel-workspace-status--${tone}">${status}</span></header>
       <p>Review the exact Standard plan, two inactive Room Rates, physical room allocation and separate pricing occupancy used to preserve all accepted 7 Kamares totals.</p>
-      <dl><div><dt>Legacy source</dt><dd>63 rules · authoritative</dd></div><div><dt>Room schedule</dt><dd>${pricingState.tierCount || 27} tiers · inactive</dd></div><div><dt>Public change</dt><dd>No</dd></div></dl>
-      <button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>
+      <dl><div><dt>Legacy source</dt><dd>63 rules · authoritative</dd></div><div><dt>Room schedule</dt><dd>${pricingState.tierCount || 27} tiers · ${pricingState.activated ? 'active' : 'inactive'}</dd></div><div><dt>Public change</dt><dd>No</dd></div></dl>
+      ${pricingState.activated ? '<p class="hotel-workspace-safety-note">The accepted 70/0 mapping is now pinned by the immutable activation receipt.</p>' : `<button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>`}
     </section>`;
+  }
+
+  function requiredActivationI18nFields(prefix, label, values, type, maximum) {
+    return i18nFields(prefix, label, values, type, maximum)
+      .replaceAll('<input ', '<input required ')
+      .replaceAll('<textarea ', '<textarea required ');
+  }
+
+  function sevenArchesPricingActivationCardMarkup() {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
+    if (state.pricingActivationError || !state.pricingActivation) {
+      return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>Activation control unavailable</h4><p>${escapeHtml(state.pricingActivationError?.userMessage || state.pricingActivationError?.message || 'The exact server activation snapshot could not be loaded.')}</p></section>`;
+    }
+    const control = state.pricingActivation;
+    const upper = control.room_rates[0];
+    const ground = control.room_rates[1];
+    if (control.status === 'blocked') {
+      return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>Activation blocked by exact server state</h4><ul>${control.blocking_reasons.map((reason) => `<li>${escapeHtml(reason.replaceAll('_', ' '))}</li>`).join('')}</ul><p>No activation request is available and nothing is retried.</p></section>`;
+    }
+    const active = control.status === 'active';
+    return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation>
+      <header><div><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>${active ? 'Reviewed normalized pricing is active' : 'Ready for one explicit activation Review'}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${active ? 'success' : 'warning'}">${active ? 'ACTIVE' : 'READY'}</span></header>
+      <p><strong>Customer-price authority remains the reviewed 27-tier shared occupancy × LOS schedule.</strong> Positive Room base rates are required readiness values; they do not override the linked schedule.</p>
+      <dl><div><dt>H3.1P parity</dt><dd>${control.h3_1p.parity.total_case_count} cases · ${control.h3_1p.parity.total_mismatch_count} mismatches</dd></div><div><dt>Upper base</dt><dd>${escapeHtml(formatMoney(upper.base_nightly_rate, upper.currency))}</dd></div><div><dt>Ground base</dt><dd>${escapeHtml(formatMoney(ground.base_nightly_rate, ground.currency))}</dd></div><div><dt>Public behavior</dt><dd>Legacy authoritative · flags OFF</dd></div></dl>
+      ${active ? '<p class="hotel-workspace-safety-note">Activation is immutable. Partner cannot activate pricing, edit commission, or change this lifecycle.</p>' : '<button class="btn-primary" type="button" data-open-seven-arches-pricing-activation>Prepare activation Review</button>'}
+    </section>`;
+  }
+
+  function openSevenArchesPricingActivation(opener) {
+    const control = state.pricingActivation;
+    if (!control || control.status !== 'ready') {
+      toast('Load an exact ready activation snapshot before preparing Review.', 'error');
+      return;
+    }
+    const upper = control.room_rates[0];
+    const ground = control.room_rates[1];
+    openPricingModal({
+      title: 'Prepare 7 Arches pricing activation',
+      className: 'hotel-workspace-modal--wide',
+      body: `<form id="sevenArchesPricingActivationForm" class="hotel-workspace-form">
+        <p class="hotel-workspace-intro">Enter reviewed PL/EN/HE commercial labels and two exact positive readiness base rates. No translation or price is inferred.</p>
+        ${requiredActivationI18nFields('rate_plan_name', 'Standard Rate Plan name', control.rate_plan.name_i18n, 'input', 240)}
+        ${requiredActivationI18nFields('rate_plan_description', 'Standard Rate Plan description', control.rate_plan.description_i18n, 'textarea', 5000)}
+        ${requiredActivationI18nFields('schedule_name', 'Shared schedule name', control.shared_schedule.name_i18n, 'input', 240)}
+        <div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>Upper Floor Apartment base nightly rate</span><input name="upper_base_nightly_rate" type="number" min="0.01" max="1000000" step="0.01" value="${upper.base_nightly_rate > 0 ? escapeAttr(upper.base_nightly_rate) : ''}" required /></label><label class="admin-form-field"><span>Ground Floor Apartment base nightly rate</span><input name="ground_base_nightly_rate" type="number" min="0.01" max="1000000" step="0.01" value="${ground.base_nightly_rate > 0 ? escapeAttr(ground.base_nightly_rate) : ''}" required /></label></div>
+        <label class="admin-form-field"><span>Activation reason</span><input name="reason" minlength="3" maxlength="500" required /><small>Required single-line Admin audit reason.</small></label>
+        <p class="hotel-workspace-safety-note">The shared 27-tier schedule remains customer-price authoritative. This activation cannot change the legacy 63-rule public source, H3.1P mapping, allocation, payment, €10 commission rule, architecture or feature flags.</p>
+      </form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="sevenArchesPricingActivationForm">Build server Review</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#sevenArchesPricingActivationForm');
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submit = overlay.querySelector('button[form="sevenArchesPricingActivationForm"]');
+          submit.disabled = true; setModalSaving(overlay, true);
+          try {
+            const data = new FormData(form);
+            const fresh = await Repository.getSevenArchesPricingActivation();
+            state.pricingActivation = fresh; state.pricingActivationError = null;
+            const draft = Core.validateSevenArchesPricingActivationDraft({
+              contract_version: Core.SEVEN_ARCHES_PRICING_ACTIVATION_DRAFT_CONTRACT,
+              hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID, snapshot_token: fresh.snapshot_token,
+              upper_base_nightly_rate: Number(data.get('upper_base_nightly_rate')),
+              ground_base_nightly_rate: Number(data.get('ground_base_nightly_rate')),
+              rate_plan_name_i18n: readI18n(data, 'rate_plan_name'),
+              rate_plan_description_i18n: readI18n(data, 'rate_plan_description'),
+              schedule_name_i18n: readI18n(data, 'schedule_name'),
+              reason: String(data.get('reason') || '').trim(),
+            }, fresh);
+            const preview = await Repository.previewSevenArchesPricingActivation(draft, fresh);
+            if (!preview.changed) {
+              closeModal({ restoreFocus: true, force: true }); renderWorkspace();
+              toast(preview.blocking_reasons.length ? `Activation blocked: ${preview.blocking_reasons.join(', ')}` : 'Pricing is already active. Nothing was saved.', preview.blocking_reasons.length ? 'warning' : 'info');
+              return;
+            }
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await openReview({
+              title: 'Review 7 Arches pricing activation', entity: 'pricing_activation',
+              before: preview.impact.before, after: preview.impact.after,
+              diagnostics: [preview.reviewed_plan.review_id, preview.reviewed_plan.plan_fingerprint],
+              pricingUi: true,
+              contextMessage: 'The server rechecks the exact H3.1P 70/0 parity, protected graph, payment and €10 commission policy. The shared schedule remains authoritative; no public behavior changes.',
+              onConfirm: async () => {
+                const result = await Repository.applySevenArchesPricingActivation(
+                  preview.reviewed_plan, Core.newUuid(), Core.newUuid(),
+                );
+                state.pricingActivation = result.activation; state.pricingActivationError = null;
+                state.pricingControl = result.pricing_control; state.pricingControlError = null;
+                return result;
+              },
+              successMessage: '7 Arches normalized pricing activated through the exact reviewed server plan. Legacy public pricing and flags remain unchanged.',
+            });
+          } catch (error) {
+            submit.disabled = false; setModalSaving(overlay, false);
+            toast(error.userMessage || error.message, error.isStale ? 'warning' : 'error');
+          }
+        });
+        form.querySelector('input, textarea')?.focus();
+      },
+    });
+    state.lastFocused = opener || state.lastFocused;
   }
 
   function renderRoomsPanel(panel) {
     const workspace = state.workspace;
-    const migration = Core.migrationPreview(workspace);
+    const migration = Core.migrationPreview(workspace, { pricingPromotionPreview: state.pricingPromotionPreview, pricingActivation: state.pricingActivation });
     const sevenArches = workspace.property.id === Core.SEVEN_ARCHES_PROPERTY_ID
       ? Core.sevenArchesShadowPreparation(workspace)
       : null;
@@ -3161,8 +3414,8 @@
       ? `${room.base_inventory_count} pooled units`
       : `${activeUnits} active physical units`;
     const capacityLabel = room.max_occupancy != null
-      ? `Max ${room.max_occupancy} guests · adult/child split not confirmed`
-      : `${room.capacity_adults} adults · ${room.capacity_children} children`;
+      ? `Max ${room.max_occupancy} guests · CONFIRMED · adult/child split REQUIRES REVIEW`
+      : `${room.capacity_adults} adults · ${room.capacity_children} children · CONFIRMED`;
     const floorLabel = Core.i18nText(room.floor_label_i18n, 'en', 'Floor not specified');
     const outdoorLabels = [
       room.amenities.includes('balcony') ? 'Balcony' : '',
@@ -3177,7 +3430,7 @@
     }
     return `<article class="hotel-room-card" data-room-id="${escapeAttr(room.id)}">
       <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(room.code)}</span><h4>${escapeHtml(Core.i18nText(room.name_i18n, 'en', room.code))}</h4><p>${escapeHtml(capacityLabel)} · ${escapeHtml(inventoryLabel)}</p></div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(room.status === 'active' ? 'READY' : room.status === 'disabled' ? 'BLOCKED' : 'DRAFT')}">${escapeHtml(room.status.toUpperCase())}</span></header>
-      <div class="hotel-room-card__details"><span>${escapeHtml(Core.formatBedConfiguration(room.bed_configuration))}</span><span>${room.bathrooms == null ? 'Bathrooms not specified' : `${room.bathrooms} bathroom(s)`}</span><span>${room.size_sqm == null ? 'Size not specified' : `${room.size_sqm} m²`}</span><span>${escapeHtml(floorLabel)}</span><span>${escapeHtml(outdoorLabels.join(' · ') || 'No balcony/terrace configured')}</span><span>${room.gallery.length} photo${room.gallery.length === 1 ? '' : 's'}</span></div>
+      <div class="hotel-room-card__details"><span>${room.bed_configuration.length ? `Beds · ${escapeHtml(Core.formatBedConfiguration(room.bed_configuration))} · CONFIRMED` : 'Beds · MISSING / UNKNOWN · REQUIRES REVIEW'}</span><span>${room.bathrooms == null ? 'Bathrooms · MISSING / UNKNOWN · REQUIRES REVIEW' : `Bathrooms · ${room.bathrooms} · CONFIRMED`}</span><span>${room.size_sqm == null ? 'Size · MISSING / UNKNOWN · REQUIRES REVIEW' : `Size · ${room.size_sqm} m² · CONFIRMED`}</span><span>${escapeHtml(floorLabel)}</span><span>${escapeHtml(`Outdoor amenities · ${outdoorLabels.join(' · ') || 'none configured'} · ${outdoorLabels.length ? 'CONFIRMED' : 'MISSING / UNKNOWN'}`)}</span><span>Gallery · ${room.gallery.length} photo${room.gallery.length === 1 ? '' : 's'} · ${room.gallery.length ? 'CONFIRMED' : 'MISSING / UNKNOWN'}</span><span>Amenities · ${escapeHtml(room.amenities.join(' · ') || 'none configured')} · ${room.amenities.length ? 'CONFIRMED' : 'MISSING / UNKNOWN'}</span><span>Description · ${Object.values(room.description_i18n).some((value) => String(value).trim()) ? 'CONFIRMED' : 'MISSING / UNKNOWN'}</span></div>
       <div class="hotel-room-card__guest-policy"><span>Children</span><strong>${escapeHtml(childPolicy)}</strong><button class="btn-secondary" type="button" data-edit-room-child-policy="${escapeAttr(room.id)}">Edit</button></div>
       <div class="hotel-room-card__rates">${roomRates.length ? roomRates.map(renderRoomRateLine).join('') : '<p>No Rate Plans connected.</p>'}</div>
       ${room.inventory_mode === 'unitized' ? `<details class="hotel-room-card__units"><summary>${units.length} physical units</summary>${units.length ? units.map(renderUnitLine).join('') : '<p>No units configured.</p>'}<button class="btn-secondary" type="button" data-add-unit="${escapeAttr(room.id)}">Add unit</button></details>` : ''}
@@ -3569,6 +3822,7 @@
       <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsOff ? 'success' : 'danger'}">FLAGS ${pricingUiHtml(flagsOff ? 'OFF' : 'DRIFT')}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
       ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Accepted H3.1P boundary</span><h4>7 Kamares pricing control is read-only</h4><p>The exact 1 Rate Plan / 2 schedules / 2 Room Rates / 5 allocation rules / 10 items graph and its 70-case parity receipt must remain unchanged. Use the structured preview below; configure full ADMIN-C CRUD on another future Hotel.</p></section>' : ''}
       ${pricingPromotionCardMarkup()}
+      ${sevenArchesPricingActivationCardMarkup()}
       ${pricingPropertyDefaultMarkup(control)}
       <nav class="hotel-pricing-jump-nav" aria-label="Rates and pricing sections"><a href="#hotelPricingProducts">Products</a><a href="#hotelPricingSchedules">Schedules</a><a href="#hotelPricingPlans">Rate Plans</a><a href="#hotelPricingRules">Calendar prices</a><a href="#hotelPricingAllocation">Allocation</a><a href="#hotelPricingActivity">Activity</a></nav>
       <section id="hotelPricingProducts" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Room Rate products</h4><p>The highlighted source is the price actually used. A linked schedule always outranks independent tiers; active independent tiers outrank the stored base rate.</p></div><span>${control.room_rates.length}</span></div><div class="hotel-pricing-product-grid">${control.room_rates.length ? control.room_rates.map(pricingSourceCardMarkup).join('') : renderEmptyState('No Room Rate products', 'Create a Rate Plan, then connect it to an exact Room Type.')}</div>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-product>+ Room Rate product</button>'}</section>
@@ -3582,6 +3836,7 @@
   }
 
   function bindPricingPanel(panel) {
+    panel.querySelector('[data-open-seven-arches-pricing-activation]')?.addEventListener('click', (event) => openSevenArchesPricingActivation(event.currentTarget));
     panel.querySelector('[data-preview-pricing]')?.addEventListener('click', openPricingPreview);
     panel.querySelector('[data-add-pricing-plan]')?.addEventListener('click', () => openPricingPlanEditor());
     panel.querySelector('[data-add-pricing-product]')?.addEventListener('click', () => openPricingProductEditor());
@@ -6291,14 +6546,14 @@
           <label class="admin-form-field" data-capacity-total><span>Maximum total guests</span><input name="max_occupancy" type="number" min="1" max="50" step="1" value="${totalValue}" /><small>Use only when the adult/child split is genuinely not confirmed.</small></label>
           <label class="admin-form-field"><span>Inventory model</span><select name="inventory_mode" required>${isLegacyPreparation ? '<option value="" selected disabled>Select after confirmation</option>' : ''}<option value="pooled" ${!isLegacyPreparation && room.inventory_mode === 'pooled' ? 'selected' : ''}>Pooled inventory</option><option value="unitized" ${!isLegacyPreparation && room.inventory_mode === 'unitized' ? 'selected' : ''}>Individual units</option></select></label>
           <label class="admin-form-field"><span>Base inventory count</span><input name="base_inventory_count" type="number" min="${isLegacyPreparation ? '1' : '0'}" max="10000" step="1" value="${inventoryValue}" ${isLegacyPreparation ? 'required' : ''} /></label>
-          <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" max="100" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" /></label>
-          <label class="admin-form-field"><span>Size m²</span><input name="size_sqm" type="number" min="0.01" max="100000" step="0.01" value="${escapeAttr(room.size_sqm ?? '')}" /></label>
+          <label class="admin-form-field"><span>Bathrooms</span><input name="bathrooms" type="number" min="0" max="100" step="0.5" value="${escapeAttr(room.bathrooms ?? '')}" />${room.bathrooms == null ? '<small>Requires review — no exact bathroom count is confirmed.</small>' : '<small>Configured exact Room value.</small>'}</label>
+          <label class="admin-form-field"><span>Size m²</span><input name="size_sqm" type="number" min="0.01" max="100000" step="0.01" value="${escapeAttr(room.size_sqm ?? '')}" />${room.size_sqm == null ? '<small>Requires review — no exact room size is confirmed.</small>' : '<small>Configured exact Room value.</small>'}</label>
           ${!existing
             ? '<label class="admin-form-field"><span>Status</span><input name="status" value="draft" readonly /><small>Shadow preparation is always inert.</small></label>'
             : `<label class="admin-form-field"><span>Status</span><select name="status" required>${room.status === 'disabled' ? '<option value="" selected disabled>Disabled · choose a reviewed reactivation state</option>' : ''}${Core.ROOM_STATUSES.filter((status) => status !== 'disabled').map((status) => `<option value="${status}" ${status === room.status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select><small>${room.status === 'disabled' ? 'Choose draft or active explicitly. Keeping disabled while editing is blocked; disabling always uses the dependency-aware action.' : 'Use the separate Disable action for dependency-aware removal from operation.'}</small></label>`}
           <label class="admin-form-field"><span>Admin sort order</span><input name="sort_order" type="number" min="0" max="1000000" step="1" value="${room.sort_order}" /></label>
         </div><p class="hotel-inventory-mode-note" data-inventory-note></p></fieldset>
-        <fieldset><legend>Bed configuration</legend><div data-bed-rows>${room.bed_configuration.map(bedRowMarkup).join('')}</div><button class="btn-secondary" type="button" data-add-bed>+ Add bed</button></fieldset>
+        <fieldset><legend>Bed configuration</legend>${room.bed_configuration.length ? '<p>Configured exact Room value. Review every change before Save.</p>' : '<p class="hotel-workspace-safety-note">Requires review — no exact bed configuration is confirmed. Do not infer it from marketing text or photos.</p>'}<div data-bed-rows>${room.bed_configuration.map(bedRowMarkup).join('')}</div><button class="btn-secondary" type="button" data-add-bed>+ Add bed</button></fieldset>
         <fieldset><legend>Room amenities</legend>${isLegacyPreparation ? '<p>Property amenities are not copied. Select only amenities confirmed for this exact accommodation.</p>' : ''}<p>Balcony and terrace are exact Room amenity capabilities; they are not inferred from photos or duplicated as separate flags.</p>${amenitiesMarkup(room.amenities)}</fieldset>
         ${galleryEditorMarkup(room)}
         ${isLegacyPreparation ? legacyPropertyPhotoSelectionMarkup(legacyPreparation) : ''}
@@ -7589,6 +7844,8 @@
       'Manual sync requires an enabled source and global activation.': 'Ręczna synchronizacja wymaga włączonego źródła i globalnej aktywacji.',
       'The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.': 'Prywatny adres HTTPS iCal jest używany tylko dla tego sprawdzonego zapisu i nigdy nie jest ponownie wyświetlany.',
       'Private HTTPS iCal URL': 'Prywatny adres HTTPS iCal', 'Sync interval (minutes)': 'Interwał synchronizacji (minuty)',
+      'Provider': 'Dostawca', 'Generic iCal': 'Ogólny iCal', 'Code': 'Kod',
+      'All providers use an ICS export URL. Provider is saved separately from the source code.': 'Wszyscy dostawcy używają adresu eksportu ICS. Dostawca jest zapisywany niezależnie od kodu źródła.',
       'Units per event': 'Jednostki na zdarzenie', 'Priority': 'Priorytet', 'External calendar saved.': 'Kalendarz zewnętrzny zapisano.',
       'never_synced': 'Nigdy nie synchronizowano', 'healthy': 'Prawidłowy', 'degraded': 'Pogorszony', 'syncing': 'Synchronizacja',
     }),
@@ -7602,6 +7859,8 @@
       'Manual sync requires an enabled source and global activation.': 'סנכרון ידני דורש מקור פעיל והפעלה גלובלית.',
       'The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.': 'כתובת ה-iCal הפרטית ב-HTTPS משמשת רק לשמירה שנבדקה ואינה מוצגת שוב.',
       'Private HTTPS iCal URL': 'כתובת iCal פרטית ב-HTTPS', 'Sync interval (minutes)': 'מרווח סנכרון (דקות)',
+      'Provider': 'ספק', 'Generic iCal': 'iCal כללי', 'Code': 'קוד',
+      'All providers use an ICS export URL. Provider is saved separately from the source code.': 'כל הספקים משתמשים בכתובת יצוא ICS. הספק נשמר בנפרד מקוד המקור.',
       'Units per event': 'יחידות לאירוע', 'Priority': 'עדיפות', 'External calendar saved.': 'היומן החיצוני נשמר.',
       'never_synced': 'טרם סונכרן', 'healthy': 'תקין', 'degraded': 'פגום', 'syncing': 'בסנכרון',
     }),
@@ -7613,12 +7872,24 @@
     return EXTERNAL_CALENDAR_TEXT[key]?.[value] || value;
   }
 
+  function externalCalendarProviderLabel(sourceType) {
+    return externalCalendarText(sourceType === 'booking_com' ? 'Booking.com' : sourceType === 'airbnb' ? 'Airbnb' : 'Generic iCal');
+  }
+
+  function externalCalendarProviderOptions(selected = 'ical') {
+    return [
+      ['booking_com', 'Booking.com'],
+      ['airbnb', 'Airbnb'],
+      ['ical', 'Generic iCal'],
+    ].map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${escapeHtml(externalCalendarText(label))}</option>`).join('');
+  }
+
   function renderExternalCalendarControl() {
     if (state.calendar.external_calendar_error) return `<section class="hotel-workspace-card"><h4>${escapeHtml(externalCalendarText('External calendars'))}</h4><p class="hotel-property-empty--error">${escapeHtml(state.calendar.external_calendar_error.userMessage || state.calendar.external_calendar_error.message)}</p></section>`;
     const control = state.calendar.external_calendar;
     if (!control) return '';
     const roomName = (id) => availabilityBusinessName(control.rooms.find((room) => room.id === id), id);
-    const sources = control.sources.map((source) => `<article class="hotel-availability-row hotel-external-calendar-source"><span><strong>${escapeHtml(source.code)} · ${escapeHtml(roomName(source.room_type_id))}</strong><small>${escapeHtml(externalCalendarText(source.secret_configured ? 'Configured (URL hidden)' : 'Not configured'))} · ${escapeHtml(externalCalendarText(source.health.status))}</small><small>${escapeHtml(externalCalendarText('Last attempt'))}: ${escapeHtml(source.health.last_attempt_at || '—')} · ${escapeHtml(externalCalendarText('Last success'))}: ${escapeHtml(source.health.last_success_at || '—')} · ${escapeHtml(externalCalendarText('Last failure'))}: ${escapeHtml(source.health.last_error_code || source.health.last_error_message || '—')}</small><small>${escapeHtml(externalCalendarText('Events'))}: ${source.health.last_event_count} · ${escapeHtml(externalCalendarText('Active events'))}: ${source.health.last_active_event_count} · ${escapeHtml(externalCalendarText('Blocks'))}: ${source.health.last_block_count}</small></span><span><button class="btn-secondary" type="button" data-external-calendar-edit="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Edit source'))}</button><button class="btn-secondary" type="button" data-external-calendar-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${escapeAttr(source.id)}" ${source.is_enabled ? 'disabled' : ''}>${escapeHtml(externalCalendarText(source.secret_configured ? 'Rotate URL' : 'Set URL'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-secret="clear" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Clear URL'))}</button>` : ''}${source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="disable" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Disable'))}</button>` : `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="enable" data-source-id="${escapeAttr(source.id)}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${escapeAttr(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}"`}>${escapeHtml(externalCalendarText('Enable'))}</button>`}<button class="btn-secondary" type="button" data-external-calendar-sync="${escapeAttr(source.id)}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Run manual sync'))}</button></span><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(source.id)}</code><code>${escapeHtml(control.snapshot_token)}</code></details></article>`).join('');
+    const sources = control.sources.map((source) => `<article class="hotel-availability-row hotel-external-calendar-source"><span><strong>${escapeHtml(source.code)} · ${escapeHtml(externalCalendarProviderLabel(source.source_type))} · ${escapeHtml(roomName(source.room_type_id))}</strong><small>${escapeHtml(externalCalendarText(source.secret_configured ? 'Configured (URL hidden)' : 'Not configured'))} · ${escapeHtml(externalCalendarText(source.health.status))}</small><small>${escapeHtml(externalCalendarText('Last attempt'))}: ${escapeHtml(source.health.last_attempt_at || '—')} · ${escapeHtml(externalCalendarText('Last success'))}: ${escapeHtml(source.health.last_success_at || '—')} · ${escapeHtml(externalCalendarText('Last failure'))}: ${escapeHtml(source.health.last_error_code || source.health.last_error_message || '—')}</small><small>${escapeHtml(externalCalendarText('Events'))}: ${source.health.last_event_count} · ${escapeHtml(externalCalendarText('Active events'))}: ${source.health.last_active_event_count} · ${escapeHtml(externalCalendarText('Blocks'))}: ${source.health.last_block_count}</small></span><span><button class="btn-secondary" type="button" data-external-calendar-edit="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Edit source'))}</button><button class="btn-secondary" type="button" data-external-calendar-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${escapeAttr(source.id)}" ${source.is_enabled ? 'disabled' : ''}>${escapeHtml(externalCalendarText(source.secret_configured ? 'Rotate URL' : 'Set URL'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-secret="clear" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Clear URL'))}</button>` : ''}${source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="disable" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Disable'))}</button>` : `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="enable" data-source-id="${escapeAttr(source.id)}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${escapeAttr(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}"`}>${escapeHtml(externalCalendarText('Enable'))}</button>`}<button class="btn-secondary" type="button" data-external-calendar-sync="${escapeAttr(source.id)}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Run manual sync'))}</button></span><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(source.id)}</code><code>${escapeHtml(control.snapshot_token)}</code></details></article>`).join('');
     return `<section class="hotel-workspace-card" data-external-calendar-control><header><h4>${escapeHtml(externalCalendarText('External calendars'))}</h4><button class="btn-primary" type="button" data-external-calendar-create>${escapeHtml(externalCalendarText('Add iCal source'))}</button></header>${control.hotel_external_sync_enabled ? '' : `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}</p>`}${sources || '<p>—</p>'}</section>`;
   }
 
@@ -7656,7 +7927,7 @@
     const control = state.calendar.external_calendar;
     const source = sourceId ? control.sources.find((row) => row.id === sourceId) : null;
     const options = control.rooms.filter((room) => room.status === 'active').map((room) => `<option value="${escapeAttr(room.id)}" ${source?.room_type_id === room.id ? 'selected' : ''}>${escapeHtml(availabilityBusinessName(room, room.id))}</option>`).join('');
-    openModal({ title: externalCalendarText(source ? 'Edit source' : 'Add iCal source'), body: `<form id="externalCalendarSourceForm" class="hotel-workspace-form"><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${availabilityUiHtml('Room')}</span><select name="room_type_id" required>${options}</select></label><label class="admin-form-field"><span>Code</span><input name="code" value="${escapeAttr(source?.code || '')}" maxlength="80" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Sync interval (minutes)'))}</span><input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source?.sync_interval_minutes || 60}" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Units per event'))}</span><input name="units_per_event" type="number" min="1" max="100" value="${source?.units_per_event || 1}" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Priority'))}</span><input name="priority" type="number" min="-32768" max="32767" value="${source?.priority ?? 100}" required></label></div><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" minlength="3" maxlength="500" required></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarSourceForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('#externalCalendarSourceForm')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const payload = { room_type_id: String(fd.get('room_type_id')), code: String(fd.get('code') || '').trim(), sync_interval_minutes: Number(fd.get('sync_interval_minutes')), units_per_event: Number(fd.get('units_per_event')), priority: Number(fd.get('priority')) }; closeModal({ restoreFocus: false }); void previewExternalCalendarIntent({ entity: 'calendar_source', action: source ? 'update' : 'create', id: source?.id || null, expected_version: source?.version || 0, payload, reason: String(fd.get('reason') || '').trim() }, externalCalendarText(source ? 'Edit source' : 'Add iCal source')); }); } });
+    openModal({ title: externalCalendarText(source ? 'Edit source' : 'Add iCal source'), body: `<form id="externalCalendarSourceForm" class="hotel-workspace-form"><div class="hotel-workspace-form-grid"><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Provider'))}</span><select name="source_type" required>${externalCalendarProviderOptions(source?.source_type)}</select></label><label class="admin-form-field"><span>${availabilityUiHtml('Room')}</span><select name="room_type_id" required>${options}</select></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Code'))}</span><input name="code" value="${escapeAttr(source?.code || '')}" maxlength="80" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Sync interval (minutes)'))}</span><input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source?.sync_interval_minutes || 60}" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Units per event'))}</span><input name="units_per_event" type="number" min="1" max="100" value="${source?.units_per_event || 1}" required></label><label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Priority'))}</span><input name="priority" type="number" min="-32768" max="32767" value="${source?.priority ?? 100}" required></label></div><p>${escapeHtml(externalCalendarText('All providers use an ICS export URL. Provider is saved separately from the source code.'))}</p><label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" minlength="3" maxlength="500" required></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarSourceForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('#externalCalendarSourceForm')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const payload = { room_type_id: String(fd.get('room_type_id')), code: String(fd.get('code') || '').trim(), source_type: String(fd.get('source_type') || ''), sync_interval_minutes: Number(fd.get('sync_interval_minutes')), units_per_event: Number(fd.get('units_per_event')), priority: Number(fd.get('priority')) }; closeModal({ restoreFocus: false }); void previewExternalCalendarIntent({ entity: 'calendar_source', action: source ? 'update' : 'create', id: source?.id || null, expected_version: source?.version || 0, payload, reason: String(fd.get('reason') || '').trim() }, externalCalendarText(source ? 'Edit source' : 'Add iCal source')); }); } });
   }
 
   function openExternalCalendarAction(sourceId, entity, action) {

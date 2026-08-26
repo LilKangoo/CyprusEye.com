@@ -3,6 +3,9 @@ import {
   fetchCalendar,
   type LeaseJob,
   LIMITS,
+  type PinnedConnection,
+  type PinnedConnector,
+  type PinnedHttpsTarget,
   parseBeginResult,
   parseFailResult,
   parseFinalizeResult,
@@ -160,6 +163,31 @@ async function resolveDns(hostname: string, type: "A" | "AAAA"): Promise<string[
   return type === "A" ? await Deno.resolveDns(hostname, "A") : await Deno.resolveDns(hostname, "AAAA");
 }
 
+async function connectPinnedTls(target: PinnedHttpsTarget, deadline: number): Promise<PinnedConnection> {
+  let tcp: Deno.TcpConn | null = null;
+  let handshakeTimer: number | undefined;
+  try {
+    tcp = await Deno.connect({ hostname: target.address, port: target.port, transport: "tcp" });
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      tcp.close(); tcp = null;
+      throw new WorkerError("calendar_fetch_timeout", "The calendar request timed out.");
+    }
+    const pendingTcp = tcp;
+    handshakeTimer = setTimeout(() => {
+      try { pendingTcp.close(); } catch { /* Closing the pinned socket aborts an overdue TLS handshake. */ }
+    }, remaining);
+    const tls = await Deno.startTls(tcp, { hostname: target.hostname });
+    tcp = null; // startTls consumes the TCP connection; the returned TLS connection owns cleanup.
+    return tls;
+  } catch (error) {
+    try { tcp?.close(); } catch { /* A failed handshake must not leak the pinned TCP socket. */ }
+    throw error;
+  } finally {
+    if (handshakeTimer !== undefined) clearTimeout(handshakeTimer);
+  }
+}
+
 function topology(job: LeaseJob, attemptId: string, startedAt: string) {
   return {
     job_id: job.job_id,
@@ -175,7 +203,7 @@ function topology(job: LeaseJob, attemptId: string, startedAt: string) {
   };
 }
 
-async function processJob(job: LeaseJob, rpc: RpcClient, fetchImpl: typeof fetch): Promise<JobResult> {
+async function processJob(job: LeaseJob, rpc: RpcClient, connect: PinnedConnector): Promise<JobResult> {
   const attemptId = crypto.randomUUID(); const startedAt = new Date().toISOString();
   const identity = { attempt_id: attemptId, job_id: job.job_id, source_id: job.source_id };
   const common = topology(job, attemptId, startedAt);
@@ -199,7 +227,7 @@ async function processJob(job: LeaseJob, rpc: RpcClient, fetchImpl: typeof fetch
         || source.review_status !== "reviewed" || !source.hotel_external_sync_enabled) {
       throw new WorkerError("source_state_changed", "The calendar source changed after the job was leased.");
     }
-    const fetched = await fetchCalendar(source.ical_url, { fetchImpl, resolve: resolveDns });
+    const fetched = await fetchCalendar(source.ical_url, { connect, resolve: resolveDns });
     httpStatus = fetched.httpStatus;
     parsed = await parseICalendar(fetched.text, source.hotel_timezone);
   } catch (error) {
@@ -234,17 +262,17 @@ async function processJob(job: LeaseJob, rpc: RpcClient, fetchImpl: typeof fetch
   }
 }
 
-async function processBounded(jobs: LeaseJob[], rpc: RpcClient, fetchImpl: typeof fetch): Promise<JobResult[]> {
+async function processBounded(jobs: LeaseJob[], rpc: RpcClient, connect: PinnedConnector): Promise<JobResult[]> {
   const results: JobResult[] = [];
   for (let index = 0; index < jobs.length; index += CONCURRENCY) {
-    results.push(...await Promise.all(jobs.slice(index, index + CONCURRENCY).map((job) => processJob(job, rpc, fetchImpl))));
+    results.push(...await Promise.all(jobs.slice(index, index + CONCURRENCY).map((job) => processJob(job, rpc, connect))));
   }
   return results;
 }
 
 export async function handleRequest(
   request: Request,
-  dependencies: { environment?: Environment; fetchImpl?: typeof fetch; rpc?: RpcClient } = {},
+  dependencies: { environment?: Environment; fetchImpl?: typeof fetch; rpc?: RpcClient; calendarConnect?: PinnedConnector } = {},
 ): Promise<Response> {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const environment = dependencies.environment || readEnvironment();
@@ -253,6 +281,7 @@ export async function handleRequest(
     const workerRequest = parseWorkerRequest(await readBoundedJson(request));
     const fetchImpl = dependencies.fetchImpl || fetch;
     const rpc = dependencies.rpc || createRpcClient(environment, fetchImpl);
+    const calendarConnect = dependencies.calendarConnect || connectPinnedTls;
     let queuedCount = 0;
     if (workerRequest.enqueue_scheduled) {
       const enqueue = parseSchedulerEnqueueResult(await rpc(RPC_NAMES.enqueue, { p_limit: workerRequest.limit }));
@@ -275,7 +304,7 @@ export async function handleRequest(
       p_lease_seconds: LEASE_SECONDS,
     }));
     if (lease.jobs.length > workerRequest.limit) throw new WorkerError("invalid_scheduler_lease_contract", "The scheduler leased too many jobs.");
-    const results = lease.global_enabled ? await processBounded(lease.jobs, rpc, fetchImpl) : [];
+    const results = lease.global_enabled ? await processBounded(lease.jobs, rpc, calendarConnect) : [];
     return json({
       contract_version: CONTRACTS.response,
       global_enabled: lease.global_enabled,

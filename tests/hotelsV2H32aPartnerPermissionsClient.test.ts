@@ -10,6 +10,12 @@ const OTHER_PARTNER = '55555555-5555-4555-8555-555555555555';
 const CORRELATION = '66666666-6666-4666-8666-666666666666';
 const IDEMPOTENCY = '77777777-7777-4777-8777-777777777777';
 
+const SEVEN_ARCHES_COMMERCIAL_OWNER_CAPABILITIES = [
+  'edit_property_content', 'edit_property_photos', 'edit_room_content', 'edit_room_photos',
+  'create_rooms', 'edit_room_structure', 'manage_prices', 'manage_availability',
+  'process_bookings', 'view_payment_status',
+];
+
 function loadCore(): any {
   const filename = path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js');
   const context: Record<string, any> = { console, crypto: { randomUUID: () => CORRELATION } };
@@ -82,6 +88,37 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     const value = Core.validatePartnerHotelPermissions(snapshot(), HOTEL);
     expect(value.assignments[0].permission).toMatchObject({ exists: false, version: 0, has_mutation_capability: false });
     expect(Object.values(value.assignments[0].permission.capabilities)).toEqual(Array(12).fill(false));
+  });
+
+  test('keeps the exact 7 Arches commercial-owner preset inside the existing Admin capability contract', () => {
+    const preset = capabilities(SEVEN_ARCHES_COMMERCIAL_OWNER_CAPABILITIES);
+    const reviewed = Core.buildPartnerHotelPermissionsPlan(snapshot(), ASSIGNMENT, preset, {
+      hotelId: HOTEL,
+      reviewedAt: '2026-08-15T12:05:00Z',
+    });
+
+    expect(reviewed.capabilities).toEqual({
+      edit_property_content: true,
+      edit_property_photos: true,
+      edit_room_content: true,
+      edit_room_photos: true,
+      create_rooms: true,
+      edit_room_structure: true,
+      manage_prices: true,
+      manage_availability: true,
+      process_bookings: true,
+      request_booking_changes: false,
+      view_payment_status: true,
+      initiate_stripe_onboarding: false,
+    });
+    expect(reviewed).toMatchObject({
+      contract_version: 'hotels_v2_h3_2a_partner_permissions_v1',
+      decision: 'apply_partner_hotel_permissions',
+      hotel_id: HOTEL,
+      assignment_id: ASSIGNMENT,
+      partner_id: PARTNER,
+    });
+    expect(JSON.stringify(reviewed)).not.toMatch(/commercial_owner|operational_partner|architecture_version|feature_flags/);
   });
 
   test('keeps public flags OFF while accepting an authoritative External Calendar boolean', () => {

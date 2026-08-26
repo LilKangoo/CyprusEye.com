@@ -933,7 +933,7 @@ test('ADMIN-C ambiguous saves reconcile before and after commit without automati
   await expectNoBrowserIssues(page);
 });
 
-test('ADMIN-C tablet pricing Review traps focus and Calendar labels exact pricing authority', async ({ page }) => {
+test('ADMIN-C tablet pricing Review traps focus and product cards label exact pricing authority', async ({ page }) => {
   await installPricingHarness(page, { width: 768, height: 1024 });
   await page.locator(`[data-edit-pricing-plan="${PLAN_ID}"]`).click();
   await page.locator('#hotelPricingPlanForm [name="description_en"]').fill('Tablet keyboard-reviewed description');
@@ -951,22 +951,10 @@ test('ADMIN-C tablet pricing Review traps focus and Calendar labels exact pricin
   await expect(review).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 
-  await page.evaluate((fixture) => {
-    const root = window as any;
-    const clone = (value: any) => JSON.parse(JSON.stringify(value));
-    root.HotelsV2Workspace.state.calendar.anchor_date = '2026-09-01';
-    root.HotelsV2Workspace.state.calendar.view = 'week';
-    root.HotelsV2Workspace.state.calendar.data = {
-      hotel_id: fixture.hotelId, start_date: '2026-08-31', end_date: '2026-09-06',
-      snapshot_token: 'b'.repeat(64), room_rates: clone(root.__adminC.control.room_rates),
-      daily_rates: [], daily_inventory: [], calendar_overrides: [], effective_cells: [],
-      rate_rules: [], occupancy_tiers: [],
-    };
-    root.HotelsV2Workspace.state.activeTab = 'calendar';
-    root.HotelsV2Workspace.renderWorkspace();
-  }, { hotelId: HOTEL_ID });
-  await expect(page.locator(`[data-calendar-product-row="${RATE_1}"]`)).toContainText('Shared 1-tier schedule authoritative');
-  await expect(page.locator(`[data-calendar-product-row="${RATE_2}"]`)).toContainText('€100.00 Property fallback authoritative');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_1}"]`)).toContainText('Shared schedule authoritative');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_1}"]`)).toContainText('Shared schedule · 1 tier');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_2}"]`)).toContainText('€100.00');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_2}"]`)).toContainText('Property fallback authoritative');
 
   await page.evaluate((fixture) => {
     const root = window as any;
@@ -977,10 +965,12 @@ test('ADMIN-C tablet pricing Review traps focus and Calendar labels exact pricin
       nightly_rate: 140, is_active: true, version: 1, updated_at: fixture.updatedAt,
       source: 'manual', immutable_contract: null }];
     root.HotelsV2Workspace.state.pricingControl = root.__adminC.control;
+    root.HotelsV2Workspace.state.activeTab = 'pricing';
     root.HotelsV2Workspace.renderWorkspace();
   }, { rateId: RATE_2, tierId: TIER_3, hotelId: HOTEL_ID, updatedAt: UPDATED_AT });
-  await expect(page.locator(`[data-calendar-product-row="${RATE_2}"]`)).toContainText('Independent 1-tier occupancy pricing authoritative');
-  await expect(page.locator(`[data-calendar-product-row="${RATE_2}"]`)).not.toContainText('€0.00 base');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_2}"]`)).toContainText('Independent tiers authoritative');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_2}"]`)).toContainText('1 occupancy / LOS tier');
+  await expect(page.locator(`[data-pricing-product-card="${RATE_2}"]`)).toContainText('Stored base rate: €0.00 · not authoritative');
   await expectNoBrowserIssues(page);
 });
 

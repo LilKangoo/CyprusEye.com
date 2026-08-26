@@ -80,6 +80,8 @@
 .partner-hotel-workspace__card { min-width: 0; padding: 13px; border: 1px solid var(--phw-border); border-radius: 12px; background: rgba(2, 6, 23, .34); }
 .partner-hotel-workspace__card h3 { overflow-wrap: anywhere; font-size: 15px; }
 .partner-hotel-workspace__card p { margin: 6px 0 0; color: var(--phw-muted); overflow-wrap: anywhere; }
+.partner-hotel-workspace__room-facts { display: grid; gap: 5px; margin: 10px 0; padding: 0; list-style: none; color: var(--phw-muted); font-size: 13px; }
+.partner-hotel-workspace__bed-row { display: grid; grid-template-columns: minmax(130px, 1fr) 110px repeat(3, minmax(130px, 1fr)) auto; gap: 8px; align-items: end; margin: 8px 0; }
 .partner-hotel-workspace__chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .partner-hotel-workspace__chip { padding: 4px 7px; border-radius: 999px; background: rgba(14, 116, 144, .24); color: #bae6fd; font-size: 11px; }
 
@@ -150,6 +152,7 @@
   .partner-hotel-workspace__nav { display: flex; overflow-x: auto; position: sticky; top: 0; z-index: 7; }
   .partner-hotel-workspace__nav button { width: auto; flex: 0 0 auto; white-space: nowrap; }
   .partner-hotel-workspace__form-grid { grid-template-columns: 1fr; }
+  .partner-hotel-workspace__bed-row { grid-template-columns: 1fr; }
   .partner-hotel-workspace-review { width: 100%; max-width: 100%; max-height: calc(100dvh - 8px); border-radius: 18px 18px 0 0; }
   .partner-hotel-workspace-review__commercial { grid-template-columns: 1fr; }
 }

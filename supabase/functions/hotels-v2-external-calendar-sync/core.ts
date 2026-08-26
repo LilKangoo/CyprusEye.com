@@ -1,6 +1,8 @@
 export const LIMITS = Object.freeze({
   requestBytes: 16 * 1024,
   responseBytes: 2 * 1024 * 1024,
+  responseHeaderBytes: 64 * 1024,
+  responseWireOverheadBytes: 256 * 1024,
   redirects: 3,
   timeoutMs: 8_000,
   rpcTimeoutMs: 15_000,
@@ -85,7 +87,7 @@ export type SourceContract = {
   source_id: string;
   hotel_id: string;
   room_type_id: string;
-  source_type: "ical";
+  source_type: "booking_com" | "airbnb" | "ical";
   source_version: number;
   binding_version: number;
   is_enabled: boolean;
@@ -104,7 +106,7 @@ export function parseSourceContract(value: unknown): SourceContract {
       || typeof value.source_id !== "string" || !UUID.test(value.source_id)
       || typeof value.hotel_id !== "string" || !UUID.test(value.hotel_id)
       || typeof value.room_type_id !== "string" || !UUID.test(value.room_type_id)
-      || value.source_type !== "ical"
+      || !["booking_com", "airbnb", "ical"].includes(String(value.source_type))
       || !Number.isInteger(value.source_version) || Number(value.source_version) < 1
       || !Number.isInteger(value.binding_version) || Number(value.binding_version) < 1
       || typeof value.is_enabled !== "boolean" || typeof value.hotel_external_sync_enabled !== "boolean"
@@ -608,6 +610,21 @@ export function ipIsPublic(value: string): boolean {
 
 export type Resolver = (hostname: string, recordType: "A" | "AAAA") => Promise<string[]>;
 
+export type PinnedHttpsTarget = {
+  url: URL;
+  hostname: string;
+  address: string;
+  port: 443;
+};
+
+export type PinnedConnection = {
+  read(buffer: Uint8Array): Promise<number | null>;
+  write(buffer: Uint8Array): Promise<number>;
+  close(): void;
+};
+
+export type PinnedConnector = (target: PinnedHttpsTarget, deadline: number) => Promise<PinnedConnection>;
+
 async function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
   const remaining = deadline - Date.now();
   if (remaining <= 0) throw new WorkerError("calendar_fetch_timeout", "The calendar request timed out.");
@@ -628,7 +645,7 @@ export async function assertSafeHttpsUrl(
   raw: string,
   resolve: Resolver,
   deadline = Date.now() + LIMITS.timeoutMs,
-): Promise<URL> {
+): Promise<PinnedHttpsTarget> {
   if (!boundedString(raw, LIMITS.urlCharacters)) throw new WorkerError("unsafe_calendar_url", "The calendar URL is invalid.");
   let url: URL;
   try { url = new URL(raw); } catch { throw new WorkerError("unsafe_calendar_url", "The calendar URL is invalid."); }
@@ -642,7 +659,7 @@ export async function assertSafeHttpsUrl(
   const literal = parseIPv4(hostname) || parseIPv6(hostname);
   if (literal) {
     if (!ipIsPublic(hostname)) throw new WorkerError("unsafe_calendar_host", "The calendar host is not public.");
-    return url;
+    return { url, hostname, address: hostname, port: 443 };
   }
   const resolutions = await beforeDeadline(
     Promise.allSettled([resolve(hostname, "A"), resolve(hostname, "AAAA")]),
@@ -655,69 +672,308 @@ export async function assertSafeHttpsUrl(
   if (!addresses.length || addresses.some((address) => !ipIsPublic(address))) {
     throw new WorkerError("unsafe_calendar_host", "The calendar host did not resolve only to public addresses.");
   }
-  return url;
+  return { url, hostname, address: addresses[0], port: 443 };
 }
 
-export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
+type PinnedHttpResponse = { status: number; headers: Map<string, string[]>; body: Uint8Array };
 
-async function readBoundedBody(response: Response): Promise<string> {
-  const declared = response.headers.get("content-length");
-  if (declared && (!/^\d+$/.test(declared) || Number(declared) > LIMITS.responseBytes)) {
-    throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.", response.status);
+function bytesIndexOf(value: Uint8Array, needle: number[], from = 0): number {
+  outer: for (let index = from; index <= value.length - needle.length; index += 1) {
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      if (value[index + offset] !== needle[offset]) continue outer;
+    }
+    return index;
   }
-  if (!response.body) throw new WorkerError("empty_calendar_response", "The calendar response is empty.", response.status);
-  const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let total = 0;
+  return -1;
+}
+
+function decodeAscii(value: Uint8Array, code = "invalid_calendar_http_response"): string {
+  if (value.some((byte) => byte > 0x7f || byte === 0)) {
+    throw new WorkerError(code, "The calendar provider returned an invalid HTTP response.");
+  }
+  return new TextDecoder("ascii").decode(value);
+}
+
+function parseHeaderLines(value: Uint8Array): { status: number; headers: Map<string, string[]> } {
+  const text = decodeAscii(value);
+  const lines = text.split("\r\n");
+  const status = /^HTTP\/1\.[01] ([1-5][0-9]{2})(?: [\x20-\x7e]*)?$/.exec(lines.shift() || "");
+  if (!status) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned an invalid HTTP response.");
+  const headers = new Map<string, string[]>();
+  for (const line of lines) {
+    if (!line || /^[ \t]/.test(line)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid HTTP headers.");
+    const separator = line.indexOf(":");
+    if (separator < 1) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid HTTP headers.");
+    const name = line.slice(0, separator).toLowerCase();
+    const headerValue = line.slice(separator + 1).trim();
+    if (!/^[!#$%&'*+.^_`|~0-9a-z-]+$/.test(name) || /[\u0000-\u001f\u007f]/u.test(headerValue)) {
+      throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid HTTP headers.");
+    }
+    headers.set(name, [...(headers.get(name) || []), headerValue]);
+  }
+  return { status: Number(status[1]), headers };
+}
+
+function oneHeader(headers: Map<string, string[]>, name: string): string | null {
+  const values = headers.get(name);
+  if (!values?.length) return null;
+  if (values.length !== 1) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned ambiguous HTTP headers.");
+  return values[0];
+}
+
+function validateChunkTrailers(value: Uint8Array): void {
+  if (value.length === 2 && value[0] === 13 && value[1] === 10) return;
+  if (value.length < 4 || value.length > LIMITS.responseHeaderBytes
+      || value[value.length - 4] !== 13 || value[value.length - 3] !== 10
+      || value[value.length - 2] !== 13 || value[value.length - 1] !== 10) {
+    throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk trailers.");
+  }
+  const text = decodeAscii(value.subarray(0, value.length - 4));
+  for (const line of text.split("\r\n")) {
+    const separator = line.indexOf(":");
+    const name = separator > 0 ? line.slice(0, separator).toLowerCase() : "";
+    const trailerValue = separator > 0 ? line.slice(separator + 1).trim() : "";
+    if (!/^[!#$%&'*+.^_`|~0-9a-z-]+$/.test(name)
+        || /[\u0000-\u001f\u007f]/u.test(trailerValue)
+        || ["content-length", "transfer-encoding", "content-encoding", "host"].includes(name)) {
+      throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk trailers.");
+    }
+  }
+}
+
+function decodeChunkedBody(value: Uint8Array): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let position = 0;
+  let total = 0;
   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > LIMITS.responseBytes) { await reader.cancel(); throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.", response.status); }
-    chunks.push(value);
+    const lineEnd = bytesIndexOf(value, [13, 10], position);
+    if (lineEnd < 0 || lineEnd - position > 128) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    const line = decodeAscii(value.subarray(position, lineEnd));
+    const sizeToken = line.split(";", 1)[0];
+    if (!/^[0-9a-f]{1,16}$/i.test(sizeToken)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    const size = Number.parseInt(sizeToken, 16);
+    if (!Number.isSafeInteger(size)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    position = lineEnd + 2;
+    if (size === 0) {
+      const trailer = value.subarray(position);
+      validateChunkTrailers(trailer);
+      break;
+    }
+    total += size;
+    if (total > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.");
+    if (position + size + 2 > value.length || value[position + size] !== 13 || value[position + size + 1] !== 10) {
+      throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned truncated chunk data.");
+    }
+    chunks.push(value.slice(position, position + size));
+    position += size + 2;
   }
-  const bytes = new Uint8Array(total); let offset = 0;
-  chunks.forEach((chunk) => { bytes.set(chunk, offset); offset += chunk.byteLength; });
-  try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
-  catch { throw new WorkerError("invalid_calendar_encoding", "The calendar payload is not valid UTF-8.", response.status); }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
+  return result;
+}
+
+function chunkedWireLengthIfComplete(value: Uint8Array): number | null {
+  let position = 0;
+  while (true) {
+    const lineEnd = bytesIndexOf(value, [13, 10], position);
+    if (lineEnd < 0) {
+      if (value.length - position > 128) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+      return null;
+    }
+    if (lineEnd - position > 128) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    const sizeToken = decodeAscii(value.subarray(position, lineEnd)).split(";", 1)[0];
+    if (!/^[0-9a-f]{1,16}$/i.test(sizeToken)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    const size = Number.parseInt(sizeToken, 16);
+    if (!Number.isSafeInteger(size) || size > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.");
+    position = lineEnd + 2;
+    if (size === 0) {
+      if (value.length < position + 2) return null;
+      if (value[position] === 13 && value[position + 1] === 10) return position + 2;
+      const trailerEnd = bytesIndexOf(value, [13, 10, 13, 10], position);
+      if (trailerEnd < 0) {
+        if (value.length - position > LIMITS.responseHeaderBytes) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk trailers.");
+        return null;
+      }
+      const end = trailerEnd + 4;
+      validateChunkTrailers(value.subarray(position, end));
+      return end;
+    }
+    if (position + size + 2 > value.length) return null;
+    if (value[position + size] !== 13 || value[position + size + 1] !== 10) {
+      throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned invalid chunk framing.");
+    }
+    position += size + 2;
+  }
+}
+
+function responseWireLengthIfComplete(value: Uint8Array): number | null {
+  const headerEnd = bytesIndexOf(value, [13, 10, 13, 10]);
+  if (headerEnd < 0) {
+    if (value.length > LIMITS.responseHeaderBytes) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned oversized HTTP headers.");
+    return null;
+  }
+  if (headerEnd > LIMITS.responseHeaderBytes) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned oversized HTTP headers.");
+  const { headers } = parseHeaderLines(value.subarray(0, headerEnd));
+  const transferEncoding = oneHeader(headers, "transfer-encoding")?.toLowerCase() || null;
+  const contentLength = oneHeader(headers, "content-length");
+  const contentEncoding = oneHeader(headers, "content-encoding")?.toLowerCase() || "identity";
+  if (contentEncoding !== "identity" || (transferEncoding && contentLength !== null)
+      || (transferEncoding && transferEncoding !== "chunked")) {
+    throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned unsupported HTTP framing.");
+  }
+  const bodyStart = headerEnd + 4;
+  if (transferEncoding === "chunked") {
+    const length = chunkedWireLengthIfComplete(value.subarray(bodyStart));
+    return length === null ? null : bodyStart + length;
+  }
+  if (contentLength !== null) {
+    if (!/^(0|[1-9][0-9]*)$/.test(contentLength)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned an invalid Content-Length.");
+    const length = Number(contentLength);
+    if (!Number.isSafeInteger(length) || length > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.");
+    return value.length >= bodyStart + length ? bodyStart + length : null;
+  }
+  if (value.length - bodyStart > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.");
+  return null;
+}
+
+function parsePinnedHttpResponse(value: Uint8Array): PinnedHttpResponse {
+  const headerEnd = bytesIndexOf(value, [13, 10, 13, 10]);
+  if (headerEnd < 0 || headerEnd > LIMITS.responseHeaderBytes) {
+    throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned oversized or incomplete HTTP headers.");
+  }
+  const { status, headers } = parseHeaderLines(value.subarray(0, headerEnd));
+  const wireBody = value.subarray(headerEnd + 4);
+  const transferEncoding = oneHeader(headers, "transfer-encoding")?.toLowerCase() || null;
+  const contentLength = oneHeader(headers, "content-length");
+  const contentEncoding = oneHeader(headers, "content-encoding")?.toLowerCase() || "identity";
+  if (contentEncoding !== "identity" || (transferEncoding && contentLength !== null)
+      || (transferEncoding && transferEncoding !== "chunked")) {
+    throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned unsupported HTTP framing.", status);
+  }
+  let body: Uint8Array;
+  if (transferEncoding === "chunked") {
+    body = decodeChunkedBody(wireBody);
+  } else if (contentLength !== null) {
+    if (!/^(0|[1-9][0-9]*)$/.test(contentLength)) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned an invalid Content-Length.", status);
+    const length = Number(contentLength);
+    if (!Number.isSafeInteger(length) || length > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.", status);
+    if (wireBody.length !== length) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned a truncated or ambiguous body.", status);
+    body = wireBody.slice();
+  } else {
+    if (wireBody.length > LIMITS.responseBytes) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds 2 MB.", status);
+    body = wireBody.slice();
+  }
+  return { status, headers, body };
+}
+
+async function connectBeforeDeadline(connect: PinnedConnector, target: PinnedHttpsTarget, deadline: number): Promise<PinnedConnection> {
+  const pending = connect(target, deadline);
+  try {
+    return await beforeDeadline(pending, deadline);
+  } catch (error) {
+    void pending.then((connection) => connection.close()).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function writeAll(connection: PinnedConnection, value: Uint8Array, deadline: number): Promise<void> {
+  let offset = 0;
+  while (offset < value.length) {
+    const written = await beforeDeadline(connection.write(value.subarray(offset)), deadline);
+    if (!Number.isInteger(written) || written <= 0 || written > value.length - offset) {
+      throw new WorkerError("calendar_fetch_failed", "The calendar provider connection failed.");
+    }
+    offset += written;
+  }
+}
+
+async function requestPinned(target: PinnedHttpsTarget, connect: PinnedConnector, deadline: number): Promise<PinnedHttpResponse> {
+  let connection: PinnedConnection | null = null;
+  try {
+    connection = await connectBeforeDeadline(connect, target, deadline);
+    const requestTarget = `${target.url.pathname || "/"}${target.url.search}`;
+    if (/[\r\n]/.test(requestTarget)) throw new WorkerError("unsafe_calendar_url", "The calendar URL is invalid.");
+    const request = new TextEncoder().encode([
+      `GET ${requestTarget} HTTP/1.1`,
+      `Host: ${target.url.host}`,
+      "Accept: text/calendar, text/plain;q=0.8",
+      "Accept-Encoding: identity",
+      "Connection: close",
+      "User-Agent: CyprusEye-Hotels-V2-Calendar/1",
+      "",
+      "",
+    ].join("\r\n"));
+    await writeAll(connection, request, deadline);
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    let headerComplete = false;
+    const wireLimit = LIMITS.responseBytes + LIMITS.responseHeaderBytes + LIMITS.responseWireOverheadBytes;
+    while (true) {
+      const buffer = new Uint8Array(16 * 1024);
+      const read = await beforeDeadline(connection.read(buffer), deadline);
+      if (read === null) break;
+      if (!Number.isInteger(read) || read <= 0 || read > buffer.length) throw new WorkerError("calendar_fetch_failed", "The calendar provider connection failed.");
+      const chunk = buffer.slice(0, read);
+      chunks.push(chunk); total += read;
+      if (total > wireLimit) throw new WorkerError("calendar_payload_too_large", "The calendar payload exceeds its transport bound.");
+      if (!headerComplete) {
+        const joined = new Uint8Array(total); let offset = 0;
+        for (const item of chunks) { joined.set(item, offset); offset += item.length; }
+        const headerEnd = bytesIndexOf(joined, [13, 10, 13, 10]);
+        headerComplete = headerEnd >= 0;
+        if (!headerComplete && total > LIMITS.responseHeaderBytes) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned oversized HTTP headers.");
+      }
+      if (headerComplete) {
+        const joined = new Uint8Array(total); let offset = 0;
+        for (const item of chunks) { joined.set(item, offset); offset += item.length; }
+        const completeLength = responseWireLengthIfComplete(joined);
+        if (completeLength !== null) {
+          if (completeLength !== joined.length) throw new WorkerError("invalid_calendar_http_response", "The calendar provider returned an ambiguous HTTP response.");
+          break;
+        }
+      }
+    }
+    const value = new Uint8Array(total); let offset = 0;
+    for (const chunk of chunks) { value.set(chunk, offset); offset += chunk.length; }
+    return parsePinnedHttpResponse(value);
+  } finally {
+    try { connection?.close(); } catch { /* The pinned socket is always best-effort closed. */ }
+  }
+}
+
+function decodeCalendarBody(body: Uint8Array, status: number): string {
+  if (!body.length) throw new WorkerError("empty_calendar_response", "The calendar response is empty.", status);
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(body); }
+  catch { throw new WorkerError("invalid_calendar_encoding", "The calendar payload is not valid UTF-8.", status); }
 }
 
 export async function fetchCalendar(
   rawUrl: string,
-  options: { fetchImpl: FetchLike; resolve: Resolver; timeoutMs?: number },
+  options: { connect: PinnedConnector; resolve: Resolver; timeoutMs?: number },
 ): Promise<{ text: string; httpStatus: number }> {
   const deadline = Date.now() + Math.min(Math.max(options.timeoutMs ?? LIMITS.timeoutMs, 1_000), 15_000);
-  let url = await assertSafeHttpsUrl(rawUrl, options.resolve, deadline);
+  let target = await assertSafeHttpsUrl(rawUrl, options.resolve, deadline);
   for (let redirects = 0; redirects <= LIMITS.redirects; redirects += 1) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) throw new WorkerError("calendar_fetch_timeout", "The calendar request timed out.");
-    const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), remaining);
-    let response: Response;
     try {
-      response = await options.fetchImpl(url, {
-        method: "GET", redirect: "manual", signal: controller.signal, credentials: "omit",
-        referrerPolicy: "no-referrer", headers: { Accept: "text/calendar, text/plain;q=0.8" },
-      });
+      const response = await requestPinned(target, options.connect, deadline);
       if ([301, 302, 303, 307, 308].includes(response.status)) {
-        const location = response.headers.get("location");
+        const location = oneHeader(response.headers, "location");
         if (!location || redirects === LIMITS.redirects) throw new WorkerError("calendar_redirect_rejected", "The calendar redirect chain is invalid.", response.status);
-        await response.body?.cancel();
-        url = await assertSafeHttpsUrl(new URL(location, url).toString(), options.resolve, deadline);
+        target = await assertSafeHttpsUrl(new URL(location, target.url).toString(), options.resolve, deadline);
         continue;
       }
       if (response.status !== 200) {
-        await response.body?.cancel();
         throw new WorkerError("calendar_http_failure", "The calendar provider returned a non-success status.", response.status);
       }
-      const contentType = (response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+      const contentType = (oneHeader(response.headers, "content-type") || "").split(";", 1)[0].trim().toLowerCase();
       if (contentType && !["text/calendar", "text/plain", "application/octet-stream"].includes(contentType)) {
         throw new WorkerError("calendar_content_type_rejected", "The calendar response content type is unsupported.", response.status);
       }
-      return { text: await readBoundedBody(response), httpStatus: response.status };
+      return { text: decodeCalendarBody(response.body, response.status), httpStatus: response.status };
     } catch (error) {
       if (error instanceof WorkerError) throw error;
-      if (controller.signal.aborted) throw new WorkerError("calendar_fetch_timeout", "The calendar request timed out.");
       throw new WorkerError("calendar_fetch_failed", "The calendar provider could not be reached.");
-    } finally {
-      clearTimeout(timer);
     }
   }
   throw new WorkerError("calendar_redirect_rejected", "The calendar redirect chain is invalid.");

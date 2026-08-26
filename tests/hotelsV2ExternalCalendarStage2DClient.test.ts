@@ -6,7 +6,11 @@ import vm from 'node:vm';
 const HOTEL = '11111111-1111-4111-8111-111111111111';
 const ROOM = '22222222-2222-4222-8222-222222222222';
 const REMAP_ROOM = '23232323-2323-4232-8232-232323232323';
+const SEVEN_ARCHES = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+const UPPER_ROOM = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+const GROUND_ROOM = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
 const SOURCE = '33333333-3333-4333-8333-333333333333';
+const SECOND_SOURCE = '34343434-3434-4434-8434-343434343434';
 const REVIEW = '44444444-4444-4444-8444-444444444444';
 const CORRELATION = '55555555-5555-4555-8555-555555555555';
 const IDEMPOTENCY = '66666666-6666-4666-8666-666666666666';
@@ -24,7 +28,7 @@ function control(overrides: Record<string, unknown> = {}): any {
     snapshot_token: TOKEN, hotel_external_sync_enabled: false,
     rooms: [{ id: ROOM, name_i18n: { pl: 'Pokój', en: 'Room', he: 'חדר' }, status: 'active', version: 1 }],
     sources: [{
-      id: SOURCE, hotel_id: HOTEL, room_type_id: ROOM, code: 'airbnb-upper', source_type: 'ical',
+      id: SOURCE, hotel_id: HOTEL, room_type_id: ROOM, code: 'airbnb-upper', source_type: 'airbnb',
       is_enabled: false, review_status: 'reviewed', priority: 100, version: 1,
       updated_at: '2026-08-25T12:00:00Z', secret_configured: true, binding_version: 1,
       sync_interval_minutes: 60, units_per_event: 1,
@@ -82,7 +86,7 @@ function rotatePreview(Core: any, snapshot = control()): any {
 
 function updatePreview(Core: any, snapshot = control(), targetRoomId = ROOM): any {
   const payload = {
-    room_type_id: targetRoomId, code: 'airbnb-upper-reviewed', sync_interval_minutes: 120,
+    room_type_id: targetRoomId, code: 'airbnb-upper-reviewed', source_type: 'airbnb', sync_interval_minutes: 120,
     units_per_event: 1, priority: 90,
   };
   const draft = Core.buildExternalCalendarDraft(snapshot, {
@@ -97,9 +101,10 @@ function updatePreview(Core: any, snapshot = control(), targetRoomId = ROOM): an
       changed: true, blocking_reasons: [],
       impacts: [{
         entity: 'calendar_source', action: 'update', id: SOURCE, changed: true,
-        fields: ['code', 'priority', 'room_type_id', 'sync_interval_minutes', 'units_per_event'],
+        fields: ['code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event'],
         before: {
           code: original.code, priority: original.priority, room_type_id: original.room_type_id,
+          source_type: original.source_type,
           sync_interval_minutes: original.sync_interval_minutes, units_per_event: original.units_per_event,
         },
         after: payload, affected_room_type_ids: [...new Set([original.room_type_id, targetRoomId])].sort(), from: null, to: null,
@@ -120,7 +125,7 @@ function updatePreview(Core: any, snapshot = control(), targetRoomId = ROOM): an
 
 function createPreview(Core: any, snapshot = control()): any {
   const payload = {
-    room_type_id: ROOM, code: 'booking-upper-reviewed', sync_interval_minutes: 180,
+    room_type_id: ROOM, code: 'booking-upper-reviewed', source_type: 'booking_com', sync_interval_minutes: 180,
     units_per_event: 1, priority: 80,
   };
   const draft = Core.buildExternalCalendarDraft(snapshot, {
@@ -134,7 +139,7 @@ function createPreview(Core: any, snapshot = control()): any {
       changed: true, blocking_reasons: [],
       impacts: [{
         entity: 'calendar_source', action: 'create', id: CREATED_SOURCE, changed: true,
-        fields: ['code', 'priority', 'room_type_id', 'sync_interval_minutes', 'units_per_event'],
+        fields: ['code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event'],
         before: null, after: payload, affected_room_type_ids: [ROOM], from: null, to: null,
       }],
       reviewed_plan: {
@@ -155,7 +160,9 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
   const Core = loadAdminCore();
 
   test('accepts only the redacted exact control and fails closed on private/raw fields or inconsistent activation', () => {
-    expect(Core.normalizeExternalCalendarControl(control(), { actorType: 'admin', hotelId: HOTEL }).sources[0].health.last_block_count).toBe(6);
+    const normalized = Core.normalizeExternalCalendarControl(control(), { actorType: 'admin', hotelId: HOTEL });
+    expect(normalized.sources[0].health.last_block_count).toBe(6);
+    expect(normalized.sources[0].source_type).toBe('airbnb');
     const leaked = control(); leaked.sources[0].ical_url = ICAL_URL;
     expect(() => Core.normalizeExternalCalendarControl(leaked, { actorType: 'admin' })).toThrow('unsupported or private fields');
     const raw = control(); raw.sources[0].configuration = { url: ICAL_URL };
@@ -164,6 +171,30 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
     expect(() => Core.normalizeExternalCalendarControl(activated, { actorType: 'admin' })).toThrow('inconsistent with activation');
     const unconfigured = control(); unconfigured.sources[0].secret_configured = false; unconfigured.sources[0].binding_version = null;
     expect(Core.normalizeExternalCalendarControl(unconfigured).sources[0].binding_version).toBeNull();
+    const foreignProvider = control(); foreignProvider.sources[0].source_type = 'booking';
+    expect(() => Core.normalizeExternalCalendarControl(foreignProvider)).toThrow('invalid, foreign');
+  });
+
+  test('accepts both exact 7 Arches Room mappings with honest EN-only names and no fabricated translations', () => {
+    const sourceFixture = control().sources[0];
+    const sevenArches = control({
+      hotel_id: SEVEN_ARCHES,
+      rooms: [
+        { id: UPPER_ROOM, name_i18n: { en: 'Upper Floor Apartment' }, status: 'active', version: 21 },
+        { id: GROUND_ROOM, name_i18n: { en: 'Ground Floor Apartment' }, status: 'active', version: 20 },
+      ],
+      sources: [
+        { ...sourceFixture, hotel_id: SEVEN_ARCHES, room_type_id: UPPER_ROOM, source_type: 'booking_com', code: 'booking-upper' },
+        { ...sourceFixture, id: SECOND_SOURCE, hotel_id: SEVEN_ARCHES, room_type_id: GROUND_ROOM, source_type: 'airbnb', code: 'airbnb-ground' },
+      ],
+    });
+    const normalized = Core.normalizeExternalCalendarControl(sevenArches, { actorType: 'admin', hotelId: SEVEN_ARCHES });
+    expect(normalized.rooms.map((room: any) => room.id)).toEqual([UPPER_ROOM, GROUND_ROOM]);
+    expect(normalized.rooms[0].name_i18n).toEqual({ en: 'Upper Floor Apartment' });
+    expect(normalized.rooms[1].name_i18n).toEqual({ en: 'Ground Floor Apartment' });
+    expect(normalized.sources.map((source: any) => [source.source_type, source.room_type_id])).toEqual([
+      ['booking_com', UPPER_ROOM], ['airbnb', GROUND_ROOM],
+    ]);
   });
 
   test('builds exact review-first drafts, redacts/fingerprint-binds URL plans, and supports disabled-source secret clear', () => {
@@ -180,6 +211,17 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
       payload: { source_id: SOURCE }, reason: 'Clear exact private binding',
     });
     expect(clear.intent.payload).toEqual({ source_id: SOURCE });
+    const providerDraft = Core.buildExternalCalendarDraft(control(), {
+      entity: 'calendar_source', action: 'update', id: SOURCE, expected_version: 1,
+      payload: {
+        room_type_id: ROOM, code: 'airbnb-upper', source_type: 'airbnb',
+        sync_interval_minutes: 60, units_per_event: 1, priority: 100,
+      },
+      reason: 'Keep exact Airbnb provider and Room mapping',
+    });
+    expect(Object.keys(providerDraft.intent.payload).sort()).toEqual([
+      'code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event',
+    ]);
   });
 
   test('binds action-specific originals and every exact impact key and value to the loaded control', () => {
@@ -329,7 +371,10 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     expect(files).toContain("state.root.dir = state.language === 'he' ? 'rtl' : 'ltr'");
     expect(files).toContain('Kalendarze zewnętrzne');
     expect(files).toContain('יומנים חיצוניים');
+    expect(files).toContain('Ogólny iCal');
+    expect(files).toContain('iCal כללי');
     expect(files).toContain('externalCalendarText(source.health.status)');
+    expect(files).toContain("workspace.assignment.capabilities.manage_availability !== true");
   });
 
   test('wires both responsive reviewed UIs with masked secrets, disabled activation and no direct mutation retry', () => {
@@ -345,6 +390,16 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     ]) expect(partner).toContain(marker);
     expect(admin).toContain("source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'");
     expect(partner).toContain("source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'");
+    for (const sourceType of ['booking_com', 'airbnb', 'ical']) {
+      expect(admin).toContain(`[\'${sourceType}\'`);
+      expect(partner).toContain(`[\'${sourceType}\'`);
+    }
+    expect(admin).toContain('name="source_type"');
+    expect(partner).toContain('name="source_type"');
+    expect(admin).toContain("source_type: String(fd.get('source_type') || '')");
+    expect(partner).toContain("source_type: String(data.get('source_type') || '')");
+    expect(admin).toContain('externalCalendarProviderLabel(source.source_type)');
+    expect(partner).toContain('externalCalendarProviderLabel(source.source_type)');
     expect(admin).toContain("onClose: () => Repository.clearExternalCalendarReviewedPlan()");
     expect(partner).toContain("if (state.pending?.domain === 'external_calendar') Repository.clearReviewedPlans()");
     expect(admin).not.toMatch(/ical_url[^\n]{0,120}(?:value=|textContent|innerHTML)/);

@@ -20,8 +20,19 @@
   const HOTEL_PAYMENT_METHODS = Object.freeze(['bank_transfer', 'cash', 'card', 'online']);
   const HOTEL_COMMISSION_MODES = Object.freeze(['per_allocated_room_per_night', 'percent_booking_total']);
   const HOTEL_CALENDAR_SOURCES = Object.freeze(['manual', 'booking_com', 'airbnb', 'ical']);
+  const EXTERNAL_CALENDAR_SOURCE_TYPES = Object.freeze(['booking_com', 'airbnb', 'ical']);
   const H3_REVIEW_STATUSES = Object.freeze(['requires_review', 'reviewed', 'disabled']);
   const H3_2A_PARTNER_PERMISSIONS_CONTRACT = 'hotels_v2_h3_2a_partner_permissions_v1';
+  const PARTNER_PROPERTY_PROPOSALS_ADMIN_CONTRACT = 'hotels_v2_seven_arches_property_proposals_admin_v1';
+  const PARTNER_PROPERTY_PROPOSAL_REQUEST_CONTRACT = 'hotels_v2_seven_arches_property_proposal_review_request_v1';
+  const PARTNER_PROPERTY_PROPOSAL_PREVIEW_CONTRACT = 'hotels_v2_seven_arches_property_proposal_admin_preview_v1';
+  const PARTNER_PROPERTY_PROPOSAL_PLAN_CONTRACT = 'hotels_v2_seven_arches_property_proposal_admin_plan_v1';
+  const PARTNER_PROPERTY_PROPOSAL_APPLY_CONTRACT = 'hotels_v2_seven_arches_property_proposal_admin_apply_v1';
+  const SEVEN_ARCHES_PRICING_ACTIVATION_SNAPSHOT_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_snapshot_v1';
+  const SEVEN_ARCHES_PRICING_ACTIVATION_DRAFT_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_draft_v1';
+  const SEVEN_ARCHES_PRICING_ACTIVATION_PREVIEW_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_preview_v1';
+  const SEVEN_ARCHES_PRICING_ACTIVATION_PLAN_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_plan_v1';
+  const SEVEN_ARCHES_PRICING_ACTIVATION_APPLY_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_apply_result_v1';
   const PRICING_CONTROL_READ_CONTRACT = 'hotels_v2_admin_c_pricing_control_v1';
   const PRICING_CONTROL_CONTRACT = 'hotels_v2_admin_c_pricing_plan_v1';
   const PRICING_PREVIEW_CONTRACT = 'hotels_v2_admin_c_pricing_preview_v1';
@@ -1952,7 +1963,7 @@
     };
   }
 
-  function migrationPreview(workspace) {
+  function migrationPreview(workspace, evidence = {}) {
     const normalized = normalizeWorkspace(workspace);
     const property = normalized.property;
     const legacyRooms = asArray(property.room_types);
@@ -1971,6 +1982,27 @@
     ) && rules.length === 63
       && guestCounts.join(',') === '2,3,4,5,6,7,8'
       && stayThresholds.join(',') === '2,3,4,5,6,7,8,9,10';
+    const promotionEvidence = asObject(evidence.pricingPromotionPreview);
+    const promotionParity = asObject(promotionEvidence.parity);
+    const promotionStatus = asText(asObject(promotionEvidence.promotion).status);
+    const activationEvidence = asObject(evidence.pricingActivation);
+    const activationParity = asObject(asObject(activationEvidence.h3_1p).parity);
+    const parityEvidence = Number.isInteger(activationParity.total_case_count)
+      ? activationParity : promotionParity;
+    const parityCaseCount = Number.isInteger(parityEvidence.total_case_count)
+      ? parityEvidence.total_case_count
+      : null;
+    const parityMismatchCount = Number.isInteger(parityEvidence.total_mismatch_count)
+      ? parityEvidence.total_mismatch_count
+      : null;
+    const h31pParityVerified = isSevenArchesMatrix
+      && (promotionStatus === 'reviewed' || activationEvidence.status === 'active')
+      && parityCaseCount === 70
+      && parityMismatchCount === 0;
+    const h31pActivated = h31pParityVerified && activationEvidence.status === 'active';
+    const h31pMismatchObserved = isSevenArchesMatrix
+      && parityMismatchCount !== null
+      && parityMismatchCount > 0;
     const requiresOccupancyLosModel = guestCounts.length > 1 || stayThresholds.length > 1;
     const hasPropertyLevelAccommodation = (
       property.architecture_version === 'legacy'
@@ -2074,9 +2106,18 @@
         requires_occupancy_los_model: requiresOccupancyLosModel,
         h1_rate_rules_compatible: !requiresOccupancyLosModel,
         oracle: isSevenArchesMatrix
-          ? 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH'
+          ? h31pMismatchObserved
+            ? 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH'
+            : h31pParityVerified
+              ? 'HOTEL_7_ARCHES_H3_1P_70_CASE_PARITY_VERIFIED'
+              : 'HOTEL_7_ARCHES_H3_1P_PARITY_REVIEW_REQUIRED'
           : 'HOTEL_LEGACY_SHADOW_PRICE_MISMATCH',
-        conversion_status: requiresOccupancyLosModel ? 'BLOCKED_PENDING_H2B_MODEL' : 'REVIEW_REQUIRED',
+        oracle_status: h31pMismatchObserved ? 'MISMATCH' : (h31pParityVerified ? 'VERIFIED' : 'REVIEW_REQUIRED'),
+        verified_case_count: parityCaseCount,
+        verified_mismatch_count: parityMismatchCount,
+        conversion_status: h31pParityVerified
+          ? h31pActivated ? 'H3_1P_PARITY_VERIFIED_ACTIVE_SHADOW' : 'H3_1P_PARITY_VERIFIED_INACTIVE'
+          : requiresOccupancyLosModel ? 'BLOCKED_PENDING_H2B_MODEL' : 'REVIEW_REQUIRED',
       },
       legacy_product: hasPropertyLevelAccommodation ? {
         kind: 'property_level_accommodation',
@@ -3340,7 +3381,7 @@
     if (typeof value !== 'string' || value.length < 1 || value.length > 2048
         || value !== value.trim() || /[\s\u0000-\u001f\u007f]/u.test(value)) return false;
     try {
-      const parsed = new URL(value);
+      const parsed = new URL(value, 'https://cypruseye.com');
       return parsed.protocol === 'https:' && Boolean(parsed.hostname)
         && !parsed.username && !parsed.password;
     } catch (_error) {
@@ -3364,6 +3405,478 @@
         && value[key] === value[key].trim()
         && value[key].length >= 1 && value[key].length <= maximumLength
         && !/[\u0000-\u001f\u007f]/.test(value[key]));
+  }
+
+  function stableJson(value) {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function exactCanonicalUuid(value) {
+    return typeof value === 'string' && normalizeUuid(value) === value;
+  }
+
+  function exactNullableText(value, maximum) {
+    return value === null || (typeof value === 'string' && value === value.trim()
+      && value.length <= maximum && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(value));
+  }
+
+  function exactProposalUrl(value) {
+    if (value === null) return true;
+    if (typeof value !== 'string' || value !== value.trim() || value.length < 1 || value.length > 2048
+        || /[\s\u0000-\u001f\u007f]/u.test(value)) return false;
+    try {
+      const parsed = new URL(value);
+      return ['https:', 'http:'].includes(parsed.protocol) && Boolean(parsed.hostname)
+        && !parsed.username && !parsed.password;
+    } catch (_error) { return false; }
+  }
+
+  function exactProposalI18n(value, maximum, requireEnglish = false) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const keys = Object.keys(value);
+    return keys.every((key) => LANGUAGES.includes(key))
+      && keys.every((key) => typeof value[key] === 'string' && value[key] === value[key].trim()
+        && value[key].length >= 1 && value[key].length <= maximum)
+      && (!requireEnglish || (typeof value.en === 'string' && value.en.length > 0));
+  }
+
+  function validatePartnerPropertyProposalContent(value) {
+    if (!hasExactKeys(value, [
+      'title_i18n', 'description_i18n', 'city', 'address_line', 'district', 'postal_code',
+      'country', 'latitude', 'longitude', 'google_maps_url', 'amenities', 'check_in_from',
+      'check_out_until',
+    ]) || !exactProposalI18n(value.title_i18n, 240, true)
+      || !exactProposalI18n(value.description_i18n, 12000)
+      || !exactNullableText(value.city, 200) || !exactNullableText(value.address_line, 500)
+      || !exactNullableText(value.district, 200) || !exactNullableText(value.postal_code, 40)
+      || !exactNullableText(value.country, 100)
+      || !(value.google_maps_url === null || isSupportedGoogleMapsUrl(value.google_maps_url))
+      || (value.latitude !== null && !isExactNumber(value.latitude, -90, 90))
+      || (value.longitude !== null && !isExactNumber(value.longitude, -180, 180))
+      || !Array.isArray(value.amenities) || value.amenities.length > 200
+      || value.amenities.some((entry) => typeof entry !== 'string' || entry !== entry.trim() || !entry || entry.length > 160)
+      || new Set(value.amenities).size !== value.amenities.length
+      || !(value.check_in_from === null || (typeof value.check_in_from === 'string' && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value.check_in_from)))
+      || !(value.check_out_until === null || (typeof value.check_out_until === 'string' && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value.check_out_until)))) {
+      throw new Error('Partner property proposal content is not an exact safe Admin projection.');
+    }
+    return clone(value);
+  }
+
+  function validatePartnerPropertyProposalPhotos(value) {
+    if (!hasExactKeys(value, ['cover_image_url', 'photos']) || !exactProposalUrl(value.cover_image_url)
+        || !Array.isArray(value.photos) || value.photos.length > 50
+        || value.photos.some((entry) => !exactProposalUrl(entry))
+        || new Set(value.photos).size !== value.photos.length
+        || (value.cover_image_url !== null && !value.photos.includes(value.cover_image_url))) {
+      throw new Error('Partner property proposal photos are not an exact safe Admin projection.');
+    }
+    return clone(value);
+  }
+
+  function validatePartnerPropertyProposal(row, hotelId) {
+    if (!hasExactKeys(row, [
+      'id', 'assignment_id', 'partner_id', 'hotel_id', 'status', 'version',
+      'source_property_updated_at', 'content', 'photos', 'created_at', 'updated_at',
+    ]) || !exactCanonicalUuid(row.id) || !exactCanonicalUuid(row.assignment_id)
+      || !exactCanonicalUuid(row.partner_id) || row.hotel_id !== hotelId
+      || row.status !== 'pending_admin_review' || !isExactInteger(row.version, 1)
+      || !isExactIsoTimestamp(row.source_property_updated_at)
+      || !isExactIsoTimestamp(row.created_at) || !isExactIsoTimestamp(row.updated_at)) {
+      throw new Error('Partner property proposal identity, version or lifecycle is invalid.');
+    }
+    if (!row.content || typeof row.content !== 'object' || Array.isArray(row.content)
+        || !row.photos || typeof row.photos !== 'object' || Array.isArray(row.photos)) {
+      throw new Error('Partner property proposal content/photo envelope is invalid.');
+    }
+    const content = Object.keys(row.content).length
+      ? validatePartnerPropertyProposalContent(row.content) : {};
+    const photos = Object.keys(row.photos).length
+      ? validatePartnerPropertyProposalPhotos(row.photos) : {};
+    if (!Object.keys(content).length && !Object.keys(photos).length) throw new Error('An empty Partner property proposal cannot be reviewed.');
+    return Object.freeze({ ...clone(row), content, photos });
+  }
+
+  function validatePartnerPropertyProposalsControl(value, expectedHotelId = null) {
+    const hotelId = exactCanonicalUuid(value?.hotel_id) ? value.hotel_id : '';
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'property_updated_at', 'proposals', 'public_change'])
+        || value.contract_version !== PARTNER_PROPERTY_PROPOSALS_ADMIN_CONTRACT
+        || hotelId !== SEVEN_ARCHES_PROPERTY_ID || (expectedHotelId && hotelId !== expectedHotelId)
+        || !isExactIsoTimestamp(value.property_updated_at) || value.public_change !== false
+        || !Array.isArray(value.proposals) || value.proposals.length > 100) {
+      throw new Error('Partner property proposal Admin control is invalid or cross-property.');
+    }
+    const proposals = value.proposals.map((row) => validatePartnerPropertyProposal(row, hotelId));
+    if (new Set(proposals.map((row) => row.id)).size !== proposals.length) {
+      throw new Error('Partner property proposal Admin control contains duplicate rows.');
+    }
+    return Object.freeze({ ...clone(value), proposals });
+  }
+
+  function validatePartnerPropertyProposalReviewRequest(value, control) {
+    const reviewedControl = validatePartnerPropertyProposalsControl(control, value?.hotel_id);
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'proposal_id', 'proposal_version', 'action', 'reason'])
+        || value.contract_version !== PARTNER_PROPERTY_PROPOSAL_REQUEST_CONTRACT
+        || value.hotel_id !== reviewedControl.hotel_id || !exactCanonicalUuid(value.proposal_id)
+        || !isExactInteger(value.proposal_version, 1) || !['accept', 'reject'].includes(value.action)
+        || typeof value.reason !== 'string' || value.reason !== value.reason.trim()
+        || value.reason.length < 3 || value.reason.length > 500
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(value.reason)) {
+      throw new Error('Partner property proposal Admin Review request is invalid.');
+    }
+    const proposal = reviewedControl.proposals.find((row) => row.id === value.proposal_id);
+    if (!proposal || proposal.version !== value.proposal_version
+        || (value.action === 'accept' && proposal.source_property_updated_at !== reviewedControl.property_updated_at)) {
+      throw new Error('Partner property proposal Admin Review target is stale or missing.');
+    }
+    return Object.freeze(clone(value));
+  }
+
+  function partnerPropertyProposalExpectedOriginal(proposal) {
+    return {
+      status: proposal.status, version: proposal.version,
+      source_property_updated_at: proposal.source_property_updated_at,
+      content: clone(proposal.content), photos: clone(proposal.photos), updated_at: proposal.updated_at,
+    };
+  }
+
+  function validatePartnerPropertyProposalPropertyPlan(value, plan, proposal) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'expected_property_updated_at', 'expected_operational_profile_version', 'reviewed_at', 'expected_original', 'payload'])
+        || value.contract_version !== 'hotels_v2_admin_b_property_control_v1'
+        || value.hotel_id !== plan.hotel_id || value.expected_property_updated_at !== plan.expected_property_updated_at
+        || !isExactInteger(value.expected_operational_profile_version, 0)
+        || value.reviewed_at !== plan.reviewed_at || !value.expected_original || !value.payload
+        || stableJson(Object.keys(value.expected_original).sort()) !== stableJson(Object.keys(value.payload).sort())) {
+      throw new Error('Accepted Partner proposal omitted its exact ADMIN-B property plan.');
+    }
+    const proposedPayload = { ...clone(proposal.content), ...clone(proposal.photos) };
+    if (stableJson(value.payload) !== stableJson(proposedPayload) || !Object.keys(value.payload).length) {
+      throw new Error('Accepted Partner proposal ADMIN-B payload differs from the exact proposal.');
+    }
+    return clone(value);
+  }
+
+  function validatePartnerPropertyProposalPlan(value, request, control) {
+    const reviewedRequest = validatePartnerPropertyProposalReviewRequest(request, control);
+    const proposal = control.proposals.find((row) => row.id === reviewedRequest.proposal_id);
+    if (!hasExactKeys(value, [
+      'contract_version', 'review_id', 'hotel_id', 'proposal_id', 'proposal_version', 'action',
+      'reason', 'expected_property_updated_at', 'reviewed_at', 'expires_at', 'expected_original',
+      'property_plan', 'plan_fingerprint',
+    ]) || value.contract_version !== PARTNER_PROPERTY_PROPOSAL_PLAN_CONTRACT
+      || !exactCanonicalUuid(value.review_id) || value.hotel_id !== reviewedRequest.hotel_id
+      || value.proposal_id !== reviewedRequest.proposal_id || value.proposal_version !== reviewedRequest.proposal_version
+      || value.action !== reviewedRequest.action || value.reason !== reviewedRequest.reason
+      || value.expected_property_updated_at !== control.property_updated_at
+      || !isExactIsoTimestamp(value.reviewed_at) || !isExactIsoTimestamp(value.expires_at)
+      || Date.parse(value.expires_at) <= Date.parse(value.reviewed_at)
+      || !isExactSnapshotToken(value.plan_fingerprint)
+      || stableJson(value.expected_original) !== stableJson(partnerPropertyProposalExpectedOriginal(proposal))) {
+      throw new Error('Partner property proposal reviewed plan is invalid or not bound to the exact proposal.');
+    }
+    if (value.action === 'accept') validatePartnerPropertyProposalPropertyPlan(value.property_plan, value, proposal);
+    else if (value.property_plan !== null) throw new Error('Rejected Partner property proposal must not contain a property mutation plan.');
+    return Object.freeze(clone(value));
+  }
+
+  function validatePartnerPropertyProposalPreview(value, request, control) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'changed', 'blocking_reasons', 'impact', 'reviewed_plan'])
+        || value.contract_version !== PARTNER_PROPERTY_PROPOSAL_PREVIEW_CONTRACT
+        || value.hotel_id !== request.hotel_id || value.changed !== true
+        || !Array.isArray(value.blocking_reasons) || value.blocking_reasons.length
+        || !hasExactKeys(value.impact, ['entity', 'action', 'id', 'changed', 'before', 'after'])
+        || value.impact.entity !== 'property_proposal' || value.impact.action !== request.action
+        || value.impact.id !== request.proposal_id || value.impact.changed !== true) {
+      throw new Error('Partner property proposal Admin preview is invalid or hides blockers.');
+    }
+    const plan = validatePartnerPropertyProposalPlan(value.reviewed_plan, request, control);
+    if (stableJson(value.impact.before) !== stableJson(plan.expected_original)) {
+      throw new Error('Partner property proposal Admin preview before-state differs from the reviewed plan.');
+    }
+    const proposal = control.proposals.find((row) => row.id === request.proposal_id);
+    const expectedAfter = request.action === 'accept'
+      ? { ...clone(proposal.content), ...clone(proposal.photos) } : { status: 'rejected' };
+    if (stableJson(value.impact.after) !== stableJson(expectedAfter)) {
+      throw new Error('Partner property proposal Admin preview after-state differs from the exact action.');
+    }
+    return Object.freeze({ ...clone(value), reviewed_plan: plan });
+  }
+
+  function validatePartnerPropertyProposalActivity(value, plan, correlationId) {
+    if (!hasExactKeys(value, ['id', 'hotel_id', 'entity_type', 'entity_id', 'action', 'before_state', 'after_state', 'actor_type', 'actor_id', 'source', 'correlation_id', 'created_at'])
+        || !exactCanonicalUuid(value.id) || value.hotel_id !== plan.hotel_id
+        || value.entity_type !== 'property' || value.entity_id !== plan.hotel_id || value.action !== 'update'
+        || value.actor_type !== 'admin' || !exactCanonicalUuid(value.actor_id)
+        || value.source !== 'hotels_v2_h3_2b_property_proposal_admin_review'
+        || value.correlation_id !== correlationId || !isExactIsoTimestamp(value.created_at)
+        || !hasExactKeys(value.before_state, ['proposal_id', 'status', 'version'])
+        || !hasExactKeys(value.after_state, ['proposal_id', 'status', 'version', 'review_id', 'reason'])
+        || value.before_state.proposal_id !== plan.proposal_id || value.before_state.status !== 'pending_admin_review'
+        || value.before_state.version !== plan.proposal_version || value.after_state.proposal_id !== plan.proposal_id
+        || value.after_state.status !== (plan.action === 'accept' ? 'accepted' : 'rejected')
+        || value.after_state.version !== plan.proposal_version + 1 || value.after_state.review_id !== plan.review_id
+        || value.after_state.reason !== plan.reason) {
+      throw new Error('Partner property proposal terminal activity is invalid or not bound to the reviewed action.');
+    }
+    return clone(value);
+  }
+
+  function validatePartnerPropertyProposalApplyResult(value, plan, correlationId) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'proposal_id', 'action', 'status', 'correlation_id', 'replayed', 'admin_b_result', 'terminal_activity', 'control'])
+        || value.contract_version !== PARTNER_PROPERTY_PROPOSAL_APPLY_CONTRACT
+        || value.hotel_id !== plan.hotel_id || value.proposal_id !== plan.proposal_id
+        || value.action !== plan.action || value.status !== (plan.action === 'accept' ? 'accepted' : 'rejected')
+        || value.correlation_id !== correlationId || typeof value.replayed !== 'boolean') {
+      throw new Error('Partner property proposal Admin Save receipt is invalid or cross-review.');
+    }
+    if (plan.action === 'accept') {
+      if (!hasExactKeys(value.admin_b_result, ['ok', 'contract_version', 'hotel_id', 'changed', 'property_changed', 'operational_profile_changed', 'correlation_id', 'workspace', 'content_control', 'activity'])
+          || value.admin_b_result.ok !== true || value.admin_b_result.contract_version !== 'hotels_v2_admin_b_property_control_v1'
+          || value.admin_b_result.hotel_id !== plan.hotel_id || value.admin_b_result.correlation_id !== correlationId
+          || value.admin_b_result.changed !== true || value.admin_b_result.property_changed !== true
+          || value.admin_b_result.operational_profile_changed !== false
+          || !Array.isArray(value.admin_b_result.activity) || value.admin_b_result.activity.length !== 1) {
+        throw new Error('Accepted Partner proposal returned an invalid ADMIN-B receipt.');
+      }
+    } else if (value.admin_b_result !== null) throw new Error('Rejected Partner proposal unexpectedly returned a property mutation receipt.');
+    validatePartnerPropertyProposalActivity(value.terminal_activity, plan, correlationId);
+    const control = validatePartnerPropertyProposalsControl(value.control, plan.hotel_id);
+    if (control.proposals.some((row) => row.id === plan.proposal_id)) throw new Error('Terminal Partner proposal remains pending after Save.');
+    return Object.freeze({ ...clone(value), control });
+  }
+
+  const SEVEN_ARCHES_ACTIVATION_BLOCKERS = Object.freeze([
+    'legacy_property_drift', 'feature_flags_not_off', 'h3_1p_receipt_drift',
+    'h3_1p_parity_drift', 'allocation_5_10_drift', 'pricing_graph_drift',
+    'payment_policy_drift', 'commission_policy_drift', 'unreviewed_activation_state',
+    'activated_graph_drift',
+  ]);
+
+  function exactActivationI18n(value, maximum, allowLf, requireAll = false) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const keys = Object.keys(value);
+    if (keys.some((key) => !LANGUAGES.includes(key))
+        || (requireAll && !LANGUAGES.every((key) => Object.hasOwn(value, key)))) return false;
+    return keys.every((key) => {
+      if (typeof value[key] !== 'string') return false;
+      const normalized = value[key].replace(/\r\n?/g, '\n');
+      if (normalized !== normalized.trim() || normalized.startsWith('\n') || normalized.endsWith('\n')
+          || normalized.length < 1 || normalized.length > maximum) return false;
+      return allowLf
+        ? !/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u.test(normalized)
+        : !/[\u0000-\u001f\u007f-\u009f]/u.test(normalized);
+    });
+  }
+
+  function validateSevenArchesPricingActivationSnapshot(value) {
+    if (!hasExactKeys(value, [
+      'contract_version', 'hotel_id', 'status', 'snapshot_token', 'public_change',
+      'legacy_authoritative', 'feature_flags', 'h3_1p', 'rate_plan', 'room_rates',
+      'shared_schedule', 'preview_schedule', 'payment_policy', 'commission_policy',
+      'blocking_reasons',
+    ]) || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_SNAPSHOT_CONTRACT
+      || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID
+      || !['ready', 'active', 'blocked'].includes(value.status)
+      || !isExactSnapshotToken(value.snapshot_token) || value.public_change !== false
+      || value.legacy_authoritative !== true) {
+      throw new Error('7 Arches pricing activation snapshot identity or safety envelope is invalid.');
+    }
+    const flagKeys = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
+    if (!hasExactKeys(value.feature_flags, flagKeys)
+        || flagKeys.some((key) => typeof value.feature_flags[key] !== 'boolean')) {
+      throw new Error('7 Arches pricing activation feature flags are invalid.');
+    }
+    if (!Array.isArray(value.blocking_reasons) || value.blocking_reasons.length > SEVEN_ARCHES_ACTIVATION_BLOCKERS.length
+        || new Set(value.blocking_reasons).size !== value.blocking_reasons.length
+        || value.blocking_reasons.some((reason) => !SEVEN_ARCHES_ACTIVATION_BLOCKERS.includes(reason))
+        || (value.status === 'blocked') !== (value.blocking_reasons.length > 0)
+        || (value.status !== 'blocked' && flagKeys.some((key) => value.feature_flags[key] !== false))) {
+      throw new Error('7 Arches pricing activation blockers or feature-flag state are inconsistent.');
+    }
+    const parityKeys = ['threshold_case_count', 'threshold_mismatch_count', 'long_stay_case_count', 'long_stay_mismatch_count', 'total_case_count', 'total_mismatch_count', 'fingerprint'];
+    if (!hasExactKeys(value.h3_1p, ['promotion_review_id', 'source_fingerprint', 'parity', 'allocation_exact'])
+        || !exactCanonicalUuid(value.h3_1p.promotion_review_id)
+        || !isExactFingerprint(value.h3_1p.source_fingerprint, false)
+        || value.h3_1p.allocation_exact !== true || !hasExactKeys(value.h3_1p.parity, parityKeys)
+        || !isExactFingerprint(value.h3_1p.parity.fingerprint, false)
+        || parityKeys.slice(0, -1).some((key) => !isExactInteger(value.h3_1p.parity[key], 0))) {
+      throw new Error('7 Arches H3.1P activation evidence is invalid.');
+    }
+    if (value.status !== 'blocked' && (value.h3_1p.source_fingerprint !== SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT
+        || value.h3_1p.parity.total_case_count !== 70 || value.h3_1p.parity.total_mismatch_count !== 0)) {
+      throw new Error('7 Arches activation cannot hide H3.1P parity drift.');
+    }
+    const plan = value.rate_plan;
+    if (!hasExactKeys(plan, ['id', 'version', 'name_i18n', 'description_i18n', 'cancellation_policy', 'is_active', 'review_status'])
+        || plan.id !== SEVEN_ARCHES_SHADOW_IDS.rate_plan || !isExactInteger(plan.version, 1)
+        || !exactActivationI18n(plan.name_i18n, 240, false)
+        || !(Object.keys(asObject(plan.description_i18n)).length === 0 || exactActivationI18n(plan.description_i18n, 5000, true))
+        || stableJson(plan.cancellation_policy) !== stableJson({ type: 'non_refundable' })
+        || typeof plan.is_active !== 'boolean' || plan.review_status !== 'reviewed') {
+      throw new Error('7 Arches activation Rate Plan projection is invalid.');
+    }
+    if (!Array.isArray(value.room_rates) || value.room_rates.length !== 2) throw new Error('7 Arches activation requires exactly two Room Rates.');
+    const rateIds = [SEVEN_ARCHES_SHADOW_IDS.upper_room_rate, SEVEN_ARCHES_SHADOW_IDS.ground_room_rate];
+    const roomIds = [SEVEN_ARCHES_SHADOW_IDS.upper_room_type, SEVEN_ARCHES_SHADOW_IDS.ground_room_type];
+    value.room_rates.forEach((rate, index) => {
+      if (!hasExactKeys(rate, ['id', 'room_type_id', 'base_nightly_rate', 'currency', 'is_active', 'review_status', 'version'])
+          || rate.id !== rateIds[index] || rate.room_type_id !== roomIds[index]
+          || !isExactMoney(rate.base_nightly_rate, 0, 1000000) || rate.currency !== 'EUR'
+          || typeof rate.is_active !== 'boolean' || rate.review_status !== 'reviewed'
+          || !isExactInteger(rate.version, 1)) throw new Error('7 Arches activation Room Rate projection is invalid.');
+    });
+    const schedule = value.shared_schedule;
+    if (!hasExactKeys(schedule, ['id', 'version', 'name_i18n', 'is_active', 'review_status', 'active_tier_count'])
+        || schedule.id !== SEVEN_ARCHES_SHADOW_IDS.pricing_schedule || !isExactInteger(schedule.version, 1)
+        || !exactActivationI18n(schedule.name_i18n, 240, false) || typeof schedule.is_active !== 'boolean'
+        || schedule.review_status !== 'reviewed' || schedule.active_tier_count !== 27) {
+      throw new Error('7 Arches activation shared schedule projection is invalid.');
+    }
+    const previewSchedule = value.preview_schedule;
+    if (!hasExactKeys(previewSchedule, ['id', 'version', 'is_active', 'review_status'])
+        || previewSchedule.id !== SEVEN_ARCHES_SHADOW_IDS.property_party_preview
+        || !isExactInteger(previewSchedule.version, 1) || typeof previewSchedule.is_active !== 'boolean'
+        || previewSchedule.review_status !== 'requires_review') throw new Error('7 Arches reference schedule projection is invalid.');
+    const payment = value.payment_policy;
+    if (!hasExactKeys(payment, ['id', 'code', 'currency', 'is_active', 'review_status', 'version', 'terms_fingerprint'])
+        || !exactCanonicalUuid(payment.id) || typeof payment.code !== 'string' || !payment.code
+        || payment.currency !== 'EUR' || typeof payment.is_active !== 'boolean'
+        || payment.review_status !== 'reviewed' || !isExactInteger(payment.version, 1)
+        || !isExactFingerprint(payment.terms_fingerprint, false)) throw new Error('7 Arches payment-policy activation projection is invalid.');
+    const commission = value.commission_policy;
+    if (!hasExactKeys(commission, ['id', 'code', 'commission_mode', 'amount', 'currency', 'version', 'updated_at', 'read_only'])
+        || !exactCanonicalUuid(commission.id) || typeof commission.code !== 'string' || !commission.code
+        || commission.commission_mode !== 'per_allocated_room_per_night'
+        || !isExactMoney(commission.amount, 0, 1000000) || commission.currency !== 'EUR'
+        || !isExactInteger(commission.version, 1) || !isExactIsoTimestamp(commission.updated_at)
+        || commission.read_only !== true) throw new Error('7 Arches commission activation projection is invalid.');
+    if (value.status === 'ready' && (plan.is_active || schedule.is_active || previewSchedule.is_active
+        || value.room_rates.some((rate) => rate.is_active || rate.base_nightly_rate !== 0))) {
+      throw new Error('Ready 7 Arches activation snapshot already contains unreviewed active pricing.');
+    }
+    if (value.status === 'active' && (!plan.is_active || !schedule.is_active || previewSchedule.is_active
+        || value.room_rates.some((rate) => !rate.is_active || rate.base_nightly_rate <= 0)
+        || !exactActivationI18n(plan.name_i18n, 240, false, true)
+        || !exactActivationI18n(plan.description_i18n, 5000, true, true)
+        || !exactActivationI18n(schedule.name_i18n, 240, false, true))) {
+      throw new Error('Active 7 Arches pricing graph is incomplete.');
+    }
+    return Object.freeze(clone(value));
+  }
+
+  function activationExpectedOriginal(snapshot) {
+    return {
+      rate_plan: clone(snapshot.rate_plan), room_rates: clone(snapshot.room_rates),
+      shared_schedule: clone(snapshot.shared_schedule), preview_schedule: clone(snapshot.preview_schedule),
+    };
+  }
+
+  function validateSevenArchesPricingActivationDraft(value, snapshotValue) {
+    const snapshot = validateSevenArchesPricingActivationSnapshot(snapshotValue);
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'snapshot_token', 'upper_base_nightly_rate', 'ground_base_nightly_rate', 'rate_plan_name_i18n', 'rate_plan_description_i18n', 'schedule_name_i18n', 'reason'])
+        || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_DRAFT_CONTRACT
+        || value.hotel_id !== snapshot.hotel_id || value.snapshot_token !== snapshot.snapshot_token
+        || snapshot.status !== 'ready' || snapshot.blocking_reasons.length
+        || !isExactMoney(value.upper_base_nightly_rate, 0.01, 1000000)
+        || !isExactMoney(value.ground_base_nightly_rate, 0.01, 1000000)
+        || !exactActivationI18n(value.rate_plan_name_i18n, 240, false, true)
+        || !exactActivationI18n(value.rate_plan_description_i18n, 5000, true, true)
+        || !exactActivationI18n(value.schedule_name_i18n, 240, false, true)
+        || typeof value.reason !== 'string' || value.reason !== value.reason.trim()
+        || value.reason.length < 3 || value.reason.length > 500
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(value.reason)) {
+      throw new Error('7 Arches pricing activation draft is invalid, incomplete or stale.');
+    }
+    return Object.freeze(clone(value));
+  }
+
+  function activationAfterState(payload, snapshot) {
+    return {
+      rate_plan: { id: SEVEN_ARCHES_SHADOW_IDS.rate_plan, name_i18n: clone(payload.rate_plan_name_i18n), description_i18n: clone(payload.rate_plan_description_i18n), is_active: true },
+      room_rates: [
+        { id: SEVEN_ARCHES_SHADOW_IDS.upper_room_rate, base_nightly_rate: payload.upper_base_nightly_rate, is_active: true },
+        { id: SEVEN_ARCHES_SHADOW_IDS.ground_room_rate, base_nightly_rate: payload.ground_base_nightly_rate, is_active: true },
+      ],
+      shared_schedule: { id: SEVEN_ARCHES_SHADOW_IDS.pricing_schedule, name_i18n: clone(payload.schedule_name_i18n), is_active: true },
+      preview_schedule: clone(snapshot.preview_schedule),
+    };
+  }
+
+  function validateSevenArchesPricingActivationPlan(value, draft, snapshot) {
+    const reviewedDraft = validateSevenArchesPricingActivationDraft(draft, snapshot);
+    if (!hasExactKeys(value, ['contract_version', 'review_id', 'hotel_id', 'snapshot_token', 'reviewed_at', 'expires_at', 'operation', 'plan_fingerprint'])
+        || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_PLAN_CONTRACT
+        || !exactCanonicalUuid(value.review_id) || value.hotel_id !== reviewedDraft.hotel_id
+        || value.snapshot_token !== reviewedDraft.snapshot_token || !isExactIsoTimestamp(value.reviewed_at)
+        || !isExactIsoTimestamp(value.expires_at) || Date.parse(value.expires_at) <= Date.parse(value.reviewed_at)
+        || Date.parse(value.expires_at) > Date.parse(value.reviewed_at) + 30 * 60 * 1000
+        || !isExactSnapshotToken(value.plan_fingerprint)
+        || !hasExactKeys(value.operation, ['entity', 'action', 'id', 'expected_original', 'payload'])
+        || value.operation.entity !== 'pricing_activation' || value.operation.action !== 'activate'
+        || value.operation.id !== value.hotel_id
+        || stableJson(value.operation.expected_original) !== stableJson(activationExpectedOriginal(snapshot))) {
+      throw new Error('7 Arches pricing activation reviewed plan is invalid or not bound to the exact snapshot.');
+    }
+    const expectedPayload = {
+      upper_base_nightly_rate: reviewedDraft.upper_base_nightly_rate,
+      ground_base_nightly_rate: reviewedDraft.ground_base_nightly_rate,
+      rate_plan_name_i18n: clone(reviewedDraft.rate_plan_name_i18n),
+      rate_plan_description_i18n: clone(reviewedDraft.rate_plan_description_i18n),
+      schedule_name_i18n: clone(reviewedDraft.schedule_name_i18n), reason: reviewedDraft.reason,
+    };
+    if (stableJson(value.operation.payload) !== stableJson(expectedPayload)) {
+      throw new Error('7 Arches pricing activation reviewed payload differs from the explicit Admin draft.');
+    }
+    return Object.freeze(clone(value));
+  }
+
+  function validateSevenArchesPricingActivationPreview(value, draft, snapshot) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'changed', 'blocking_reasons', 'impact', 'reviewed_plan'])
+        || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_PREVIEW_CONTRACT
+        || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID || typeof value.changed !== 'boolean'
+        || !Array.isArray(value.blocking_reasons) || value.blocking_reasons.some((reason) => !SEVEN_ARCHES_ACTIVATION_BLOCKERS.includes(reason))) {
+      throw new Error('7 Arches pricing activation Preview envelope is invalid.');
+    }
+    if (!value.changed) {
+      if (value.impact !== null || value.reviewed_plan !== null
+          || (snapshot.status === 'ready' && value.blocking_reasons.length === 0)) {
+        throw new Error('7 Arches pricing activation no-op Preview is inconsistent.');
+      }
+      return Object.freeze(clone(value));
+    }
+    if (value.blocking_reasons.length) throw new Error('Changed 7 Arches activation Preview hides blockers.');
+    const plan = validateSevenArchesPricingActivationPlan(value.reviewed_plan, draft, snapshot);
+    const fields = ['base_nightly_rates', 'is_active', 'rate_plan_description_i18n', 'rate_plan_name_i18n', 'schedule_name_i18n'];
+    const impact = value.impact;
+    if (!hasExactKeys(impact, ['entity', 'action', 'id', 'changed', 'fields', 'before', 'after', 'affected_room_type_ids', 'affected_room_rate_ids', 'from', 'to'])
+        || impact.entity !== 'pricing_activation' || impact.action !== 'activate' || impact.id !== plan.hotel_id
+        || impact.changed !== true || stableJson(impact.fields) !== stableJson(fields)
+        || stableJson(impact.before) !== stableJson(plan.operation.expected_original)
+        || stableJson(impact.after) !== stableJson(activationAfterState(plan.operation.payload, snapshot))
+        || stableJson(impact.affected_room_type_ids) !== stableJson([SEVEN_ARCHES_SHADOW_IDS.ground_room_type, SEVEN_ARCHES_SHADOW_IDS.upper_room_type])
+        || stableJson(impact.affected_room_rate_ids) !== stableJson([SEVEN_ARCHES_SHADOW_IDS.ground_room_rate, SEVEN_ARCHES_SHADOW_IDS.upper_room_rate])
+        || impact.from !== null || impact.to !== null) {
+      throw new Error('7 Arches pricing activation impact is incomplete or not bound to the reviewed graph.');
+    }
+    return Object.freeze({ ...clone(value), reviewed_plan: plan });
+  }
+
+  function validateSevenArchesPricingActivationApplyResult(value, plan, correlationId, idempotencyKey) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'changed', 'replayed', 'review_id', 'correlation_id', 'idempotency_key', 'activity_ids', 'public_change', 'legacy_authoritative'])
+        || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_APPLY_CONTRACT
+        || value.hotel_id !== plan.hotel_id || value.changed !== true || typeof value.replayed !== 'boolean'
+        || value.review_id !== plan.review_id || value.correlation_id !== correlationId
+        || value.idempotency_key !== idempotencyKey || value.public_change !== false
+        || value.legacy_authoritative !== true || !Array.isArray(value.activity_ids)
+        || value.activity_ids.length !== 4 || new Set(value.activity_ids).size !== 4
+        || value.activity_ids.some((id) => !exactCanonicalUuid(id))) {
+      throw new Error('7 Arches pricing activation Save receipt is invalid or incomplete.');
+    }
+    return Object.freeze(clone(value));
   }
 
   function canonicalPricingDescriptionI18n(value, maximumLength = 5000) {
@@ -5447,7 +5960,7 @@
         || Object.keys(value).some((key) => !LANGUAGES.includes(key))
         || (options.exact === true && LANGUAGES.some((key) => !Object.hasOwn(value, key)))
         || Object.values(value).some((entry) => typeof entry !== 'string' || entry.length > 1000)) return false;
-    return options.required !== true || LANGUAGES.some((key) => value[key].trim());
+    return options.required !== true || Object.values(value).some((entry) => entry.trim());
   }
 
   function availabilityUtf8Bytes(value) {
@@ -6686,7 +7199,7 @@
     }
     const rooms = source.rooms.map((room) => {
       if (!hasExactKeys(room, ['id', 'name_i18n', 'status', 'version'])
-          || !isExactAvailabilityI18n(room.name_i18n, { exact: true, required: true })
+          || !isExactAvailabilityI18n(room.name_i18n, { required: true })
           || !ROOM_STATUSES.includes(room.status) || !isExactInteger(room.version, 1)) {
         throw new Error('External calendar control returned an invalid Room projection.');
       }
@@ -6709,7 +7222,7 @@
         health: normalizeExternalCalendarHealth(row.health),
       };
       if (normalized.hotel_id !== hotelId || !roomIds.has(normalized.room_type_id)
-          || normalized.source_type !== 'ical'
+          || !EXTERNAL_CALENDAR_SOURCE_TYPES.includes(normalized.source_type)
           || !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(normalized.code)
           || typeof normalized.is_enabled !== 'boolean'
           || (normalized.is_enabled && !source.hotel_external_sync_enabled)
@@ -6749,9 +7262,10 @@
     const sourceId = intent.entity === 'calendar_source' ? intent.id : intent.payload.source_id;
     const source = sourceId === null ? null : control.sources.find((row) => row.id === sourceId);
     if (intent.entity === 'calendar_source' && ['create', 'update'].includes(intent.action)) {
-      if (!hasExactKeys(intent.payload, ['room_type_id', 'code', 'sync_interval_minutes', 'units_per_event', 'priority'])
+      if (!hasExactKeys(intent.payload, ['room_type_id', 'code', 'source_type', 'sync_interval_minutes', 'units_per_event', 'priority'])
           || !control.rooms.some((room) => room.id === intent.payload.room_type_id && room.status === 'active')
           || !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(intent.payload.code)
+          || !EXTERNAL_CALENDAR_SOURCE_TYPES.includes(intent.payload.source_type)
           || !isExactInteger(intent.payload.sync_interval_minutes, 15, 1440)
           || !isExactInteger(intent.payload.units_per_event, 1, 100)
           || !isExactInteger(intent.payload.priority, -32768, 32767)
@@ -6837,7 +7351,7 @@
       ? null
       : control.sources.find((row) => row.id === draft.intent.id);
     if (draft.intent.entity === 'calendar_source' && ['create', 'update'].includes(draft.intent.action)) {
-      const fields = ['code', 'priority', 'room_type_id', 'sync_interval_minutes', 'units_per_event'];
+      const fields = ['code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event'];
       return {
         fields,
         before: source ? Object.fromEntries(fields.map((field) => [field, source[field]])) : null,
@@ -7021,6 +7535,7 @@
     if (operation.entity === 'calendar_source' && ['create', 'update'].includes(operation.action)) {
       const savedBusinessState = {
         room_type_id: savedSource.room_type_id, code: savedSource.code,
+        source_type: savedSource.source_type,
         sync_interval_minutes: savedSource.sync_interval_minutes,
         units_per_event: savedSource.units_per_event, priority: savedSource.priority,
       };
@@ -7058,6 +7573,7 @@
     HOTEL_PAYMENT_METHODS,
     HOTEL_COMMISSION_MODES,
     HOTEL_CALENDAR_SOURCES,
+    EXTERNAL_CALENDAR_SOURCE_TYPES,
     H3_REVIEW_STATUSES,
     H3_2A_PARTNER_PERMISSIONS_CONTRACT,
     PRICING_CONTROL_READ_CONTRACT,
@@ -7092,6 +7608,16 @@
     SEVEN_ARCHES_CHECK_OUT_UNTIL,
     SEVEN_ARCHES_SHADOW_IDS,
     SEVEN_ARCHES_SOURCE_CONTRACT,
+    PARTNER_PROPERTY_PROPOSALS_ADMIN_CONTRACT,
+    PARTNER_PROPERTY_PROPOSAL_REQUEST_CONTRACT,
+    PARTNER_PROPERTY_PROPOSAL_PREVIEW_CONTRACT,
+    PARTNER_PROPERTY_PROPOSAL_PLAN_CONTRACT,
+    PARTNER_PROPERTY_PROPOSAL_APPLY_CONTRACT,
+    SEVEN_ARCHES_PRICING_ACTIVATION_SNAPSHOT_CONTRACT,
+    SEVEN_ARCHES_PRICING_ACTIVATION_DRAFT_CONTRACT,
+    SEVEN_ARCHES_PRICING_ACTIVATION_PREVIEW_CONTRACT,
+    SEVEN_ARCHES_PRICING_ACTIVATION_PLAN_CONTRACT,
+    SEVEN_ARCHES_PRICING_ACTIVATION_APPLY_CONTRACT,
     SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT,
     SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT,
     SEVEN_ARCHES_ROOM_DEFINITIONS,
@@ -7117,6 +7643,16 @@
     isExactIsoDate,
     isExactIsoTimestamp,
     isExactHttpsUrl,
+    validatePartnerPropertyProposalsControl,
+    validatePartnerPropertyProposalReviewRequest,
+    validatePartnerPropertyProposalPlan,
+    validatePartnerPropertyProposalPreview,
+    validatePartnerPropertyProposalApplyResult,
+    validateSevenArchesPricingActivationSnapshot,
+    validateSevenArchesPricingActivationDraft,
+    validateSevenArchesPricingActivationPlan,
+    validateSevenArchesPricingActivationPreview,
+    validateSevenArchesPricingActivationApplyResult,
     normalizeHotelPartnerCapabilities,
     hotelPartnerCapabilitiesHaveMutation,
     normalizePartnerHotelPermissions,

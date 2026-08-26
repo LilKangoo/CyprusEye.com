@@ -378,9 +378,42 @@ describe('Hotels V2 H2A Property Workspace core', () => {
         stay_thresholds: [2, 3, 4, 5, 6, 7, 8, 9, 10],
         requires_occupancy_los_model: true,
         h1_rate_rules_compatible: false,
-        oracle: 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH',
+        oracle: 'HOTEL_7_ARCHES_H3_1P_PARITY_REVIEW_REQUIRED',
+        oracle_status: 'REVIEW_REQUIRED',
         conversion_status: 'BLOCKED_PENDING_H2B_MODEL',
       },
+    });
+    const verified = Core.migrationPreview(legacy, {
+      pricingPromotionPreview: {
+        promotion: { status: 'reviewed' },
+        parity: { total_case_count: 70, total_mismatch_count: 0 },
+      },
+    });
+    expect(verified.pricing_preview).toMatchObject({
+      oracle: 'HOTEL_7_ARCHES_H3_1P_70_CASE_PARITY_VERIFIED',
+      oracle_status: 'VERIFIED', verified_case_count: 70, verified_mismatch_count: 0,
+      conversion_status: 'H3_1P_PARITY_VERIFIED_INACTIVE',
+    });
+    const activated = Core.migrationPreview(legacy, {
+      pricingActivation: {
+        status: 'active',
+        h3_1p: { parity: { total_case_count: 70, total_mismatch_count: 0 } },
+      },
+    });
+    expect(activated.pricing_preview).toMatchObject({
+      oracle: 'HOTEL_7_ARCHES_H3_1P_70_CASE_PARITY_VERIFIED',
+      oracle_status: 'VERIFIED', verified_case_count: 70, verified_mismatch_count: 0,
+      conversion_status: 'H3_1P_PARITY_VERIFIED_ACTIVE_SHADOW',
+    });
+    const mismatch = Core.migrationPreview(legacy, {
+      pricingPromotionPreview: {
+        promotion: { status: 'reviewed' },
+        parity: { total_case_count: 70, total_mismatch_count: 1 },
+      },
+    });
+    expect(mismatch.pricing_preview).toMatchObject({
+      oracle: 'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH',
+      oracle_status: 'MISMATCH', verified_mismatch_count: 1,
     });
     expect(preview.messages[0]).toContain('not a normalized Room Type');
     expect(preview.legacy_product.field_classifications).toEqual(expect.arrayContaining([

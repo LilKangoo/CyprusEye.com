@@ -256,6 +256,11 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(core).toContain("classification: 'UNKNOWN'");
     expect(core).toContain("oracle: isSevenArchesMatrix");
     expect(core).toContain("'HOTEL_7_ARCHES_ROOM1_PRICE_MISMATCH'");
+    expect(core).toContain("'HOTEL_7_ARCHES_H3_1P_70_CASE_PARITY_VERIFIED'");
+    expect(core).toContain("'HOTEL_7_ARCHES_H3_1P_PARITY_REVIEW_REQUIRED'");
+    expect(core).toContain('h31pMismatchObserved');
+    expect(ui).toContain('data-pricing-oracle-status');
+    expect(ui).toContain('UUID and 63-rule shape alone do not prove a mismatch or parity');
     expect(core).toContain('requires_occupancy_los_model: requiresOccupancyLosModel');
     expect(core).toContain('h1_rate_rules_compatible: !requiresOccupancyLosModel');
 

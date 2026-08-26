@@ -29,6 +29,13 @@
       amenities: 'Amenities', latitude: 'Latitude', longitude: 'Longitude', photo: 'Photo', cover: 'Cover', order: 'Order',
       code: 'Code', maximumOccupancy: 'Maximum occupancy', bathrooms: 'Bathrooms', size: 'Size m²', baseInventory: 'Base inventory', inventoryMode: 'Inventory mode',
       capacityAdults: 'Adult capacity', capacityChildren: 'Child capacity', sortOrder: 'Sort order', pooled: 'Pooled', unitized: 'Unitized',
+      bedConfiguration: 'Bed configuration', bedType: 'Bed type', quantity: 'Quantity', addBed: 'Add bed', remove: 'Remove',
+      notConfirmed: 'Requires review — not confirmed', fieldConfigured: 'Configured', photosCount: 'photos', amenitiesCount: 'amenities',
+      splitNotConfirmed: 'Adult/child split requires review', noneConfigured: 'none configured',
+      confirmed: 'Confirmed', missingUnknown: 'Missing / unknown',
+      singleBed: 'Single', doubleBed: 'Double', sofaBed: 'Sofa bed', bunkBed: 'Bunk bed', kingBed: 'King', queenBed: 'Queen', otherBed: 'Other',
+      bedLabelRequired: 'Add at least one localized label for an Other bed.',
+      bedConfigurationInvalid: 'Each bed needs a valid type and a whole-number quantity from 1 to 20.',
       priceField: 'Price field', exactProduct: 'Exact product', stayDate: 'Stay date', nightlyPrice: 'Nightly price',
       checkIn: 'Check-in', checkOut: 'Check-out', adults: 'Adults', childAges: 'Child ages', ratePlan: 'Rate Plan', room: 'Room', allocation: 'Allocation', automatic: 'Automatic',
       sellableUnits: 'Sellable units', units: 'Units', closure: 'Closure', expiry: 'Expiry', futureExpiry: 'Future expiry', before: 'Before', after: 'After',
@@ -43,8 +50,14 @@
       bookingChanges: 'Booking changes', stripeOnboarding: 'Stripe onboarding', update: 'Update', create: 'Create', upsert: 'Create or update',
       commissionBasis: 'Commission basis', exampleBefore: 'Example stay before', exampleAfter: 'Example stay after',
       percentBooking: 'of booking total', perRoomNight: 'per allocated Room per rental night',
+      ratePlans: 'Rate Plans', roomRateProducts: 'Room Rate products', commissionPolicy: 'CyprusEye commission policy',
+      pricingSource: 'Pricing source', currentNightlyPrice: 'Current customer nightly price', editableBasePrice: 'Base price editable with Review',
+      tierOwnedPrice: 'Price is owned by its reviewed schedule or occupancy tier', immutableCommercialRule: 'Immutable commercial rule returned by the server',
+      exactStayCustomerTotal: 'Exact stay customer total', customerSellingPrice: 'Customer selling price for the reviewed price unit',
       mediaUnavailable: 'Partner Hotel media upload is unavailable.',
       externalCalendars: 'External calendars', externalCalendarCreate: 'Add iCal source', externalCalendarEdit: 'Edit source',
+      calendarProvider: 'Provider', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Generic iCal',
+      calendarProviderNote: 'All provider options use an ICS export URL. Provider is saved separately from the source code.',
       configured: 'Configured (URL hidden)', notConfigured: 'Not configured', setUrl: 'Set URL', rotateUrl: 'Rotate URL', clearUrl: 'Clear URL',
       enableSource: 'Enable', disableSource: 'Disable', triggerSync: 'Run manual sync', activationOff: 'Enable is unavailable while the global external-calendar flag is OFF.',
       syncUnavailable: 'Manual sync requires an enabled source and global activation.',
@@ -78,6 +91,13 @@
       amenities: 'Udogodnienia', latitude: 'Szerokość geograficzna', longitude: 'Długość geograficzna', photo: 'Zdjęcie', cover: 'Okładka', order: 'Kolejność',
       code: 'Kod', maximumOccupancy: 'Maksymalna liczba gości', bathrooms: 'Łazienki', size: 'Powierzchnia m²', baseInventory: 'Bazowy stan', inventoryMode: 'Tryb inwentarza',
       capacityAdults: 'Miejsca dla dorosłych', capacityChildren: 'Miejsca dla dzieci', sortOrder: 'Kolejność', pooled: 'Wspólny', unitized: 'Jednostkowy',
+      bedConfiguration: 'Konfiguracja łóżek', bedType: 'Rodzaj łóżka', quantity: 'Liczba', addBed: 'Dodaj łóżko', remove: 'Usuń',
+      notConfirmed: 'Wymaga weryfikacji — niepotwierdzone', fieldConfigured: 'Skonfigurowano', photosCount: 'zdjęć', amenitiesCount: 'udogodnień',
+      splitNotConfirmed: 'Podział dorośli/dzieci wymaga weryfikacji', noneConfigured: 'brak skonfigurowanych',
+      confirmed: 'Potwierdzone', missingUnknown: 'Brak / nieznane',
+      singleBed: 'Pojedyncze', doubleBed: 'Podwójne', sofaBed: 'Sofa', bunkBed: 'Piętrowe', kingBed: 'King', queenBed: 'Queen', otherBed: 'Inne',
+      bedLabelRequired: 'Dodaj co najmniej jedną nazwę językową dla innego łóżka.',
+      bedConfigurationInvalid: 'Każde łóżko wymaga prawidłowego typu i pełnej liczby od 1 do 20.',
       priceField: 'Pole ceny', exactProduct: 'Dokładny produkt', stayDate: 'Data pobytu', nightlyPrice: 'Cena za noc',
       checkIn: 'Przyjazd', checkOut: 'Wyjazd', adults: 'Dorośli', childAges: 'Wiek dzieci', ratePlan: 'Plan taryfowy', room: 'Pokój', allocation: 'Reguła przydziału', automatic: 'Automatycznie',
       sellableUnits: 'Jednostki do sprzedaży', units: 'Liczba jednostek', closure: 'Zamknięcie', expiry: 'Wygaśnięcie', futureExpiry: 'Przyszłe wygaśnięcie', before: 'Przed', after: 'Po',
@@ -92,8 +112,14 @@
       bookingChanges: 'Zmiany rezerwacji', stripeOnboarding: 'Konfiguracja Stripe', update: 'Aktualizacja', create: 'Utworzenie', upsert: 'Utworzenie lub aktualizacja',
       commissionBasis: 'Podstawa prowizji', exampleBefore: 'Przykładowy pobyt przed zmianą', exampleAfter: 'Przykładowy pobyt po zmianie',
       percentBooking: 'wartości rezerwacji', perRoomNight: 'za przydzielony pokój za noc pobytu',
+      ratePlans: 'Plany taryfowe', roomRateProducts: 'Produkty cen pokoi', commissionPolicy: 'Zasada prowizji CyprusEye',
+      pricingSource: 'Źródło ceny', currentNightlyPrice: 'Bieżąca cena klienta za noc', editableBasePrice: 'Cena bazowa edytowalna po weryfikacji',
+      tierOwnedPrice: 'Ceną zarządza zweryfikowany harmonogram lub próg obłożenia', immutableCommercialRule: 'Niezmienna zasada handlowa zwrócona przez serwer',
+      exactStayCustomerTotal: 'Dokładna suma klienta za pobyt', customerSellingPrice: 'Cena sprzedaży dla klienta za sprawdzaną jednostkę ceny',
       mediaUnavailable: 'Wysyłanie mediów hotelowych Partnera jest niedostępne.',
       externalCalendars: 'Kalendarze zewnętrzne', externalCalendarCreate: 'Dodaj źródło iCal', externalCalendarEdit: 'Edytuj źródło',
+      calendarProvider: 'Dostawca', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Ogólny iCal',
+      calendarProviderNote: 'Wszystkie opcje dostawcy używają adresu eksportu ICS. Dostawca jest zapisywany niezależnie od kodu źródła.',
       configured: 'Skonfigurowano (URL ukryty)', notConfigured: 'Nie skonfigurowano', setUrl: 'Ustaw URL', rotateUrl: 'Obróć URL', clearUrl: 'Usuń URL',
       enableSource: 'Włącz', disableSource: 'Wyłącz', triggerSync: 'Uruchom ręczną synchronizację', activationOff: 'Włączenie jest niedostępne, gdy globalna flaga kalendarza zewnętrznego jest WYŁĄCZONA.',
       syncUnavailable: 'Ręczna synchronizacja wymaga włączonego źródła i globalnej aktywacji.',
@@ -127,6 +153,13 @@
       amenities: 'מתקנים', latitude: 'קו רוחב', longitude: 'קו אורך', photo: 'תמונה', cover: 'תמונת שער', order: 'סדר',
       code: 'קוד', maximumOccupancy: 'תפוסה מרבית', bathrooms: 'חדרי רחצה', size: 'גודל במ״ר', baseInventory: 'מלאי בסיס', inventoryMode: 'מצב מלאי',
       capacityAdults: 'קיבולת מבוגרים', capacityChildren: 'קיבולת ילדים', sortOrder: 'סדר מיון', pooled: 'מאוגד', unitized: 'לפי יחידות',
+      bedConfiguration: 'תצורת מיטות', bedType: 'סוג מיטה', quantity: 'כמות', addBed: 'הוספת מיטה', remove: 'הסרה',
+      notConfirmed: 'דורש בדיקה — לא אושר', fieldConfigured: 'מוגדר', photosCount: 'תמונות', amenitiesCount: 'מתקנים',
+      splitNotConfirmed: 'חלוקת מבוגרים/ילדים דורשת בדיקה', noneConfigured: 'לא הוגדרו',
+      confirmed: 'מאושר', missingUnknown: 'חסר / לא ידוע',
+      singleBed: 'יחיד', doubleBed: 'זוגי', sofaBed: 'ספה נפתחת', bunkBed: 'קומתיים', kingBed: 'קינג', queenBed: 'קווין', otherBed: 'אחר',
+      bedLabelRequired: 'יש להוסיף לפחות שם מקומי אחד למיטה מסוג אחר.',
+      bedConfigurationInvalid: 'כל מיטה דורשת סוג תקין וכמות שלמה מ-1 עד 20.',
       priceField: 'שדה מחיר', exactProduct: 'מוצר מדויק', stayDate: 'תאריך שהייה', nightlyPrice: 'מחיר ללילה',
       checkIn: 'הגעה', checkOut: 'עזיבה', adults: 'מבוגרים', childAges: 'גילי ילדים', ratePlan: 'תוכנית תעריף', room: 'חדר', allocation: 'כלל הקצאה', automatic: 'אוטומטי',
       sellableUnits: 'יחידות למכירה', units: 'יחידות', closure: 'סגירה', expiry: 'תפוגה', futureExpiry: 'תפוגה עתידית', before: 'לפני', after: 'אחרי',
@@ -141,8 +174,14 @@
       bookingChanges: 'שינויים בהזמנה', stripeOnboarding: 'הגדרת Stripe', update: 'עדכון', create: 'יצירה', upsert: 'יצירה או עדכון',
       commissionBasis: 'בסיס עמלה', exampleBefore: 'שהייה לדוגמה לפני השינוי', exampleAfter: 'שהייה לדוגמה אחרי השינוי',
       percentBooking: 'מסכום ההזמנה', perRoomNight: 'לכל חדר מוקצה לכל ליל שכירות',
+      ratePlans: 'תוכניות מחיר', roomRateProducts: 'מוצרי מחיר לחדר', commissionPolicy: 'מדיניות עמלת CyprusEye',
+      pricingSource: 'מקור המחיר', currentNightlyPrice: 'מחיר הלקוח הנוכחי ללילה', editableBasePrice: 'מחיר הבסיס ניתן לעריכה לאחר בדיקה',
+      tierOwnedPrice: 'המחיר מנוהל בידי לוח או מדרגת תפוסה שנבדקו', immutableCommercialRule: 'כלל מסחרי בלתי ניתן לשינוי שהוחזר מהשרת',
+      exactStayCustomerTotal: 'סכום הלקוח המדויק לשהייה', customerSellingPrice: 'מחיר המכירה ללקוח עבור יחידת המחיר הנבדקת',
       mediaUnavailable: 'העלאת מדיה למלון השותף אינה זמינה.',
       externalCalendars: 'יומנים חיצוניים', externalCalendarCreate: 'הוספת מקור iCal', externalCalendarEdit: 'עריכת מקור',
+      calendarProvider: 'ספק', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'iCal כללי',
+      calendarProviderNote: 'כל אפשרויות הספק משתמשות בכתובת יצוא ICS. הספק נשמר בנפרד מקוד המקור.',
       configured: 'מוגדר (הכתובת מוסתרת)', notConfigured: 'לא מוגדר', setUrl: 'הגדרת כתובת', rotateUrl: 'החלפת כתובת', clearUrl: 'מחיקת כתובת',
       enableSource: 'הפעלה', disableSource: 'השבתה', triggerSync: 'הפעלת סנכרון ידני', activationOff: 'אי אפשר להפעיל כל עוד הדגל הגלובלי של יומן חיצוני כבוי.',
       syncUnavailable: 'סנכרון ידני דורש מקור פעיל והפעלה גלובלית.',
@@ -232,6 +271,47 @@
   }
   function structureLabel(key) {
     return text({ capacity_adults: 'capacityAdults', capacity_children: 'capacityChildren', max_occupancy: 'maximumOccupancy', bathrooms: 'bathrooms', size_sqm: 'size', base_inventory_count: 'baseInventory', sort_order: 'sortOrder' }[key] || key);
+  }
+  const BED_TYPES = Object.freeze(['single', 'double', 'sofa', 'bunk', 'king', 'queen', 'other']);
+  function bedTypeLabel(type) {
+    return text({ single: 'singleBed', double: 'doubleBed', sofa: 'sofaBed', bunk: 'bunkBed', king: 'kingBed', queen: 'queenBed', other: 'otherBed' }[type] || type);
+  }
+  function bedSummary(room) {
+    if (!room.bed_configuration.length) return text('notConfirmed');
+    return room.bed_configuration.map((bed) => `${bed.quantity} × ${bed.type === 'other' ? localized(bed.label, bedTypeLabel('other')) : bedTypeLabel(bed.type)}`).join(' · ');
+  }
+  function bedRow(bed = {}) {
+    const type = BED_TYPES.includes(bed.type) ? bed.type : 'single';
+    const label = bed.label || {};
+    return `<div class="partner-hotel-workspace__bed-row" data-phw-bed-row><label class="partner-hotel-workspace__field">${html(text('bedType'))}<select data-phw-bed-type>${BED_TYPES.map((candidate) => `<option value="${candidate}" ${candidate === type ? 'selected' : ''}>${html(bedTypeLabel(candidate))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('quantity'))}<input data-phw-bed-quantity type="number" min="1" max="20" step="1" value="${Number.isInteger(bed.quantity) ? bed.quantity : 1}" /></label>${['pl', 'en', 'he'].map((language) => `<label class="partner-hotel-workspace__field">${html(text('otherBed'))} — ${language.toUpperCase()}<input data-phw-bed-label="${language}" maxlength="160" dir="${language === 'he' ? 'rtl' : 'ltr'}" value="${html(label[language] || '')}" /></label>`).join('')}<button class="btn-sm" type="button" data-phw-remove-bed>${html(text('remove'))}</button></div>`;
+  }
+  function roomFacts(room) {
+    const capacity = room.max_occupancy != null
+      ? `${structureLabel('max_occupancy')}: ${room.max_occupancy} · ${text('splitNotConfirmed')}`
+      : `${structureLabel('capacity_adults')}: ${room.capacity_adults} · ${structureLabel('capacity_children')}: ${room.capacity_children}`;
+    return [
+      capacity,
+      `${text('bedConfiguration')}: ${room.bed_configuration.length ? `${bedSummary(room)} · ${text('confirmed')}` : `${text('missingUnknown')} · ${text('requiresReview')}`}`,
+      `${text('bathrooms')}: ${room.bathrooms == null ? `${text('missingUnknown')} · ${text('requiresReview')}` : `${room.bathrooms} · ${text('confirmed')}`}`,
+      `${text('size')}: ${room.size_sqm == null ? `${text('missingUnknown')} · ${text('requiresReview')}` : `${room.size_sqm} · ${text('confirmed')}`}`,
+      `${text('inventoryMode')}: ${enumLabel(room.inventory_mode)} · ${room.base_inventory_count} · ${text('confirmed')}`,
+      `${room.gallery.length} ${text('photosCount')} · ${room.gallery.length ? text('confirmed') : text('missingUnknown')}`,
+      `${room.amenities.length} ${text('amenitiesCount')} · ${room.amenities.length ? text('confirmed') : text('missingUnknown')}`,
+      `${text('description')}: ${Object.values(room.description_i18n).some((value) => String(value).trim()) ? text('confirmed') : text('missingUnknown')}`,
+    ];
+  }
+  function bedConfigurationFromForm(form) {
+    return Array.from(form.querySelectorAll('[data-phw-bed-row]')).map((row) => {
+      const type = String(row.querySelector('[data-phw-bed-type]')?.value || '');
+      const quantity = Number(row.querySelector('[data-phw-bed-quantity]')?.value);
+      if (!BED_TYPES.includes(type) || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) throw new Error(text('bedConfigurationInvalid'));
+      const result = { type, quantity };
+      if (type === 'other') {
+        result.label = Core.compactI18n(Object.fromEntries(['pl', 'en', 'he'].map((language) => [language, String(row.querySelector(`[data-phw-bed-label="${language}"]`)?.value || '')])), 160);
+        if (!Object.keys(result.label).length) throw new Error(text('bedLabelRequired'));
+      }
+      return result;
+    });
   }
   function photoChoices(urls, selected, cover, inputName, offset = 0) {
     return urls.map((url, index) => `<label class="partner-hotel-workspace__card" data-phw-photo-card>
@@ -331,14 +411,14 @@
       const sources = Array.from(new Set([...selected, ...proposedPropertyPhotos, ...state.mediaDraft.property, ...(state.workspace.property.photos || [])]));
       return `<form class="partner-hotel-workspace__form" data-phw-room-form="photos" data-room-id="${room.id}"><h3>${html(text('roomPhotos'))}</h3><label class="partner-hotel-workspace__field">${html(text('photo'))}<input type="file" name="uploads" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" multiple /></label><button class="btn-sm" type="button" data-phw-upload-room>${html(text('upload'))}</button><div class="partner-hotel-workspace__grid">${photoChoices(sources, selected, null, 'gallery')}</div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary">${html(text('review'))}</button></form>`;
     }
-    if (mode === 'structure' && capability('edit_room_structure')) return `<form class="partner-hotel-workspace__form" data-phw-room-form="structure" data-room-id="${room.id}"><h3>${html(text('roomStructure'))}</h3><div class="partner-hotel-workspace__form-grid">${['capacity_adults', 'capacity_children', 'max_occupancy', 'bathrooms', 'size_sqm', 'base_inventory_count', 'sort_order'].map((key) => `<label class="partner-hotel-workspace__field">${html(structureLabel(key))}<input name="${key}" type="number" step="${['bathrooms', 'size_sqm'].includes(key) ? '0.1' : '1'}" value="${room[key] ?? ''}" /></label>`).join('')}<label class="partner-hotel-workspace__field">${html(text('inventoryMode'))}<select name="inventory_mode"><option value="pooled" ${room.inventory_mode === 'pooled' ? 'selected' : ''}>${html(text('pooled'))}</option><option value="unitized" ${room.inventory_mode === 'unitized' ? 'selected' : ''}>${html(text('unitized'))}</option></select></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary">${html(text('review'))}</button></form>`;
+    if (mode === 'structure' && capability('edit_room_structure')) return `<form class="partner-hotel-workspace__form" data-phw-room-form="structure" data-room-id="${room.id}"><h3>${html(text('roomStructure'))}</h3><div class="partner-hotel-workspace__form-grid">${['capacity_adults', 'capacity_children', 'max_occupancy', 'bathrooms', 'size_sqm', 'base_inventory_count', 'sort_order'].map((key) => `<label class="partner-hotel-workspace__field">${html(structureLabel(key))}<input name="${key}" type="number" step="${['bathrooms', 'size_sqm'].includes(key) ? '0.1' : '1'}" value="${room[key] ?? ''}" />${['bathrooms', 'size_sqm'].includes(key) && room[key] == null ? `<small>${html(text('notConfirmed'))}</small>` : ''}</label>`).join('')}<label class="partner-hotel-workspace__field">${html(text('inventoryMode'))}<select name="inventory_mode"><option value="pooled" ${room.inventory_mode === 'pooled' ? 'selected' : ''}>${html(text('pooled'))}</option><option value="unitized" ${room.inventory_mode === 'unitized' ? 'selected' : ''}>${html(text('unitized'))}</option></select></label></div><fieldset><legend>${html(text('bedConfiguration'))}</legend>${room.bed_configuration.length ? '' : `<p>${html(text('notConfirmed'))}</p>`}<div data-phw-bed-rows>${room.bed_configuration.map((bed) => bedRow(bed)).join('')}</div><button class="btn-sm" type="button" data-phw-add-bed>${html(text('addBed'))}</button></fieldset><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary">${html(text('review'))}</button></form>`;
     return '';
   }
 
   function renderRooms() {
     const rooms = state.workspace.rooms || [];
     const selected = rooms.find((room) => room.id === state.roomEditor?.id) || null;
-    const cards = rooms.map((room) => `<article class="partner-hotel-workspace__card"><h3>${html(localized(room.name_i18n, room.code))}</h3><p>${html(enumLabel(room.status))} · ${html(enumLabel(room.inventory_mode))} · ${room.base_inventory_count}</p><div class="partner-hotel-workspace__actions">${capability('edit_room_content') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="content" data-room-id="${room.id}">${html(text('editContent'))}</button>` : ''}${capability('edit_room_photos') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="photos" data-room-id="${room.id}">${html(text('editPhotos'))}</button>` : ''}${capability('edit_room_structure') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="structure" data-room-id="${room.id}">${html(text('editStructure'))}</button>` : ''}</div>${diagnostics(room.id)}</article>`).join('');
+    const cards = rooms.map((room) => `<article class="partner-hotel-workspace__card"><h3>${html(localized(room.name_i18n, room.code))}</h3><p>${html(enumLabel(room.status))}</p><ul class="partner-hotel-workspace__room-facts">${roomFacts(room).map((fact) => `<li>${html(fact)}</li>`).join('')}</ul><p>${html(room.amenities.length ? room.amenities.join(' · ') : text('noneConfigured'))}</p><div class="partner-hotel-workspace__actions">${capability('edit_room_content') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="content" data-room-id="${room.id}">${html(text('editContent'))}</button>` : ''}${capability('edit_room_photos') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="photos" data-room-id="${room.id}">${html(text('editPhotos'))}</button>` : ''}${capability('edit_room_structure') && room.status !== 'disabled' ? `<button class="btn-sm" data-phw-room-edit="structure" data-room-id="${room.id}">${html(text('editStructure'))}</button>` : ''}</div>${diagnostics(room.id)}</article>`).join('');
     const create = capability('create_rooms') ? `<details class="partner-hotel-workspace__card"><summary>${html(text('createRoom'))}</summary><form class="partner-hotel-workspace__form" data-phw-room-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required /></label>${i18nFields('name', {})}${i18nFields('description', {}, true)}<label class="partner-hotel-workspace__field">${html(text('maximumOccupancy'))}<input name="max_occupancy" type="number" min="1" max="50" required /></label><label class="partner-hotel-workspace__field">${html(text('bathrooms'))}<input name="bathrooms" type="number" min="0" max="20" step="0.5" value="1" /></label><label class="partner-hotel-workspace__field">${html(text('size'))}<input name="size_sqm" type="number" min="1" step="0.1" /></label><label class="partner-hotel-workspace__field">${html(text('baseInventory'))}<input name="base_inventory_count" type="number" min="0" value="1" /></label><label class="partner-hotel-workspace__field">${html(text('inventoryMode'))}<select name="inventory_mode"><option value="pooled">${html(text('pooled'))}</option><option value="unitized">${html(text('unitized'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('amenities'))}<input name="amenities" /></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary">${html(text('review'))}</button></form></details>` : '';
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="rooms"><h2>${html(text('rooms'))}</h2><div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}${create}</div>${renderRoomEditor(selected)}</section>`;
   }
@@ -356,7 +436,21 @@
     if (!result) return '';
     const commercial = result.commercial;
     const blockers = result.blocking_reasons || [];
-    return `<div class="partner-hotel-workspace__card"><h3>${html(text('stayPreview'))}</h3>${commercial ? `${commercialColumns(commercial)}<p>${html(text('readOnly'))}</p>` : `<p>${html(text('notCalculated'))}</p>`}${blockers.map((reason) => `<p>${html(blockerLabel(reason))}</p>`).join('')}</div>`;
+    return `<div class="partner-hotel-workspace__card"><h3>${html(text('stayPreview'))}</h3>${commercial ? `${commercialColumns(commercial, true)}<p>${html(text('readOnly'))}</p>` : `<p>${html(text('notCalculated'))}</p>`}${blockers.map((reason) => `<p>${html(blockerLabel(reason))}</p>`).join('')}</div>`;
+  }
+
+  function commissionRule(policy, quantity = null) {
+    if (!policy) return text('notCalculated');
+    if (policy.commission_mode === 'percent_booking_total') return `${policy.amount}% ${text('percentBooking')}`;
+    const amount = formatMoney(policy.amount, policy.currency);
+    return quantity == null ? `${amount} ${text('perRoomNight')}` : `${quantity} × ${amount} ${text('perRoomNight')}`;
+  }
+
+  function pricingSourceLabel(row) {
+    if (row.base_nightly_rate_authoritative) return text('basePrice');
+    if (row.pricing_schedule_id) return text('sharedTier');
+    if (String(row.pricing_source || '').includes('tier')) return text('directTier');
+    return String(row.pricing_source || text('notCalculated')).replaceAll('_', ' ');
   }
 
   function renderPricing() {
@@ -364,11 +458,26 @@
     if (!pricing) return '';
     const blocked = pricing.mutation_blocked_reasons || [];
     const plans = pricing.rate_plans.map((row) => `<article class="partner-hotel-workspace__card"><h3>${html(localized(row.name_i18n, row.code))}</h3><p>${html(enumLabel(row.review_status))} · ${html(text(row.is_active ? 'active' : 'inactive'))}</p>${diagnostics(row.id)}</article>`).join('');
+    const rates = pricing.room_rates.map((row) => `<article class="partner-hotel-workspace__card" data-phw-room-rate-product><h3>${html(rateName(row.id))}</h3><p>${html(enumLabel(row.review_status))} · ${html(text(row.is_active ? 'active' : 'inactive'))}</p><dl><div><dt>${html(text('pricingSource'))}</dt><dd>${html(pricingSourceLabel(row))}</dd></div><div><dt>${html(text('currentNightlyPrice'))}</dt><dd>${html(formatMoney(row.base_nightly_rate, row.currency))}</dd></div></dl><p>${html(text(row.base_nightly_rate_authoritative ? 'editableBasePrice' : 'tierOwnedPrice'))}</p>${diagnostics(row.id)}</article>`).join('');
+    const policy = pricing.commission_policy;
+    const policyCard = policy ? `<article class="partner-hotel-workspace__card" data-phw-commission-policy><h3>${html(text('commissionPolicy'))}</h3><p><strong>${html(commissionRule(policy))}</strong></p><p>${html(text('immutableCommercialRule'))} · ${html(text('readOnly'))}</p><small>${html(policy.code)}</small></article>` : '';
     const hasAuthoritativeBase = pricing.room_rates.some((row) => row.base_nightly_rate_authoritative);
-    return `<section class="partner-hotel-workspace__panel" data-phw-panel="rates_pricing"><h2>${html(text('pricing'))}</h2><div class="partner-hotel-workspace__grid">${plans}</div>${blocked.length ? `<div class="partner-hotel-workspace__status" data-tone="warning">${html(text('blocked'))}: ${html(blocked.map(blockerLabel).join(', '))}</div>` : ''}
+    return `<section class="partner-hotel-workspace__panel" data-phw-panel="rates_pricing"><h2>${html(text('pricing'))}</h2><h3>${html(text('ratePlans'))}</h3><div class="partner-hotel-workspace__grid">${plans || `<p>${html(text('empty'))}</p>`}</div><h3>${html(text('roomRateProducts'))}</h3><div class="partner-hotel-workspace__grid">${rates || `<p>${html(text('empty'))}</p>`}${policyCard}</div>${blocked.length ? `<div class="partner-hotel-workspace__status" data-tone="warning">${html(text('blocked'))}: ${html(blocked.map(blockerLabel).join(', '))}</div>` : ''}
       <form class="partner-hotel-workspace__form" data-phw-pricing ${blocked.length ? 'aria-disabled="true"' : ''}><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('priceField'))}<select name="entity"><option value="room_rate_price" ${hasAuthoritativeBase ? '' : 'disabled'}>${html(text('basePrice'))}</option><option value="schedule_tier_price">${html(text('sharedTier'))}</option><option value="room_rate_tier_price">${html(text('directTier'))}</option><option value="exact_date_price">${html(text('exactDate'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('exactProduct'))}<select name="target"></select></label><label class="partner-hotel-workspace__field" data-phw-exact-date hidden>${html(text('stayDate'))}<input name="stay_date" type="date" min="${todayIso()}" /></label><label class="partner-hotel-workspace__field">${html(text('nightlyPrice'))}<input name="nightly_rate" type="number" min="0" step="0.01" required /></label></div>${hasAuthoritativeBase ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('authoritativeOnly'))}</p>`}<label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary" ${blocked.length ? 'disabled' : ''}>${html(text('review'))}</button></form>
       <form class="partner-hotel-workspace__form" data-phw-stay><h3>${html(text('stayPreview'))}</h3><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('checkIn'))}<input name="check_in" type="date" min="${todayIso()}" value="${addDays(todayIso(), 1)}" required /></label><label class="partner-hotel-workspace__field">${html(text('checkOut'))}<input name="check_out" type="date" min="${addDays(todayIso(), 1)}" value="${addDays(todayIso(), 3)}" required /></label><label class="partner-hotel-workspace__field">${html(text('adults'))}<input name="adults" type="number" min="1" max="50" value="2" required /></label><label class="partner-hotel-workspace__field">${html(text('childAges'))}<input name="child_ages" placeholder="8, 12" /></label><label class="partner-hotel-workspace__field">${html(text('ratePlan'))}<select name="rate_plan_id"><option value="">${html(text('automatic'))}</option>${pricing.rate_plans.map((row) => `<option value="${row.id}">${html(localized(row.name_i18n, row.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="selected_room_type_id"><option value="">${html(text('automatic'))}</option>${state.workspace.rooms.map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('allocation'))}<select name="allocation_rule_id"><option value="">${html(text('automatic'))}</option>${pricing.allocation_rules.map((row) => `<option value="${row.id}">${html(row.code)}</option>`).join('')}</select></label></div><button class="btn-sm" type="submit">${html(text('previewStay'))}</button></form>${renderCommercial(state.commercialPreview)}
     </section>`;
+  }
+
+  function externalCalendarProviderLabel(sourceType) {
+    return text(sourceType === 'booking_com' ? 'bookingCom' : sourceType === 'airbnb' ? 'airbnb' : 'genericIcal');
+  }
+
+  function externalCalendarProviderOptions(selected = 'ical') {
+    return [
+      ['booking_com', 'bookingCom'],
+      ['airbnb', 'airbnb'],
+      ['ical', 'genericIcal'],
+    ].map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${html(text(label))}</option>`).join('');
   }
 
   function renderExternalCalendars() {
@@ -380,9 +489,9 @@
     const cards = control.sources.map((source) => {
       const room = control.rooms.find((entry) => entry.id === source.room_type_id);
       const health = source.health;
-      return `<article class="partner-hotel-workspace__card" data-phw-external-source="${source.id}"><h4>${html(source.code)}</h4><p>${html(localized(room?.name_i18n, source.room_type_id))} · ${html(source.secret_configured ? text('configured') : text('notConfigured'))}</p><p>${html(text('health'))}: ${html(text(health.status))}</p><dl><div><dt>${html(text('attempts'))}</dt><dd>${html(health.last_attempt_at || '—')}</dd></div><div><dt>${html(text('success'))}</dt><dd>${html(health.last_success_at || '—')}</dd></div><div><dt>${html(text('failure'))}</dt><dd>${html(health.last_error_code || health.last_error_message || '—')}</dd></div><div><dt>${html(text('events'))}</dt><dd>${health.last_event_count}</dd></div><div><dt>${html(text('activeEvents'))}</dt><dd>${health.last_active_event_count}</dd></div><div><dt>${html(text('blocks'))}</dt><dd>${health.last_block_count}</dd></div></dl><form class="partner-hotel-workspace__form" data-phw-external-source-form data-source-id="${source.id}"><h5>${html(text('externalCalendarEdit'))}</h5><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id">${roomOptions.replace(`value="${source.room_type_id}"`, `value="${source.room_type_id}" selected`)}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" value="${html(source.code)}" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source.sync_interval_minutes}" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="${source.units_per_event}" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="${source.priority}" required></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm" type="submit">${html(text('review'))}</button></form><div class="partner-hotel-workspace__actions"><button class="btn-sm" type="button" data-phw-external-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${source.id}" ${source.is_enabled ? 'disabled' : ''}>${html(text(source.secret_configured ? 'rotateUrl' : 'setUrl'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-secret="clear" data-source-id="${source.id}">${html(text('clearUrl'))}</button>` : ''}${source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-lifecycle="disable" data-source-id="${source.id}">${html(text('disableSource'))}</button>` : `<button class="btn-sm" type="button" data-phw-external-lifecycle="enable" data-source-id="${source.id}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${html(text('activationOff'))}"`}>${html(text('enableSource'))}</button>`}<button class="btn-sm" type="button" data-phw-external-sync data-source-id="${source.id}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${html(text('triggerSync'))}</button></div>${control.hotel_external_sync_enabled ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('activationOff'))}</p>`}${diagnostics(source.id)}</article>`;
+      return `<article class="partner-hotel-workspace__card" data-phw-external-source="${source.id}"><h4>${html(source.code)}</h4><p>${html(externalCalendarProviderLabel(source.source_type))} · ${html(localized(room?.name_i18n, source.room_type_id))} · ${html(source.secret_configured ? text('configured') : text('notConfigured'))}</p><p>${html(text('health'))}: ${html(text(health.status))}</p><dl><div><dt>${html(text('attempts'))}</dt><dd>${html(health.last_attempt_at || '—')}</dd></div><div><dt>${html(text('success'))}</dt><dd>${html(health.last_success_at || '—')}</dd></div><div><dt>${html(text('failure'))}</dt><dd>${html(health.last_error_code || health.last_error_message || '—')}</dd></div><div><dt>${html(text('events'))}</dt><dd>${health.last_event_count}</dd></div><div><dt>${html(text('activeEvents'))}</dt><dd>${health.last_active_event_count}</dd></div><div><dt>${html(text('blocks'))}</dt><dd>${health.last_block_count}</dd></div></dl><form class="partner-hotel-workspace__form" data-phw-external-source-form data-source-id="${source.id}"><h5>${html(text('externalCalendarEdit'))}</h5><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions(source.source_type)}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id">${roomOptions.replace(`value="${source.room_type_id}"`, `value="${source.room_type_id}" selected`)}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" value="${html(source.code)}" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source.sync_interval_minutes}" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="${source.units_per_event}" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="${source.priority}" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm" type="submit">${html(text('review'))}</button></form><div class="partner-hotel-workspace__actions"><button class="btn-sm" type="button" data-phw-external-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${source.id}" ${source.is_enabled ? 'disabled' : ''}>${html(text(source.secret_configured ? 'rotateUrl' : 'setUrl'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-secret="clear" data-source-id="${source.id}">${html(text('clearUrl'))}</button>` : ''}${source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-lifecycle="disable" data-source-id="${source.id}">${html(text('disableSource'))}</button>` : `<button class="btn-sm" type="button" data-phw-external-lifecycle="enable" data-source-id="${source.id}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${html(text('activationOff'))}"`}>${html(text('enableSource'))}</button>`}<button class="btn-sm" type="button" data-phw-external-sync data-source-id="${source.id}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${html(text('triggerSync'))}</button></div>${control.hotel_external_sync_enabled ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('activationOff'))}</p>`}${diagnostics(source.id)}</article>`;
     }).join('');
-    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p><div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div><details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details></section>`;
+    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p><div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div><details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions()}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details></section>`;
   }
 
   function renderAvailability() {
@@ -408,7 +517,7 @@
     syncPricingTargets();
   }
 
-  function formI18n(data, prefix) { return Object.fromEntries(['pl', 'en', 'he'].map((lang) => [lang, String(data.get(`${prefix}_${lang}`) || '').trim()])); }
+  function formI18n(data, prefix) { return Core.compactI18n(Object.fromEntries(['pl', 'en', 'he'].map((lang) => [lang, String(data.get(`${prefix}_${lang}`) || '')]))); }
   function nullableText(value) { const clean = String(value || '').trim(); return clean || null; }
   function nullableNumber(value) { const clean = String(value ?? '').trim(); return clean === '' ? null : Number(clean); }
   function list(value) { return Array.from(new Set(String(value || '').split(',').map((entry) => entry.trim()).filter(Boolean))); }
@@ -439,14 +548,12 @@
     } catch (error) { setStatus(error.userMessage || error.message, error.isStale ? 'warning' : 'error'); }
   }
 
-  function commercialColumns(value) {
+  function commercialColumns(value, exactStay = false) {
     if (!value) return `<p>${html(text('notCalculated'))}</p>`;
-    const policy = value.policy.commission_mode === 'percent_booking_total'
-      ? `${value.policy.amount}% ${text('percentBooking')}`
-      : `${value.calculation_basis.quantity} × ${formatMoney(value.policy.amount, value.currency)} ${text('perRoomNight')}`;
-    return `<div class="partner-hotel-workspace-review__commercial"><div><small>${html(text('customerPrice'))}</small><strong>${html(formatMoney(value.customer_price, value.currency))}</strong></div><div><small>${html(text('commission'))}</small><strong>${html(formatMoney(value.cypruseye_commission, value.currency))}</strong></div><div><small>${html(text('partnerNet'))}</small><strong>${html(formatMoney(value.partner_net, value.currency))}</strong></div></div><p><small>${html(text('commissionBasis'))}: ${html(policy)}</small></p>`;
+    const policy = commissionRule(value.policy, value.policy.commission_mode === 'per_allocated_room_per_night' ? value.calculation_basis.quantity : null);
+    return `<div class="partner-hotel-workspace-review__commercial"><div><small>${html(text(exactStay ? 'exactStayCustomerTotal' : 'customerSellingPrice'))}</small><strong>${html(formatMoney(value.customer_price, value.currency))}</strong></div><div><small>${html(text('commission'))}</small><strong>${html(formatMoney(value.cypruseye_commission, value.currency))}</strong></div><div><small>${html(text('partnerNet'))}</small><strong>${html(formatMoney(value.partner_net, value.currency))}</strong></div></div><p><small>${html(text('commissionBasis'))}: ${html(policy)}</small></p>`;
   }
-  function exampleCommercial(result) { return result?.commercial ? commercialColumns(result.commercial) : `<p>${html(text('notCalculated'))}</p>`; }
+  function exampleCommercial(result) { return result?.commercial ? commercialColumns(result.commercial, true) : `<p>${html(text('notCalculated'))}</p>`; }
   function focusables(node) { return Array.from(node.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')); }
   function openReview() {
     const { preview, domain } = state.pending;
@@ -588,6 +695,8 @@
       if (button.matches('[data-phw-section]')) { capturePhotoDrafts(); state.section = button.dataset.phwSection; render(); return; }
       if (button.matches('[data-phw-existing-flow]')) { close({ restorePortal: true }); root.dispatchEvent(new CustomEvent('ce:partner-hotel-bookings')); return; }
       if (button.matches('[data-phw-room-edit]')) { state.roomEditor = { id: button.dataset.roomId, mode: button.dataset.phwRoomEdit }; render(); }
+      if (button.matches('[data-phw-add-bed]')) { button.closest('form')?.querySelector('[data-phw-bed-rows]')?.insertAdjacentHTML('beforeend', bedRow()); return; }
+      if (button.matches('[data-phw-remove-bed]')) { button.closest('[data-phw-bed-row]')?.remove(); return; }
       if (button.matches('[data-phw-upload-property]')) { void uploadPhotos(button.closest('form'), null, button); return; }
       if (button.matches('[data-phw-upload-room]')) { void uploadPhotos(button.closest('form'), button.closest('form')?.dataset.roomId || null, button); }
       if (button.matches('[data-phw-external-secret]')) { openExternalCalendarAction(button.dataset.sourceId, 'ical_secret', button.dataset.phwExternalSecret, button); return; }
@@ -612,11 +721,15 @@
         const mode = form.dataset.phwRoomForm; const id = form.dataset.roomId; let payload;
         if (mode === 'content') payload = { name_i18n: formI18n(data, 'name'), description_i18n: formI18n(data, 'description'), amenities: list(data.get('amenities')), floor_label_i18n: formI18n(data, 'floor') };
         else if (mode === 'photos') payload = { gallery: orderedPhotos(form, 'gallery') };
-        else payload = { capacity_adults: nullableNumber(data.get('capacity_adults')), capacity_children: nullableNumber(data.get('capacity_children')), max_occupancy: nullableNumber(data.get('max_occupancy')), bathrooms: Number(data.get('bathrooms')), size_sqm: nullableNumber(data.get('size_sqm')), inventory_mode: String(data.get('inventory_mode')), base_inventory_count: Number(data.get('base_inventory_count')), sort_order: Number(data.get('sort_order')) };
+        else {
+          let beds;
+          try { beds = bedConfigurationFromForm(form); } catch (error) { setStatus(error.message, 'error'); return; }
+          payload = { capacity_adults: nullableNumber(data.get('capacity_adults')), capacity_children: nullableNumber(data.get('capacity_children')), max_occupancy: nullableNumber(data.get('max_occupancy')), bed_configuration: beds, bathrooms: nullableNumber(data.get('bathrooms')), size_sqm: nullableNumber(data.get('size_sqm')), inventory_mode: String(data.get('inventory_mode')), base_inventory_count: Number(data.get('base_inventory_count')), sort_order: Number(data.get('sort_order')) };
+        }
         await review('content', contentDraft({ entity: `room_${mode}`, action: 'update', id, payload, reason: String(data.get('reason') || '').trim() }), opener); return;
       }
       if (form.matches('[data-phw-room-create]')) {
-        const payload = { code: String(data.get('code') || '').trim(), name_i18n: formI18n(data, 'name'), description_i18n: formI18n(data, 'description'), gallery: [], capacity_adults: null, capacity_children: null, max_occupancy: Number(data.get('max_occupancy')), bed_configuration: [], bathrooms: Number(data.get('bathrooms')), size_sqm: nullableNumber(data.get('size_sqm')), amenities: list(data.get('amenities')), inventory_mode: String(data.get('inventory_mode')), base_inventory_count: Number(data.get('base_inventory_count')), sort_order: 0, floor_label_i18n: { pl: '', en: '', he: '' } };
+        const payload = { code: String(data.get('code') || '').trim(), name_i18n: formI18n(data, 'name'), description_i18n: formI18n(data, 'description'), gallery: [], capacity_adults: null, capacity_children: null, max_occupancy: Number(data.get('max_occupancy')), bed_configuration: [], bathrooms: Number(data.get('bathrooms')), size_sqm: nullableNumber(data.get('size_sqm')), amenities: list(data.get('amenities')), inventory_mode: String(data.get('inventory_mode')), base_inventory_count: Number(data.get('base_inventory_count')), sort_order: 0, floor_label_i18n: {} };
         await review('content', contentDraft({ entity: 'room', action: 'create', id: null, payload, reason: String(data.get('reason') || '').trim() }), opener); return;
       }
       if (form.matches('[data-phw-pricing]')) {
@@ -655,6 +768,7 @@
         const payload = {
           room_type_id: String(data.get('room_type_id') || ''),
           code: String(data.get('code') || '').trim(),
+          source_type: String(data.get('source_type') || ''),
           sync_interval_minutes: Number(data.get('sync_interval_minutes')),
           units_per_event: Number(data.get('units_per_event')),
           priority: Number(data.get('priority')),

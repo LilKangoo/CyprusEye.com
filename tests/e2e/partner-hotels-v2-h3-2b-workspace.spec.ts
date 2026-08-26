@@ -24,7 +24,7 @@ async function installHarness(
   page: Page,
   viewport: { width: number; height: number },
   language = 'en',
-  options: { externalCalendar?: boolean } = {},
+  options: { externalCalendar?: boolean; commercialOwnerPreset?: boolean } = {},
 ): Promise<void> {
   await page.route('**/__h3_2b_partner_workspace_harness__', async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html></html>' });
@@ -52,7 +52,7 @@ async function installHarness(
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
-  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar }) => {
+  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar, commercialOwnerPreset }) => {
     const root = window as any;
     let uuidSequence = 1;
     Object.defineProperty(root.crypto, 'randomUUID', {
@@ -60,11 +60,13 @@ async function installHarness(
       value: () => `dddddddd-dddd-4ddd-8ddd-${String(uuidSequence++).padStart(12, '0')}`,
     });
     const clone = (value: any) => JSON.parse(JSON.stringify(value));
+    const availabilityEnabled = externalCalendar || commercialOwnerPreset;
     const capabilities = {
       edit_property_content: true, edit_property_photos: true, edit_room_content: true,
       edit_room_photos: true, create_rooms: true, edit_room_structure: true,
-      manage_prices: true, manage_availability: externalCalendar, process_bookings: true,
-      request_booking_changes: true, view_payment_status: true, initiate_stripe_onboarding: true,
+      manage_prices: true, manage_availability: availabilityEnabled, process_bookings: true,
+      request_booking_changes: !commercialOwnerPreset, view_payment_status: true,
+      initiate_stripe_onboarding: !commercialOwnerPreset,
     };
     const section = (visible: boolean, available: boolean, status: string) => ({ visible, available, status });
     const property = {
@@ -98,7 +100,7 @@ async function installHarness(
       currency: 'EUR', version: 1, updated_at: '2026-08-25T10:00:00Z', fingerprint: token, read_only: true,
     };
     const externalSource = {
-      id: externalSourceId, hotel_id: hotelId, room_type_id: roomId, code: 'airbnb-upper', source_type: 'ical',
+      id: externalSourceId, hotel_id: hotelId, room_type_id: roomId, code: 'airbnb-upper', source_type: 'airbnb',
       is_enabled: false, review_status: 'reviewed', priority: 100, version: 1, updated_at: '2026-08-25T10:00:00Z',
       secret_configured: true, binding_version: 1, sync_interval_minutes: 60, units_per_event: 1,
       health: {
@@ -120,7 +122,7 @@ async function installHarness(
       privateIcalUrl: 'https://private.example.test/never-render-this.ics',
       externalControl,
       workspace: {
-        contract_version: 'hotels_v2_h3_2b_partner_workspace_v1', partner: { id: partnerId, role: 'partner' }, hotel_id: hotelId,
+        contract_version: 'hotels_v2_h3_2b_partner_workspace_v1', partner: { id: partnerId, role: commercialOwnerPreset ? 'owner' : 'partner' }, hotel_id: hotelId,
         assignment: { id: assignmentId, permission_version: 1, capabilities, access_snapshot_token: token },
         feature_flags: { hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false, hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false },
         content_snapshot_token: token, property, property_draft: emptyDraft, rooms: [room], units: [],
@@ -133,9 +135,9 @@ async function installHarness(
         availability: null,
         sections: {
           overview: section(true, true, 'available'), property_content: section(true, true, 'available'), property_photos: section(true, true, 'available'),
-          rooms: section(true, true, 'available'), rates_pricing: section(true, true, 'available'), calendar_availability: section(externalCalendar, externalCalendar, externalCalendar ? 'available' : 'unavailable'),
+          rooms: section(true, true, 'available'), rates_pricing: section(true, true, 'available'), calendar_availability: section(availabilityEnabled, availabilityEnabled, availabilityEnabled ? 'available' : 'unavailable'),
           bookings: section(true, true, 'existing_flow'), payments: section(true, true, 'existing_flow'),
-          booking_changes: section(true, false, 'future_stage'), stripe_onboarding: section(true, false, 'future_stage'),
+          booking_changes: section(!commercialOwnerPreset, false, 'future_stage'), stripe_onboarding: section(!commercialOwnerPreset, false, 'future_stage'),
         },
         recent_activity: [], legacy_authoritative: true, public_change: false,
       },
@@ -192,7 +194,7 @@ async function installHarness(
     };
     const externalCalendarPreview = (draft: any) => {
       const current = store.externalControl.sources[0];
-      const fields = ['code', 'priority', 'room_type_id', 'sync_interval_minutes', 'units_per_event'];
+      const fields = ['code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event'];
       const operation = {
         entity: 'calendar_source', action: 'update', id: current.id, expected_version: current.version,
         expected_original: clone(current), payload: clone(draft.intent.payload), reason: draft.intent.reason,
@@ -222,7 +224,7 @@ async function installHarness(
       rpc: async (name: string, params: any) => {
         store.rpcCalls.push({ name, params: clone(params) });
         if (name === 'hotel_v2_partner_get_workspace') {
-          if (externalCalendar) {
+          if (availabilityEnabled) {
             store.workspace.availability = {
               contract_version: 'hotels_v2_admin_d_availability_control_v1', hotel_id: hotelId,
               from: params.p_from, to: params.p_to, snapshot_token: token,
@@ -285,7 +287,7 @@ async function installHarness(
       },
       uploadRoom: async () => [],
     };
-  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true });
+  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true, commercialOwnerPreset: options.commercialOwnerPreset === true });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace.js') });
   await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
     await (window as any).HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
@@ -298,6 +300,41 @@ async function expectNoBrowserErrors(page: Page): Promise<void> {
 }
 
 test.describe('Hotels V2 H3.2B Partner workspace', () => {
+  test('exact 7 Arches commercial-owner preset exposes operational tabs without future capabilities', async ({ page }) => {
+    await installHarness(page, { width: 1440, height: 1000 }, 'en', { commercialOwnerPreset: true });
+    const workspace = page.locator('#partnerHotelWorkspaceView');
+
+    await expect(workspace.locator('[data-phw-section]')).toHaveText([
+      'Overview', 'Property', 'Rooms', 'Rates & Pricing', 'Calendar', 'Bookings', 'Payments',
+    ]);
+    await expect(workspace).not.toContainText('Booking changes');
+    await expect(workspace).not.toContainText('Stripe onboarding');
+    await expect(workspace.getByRole('button', { name: /Stripe onboarding|Request booking change/i })).toHaveCount(0);
+
+    const access = await page.evaluate(() => {
+      const workspaceValue = (window as any).__h32b.workspace;
+      return { role: workspaceValue.partner.role, capabilities: workspaceValue.assignment.capabilities };
+    });
+    expect(access).toEqual({
+      role: 'owner',
+      capabilities: {
+        edit_property_content: true,
+        edit_property_photos: true,
+        edit_room_content: true,
+        edit_room_photos: true,
+        create_rooms: true,
+        edit_room_structure: true,
+        manage_prices: true,
+        manage_availability: true,
+        process_bookings: true,
+        request_booking_changes: false,
+        view_payment_status: true,
+        initiate_stripe_onboarding: false,
+      },
+    });
+    await expectNoBrowserErrors(page);
+  });
+
   test('desktop uses exact capability sections and Review/Save, no-op and stale flows without retry', async ({ page }) => {
     await installHarness(page, { width: 1440, height: 1000 }, 'en');
     const workspace = page.locator('#partnerHotelWorkspaceView');
@@ -388,6 +425,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     const source = calendars.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"]`);
     await expect(calendars).toBeVisible();
     await expect(calendars).toContainText('Kalendarze zewnętrzne');
+    await expect(source).toContainText('Airbnb');
     await expect(source).toContainText('Skonfigurowano (URL ukryty)');
     await expect(source).toContainText('Nigdy nie synchronizowano');
     await expect(source.locator('[data-phw-external-lifecycle="enable"]')).toBeDisabled();

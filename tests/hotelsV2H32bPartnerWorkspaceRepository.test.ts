@@ -166,4 +166,24 @@ describe('Hotels V2 H3.2B independent Partner workspace repository', () => {
       .rejects.toMatchObject({ isStale: true, isDefinitiveFailure: true, isAmbiguousOutcome: false });
     expect(calls.filter((name) => name === 'hotel_v2_partner_apply_content_plan')).toHaveLength(1);
   });
+
+  test.each([
+    ['a non-owner membership without exact Hotel scope', PARTNER, HOTEL],
+    ['an exact owner requesting a foreign Hotel', PARTNER, '99999999-9999-4999-8999-999999999999'],
+  ])('keeps %s denied without fallback or retry', async (_case, partnerId, hotelId) => {
+    const calls: Array<{ name: string; payload: any }> = [];
+    const repository = loadRepository({
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return { data: null, error: { code: '42501', message: 'hotels_v2_h3_2a_partner_access_denied' } };
+      },
+    });
+
+    await expect(repository.getWorkspace(partnerId, hotelId, '2026-08-25', '2026-09-24'))
+      .rejects.toMatchObject({ code: '42501', isStale: false, isAmbiguousOutcome: false });
+    expect(calls).toEqual([{
+      name: 'hotel_v2_partner_get_workspace',
+      payload: { p_partner_id: partnerId, p_hotel_id: hotelId, p_from: '2026-08-25', p_to: '2026-09-24' },
+    }]);
+  });
 });

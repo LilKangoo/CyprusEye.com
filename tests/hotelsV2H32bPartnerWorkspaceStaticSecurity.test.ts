@@ -34,6 +34,21 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     expect(workspace).toContain("he: {");
   });
 
+  test('renders the commercial owner through exact assignment capabilities without an owner-role fallback', () => {
+    const browserSource = [core, repository, workspace].join('\n');
+    expect(core).toContain('property_content: capabilities.edit_property_content');
+    expect(core).toContain('property_photos: capabilities.edit_property_photos');
+    expect(core).toContain('rooms: capabilities.edit_room_content || capabilities.edit_room_photos || capabilities.create_rooms || capabilities.edit_room_structure');
+    expect(core).toContain('rates_pricing: capabilities.manage_prices');
+    expect(core).toContain('calendar_availability: capabilities.manage_availability');
+    expect(core).toContain('bookings: capabilities.process_bookings');
+    expect(core).toContain('payments: capabilities.view_payment_status');
+    expect(workspace).toContain("state.workspace?.sections?.property_content?.visible || state.workspace?.sections?.property_photos?.visible");
+    expect(core).toContain("'commercial_owner', 'owner_partner_id'");
+    expect(browserSource).not.toMatch(/commercialOwnerPartner|(?:assignment|membership|partner)\??\.role\s*===\s*['\"]owner['\"]/);
+    expect(browserSource).not.toContain('9b6d99a0-923a-4fbc-be54-c066e856e6ca');
+  });
+
   test('leaves the accepted fulfillment mutation source byte-exact and uses bookings/payments as existing-flow visibility only', () => {
     expect(sha256('supabase/functions/partner-fulfillment-action/index.ts'))
       .toBe('802aa0b8d3a1204f93adefcf598a77c764fde4a6e15dfe2624366c0a99c1297b');

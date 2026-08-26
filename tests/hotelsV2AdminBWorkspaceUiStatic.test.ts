@@ -56,6 +56,25 @@ describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
     expect(ui).toContain('Google Maps URL must use a supported Google Maps domain.');
     expect(ui).toContain('name="code" maxlength="80"');
     expect(ui).toContain("'input', 160");
+    expect(ui).toContain('Beds · MISSING / UNKNOWN · REQUIRES REVIEW');
+    expect(ui).toContain('Bathrooms · MISSING / UNKNOWN · REQUIRES REVIEW');
+    expect(ui).toContain('Size · MISSING / UNKNOWN · REQUIRES REVIEW');
+    expect(ui).toContain("Gallery · ${room.gallery.length} photo");
+    expect(ui).toContain('Amenities · ${escapeHtml(room.amenities.join');
+    expect(ui).toContain('no exact bed configuration is confirmed');
+    expect(ui).toContain('no exact bathroom count is confirmed');
+    expect(ui).toContain('no exact room size is confirmed');
+    expect(repository).toContain("partnerPropertyProposals: 'hotel_v2_admin_get_partner_property_proposals'");
+    expect(repository).toContain("previewPartnerPropertyProposalPlan: 'hotel_v2_admin_preview_partner_property_proposal_plan'");
+    expect(repository).toContain("applyPartnerPropertyProposalPlan: 'hotel_v2_admin_apply_partner_property_proposal_plan'");
+    expect(ui).toContain('Partner property proposals');
+    expect(ui).toContain('data-partner-proposal-action="accept"');
+    expect(ui).toContain('data-partner-proposal-action="reject"');
+    expect(ui).toContain('Canonical Hotel');
+    expect(ui).toContain('Partner proposal');
+    expect(ui).toContain('Fresh values were loaded; prepare a new explicit Review.');
+    expect(ui).toContain('Reject remains available to terminalize this obsolete exact-version proposal');
+    expect(repository).toContain('reviewedPartnerPropertyProposalPlans.delete(fingerprint)');
   });
 
   test('keeps normal Room media exact, optimized and independent from legacy preparation', () => {

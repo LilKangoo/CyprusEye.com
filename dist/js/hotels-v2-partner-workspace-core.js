@@ -51,6 +51,7 @@
   const FORBIDDEN_MUTATION_KEYS = new Set([
     'architecture_version', 'is_published', 'feature_flags', 'public_change', 'legacy_authoritative',
     'commission_policy', 'commission_mode', 'commission_amount', 'commission_rate',
+    'cypruseye_commission', 'partner_net', 'customer_price', 'commercial', 'calculation_basis',
     'payment_policy', 'payment_recipient', 'deposit', 'commercial_owner', 'owner_partner_id',
     'operational_partner_id', 'assignment_id', 'partner_id', 'booking_id', 'status', 'is_active',
   ]);
@@ -156,6 +157,21 @@
     }
     return value;
   }
+  function compactI18n(value, maximum = 12000) {
+    if (!isObject(value) || Object.keys(value).some((key) => !LANGUAGES.includes(key))) {
+      fail('Localized form content must contain only PL/EN/HE strings.');
+    }
+    const compact = {};
+    LANGUAGES.forEach((language) => {
+      if (!Object.prototype.hasOwnProperty.call(value, language)) return;
+      if (typeof value[language] !== 'string') fail('Localized form content must contain only PL/EN/HE strings.');
+      const clean = value[language].trim();
+      if (!clean) return;
+      requireString(clean, `Localized ${language.toUpperCase()} form content`, { minimum: 1, maximum });
+      compact[language] = clean;
+    });
+    return compact;
+  }
   function requireStringArray(value, label, maximum = 500) {
     requireArray(value, label, maximum);
     if (value.some((entry) => typeof entry !== 'string' || entry !== entry.trim() || !entry || entry.length > 2048)
@@ -190,8 +206,9 @@
     ], 'Partner Hotel property');
     if (requireCanonicalUuid(row.id, 'property.id') !== hotelId) fail('Partner Hotel property identity is mismatched.');
     requireString(row.slug, 'property.slug', { minimum: 1, maximum: 180 });
-    requireI18n(row.title_i18n, 'property.title_i18n', { maximum: 240 });
-    requireI18n(row.description_i18n, 'property.description_i18n');
+    if (!Object.values(row.title_i18n || {}).some((value) => typeof value === 'string' && value.length)) fail('property.title_i18n requires at least one exact locale.');
+    requireI18n(row.title_i18n, 'property.title_i18n', { partial: true, maximum: 240 });
+    requireI18n(row.description_i18n, 'property.description_i18n', { partial: true });
     ['city', 'address_line', 'district', 'postal_code', 'country'].forEach((key) => requireString(row[key], `property.${key}`, { nullable: true, maximum: 500 }));
     if (row.latitude !== null && (typeof row.latitude !== 'number' || !Number.isFinite(row.latitude) || row.latitude < -90 || row.latitude > 90)) fail('property.latitude is invalid.');
     if (row.longitude !== null && (typeof row.longitude !== 'number' || !Number.isFinite(row.longitude) || row.longitude < -180 || row.longitude > 180)) fail('property.longitude is invalid.');
@@ -220,8 +237,9 @@
     requireTimestamp(row.updated_at, 'property_draft.updated_at');
     if (Object.keys(row.content).length) {
       requireExactKeys(row.content, ['title_i18n', 'description_i18n', 'city', 'address_line', 'district', 'postal_code', 'country', 'latitude', 'longitude', 'google_maps_url', 'amenities', 'check_in_from', 'check_out_until'], 'Property draft content');
-      requireI18n(row.content.title_i18n, 'property_draft.content.title_i18n', { maximum: 240 });
-      requireI18n(row.content.description_i18n, 'property_draft.content.description_i18n');
+      if (!Object.values(row.content.title_i18n || {}).some((value) => typeof value === 'string' && value.length)) fail('property_draft.content.title_i18n requires at least one exact locale.');
+      requireI18n(row.content.title_i18n, 'property_draft.content.title_i18n', { partial: true, maximum: 240 });
+      requireI18n(row.content.description_i18n, 'property_draft.content.description_i18n', { partial: true });
       ['city', 'address_line', 'district', 'postal_code', 'country'].forEach((key) => requireString(row.content[key], `property_draft.content.${key}`, { nullable: true, maximum: 500 }));
       if (row.content.latitude !== null && (typeof row.content.latitude !== 'number' || !Number.isFinite(row.content.latitude) || row.content.latitude < -90 || row.content.latitude > 90)) fail('Property draft latitude is invalid.');
       if (row.content.longitude !== null && (typeof row.content.longitude !== 'number' || !Number.isFinite(row.content.longitude) || row.content.longitude < -180 || row.content.longitude > 180)) fail('Property draft longitude is invalid.');
@@ -244,8 +262,9 @@
     requireCanonicalUuid(row.id, 'room.id');
     if (requireCanonicalUuid(row.hotel_id, 'room.hotel_id') !== hotelId) fail('A Room belongs to another Hotel.');
     requireString(row.code, 'room.code', { minimum: 1, maximum: 80 });
-    requireI18n(row.name_i18n, 'room.name_i18n', { maximum: 240 });
-    requireI18n(row.description_i18n, 'room.description_i18n');
+    if (!Object.values(row.name_i18n || {}).some((value) => typeof value === 'string' && value.length)) fail('room.name_i18n requires at least one exact locale.');
+    requireI18n(row.name_i18n, 'room.name_i18n', { partial: true, maximum: 240 });
+    requireI18n(row.description_i18n, 'room.description_i18n', { partial: true });
     requireStringArray(row.gallery, 'room.gallery', 250);
     nullableInteger(row.capacity_adults, 'room.capacity_adults', 0, 50);
     nullableInteger(row.capacity_children, 'room.capacity_children', 0, 50);
@@ -255,9 +274,12 @@
       requireExactKeys(bed, keys, 'Room bed');
       if (!['double', 'single', 'sofa', 'bunk', 'king', 'queen', 'other'].includes(bed.type)) fail('Room bed type is invalid.');
       requireInteger(bed.quantity, 'Room bed quantity', 1, 20);
-      if (bed.type === 'other') requireI18n(bed.label, 'Room bed label', { maximum: 160 });
+      if (bed.type === 'other') {
+        if (!Object.values(bed.label || {}).some((value) => typeof value === 'string' && value.length)) fail('Other Room bed label requires at least one exact locale.');
+        requireI18n(bed.label, 'Room bed label', { partial: true, maximum: 160 });
+      }
     });
-    if (typeof row.bathrooms !== 'number' || !Number.isFinite(row.bathrooms) || row.bathrooms < 0 || row.bathrooms > 20) fail('Room bathrooms are invalid.');
+    if (row.bathrooms !== null && (typeof row.bathrooms !== 'number' || !Number.isFinite(row.bathrooms) || row.bathrooms < 0 || row.bathrooms > 20)) fail('Room bathrooms are invalid.');
     if (row.size_sqm !== null && (typeof row.size_sqm !== 'number' || !Number.isFinite(row.size_sqm) || row.size_sqm <= 0 || row.size_sqm > 10000)) fail('Room size is invalid.');
     requireStringArray(row.amenities, 'room.amenities');
     if (!['pooled', 'unitized'].includes(row.inventory_mode) || !['draft', 'active', 'disabled'].includes(row.status)) fail('Room lifecycle or inventory mode is invalid.');
@@ -960,7 +982,7 @@
 
   return Object.freeze({
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS,
-    hasExactKeys, requireCanonicalUuid, requireIsoDate, validateWorkspace, validateDraft,
+    hasExactKeys, requireCanonicalUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
     normalizeExternalCalendarControl, buildExternalCalendarDraft,

@@ -166,6 +166,31 @@ describe('Hotels V2 H3.2B Partner workspace client', () => {
     expect(media).not.toContain('.remove('); expect(media).not.toMatch(/retry/i);
     expect(html).toContain('/admin/hotels-v2-workspace-core.js?v=20260826_1');
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
+    expect(ui).toContain("`${text('bedConfiguration')}: ${room.bed_configuration.length");
+    expect(ui).toContain("room.bathrooms == null ? `${text('missingUnknown')}");
+    expect(ui).toContain("room.size_sqm == null ? `${text('missingUnknown')}");
+    expect(ui).toContain('data-phw-add-bed');
+    expect(ui).toContain('data-phw-remove-bed');
+    expect(ui).toContain('bed_configuration: beds, bathrooms: nullableNumber');
+    expect(ui).toContain("bed_configuration: [], bathrooms: Number(data.get('bathrooms'))");
+    expect(ui).toContain('Core.compactI18n');
+    expect(ui).toContain('floor_label_i18n: {}');
+    expect(ui).toContain("text('missingUnknown')");
+    expect(ui).toContain("text('confirmed')");
+    expect(ui).toContain('data-phw-room-rate-product');
+    expect(ui).toContain('data-phw-commission-policy');
+    expect(ui).toContain("text(row.is_active ? 'active' : 'inactive')");
+    expect(ui).toContain("row.base_nightly_rate_authoritative ? 'editableBasePrice' : 'tierOwnedPrice'");
+    expect(ui).toContain("commercialColumns(commercial, true)");
+    expect(ui).toContain("text(exactStay ? 'exactStayCustomerTotal' : 'customerSellingPrice')");
+    expect(ui).toContain("`${amount} ${text('perRoomNight')}`");
+    expect(ui).not.toMatch(/name=["'](?:commission|commission_mode|commission_amount|partner_net|customer_price)["']/);
+
+    const adminUi = fs.readFileSync(path.join(process.cwd(), 'admin/hotels-v2-workspace.js'), 'utf8');
+    expect(adminUi).toContain("pricingLifecycleLabel(rate.lifecycle_status)");
+    expect(adminUi).toContain("pricingUiHtml('Customer selling price')");
+    expect(adminUi).toContain('h3CommissionLabel(commission)');
+    expect(adminUi).toContain("policy.commission_mode === 'percent_booking_total'");
   });
 
   test('uses one exact reviewed RPC request and never retries a stale preview', async () => {

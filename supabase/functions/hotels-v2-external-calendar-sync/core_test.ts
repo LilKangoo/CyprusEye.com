@@ -8,6 +8,9 @@ import {
   parseSchedulerLeaseResult,
   parseSourceContract,
   parseWorkerRequest,
+  type PinnedConnection,
+  type PinnedConnector,
+  type PinnedHttpsTarget,
   sanitizeFailure,
   WorkerError,
 } from "./core.ts";
@@ -26,6 +29,78 @@ async function rejectsCode(action: () => unknown | Promise<unknown>, code: strin
 }
 
 const resolvePublic = async (_hostname: string, type: "A" | "AAAA") => type === "A" ? ["93.184.216.34"] : [];
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+function rawResponse(
+  body: string,
+  options: { status?: number; headers?: Record<string, string>; framing?: "length" | "chunked" | "close" } = {},
+): Uint8Array {
+  const status = options.status ?? 200;
+  const framing = options.framing ?? "length";
+  const bodyBytes = encoder.encode(body);
+  const headers: Record<string, string> = { "content-type": "text/calendar", ...(options.headers || {}) };
+  let wireBody = bodyBytes;
+  if (framing === "length" && !Object.keys(headers).some((name) => name.toLowerCase() === "content-length")) {
+    headers["content-length"] = String(bodyBytes.length);
+  }
+  if (framing === "chunked") {
+    headers["transfer-encoding"] = "chunked";
+    const midpoint = Math.max(1, Math.floor(bodyBytes.length / 2));
+    wireBody = encoder.encode([
+      body.slice(0, midpoint).length.toString(16), body.slice(0, midpoint),
+      body.slice(midpoint).length.toString(16), body.slice(midpoint),
+      "0", "", "",
+    ].join("\r\n"));
+  }
+  const head = encoder.encode([
+    `HTTP/1.1 ${status} ${status === 200 ? "OK" : "Status"}`,
+    ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
+    "", "",
+  ].join("\r\n"));
+  const result = new Uint8Array(head.length + wireBody.length);
+  result.set(head); result.set(wireBody, head.length);
+  return result;
+}
+
+function fakeConnector(
+  responseFor: (target: PinnedHttpsTarget) => Uint8Array,
+  observations: { targets: PinnedHttpsTarget[]; requests: string[]; closes: number },
+  fragmentBytes = 7,
+): PinnedConnector {
+  return async (target) => {
+    observations.targets.push(target);
+    const response = responseFor(target);
+    const written: Uint8Array[] = [];
+    let position = 0;
+    let closed = false;
+    const connection: PinnedConnection = {
+      async read(buffer) {
+        if (closed || position >= response.length) return null;
+        const length = Math.min(buffer.length, fragmentBytes, response.length - position);
+        buffer.set(response.subarray(position, position + length));
+        position += length;
+        return length;
+      },
+      async write(buffer) {
+        const length = Math.max(1, Math.min(5, buffer.length));
+        written.push(buffer.slice(0, length));
+        return length;
+      },
+      close() {
+        if (closed) return;
+        closed = true;
+        observations.closes += 1;
+        const length = written.reduce((total, chunk) => total + chunk.length, 0);
+        const value = new Uint8Array(length); let offset = 0;
+        for (const chunk of written) { value.set(chunk, offset); offset += chunk.length; }
+        observations.requests.push(decoder.decode(value));
+      },
+    };
+    return connection;
+  };
+}
 
 Deno.test("accepts only the exact bounded internal request envelope", () => {
   const request = parseWorkerRequest({
@@ -196,10 +271,12 @@ Deno.test("blocks localhost, private DNS, link-local, non-HTTPS and unsafe redir
     "https://user:secret@example.com/feed.ics",
   ]) await rejectsCode(() => assertSafeHttpsUrl(url, resolvePublic), url.startsWith("http:") || url.includes("user:") ? "unsafe_calendar_url" : "unsafe_calendar_host");
   await rejectsCode(() => assertSafeHttpsUrl("https://calendar.example/feed.ics", async (_host, type) => type === "A" ? ["10.0.0.8"] : []), "unsafe_calendar_host");
+  const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
   await rejectsCode(() => fetchCalendar("https://calendar.example/feed.ics", {
     resolve: resolvePublic,
-    fetchImpl: async () => new Response(null, { status: 302, headers: { location: "https://127.0.0.1/private" } }),
+    connect: fakeConnector(() => rawResponse("", { status: 302, headers: { location: "https://127.0.0.1/private" } }), observations),
   }), "unsafe_calendar_host");
+  assert(observations.closes === 1, "The redirect response socket must be closed before rejection");
 });
 
 Deno.test("bounds a hanging DNS resolver by the shared fetch deadline", async () => {
@@ -214,27 +291,76 @@ Deno.test("bounds a hanging DNS resolver by the shared fetch deadline", async ()
 
 Deno.test("fetches a bounded public HTTPS calendar and rejects an oversized body", async () => {
   const body = "BEGIN:VCALENDAR\nEND:VCALENDAR";
+  const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
   const result = await fetchCalendar("https://calendar.example/feed.ics", {
     resolve: resolvePublic,
-    fetchImpl: async () => new Response(body, { status: 200, headers: { "content-type": "text/calendar" } }),
+    connect: fakeConnector(() => rawResponse(body), observations),
   });
   assert(result.text === body && result.httpStatus === 200);
+  assert(observations.targets[0].address === "93.184.216.34" && observations.targets[0].hostname === "calendar.example");
+  assert(observations.requests[0].includes("Host: calendar.example\r\n"));
+  assert(observations.requests[0].includes("Accept-Encoding: identity\r\n"));
   await rejectsCode(() => fetchCalendar("https://calendar.example/feed.ics", {
     resolve: resolvePublic,
-    fetchImpl: async () => new Response("", { status: 200, headers: { "content-type": "text/calendar", "content-length": String(LIMITS.responseBytes + 1) } }),
+    connect: fakeConnector(() => rawResponse("", { headers: { "content-length": String(LIMITS.responseBytes + 1) } }), observations),
   }), "calendar_payload_too_large");
 });
 
-Deno.test("cancels a non-success provider response body before rejecting it", async () => {
-  let cancelled = false;
-  const body = new ReadableStream<Uint8Array>({
-    cancel() { cancelled = true; },
+Deno.test("pins the vetted address across the TLS request and revalidates every redirect", async () => {
+  const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
+  let firstDnsAnswer = true;
+  const resolve = async (hostname: string, type: "A" | "AAAA") => {
+    if (type === "AAAA") return [];
+    if (hostname === "calendar.example") {
+      const answer = firstDnsAnswer ? "93.184.216.34" : "10.0.0.8";
+      firstDnsAnswer = false;
+      return [answer];
+    }
+    return ["93.184.216.35"];
+  };
+  const result = await fetchCalendar("https://calendar.example/start.ics", {
+    resolve,
+    connect: fakeConnector((target) => target.hostname === "calendar.example"
+      ? rawResponse("", { status: 302, headers: { location: "https://redirect.example/final.ics" } })
+      : rawResponse("BEGIN:VCALENDAR\nEND:VCALENDAR", { framing: "chunked" }), observations, 3),
   });
+  assert(result.httpStatus === 200);
+  assert(observations.targets.map((target) => target.address).join(",") === "93.184.216.34,93.184.216.35");
+  assert(observations.requests[0].startsWith("GET /start.ics HTTP/1.1\r\nHost: calendar.example\r\n"));
+  assert(observations.requests[1].startsWith("GET /final.ics HTTP/1.1\r\nHost: redirect.example\r\n"));
+});
+
+Deno.test("supports chunked and connection-close framing and rejects ambiguous or encoded bodies", async () => {
+  const body = "BEGIN:VCALENDAR\nEND:VCALENDAR";
+  for (const framing of ["chunked", "close"] as const) {
+    const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
+    const result = await fetchCalendar("https://calendar.example/feed.ics", {
+      resolve: resolvePublic,
+      connect: fakeConnector(() => rawResponse(body, { framing }), observations, 1),
+    });
+    assert(result.text === body && observations.closes === 1);
+  }
+  for (const response of [
+    encoder.encode("HTTP/1.1 200 OK\r\nContent-Length: 1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"),
+    rawResponse(body, { headers: { "content-encoding": "gzip" } }),
+    encoder.encode("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nZ\r\nbad\r\n0\r\n\r\n"),
+  ]) {
+    const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
+    await rejectsCode(() => fetchCalendar("https://calendar.example/feed.ics", {
+      resolve: resolvePublic,
+      connect: fakeConnector(() => response, observations),
+    }), "invalid_calendar_http_response");
+    assert(observations.closes === 1);
+  }
+});
+
+Deno.test("closes a non-success provider socket before rejecting it", async () => {
+  const observations = { targets: [] as PinnedHttpsTarget[], requests: [] as string[], closes: 0 };
   await rejectsCode(() => fetchCalendar("https://calendar.example/feed.ics", {
     resolve: resolvePublic,
-    fetchImpl: async () => new Response(body, { status: 503, headers: { "content-type": "text/plain" } }),
+    connect: fakeConnector(() => rawResponse("provider secret", { status: 503, headers: { "content-type": "text/plain" } }), observations),
   }), "calendar_http_failure");
-  assert(cancelled, "A rejected provider body must be cancelled mechanically");
+  assert(observations.closes === 1, "A rejected provider socket must be closed mechanically");
 });
 
 Deno.test("sanitized failures never echo unknown provider details", () => {

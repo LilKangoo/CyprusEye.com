@@ -4,6 +4,7 @@ begin
       and hotel_external_sync_enabled and not hotel_instant_booking_enabled
       and not hotel_stripe_connect_enabled) from public.site_settings)
      or not public.hotel_v2_h3_2b_flags_off()
+     or not public.hotel_v2_external_calendar_provider_evolution_is_safe()
      or not exists(select 1 from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
        join public.site_settings setting on setting.id=receipt.id
        where receipt.id=1 and receipt.site_settings_without_external_fingerprint=

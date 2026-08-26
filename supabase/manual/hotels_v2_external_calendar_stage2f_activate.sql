@@ -18,6 +18,7 @@ $explicit_operator_acknowledgement$;
 do $activation_guard$
 begin
   if to_regprocedure('public.hotel_v2_external_calendar_scheduler_dispatch()') is null
+     or to_regprocedure('public.hotel_v2_external_calendar_provider_evolution_is_safe()') is null
      or to_regprocedure('net.http_post(text,jsonb,jsonb,jsonb,integer)') is null
      or to_regclass('cron.job') is null then
     raise exception using errcode='55000',message='hotels_v2_external_calendar_activation_dependencies_missing';
@@ -28,6 +29,7 @@ begin
        not like '%timeout_milliseconds=>150000%'
      or pg_get_functiondef('public.hotel_v2_external_calendar_scheduler_dispatch()'::regprocedure)
        not like '%''limit'',8%'
+     or not public.hotel_v2_external_calendar_provider_evolution_is_safe()
      or not exists(select 1 from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
        join public.site_settings setting on setting.id=receipt.id where receipt.id=1
          and receipt.site_settings_without_external_fingerprint=

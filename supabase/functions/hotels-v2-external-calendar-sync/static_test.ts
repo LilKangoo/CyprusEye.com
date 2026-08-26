@@ -30,3 +30,13 @@ Deno.test("worker is an internal endpoint with explicit in-function authenticati
   assert(!index.includes("Access-Control-Allow-Origin"));
   assert(!index.includes('request.method === "OPTIONS"'));
 });
+
+Deno.test("calendar transport pins validated IPs while preserving hostname TLS verification", async () => {
+  const core = await Deno.readTextFile(new URL("./core.ts", import.meta.url));
+  const index = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  assert(index.includes("Deno.connect({ hostname: target.address"), "The TCP connection must use the vetted literal address");
+  assert(index.includes("Deno.startTls(tcp, { hostname: target.hostname })"), "TLS must verify the original hostname via SNI");
+  assert(core.includes("Accept-Encoding: identity"), "Compressed provider bodies must not bypass the response bound");
+  assert(core.includes("target = await assertSafeHttpsUrl(new URL(location, target.url).toString()"), "Every redirect must be revalidated and repinned");
+  assert(!/fetchCalendar\([^)]*fetchImpl/s.test(index), "Provider traffic must not use a hostname-resolving fetch path");
+});

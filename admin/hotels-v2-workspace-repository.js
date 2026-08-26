@@ -38,11 +38,19 @@
     externalCalendarControl: 'hotel_v2_admin_get_external_calendar_control',
     previewExternalCalendarPlan: 'hotel_v2_admin_preview_external_calendar_plan',
     applyExternalCalendarPlan: 'hotel_v2_admin_apply_external_calendar_plan',
+    partnerPropertyProposals: 'hotel_v2_admin_get_partner_property_proposals',
+    previewPartnerPropertyProposalPlan: 'hotel_v2_admin_preview_partner_property_proposal_plan',
+    applyPartnerPropertyProposalPlan: 'hotel_v2_admin_apply_partner_property_proposal_plan',
+    sevenArchesPricingActivation: 'hotel_v2_admin_get_seven_arches_pricing_activation',
+    previewSevenArchesPricingActivation: 'hotel_v2_admin_preview_seven_arches_pricing_activation',
+    applySevenArchesPricingActivation: 'hotel_v2_admin_apply_seven_arches_pricing_activation',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const reviewedAvailabilityPlans = new Map();
   const reviewedExternalCalendarPlans = new Map();
+  const reviewedPartnerPropertyProposalPlans = new Map();
+  const reviewedSevenArchesPricingActivationPlans = new Map();
 
   function stableJson(value) {
     if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
@@ -136,6 +144,27 @@
     if (/hotels_v2_h3_2a_idempotency_key_reused/.test(key)) {
       return 'This reviewed Partner & Access request identifier was already used for different values. Refresh and prepare a new Review.';
     }
+    if (/hotels_v2_seven_arches_property_proposal_(?:stale|review_expired|review_consumed)/.test(key)) {
+      return 'This Partner property proposal or canonical Hotel changed after Review. Reload both exact states and prepare a fresh explicit Review; nothing was retried.';
+    }
+    if (/hotels_v2_seven_arches_property_proposal_(?:correlation_conflict|plan_invalid)/.test(key)) {
+      return 'This Partner proposal Save identifier or reviewed plan is no longer valid. Reload the exact pending proposal; nothing was retried.';
+    }
+    if (/hotels_v2_seven_arches_property_proposal_(?:not_found|empty|review_request_invalid)/.test(key)) {
+      return 'The exact pending Partner property proposal is missing or invalid. Reload the Admin workspace before reviewing it.';
+    }
+    if (/hotels_v2_seven_arches_pricing_activation_(?:stale_snapshot|review_mismatch|review_consumed|review_expired)/.test(key)) {
+      return 'The exact 7 Arches pricing graph changed after Review. Reload the activation snapshot and explicitly review fresh values; nothing was retried.';
+    }
+    if (/hotels_v2_seven_arches_pricing_activation_(?:idempotency_conflict|correlation_conflict)/.test(key)) {
+      return 'This activation Save identifier was already used for different reviewed values. Reload and prepare a new explicit Review.';
+    }
+    if (/hotels_v2_seven_arches_pricing_activation_(?:foundation_drift|state_invalid|postcondition_failed|delta_scope_mismatch)/.test(key)) {
+      return '7 Arches pricing activation failed its protected server safety contract. No client retry is allowed; inspect the exact foundation and protected fingerprints.';
+    }
+    if (/hotels_v2_seven_arches_pricing_activation_(?:invalid_draft|invalid_plan)/.test(key)) {
+      return 'The activation values or reviewed plan are incomplete or invalid. Enter exact PL/EN/HE content and two positive reviewed base rates.';
+    }
     if (/guest_policy_already_reviewed/.test(key)) {
       return 'This property already has a different reviewed children policy. Refresh the workspace and explicitly review the current policy and age before making a separate guest-policy change.';
     }
@@ -185,7 +214,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion))_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion)|hotels_v2_seven_arches_(?:property_proposal|pricing_activation))_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -233,6 +262,146 @@
     const workspace = Core.normalizeWorkspace(data);
     if (workspace.property.id !== id) throw new Error('Property Workspace returned a different property ID.');
     return workspace;
+  }
+
+  async function getPartnerPropertyProposals(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id || id !== Core.SEVEN_ARCHES_PROPERTY_ID) throw new Error('Partner property proposals are available only for the exact reviewed 7 Arches Hotel.');
+    return Core.validatePartnerPropertyProposalsControl(await runRpc(RPC.partnerPropertyProposals, {
+      p_hotel_id: id,
+    }, 'Load pending Partner property proposals'), id);
+  }
+
+  async function previewPartnerPropertyProposalPlan(requestValue, controlValue) {
+    const request = Core.validatePartnerPropertyProposalReviewRequest(requestValue, controlValue);
+    const preview = Core.validatePartnerPropertyProposalPreview(await runRpc(RPC.previewPartnerPropertyProposalPlan, {
+      p_request: request,
+    }, 'Review Partner property proposal'), request, controlValue);
+    reviewedPartnerPropertyProposalPlans.set(preview.reviewed_plan.plan_fingerprint, {
+      bytes: stableJson(preview.reviewed_plan),
+      plan: preview.reviewed_plan,
+    });
+    return preview;
+  }
+
+  async function applyPartnerPropertyProposalPlan(planValue, correlationId) {
+    const fingerprint = String(planValue?.plan_fingerprint || '');
+    const cached = reviewedPartnerPropertyProposalPlans.get(fingerprint);
+    if (!cached || cached.bytes !== stableJson(planValue)) {
+      throw new Error('Partner property proposal Save requires the exact server-reviewed plan from the current explicit Review.');
+    }
+    reviewedPartnerPropertyProposalPlans.delete(fingerprint);
+    const plan = cached.plan;
+    const correlation = correlationId == null ? Core.newUuid() : Core.normalizeUuid(correlationId);
+    if (!correlation || correlation !== correlationId) {
+      throw new Error('7 Arches activation correlation ID must be an exact lowercase canonical UUID.');
+    }
+    let receipt;
+    try {
+      receipt = await runRpc(RPC.applyPartnerPropertyProposalPlan, {
+        p_reviewed_plan: plan,
+        p_correlation_id: correlation,
+      }, 'Save reviewed Partner property proposal');
+    } catch (error) {
+      throw error;
+    }
+    let validated;
+    try {
+      validated = Core.validatePartnerPropertyProposalApplyResult(receipt, plan, correlation);
+    } catch (cause) {
+      const error = new Error('The Partner proposal Save returned a response that could not be validated after the RPC completed. Refresh current state; the mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
+    try {
+      const [workspace, contentControl, proposals] = await Promise.all([
+        getWorkspace(plan.hotel_id), getContentControl(plan.hotel_id), getPartnerPropertyProposals(plan.hotel_id),
+      ]);
+      return { ...validated, workspace, content_control: contentControl, proposals };
+    } catch (cause) {
+      const error = new Error('The Partner proposal Save receipt was validated, but the canonical Admin state could not be refreshed. Refresh current state; the mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
+  }
+
+  async function getSevenArchesPricingActivation() {
+    return Core.validateSevenArchesPricingActivationSnapshot(await runRpc(
+      RPC.sevenArchesPricingActivation, {}, 'Load exact 7 Arches pricing activation',
+    ));
+  }
+
+  async function previewSevenArchesPricingActivation(draftValue, snapshotValue) {
+    const draft = Core.validateSevenArchesPricingActivationDraft(draftValue, snapshotValue);
+    const preview = Core.validateSevenArchesPricingActivationPreview(await runRpc(
+      RPC.previewSevenArchesPricingActivation, { p_draft: draft },
+      'Review exact 7 Arches pricing activation',
+    ), draft, snapshotValue);
+    if (preview.changed) {
+      reviewedSevenArchesPricingActivationPlans.set(preview.reviewed_plan.plan_fingerprint, {
+        bytes: stableJson(preview.reviewed_plan), plan: preview.reviewed_plan,
+        draft, snapshot: Core.clone(snapshotValue),
+      });
+    }
+    return preview;
+  }
+
+  async function applySevenArchesPricingActivation(planValue, correlationId, idempotencyKey) {
+    const fingerprint = String(planValue?.plan_fingerprint || '');
+    const cached = reviewedSevenArchesPricingActivationPlans.get(fingerprint);
+    if (!cached || cached.bytes !== stableJson(planValue)) {
+      throw new Error('7 Arches pricing activation Save requires the exact server-reviewed plan from the current explicit Review.');
+    }
+    const plan = cached.plan;
+    const correlation = correlationId == null ? Core.newUuid() : Core.normalizeUuid(correlationId);
+    if (!correlation || correlation !== correlationId) {
+      throw new Error('7 Arches activation correlation ID must be an exact lowercase canonical UUID.');
+    }
+    const idempotency = idempotencyKey == null ? Core.newUuid() : idempotencyKey;
+    if (typeof idempotency !== 'string' || idempotency !== idempotency.trim()
+        || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(idempotency)) {
+      throw new Error('7 Arches activation idempotency key must be an exact reviewed string.');
+    }
+    reviewedSevenArchesPricingActivationPlans.delete(fingerprint);
+    let receipt;
+    try {
+      receipt = await runRpc(RPC.applySevenArchesPricingActivation, {
+        p_reviewed_plan: plan, p_correlation_id: correlation, p_idempotency_key: idempotency,
+      }, 'Save exact 7 Arches pricing activation');
+    } catch (error) { throw error; }
+    let validated;
+    try {
+      validated = Core.validateSevenArchesPricingActivationApplyResult(
+        receipt, plan, correlation, idempotency,
+      );
+    } catch (cause) {
+      const error = new Error('The activation RPC completed but its receipt could not be validated. Refresh current state; the reviewed mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
+    try {
+      const [activation, workspace, pricingControl] = await Promise.all([
+        getSevenArchesPricingActivation(), getWorkspace(plan.hotel_id), getPricingControl(plan.hotel_id),
+      ]);
+      const payload = plan.operation.payload;
+      if (activation.status !== 'active'
+          || stableJson(activation.rate_plan.name_i18n) !== stableJson(payload.rate_plan_name_i18n)
+          || stableJson(activation.rate_plan.description_i18n) !== stableJson(payload.rate_plan_description_i18n)
+          || stableJson(activation.shared_schedule.name_i18n) !== stableJson(payload.schedule_name_i18n)
+          || activation.room_rates[0].base_nightly_rate !== payload.upper_base_nightly_rate
+          || activation.room_rates[1].base_nightly_rate !== payload.ground_base_nightly_rate) {
+        throw new Error('Refreshed activation state does not match the exact reviewed target.');
+      }
+      return { ...validated, activation, workspace, pricing_control: pricingControl };
+    } catch (cause) {
+      const error = new Error('The activation receipt was validated, but exact current pricing could not be refreshed. Refresh current state; the mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
   }
 
   function normalizeContentControl(payloadValue, hotelId) {
@@ -1122,6 +1291,12 @@
     getClient,
     listProperties,
     getWorkspace,
+    getPartnerPropertyProposals,
+    previewPartnerPropertyProposalPlan,
+    applyPartnerPropertyProposalPlan,
+    getSevenArchesPricingActivation,
+    previewSevenArchesPricingActivation,
+    applySevenArchesPricingActivation,
     getContentControl,
     applyWorkspacePlan,
     createPropertyDraft,

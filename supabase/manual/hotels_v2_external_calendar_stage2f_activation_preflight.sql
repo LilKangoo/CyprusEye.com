@@ -5,6 +5,8 @@ with checks as(
     to_regprocedure('public.hotel_v2_admin_apply_external_calendar_plan(jsonb,uuid,uuid,text)') is not null admin_ready,
     to_regprocedure('public.hotel_v2_partner_apply_external_calendar_plan(jsonb,uuid,uuid,text)') is not null partner_ready,
     to_regprocedure('public.hotel_v2_external_calendar_scheduler_dispatch()') is not null scheduler_ready,
+    to_regprocedure('public.hotel_v2_external_calendar_provider_evolution_is_safe()') is not null
+      and public.hotel_v2_external_calendar_provider_evolution_is_safe() provider_types_ready,
     to_regprocedure('net.http_post(text,jsonb,jsonb,jsonb,integer)') is not null pg_net_ready,
     exists(select 1 from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
       join public.site_settings setting on setting.id=receipt.id where receipt.id=1
@@ -33,6 +35,7 @@ with checks as(
     not exists(select 1 from hotels_v2_private.hotel_external_calendar_sync_jobs
       where status in('queued','leased','running')) no_open_jobs
 ), result as(select *,worker_ready and admin_ready and partner_ready and scheduler_ready
-  and pg_net_ready and compatibility_ready and dispatch_contract_ready and pg_cron_ready and worker_url_ready and scoped_secret_ready
+  and provider_types_ready and pg_net_ready and compatibility_ready and dispatch_contract_ready
+  and pg_cron_ready and worker_url_ready and scoped_secret_ready
   and flags_inert and external_sources_disabled and no_open_jobs as stage2f_activation_ready from checks)
 select 'hotels_v2_external_calendar_stage2f_activation_preflight_v1' contract_version,result.* from result;

@@ -7,6 +7,8 @@ const PARTNER = '22222222-2222-4222-8222-222222222222';
 const ASSIGNMENT = '33333333-3333-4333-8333-333333333333';
 const TARGET = '44444444-4444-4444-8444-444444444444';
 const REVIEW = '55555555-5555-4555-8555-555555555555';
+const UPPER_ROOM = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
+const GROUND_ROOM = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
 const TOKEN = 'a'.repeat(64);
 const FINGERPRINT = 'b'.repeat(64);
 
@@ -217,6 +219,72 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     ).toThrow('only exact PL/EN/HE strings');
   });
 
+  test('preserves runtime partial translations and distinguishes unknown Room facts from confirmed zero', () => {
+    const value = workspace();
+    value.property.title_i18n = { en: '7 Arches' };
+    value.property.description_i18n = {};
+    const upper = {
+      id: UPPER_ROOM,
+      hotel_id: HOTEL,
+      code: 'upper-floor-apartment',
+      name_i18n: { en: 'Upper Floor Apartment' },
+      description_i18n: {},
+      gallery: [],
+      capacity_adults: null,
+      capacity_children: null,
+      max_occupancy: 4,
+      bed_configuration: [],
+      bathrooms: null,
+      size_sqm: null,
+      amenities: ['air_conditioning', 'balcony', 'terrace'],
+      inventory_mode: 'pooled',
+      base_inventory_count: 1,
+      status: 'active',
+      sort_order: 100,
+      floor_label_i18n: {},
+      version: 21,
+      updated_at: '2026-08-25T12:00:00Z',
+    };
+    value.rooms = [upper, {
+      ...upper,
+      id: GROUND_ROOM,
+      code: 'ground-floor-apartment',
+      name_i18n: { en: 'Ground Floor Apartment' },
+      gallery: Array.from({ length: 5 }, (_entry, index) => `https://example.test/ground-${index + 1}.webp`),
+      amenities: ['air_conditioning', 'terrace'],
+      sort_order: 200,
+      version: 20,
+    }];
+
+    const exactRooms = Core.validateWorkspace(value, { partnerId: PARTNER, hotelId: HOTEL }).rooms;
+    const exactUpper = exactRooms.find((room: { id: string }) => room.id === UPPER_ROOM);
+    const exactGround = exactRooms.find((room: { id: string }) => room.id === GROUND_ROOM);
+    expect({ id: exactUpper.id, bathrooms: exactUpper.bathrooms, size_sqm: exactUpper.size_sqm })
+      .toEqual({ id: UPPER_ROOM, bathrooms: null, size_sqm: null });
+    expect(Array.from(exactUpper.bed_configuration)).toEqual([]);
+    expect(Array.from(exactUpper.gallery)).toEqual([]);
+    expect({ id: exactGround.id, bathrooms: exactGround.bathrooms, size_sqm: exactGround.size_sqm })
+      .toEqual({ id: GROUND_ROOM, bathrooms: null, size_sqm: null });
+    expect(Array.from(exactGround.bed_configuration)).toEqual([]);
+    expect(Array.from(exactGround.gallery)).toHaveLength(5);
+
+    value.rooms[0].bathrooms = 0;
+    value.rooms[0].bed_configuration = [{ type: 'other', quantity: 1, label: { en: 'Wall bed' } }];
+    expect(Core.validateWorkspace(value, { partnerId: PARTNER, hotelId: HOTEL }).rooms[0])
+      .toMatchObject({ bathrooms: 0, bed_configuration: [{ type: 'other', quantity: 1, label: { en: 'Wall bed' } }] });
+    value.rooms[0].bed_configuration[0].label = {};
+    expect(() => Core.validateWorkspace(value, { partnerId: PARTNER, hotelId: HOTEL }))
+      .toThrow('requires at least one exact locale');
+  });
+
+  test('omits blank locale keys from Partner Review payloads without fabricating translations', () => {
+    expect(Core.compactI18n({ pl: '', en: '  Upper Floor Apartment  ', he: ' ' }))
+      .toEqual({ en: 'Upper Floor Apartment' });
+    expect(Core.compactI18n({ pl: '', en: '', he: '' })).toEqual({});
+    expect(Core.compactI18n({ en: 'Wall bed', he: '' }, 160)).toEqual({ en: 'Wall bed' });
+    expect(() => Core.compactI18n({ en: 'Wall bed', de: 'Schrankbett' })).toThrow('only PL/EN/HE');
+  });
+
   test('requires canonical UUIDs, keeps public flags OFF, and accepts the authoritative External Calendar boolean', () => {
     expect(Core.requireCanonicalUuid(TARGET)).toBe(TARGET);
     expect(() => Core.requireCanonicalUuid('ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF')).toThrow('lowercase canonical UUID');
@@ -252,6 +320,31 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     expect(Core.validatePlanPreview('pricing', percent.preview, percent.draft).commercial_after.partner_net).toBe(90);
     const roomNights = pricingReview(Core, commercial('per_allocated_room_per_night', 12.5, 4, 200, 50));
     expect(Core.validatePlanPreview('pricing', roomNights.preview, roomNights.draft).commercial_after.partner_net).toBe(150);
+    const sevenArches = pricingReview(Core, commercial('per_allocated_room_per_night', 10, 6, 200, 60));
+    const exact = Core.validatePlanPreview('pricing', sevenArches.preview, sevenArches.draft).commercial_after;
+    expect(exact.policy.amount).toBe(10);
+    expect(exact.cypruseye_commission).toBe(60);
+    expect(exact.partner_net).toBe(140);
+  });
+
+  test('rejects every Partner attempt to submit commission or commercial totals', () => {
+    const base = {
+      contract_version: Core.CONTRACTS.pricingDraft,
+      partner_id: PARTNER, hotel_id: HOTEL, access_snapshot_token: TOKEN, pricing_snapshot_token: TOKEN,
+      intent: {
+        entity: 'room_rate_price', action: 'update', id: TARGET,
+        payload: { nightly_rate: 100 }, reason: 'Reviewed exact nightly rate',
+      },
+      example_stay: null,
+    };
+    for (const [key, value] of Object.entries({
+      commission_policy: {}, commission_mode: 'percent_booking_total', cypruseye_commission: 10,
+      partner_net: 90, customer_price: 100, commercial: {}, calculation_basis: {},
+    })) {
+      expect(() => Core.validateDraft('pricing', {
+        ...base, intent: { ...base.intent, payload: { ...base.intent.payload, [key]: value } },
+      })).toThrow('protected and cannot be supplied');
+    }
   });
 
   test('fails closed for unsupported, missing, fabricated, or negative commission results', () => {

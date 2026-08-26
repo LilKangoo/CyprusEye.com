@@ -1,8 +1,39 @@
-import { CONTRACTS } from "./core.ts";
+import { CONTRACTS, type PinnedConnector, type PinnedHttpsTarget } from "./core.ts";
 import { handleRequest } from "./index.ts";
 
 function assert(condition: unknown, message = "Assertion failed"): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+const encoder = new TextEncoder();
+
+function rawResponse(body: string, status = 200, contentType = "text/calendar"): Uint8Array {
+  const bytes = encoder.encode(body);
+  const head = encoder.encode([
+    `HTTP/1.1 ${status} ${status === 200 ? "OK" : "Status"}`,
+    `Content-Type: ${contentType}`,
+    `Content-Length: ${bytes.length}`,
+    "", "",
+  ].join("\r\n"));
+  const result = new Uint8Array(head.length + bytes.length);
+  result.set(head); result.set(bytes, head.length);
+  return result;
+}
+
+function calendarConnector(responseFor: (target: PinnedHttpsTarget) => Uint8Array): PinnedConnector {
+  return async (target) => {
+    const response = responseFor(target); let offset = 0; let closed = false;
+    return {
+      async read(buffer: Uint8Array) {
+        if (closed || offset >= response.length) return null;
+        const count = Math.min(buffer.length, response.length - offset);
+        buffer.set(response.subarray(offset, offset + count)); offset += count;
+        return count;
+      },
+      async write(buffer: Uint8Array) { return buffer.length; },
+      close() { closed = true; },
+    };
+  };
 }
 
 const environment = {
@@ -81,10 +112,10 @@ Deno.test("leases, begins, Hotel-localizes and finalizes through allowlisted RPC
   const response = await handleRequest(workerRequest({ contract_version: CONTRACTS.request, enqueue_scheduled: true, limit: 1 }), {
     environment,
     rpc,
-    fetchImpl: async () => new Response([
+    calendarConnect: calendarConnector(() => rawResponse([
       "BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:private-provider-id",
       "DTSTART:20260901T220000Z", "DTEND:20260902T210000Z", "END:VEVENT", "END:VCALENDAR",
-    ].join("\n"), { status: 200, headers: { "content-type": "text/calendar" } }),
+    ].join("\n"))),
   });
   const body = await response.json();
   assert(response.status === 200 && body.succeeded_count === 1 && body.failed_count === 0);
@@ -131,9 +162,9 @@ Deno.test("isolates a bad feed and records only its sanitized failure", async ()
   const response = await handleRequest(workerRequest({ contract_version: CONTRACTS.request, enqueue_scheduled: false, limit: 2 }), {
     environment,
     rpc,
-    fetchImpl: async (input) => String(input).includes("bad.ics")
-      ? new Response("provider secret body", { status: 502, headers: { "content-type": "text/plain" } })
-      : new Response("BEGIN:VCALENDAR\nEND:VCALENDAR", { status: 200, headers: { "content-type": "text/calendar" } }),
+    calendarConnect: calendarConnector((target) => target.url.pathname.includes("bad.ics")
+      ? rawResponse("provider secret body", 502, "text/plain")
+      : rawResponse("BEGIN:VCALENDAR\nEND:VCALENDAR")),
   });
   const body = await response.json();
   assert(body.failed_count === 1 && body.succeeded_count === 1);
@@ -152,7 +183,7 @@ Deno.test("never fetches a source that becomes disabled after lease", async () =
     lease_token: "55555555-5555-4555-8555-555555555555",
     leased_until: "2199-01-01T00:00:00Z",
   };
-  let fetchCount = 0;
+  let connectCount = 0;
   const rpc = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     if (name.endsWith("scheduler_lease")) return { contract_version: CONTRACTS.schedulerLease, global_enabled: true, jobs: [job] };
     const payload = args.p_payload as Record<string, unknown> | undefined;
@@ -175,9 +206,9 @@ Deno.test("never fetches a source that becomes disabled after lease", async () =
   const response = await handleRequest(workerRequest({ contract_version: CONTRACTS.request, enqueue_scheduled: false, limit: 1 }), {
     environment,
     rpc,
-    fetchImpl: async () => { fetchCount += 1; return new Response("unexpected"); },
+    calendarConnect: async () => { connectCount += 1; throw new Error("unexpected"); },
   });
   const body = await response.json();
   assert(response.status === 200 && body.failed_count === 1 && body.results[0].error_code === "source_state_changed");
-  assert(fetchCount === 0, "A disabled source must never reach the network");
+  assert(connectCount === 0, "A disabled source must never reach the network");
 });
