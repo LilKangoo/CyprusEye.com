@@ -1,108 +1,92 @@
--- Stable Stage2F site-settings compatibility seam. The immutable activation
--- receipt remains historical evidence, while the live predicate protects only
--- the four Hotels lifecycle flags. Unrelated mutable site_settings fields are
--- deliberately outside this contract.
+-- Read-only readiness proof for migration 114425. This validates the stable
+-- Hotels-only lifecycle seam without comparing unrelated mutable
+-- site_settings fields to the activation-era row.
 begin;
-set local lock_timeout='15s';
+set transaction read only;
 set local statement_timeout='120s';
 
-do $preconditions$
+do $preflight$
+declare v_expected text;
 begin
   if to_regclass('public.site_settings') is null
-     or to_regclass('hotels_v2_private.hotel_external_calendar_activation_receipts') is null
+     or to_regclass(
+       'hotels_v2_private.hotel_external_calendar_activation_receipts') is null
      or to_regprocedure('public.hotel_v2_external_calendar_worker_hash(jsonb)') is null
-     or to_regprocedure('public.hotel_v2_external_calendar_activation_function_fingerprints()') is null
-     or to_regprocedure('public.hotel_v2_partner_workspace_function_lineage_is_exact()') is null
-     or to_regprocedure('public.hotel_v2_h3_2a_reject_immutable_change()') is null then
-    raise exception using errcode='55000',
-      message='hotels_v2_external_calendar_site_settings_compatibility_foundation_missing';
-  end if;
-  if to_regprocedure(
-      'public.hotel_v2_external_calendar_site_settings_fingerprint()') is not null then
-    raise exception using errcode='23514',
-      message='hotels_v2_external_calendar_site_settings_compatibility_already_present';
-  end if;
-end
-$preconditions$;
-
-create function public.hotel_v2_external_calendar_site_settings_fingerprint()
-returns text language plpgsql stable security definer
-set search_path=pg_catalog,public
-as $function$
-declare
-  v_setting public.site_settings%rowtype;
-  v_receipt hotels_v2_private.hotel_external_calendar_activation_receipts%rowtype;
-begin
-  if to_regprocedure('public.hotel_v2_external_calendar_worker_hash(jsonb)') is null
      or to_regprocedure(
        'public.hotel_v2_external_calendar_activation_function_fingerprints()') is null
      or to_regprocedure(
        'public.hotel_v2_partner_workspace_function_lineage_is_exact()') is null
-     or to_regprocedure('public.hotel_v2_h3_2a_reject_immutable_change()') is null
-     or (select count(*) from public.site_settings)<>1
-     or not exists(select 1 from public.site_settings where id=1)
-     or (select count(*)
-       from hotels_v2_private.hotel_external_calendar_activation_receipts)<>1
+     or to_regprocedure('public.hotel_v2_h3_2a_reject_immutable_change()') is null then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_foundation_missing';
+  end if;
+  if to_regprocedure(
+      'public.hotel_v2_external_calendar_site_settings_fingerprint()') is not null then
+    raise exception using errcode='23514',
+      message='hotels_v2_external_calendar_site_settings_preflight_boundary_mismatch';
+  end if;
+
+  if (select count(*) from public.site_settings)<>1
+     or not exists(select 1 from public.site_settings where id=1) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_cardinality_mismatch';
+  end if;
+  if not exists(select 1 from public.site_settings setting where setting.id=1
+       and setting.hotel_rooms_v2_enabled is not distinct from false
+       and (setting.hotel_external_sync_enabled is not distinct from false
+         or setting.hotel_external_sync_enabled is not distinct from true)
+       and setting.hotel_instant_booking_enabled is not distinct from false
+       and setting.hotel_stripe_connect_enabled is not distinct from false) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_unsupported_hotels_lifecycle';
+  end if;
+
+  if (select count(*)
+      from hotels_v2_private.hotel_external_calendar_activation_receipts)<>1
      or not exists(select 1
-       from hotels_v2_private.hotel_external_calendar_activation_receipts where id=1) then
-    return null;
+       from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
+       where receipt.id=1
+         and (receipt.site_settings_without_external_fingerprint
+           ~'^[0-9a-f]{64}$') is not distinct from true
+         and jsonb_typeof(receipt.compatibility_function_fingerprints)
+           is not distinct from 'object'
+         and receipt.created_at is not null
+         and isfinite(receipt.created_at)) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_activation_receipt_envelope_mismatch';
   end if;
 
-  select * into strict v_setting from public.site_settings where id=1;
-  select * into strict v_receipt
-  from hotels_v2_private.hotel_external_calendar_activation_receipts where id=1;
-
-  -- OFF and ON are the two supported external-calendar states. The other
-  -- Hotels flags stay on the legacy production boundary in both states.
-  if v_setting.id is distinct from 1
-     or v_setting.hotel_rooms_v2_enabled is distinct from false
-     or (v_setting.hotel_external_sync_enabled is distinct from false
-       and v_setting.hotel_external_sync_enabled is distinct from true)
-     or v_setting.hotel_instant_booking_enabled is distinct from false
-     or v_setting.hotel_stripe_connect_enabled is distinct from false then
-    return null;
-  end if;
-
-  -- The 114350 row has no self-hash column, so historical integrity is its
-  -- exact constrained envelope plus its immutable/private security topology.
-  if v_receipt.id is distinct from 1
-     or (v_receipt.site_settings_without_external_fingerprint
-       ~'^[0-9a-f]{64}$') is distinct from true
-     or jsonb_typeof(v_receipt.compatibility_function_fingerprints)
-       is distinct from 'object'
-     or v_receipt.created_at is null
-     or isfinite(v_receipt.created_at) is distinct from true then
-    return null;
-  end if;
-  -- Keep malformed non-object JSON away from the set-returning object
-  -- iterators above all other receipt checks.
-  if (select count(*) from jsonb_object_keys(
-       v_receipt.compatibility_function_fingerprints))<>20
-     or (v_receipt.compatibility_function_fingerprints ?& array[
-       'public.hotel_v2_h3_2a_require_partner_hotel_access(uuid,uuid,text,boolean)',
-       'public.hotel_v2_partner_list_assigned_properties(uuid)',
-       'public.hotel_v2_admin_apply_partner_hotel_permissions(jsonb,uuid,uuid)',
-       'public.hotel_v2_admin_create_property_draft(uuid,jsonb,uuid)',
-       'public.hotel_v2_admin_apply_guest_policy_plan(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_room_control_plan(jsonb,uuid)',
-       'public.hotel_v2_admin_get_content_control(uuid)',
-       'public.hotel_v2_admin_apply_operational_assignment_plan(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_property_control_plan(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)',
-       'public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)',
-       'public.hotel_v2_h3_2b_flags_off()',
-       'public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)',
-       'public.hotel_v2_admin_create_property_draft_admin_b_core(uuid,jsonb,uuid)',
-       'public.hotel_v2_admin_apply_guest_policy_plan_admin_b_core(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_workspace_plan_admin_b_core(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_calendar_plan_admin_c_core(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_workspace_plan_admin_c_core(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_h3_1_configuration_admin_c_core(jsonb,uuid)',
-       'public.hotel_v2_admin_apply_legacy_pricing_promotion_admin_c_core(jsonb,uuid)'
-     ]::text[]) is distinct from true
-     or exists(select 1 from jsonb_each_text(
-       v_receipt.compatibility_function_fingerprints) fingerprint(signature,value)
-       where (fingerprint.value~'^[0-9a-f]{64}$') is distinct from true)
+  -- The type guard above must complete before either object iterator runs.
+  if not exists(select 1
+       from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
+       where receipt.id=1
+         and (select count(*) from jsonb_object_keys(
+           receipt.compatibility_function_fingerprints))=20
+         and (receipt.compatibility_function_fingerprints ?& array[
+           'public.hotel_v2_h3_2a_require_partner_hotel_access(uuid,uuid,text,boolean)',
+           'public.hotel_v2_partner_list_assigned_properties(uuid)',
+           'public.hotel_v2_admin_apply_partner_hotel_permissions(jsonb,uuid,uuid)',
+           'public.hotel_v2_admin_create_property_draft(uuid,jsonb,uuid)',
+           'public.hotel_v2_admin_apply_guest_policy_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_room_control_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_get_content_control(uuid)',
+           'public.hotel_v2_admin_apply_operational_assignment_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_property_control_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)',
+           'public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)',
+           'public.hotel_v2_h3_2b_flags_off()',
+           'public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)',
+           'public.hotel_v2_admin_create_property_draft_admin_b_core(uuid,jsonb,uuid)',
+           'public.hotel_v2_admin_apply_guest_policy_plan_admin_b_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_workspace_plan_admin_b_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_calendar_plan_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_workspace_plan_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_h3_1_configuration_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_legacy_pricing_promotion_admin_c_core(jsonb,uuid)'
+         ]::text[]) is not distinct from true
+         and not exists(select 1 from jsonb_each_text(
+           receipt.compatibility_function_fingerprints) fingerprint(signature,value)
+           where (fingerprint.value~'^[0-9a-f]{64}$') is distinct from true))
      or not exists(select 1 from pg_class relation
        where relation.oid=
          'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
@@ -205,11 +189,10 @@ begin
      or has_schema_privilege('anon','hotels_v2_private','CREATE')
      or has_schema_privilege('authenticated','hotels_v2_private','CREATE')
      or has_schema_privilege('service_role','hotels_v2_private','CREATE') then
-    return null;
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_activation_receipt_integrity_mismatch';
   end if;
 
-  -- Pin the hash, receipt projection, accepted Task2 lineage validator, this
-  -- seam itself, and the immutable trigger to their private security shapes.
   if exists(select 1 from (values
       ('public.hotel_v2_external_calendar_worker_hash(jsonb)',true,
         array['search_path=pg_catalog']::text[],
@@ -222,9 +205,7 @@ begin
         'dde4fac2d044a53bb713cced26ca93c8295548c9bde3717d0ea83dc511801a85'),
       ('public.hotel_v2_h3_2a_reject_immutable_change()',false,
         array['search_path=pg_catalog, public']::text[],
-        '5ab5f8fec4515a0eb0e4da1a4de9f765618f45feb0dfe581e0f2a0e9d0a9ef6c'),
-      ('public.hotel_v2_external_calendar_site_settings_fingerprint()',true,
-        array['search_path=pg_catalog, public']::text[],null::text)
+        '5ab5f8fec4515a0eb0e4da1a4de9f765618f45feb0dfe581e0f2a0e9d0a9ef6c')
     ) expected(signature,security_definer,path,source_hash)
     left join pg_proc procedure_row
       on procedure_row.oid=to_regprocedure(expected.signature)
@@ -239,68 +220,62 @@ begin
       or has_function_privilege('anon',procedure_row.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
       or has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
-    return null;
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_frozen_function_security_mismatch';
   end if;
 
-  -- The receipt is readiness evidence in the OFF state and activation lineage
-  -- in the ON state. Frozen compatibility functions must be exact in both.
   if public.hotel_v2_partner_workspace_function_lineage_is_exact()
        is distinct from true then
-    return null;
-  end if;
-
-  -- Excluding the current ON/OFF value makes this a stable two-state seam.
-  -- No mutable non-Hotels site_settings field enters the canonical value.
-  return public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
-    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
-    'id',1,
-    'hotel_rooms_v2_enabled',false,
-    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
-    'hotel_instant_booking_enabled',false,
-    'hotel_stripe_connect_enabled',false));
-exception when no_data_found or too_many_rows or undefined_function
-  or undefined_table or invalid_schema_name then
-  return null;
-end
-$function$;
-
-alter function public.hotel_v2_external_calendar_site_settings_fingerprint()
-  owner to postgres;
-revoke all on function
-  public.hotel_v2_external_calendar_site_settings_fingerprint()
-  from public,anon,authenticated,service_role;
-
-do $postconditions$
-declare
-  v_oid oid:=to_regprocedure(
-    'public.hotel_v2_external_calendar_site_settings_fingerprint()');
-  v_expected text:=public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
-    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
-    'id',1,
-    'hotel_rooms_v2_enabled',false,
-    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
-    'hotel_instant_booking_enabled',false,
-    'hotel_stripe_connect_enabled',false));
-  v_expected_source_hash constant text:=
-    'e297f1b640f544644d695b36b4aca0b2dc90385e83709e8a494044aabc3b95bd';
-begin
-  if v_oid is null or v_expected is null
-     or (select proowner from pg_proc where oid=v_oid)<>'postgres'::regrole
-     or (select prosecdef from pg_proc where oid=v_oid) is distinct from true
-     or (select proconfig from pg_proc where oid=v_oid)
-       is distinct from array['search_path=pg_catalog, public']::text[]
-     or has_function_privilege(0::oid,v_oid,'EXECUTE')
-     or has_function_privilege('anon',v_oid,'EXECUTE')
-     or has_function_privilege('authenticated',v_oid,'EXECUTE')
-     or has_function_privilege('service_role',v_oid,'EXECUTE')
-     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
-       from pg_proc where oid=v_oid) is distinct from v_expected_source_hash
-     or public.hotel_v2_external_calendar_site_settings_fingerprint()
-       is distinct from v_expected then
     raise exception using errcode='55000',
-      message='hotels_v2_external_calendar_site_settings_compatibility_installation_failed';
+      message='hotels_v2_external_calendar_site_settings_preflight_current_stage2f_lineage_mismatch';
+  end if;
+
+  v_expected:=public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false));
+  if v_expected is null then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_site_settings_preflight_expected_fingerprint_null';
   end if;
 end
-$postconditions$;
+$preflight$;
+
+select
+  'hotels_v2_external_calendar_site_settings_compatibility_preflight_v2'
+    contract_version,
+  (select count(*)::integer from public.site_settings) site_settings_count,
+  (select count(*)=1 from public.site_settings where id=1) site_settings_id_exact,
+  setting.hotel_rooms_v2_enabled,
+  setting.hotel_external_sync_enabled,
+  setting.hotel_instant_booking_enabled,
+  setting.hotel_stripe_connect_enabled,
+  true supported_hotels_lifecycle,
+  (select count(*)::integer
+    from hotels_v2_private.hotel_external_calendar_activation_receipts)
+    activation_receipt_count,
+  true activation_receipt_historical_integrity,
+  true frozen_function_security_exact,
+  (public.hotel_v2_partner_workspace_function_lineage_is_exact() is true)
+    current_stage2f_function_lineage_exact,
+  (setting.hotel_external_sync_enabled is true) stage2f_activation_required,
+  case when setting.hotel_external_sync_enabled is true
+    then 'activation_lineage' else 'readiness_evidence' end
+    activation_receipt_role,
+  (setting.hotel_external_sync_enabled is false
+    or public.hotel_v2_partner_workspace_function_lineage_is_exact() is true)
+    external_activation_requirement_met,
+  public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false)) expected_canonical_fingerprint,
+  true ready
+from public.site_settings setting where setting.id=1;
 
 commit;
