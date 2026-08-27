@@ -92,6 +92,19 @@ values
    'partner',array['card','cash'],'{}');
 commit;
 
+\if :{?seven_arches_owner_live_drift_fixture}
+-- Production has unrelated mutable site-settings columns which predate the
+-- frozen Hotels receipts. Add their compact fixture equivalents before
+-- ADMIN-D captures its historical row; the live-drift fixture changes only
+-- their values after 114350.
+alter table public.site_settings
+  add column if not exists car_multi_city_mapped_enabled boolean not null default false,
+  add column if not exists car_threshold_daily_rates_enabled boolean not null default false,
+  add column if not exists force_refresh_version bigint not null default 0,
+  add column if not exists updated_at timestamptz not null default clock_timestamp(),
+  add column if not exists updated_by uuid;
+\endif
+
 \ir ../../supabase/migrations/20260811360000_hotels_v2_admin_d_availability_inventory_control.sql
 
 create schema if not exists storage;
@@ -152,6 +165,13 @@ on conflict(jobname) do update set schedule=excluded.schedule,
 update public.site_settings set hotel_external_sync_enabled=true where id=1;
 \endif
 \endif
+\if :{?seven_arches_owner_live_drift_fixture}
+\ir hotels-v2-seven-arches-owner-operational-capabilities-live-drift-fixture.sql
+\ir ../../supabase/manual/hotels_v2_seven_arches_owner_operational_capabilities_preflight.sql
+\endif
 \ir ../../supabase/migrations/20260811436000_hotels_v2_seven_arches_owner_operational_capabilities.sql
+\if :{?seven_arches_owner_skip_task2}
+\else
 \ir ../../supabase/migrations/20260811437000_hotels_v2_seven_arches_partner_property_proposal_review.sql
+\endif
 notify pgrst,'reload schema';
