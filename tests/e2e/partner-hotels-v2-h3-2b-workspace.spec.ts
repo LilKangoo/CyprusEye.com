@@ -130,11 +130,11 @@ async function installHarness(
         content_snapshot_token: token, property, property_draft: emptyDraft, rooms: [room], units: [],
         pricing: {
           snapshot_token: token, currency: 'EUR',
-          rate_plans: [{ id: planId, hotel_id: hotelId, code: 'STANDARD', name_i18n: { pl: 'Standard', en: 'Standard', he: 'סטנדרטי' }, is_active: false, review_status: 'reviewed', sort_order: 10, version: 1, updated_at: '2026-08-25T10:00:00Z' }],
+          rate_plans: [{ id: planId, hotel_id: hotelId, code: 'STANDARD', name_i18n: { en: 'Standard' }, is_active: false, review_status: 'reviewed', sort_order: 10, version: 1, updated_at: '2026-08-25T10:00:00Z' }],
           room_rates: [roomRate],
           schedules: [{
             id: scheduleId, hotel_id: hotelId, code: 'legacy-property-party-preview',
-            name_i18n: { pl: 'Pełny cennik legacy', en: 'Full legacy pricing preview', he: 'תצוגת תמחור מורשת' },
+            name_i18n: { en: 'Full legacy pricing preview' },
             application_scope: 'property_booking_party', currency: 'EUR', maximum_party_size: 8,
             minimum_billable_occupancy: 1, is_active: false, review_status: 'requires_review',
             sharing_mode: 'shared', version: 1, updated_at: '2026-08-25T10:00:00Z',
@@ -195,7 +195,8 @@ async function installHarness(
     const pricingPreview = (draft: any) => {
       const operation = { entity: 'room_rate_price', action: 'update', id: rateId, expected_version: roomRate.version, expected_original: clone(roomRate), payload: clone(draft.intent.payload), reason: draft.intent.reason };
       const commercial = (customer: number) => ({
-        policy: clone(policy), calculation_basis: { code: 'booking_total', quantity: 1, unit_amount: 10, booking_total: customer },
+        policy: Object.fromEntries(Object.entries(clone(policy)).filter(([key]) => key !== 'updated_at')),
+        calculation_basis: { code: 'booking_total', quantity: 1, unit_amount: 10, booking_total: customer },
         customer_price: customer, cypruseye_commission: customer / 10, partner_net: customer - customer / 10, currency: 'EUR',
       });
       return { data: {
@@ -239,6 +240,11 @@ async function installHarness(
         store.rpcCalls.push({ name, params: clone(params) });
         if (name === 'hotel_v2_partner_get_workspace') {
           if (availabilityEnabled) {
+            const dates: string[] = [];
+            for (let cursor = new Date(`${params.p_from}T00:00:00Z`), end = new Date(`${params.p_to}T00:00:00Z`);
+              cursor <= end; cursor = new Date(cursor.getTime() + 86400000)) {
+              dates.push(cursor.toISOString().slice(0, 10));
+            }
             store.workspace.availability = {
               contract_version: 'hotels_v2_admin_d_availability_control_v1', hotel_id: hotelId,
               from: params.p_from, to: params.p_to, snapshot_token: token,
@@ -248,7 +254,35 @@ async function installHarness(
                 timezone: 'Europe/Nicosia', currency: 'EUR', booking_mode: 'request_confirmation',
                 minimum_stay_nights: 2, maximum_stay_nights: null, updated_at: property.updated_at,
               },
-              room_types: [], room_rates: [], units: [], cells: [], product_cells: [], daily_inventory: [],
+              room_types: [{
+                id: roomId, hotel_id: hotelId, code: room.code, name_i18n: { en: room.name_i18n.en },
+                inventory_mode: 'pooled', base_inventory_count: 1, status: 'active', sort_order: 10,
+                max_occupancy: 4, capacity_adults: null, capacity_children: null,
+                version: room.version, updated_at: room.updated_at,
+              }],
+              room_rates: [{
+                id: rateId, hotel_id: hotelId, room_type_id: roomId, rate_plan_id: planId,
+                is_active: false, review_status: 'reviewed', sort_order: 10,
+                version: roomRate.version, updated_at: roomRate.updated_at,
+              }],
+              units: [],
+              cells: dates.map((stayDate) => ({
+                room_type_id: roomId, stay_date: stayDate, inventory_mode: 'pooled',
+                physical_capacity: 1, configured_sellable_units: 1, blocked_unit_count: 0,
+                blocked_unit_ids: [], operational_closed: false, safety_closed: false,
+                held_units: 0, booked_units: 0, committed_units: 0, available_units: 1,
+                requestable: false, blocking_reasons: ['public_activation_off'], earliest_hold_expiry: null,
+                provenance: { capacity: 'room_type_or_active_units', inventory: 'hotel_daily_inventory', commitments: 'server_authoritative' },
+                inventory_version: 0,
+              })),
+              product_cells: dates.map((stayDate) => ({
+                room_type_id: roomId, room_rate_id: rateId, rate_plan_id: planId, stay_date: stayDate,
+                operational_closed: false, closed_to_arrival: false, closed_to_departure: false,
+                safety_closed: false, requestable: false,
+                blocking_reasons: ['room_rate_inactive', 'public_activation_off'],
+                provenance: { exact_override_id: null, daily_rate: false, availability_version: null },
+              })),
+              daily_inventory: [],
               unit_calendar_blocks: [], operational_overrides: [], rate_rule_operational_restrictions: [],
               booking_allocations: [], holds: [], unmapped_booking_blockers: [], recent_activity: [], public_change: false,
             };

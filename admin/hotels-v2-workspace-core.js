@@ -252,6 +252,16 @@
       : '';
   }
 
+  function normalizePricingSourceUuid(source, value) {
+    if (source === 'pricing_schedule_tier') {
+      return typeof value === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
+        ? value
+        : '';
+    }
+    return normalizeUuid(value);
+  }
+
   function newUuid() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     throw new Error('Secure UUID generation is unavailable in this browser.');
@@ -5823,7 +5833,8 @@
           || !(entry.minimum_billable_occupancy === null
             || isExactInteger(entry.minimum_billable_occupancy, 1, 50))
           || !(entry.base_pricing_source === null || baseSources.includes(entry.base_pricing_source))
-          || !nullableUuid(entry.base_pricing_source_id)
+          || !(entry.base_pricing_source_id === null
+            || normalizePricingSourceUuid(entry.base_pricing_source, entry.base_pricing_source_id))
           || !(entry.los_threshold_nights === null || isExactInteger(entry.los_threshold_nights, 1, 3650))
           || !(entry.subtotal === null || isExactMoney(entry.subtotal))
           || !(entry.currency === null || entry.currency === source.currency)
@@ -5858,7 +5869,7 @@
           || !isExactInteger(entry.resolved_pricing_guest_count, 1, 50)
           || !isExactInteger(entry.minimum_billable_occupancy, 1, 50)
           || !baseSources.includes(entry.base_pricing_source)
-          || !normalizeUuid(entry.base_pricing_source_id)
+          || !normalizePricingSourceUuid(entry.base_pricing_source, entry.base_pricing_source_id)
           || !(entry.los_threshold_nights === null || isExactInteger(entry.los_threshold_nights, 1, 3650))
           || !nullableUuid(entry.weekday_rule_id) || !nullableUuid(entry.seasonal_range_rule_id)
           || !nullableUuid(entry.exact_date_price_id)
@@ -5910,7 +5921,8 @@
           || night.resolved_pricing_guest_count !== product.resolved_pricing_guest_count
           || night.minimum_billable_occupancy !== product.minimum_billable_occupancy
           || night.base_pricing_source !== product.base_pricing_source
-          || normalizeUuid(night.base_pricing_source_id) !== normalizeUuid(product.base_pricing_source_id)
+          || normalizePricingSourceUuid(night.base_pricing_source, night.base_pricing_source_id)
+            !== normalizePricingSourceUuid(product.base_pricing_source, product.base_pricing_source_id)
           || night.los_threshold_nights !== product.los_threshold_nights) {
         throw new Error('The server pricing preview returned an unrelated nightly price row.');
       }
@@ -6074,7 +6086,7 @@
       if (!hasExactKeys(room, roomKeys)) throw new Error('The Admin availability Room Type projection contains unsupported fields.');
       const normalized = { ...clone(room), id: normalizeUuid(room.id), hotel_id: normalizeUuid(room.hotel_id) };
       if (!normalized.id || normalized.hotel_id !== hotelId || !asText(normalized.code)
-          || !isExactAvailabilityI18n(normalized.name_i18n, { exact: true, required: true })
+          || !isExactAvailabilityI18n(normalized.name_i18n, { required: true })
           || !INVENTORY_MODES.includes(normalized.inventory_mode)
           || !ROOM_STATUSES.includes(normalized.status)
           || !isExactInteger(normalized.base_inventory_count, 0, 10000)

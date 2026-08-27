@@ -165,6 +165,11 @@
     }
     return value;
   }
+  function requireNonemptyPartialI18n(value, label, maximum = 12000) {
+    requireI18n(value, label, { partial: true, maximum });
+    if (!Object.values(value).some((entry) => entry.length > 0)) fail(`${label} requires at least one exact locale.`);
+    return value;
+  }
   function compactI18n(value, maximum = 12000) {
     if (!isObject(value) || Object.keys(value).some((key) => !LANGUAGES.includes(key))) {
       fail('Localized form content must contain only PL/EN/HE strings.');
@@ -338,7 +343,7 @@
       requireExactKeys(row, ['id', 'hotel_id', 'code', 'name_i18n', 'is_active', 'review_status', 'sort_order', 'version', 'updated_at'], 'Rate Plan');
       const id = requireCanonicalUuid(row.id, 'rate_plan.id');
       if (requireCanonicalUuid(row.hotel_id, 'rate_plan.hotel_id') !== hotelId || planIds.has(id)) fail('Rate Plan identity is invalid or duplicated.');
-      planIds.add(id); requireString(row.code, 'rate_plan.code', { minimum: 1, maximum: 80 }); requireI18n(row.name_i18n, 'rate_plan.name_i18n', { maximum: 240 });
+      planIds.add(id); requireString(row.code, 'rate_plan.code', { minimum: 1, maximum: 80 }); requireNonemptyPartialI18n(row.name_i18n, 'rate_plan.name_i18n', 240);
       if (typeof row.is_active !== 'boolean' || !['requires_review', 'reviewed'].includes(row.review_status)) fail('Rate Plan status is invalid.');
       requireInteger(row.sort_order, 'rate_plan.sort_order', 0, 1000000); requireInteger(row.version, 'rate_plan.version', 1); requireTimestamp(row.updated_at, 'rate_plan.updated_at');
     });
@@ -348,7 +353,7 @@
       requireExactKeys(row, ['id', 'hotel_id', 'code', 'name_i18n', 'application_scope', 'currency', 'maximum_party_size', 'minimum_billable_occupancy', 'is_active', 'review_status', 'sharing_mode', 'version', 'updated_at'], 'Pricing schedule');
       const id = requireCanonicalUuid(row.id, 'schedule.id');
       if (requireCanonicalUuid(row.hotel_id, 'schedule.hotel_id') !== hotelId || scheduleIds.has(id)) fail('Schedule identity is invalid or duplicated.');
-      scheduleIds.add(id); requireString(row.code, 'schedule.code', { minimum: 1, maximum: 80 }); requireI18n(row.name_i18n, 'schedule.name_i18n', { maximum: 240 });
+      scheduleIds.add(id); requireString(row.code, 'schedule.code', { minimum: 1, maximum: 80 }); requireNonemptyPartialI18n(row.name_i18n, 'schedule.name_i18n', 240);
       if (!['shared', 'independent'].includes(row.sharing_mode) || typeof row.is_active !== 'boolean' || !['requires_review', 'reviewed'].includes(row.review_status)) fail('Schedule state is invalid.');
       requireString(row.application_scope, 'schedule.application_scope', { minimum: 1, maximum: 80 });
       if (!/^[A-Z]{3}$/.test(row.currency)) fail('Schedule currency is invalid.');
@@ -448,13 +453,13 @@
       room_types: ['id', 'hotel_id', 'code', 'name_i18n', 'inventory_mode', 'base_inventory_count', 'status', 'sort_order', 'max_occupancy', 'capacity_adults', 'capacity_children', 'version', 'updated_at'],
       room_rates: ['id', 'hotel_id', 'room_type_id', 'rate_plan_id', 'is_active', 'review_status', 'sort_order', 'version', 'updated_at'],
       units: ['id', 'room_type_id', 'code', 'name_i18n', 'status', 'version', 'updated_at'],
-      cells: ['room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'blocked_unit_ids', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'held_units', 'booked_units', 'committed_units', 'available_units', 'requestable', 'blocking_reasons', 'earliest_hold_expiry', 'provenance', 'inventory_version'],
+      cells: ['room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'blocked_unit_ids', 'operational_closed', 'safety_closed', 'held_units', 'booked_units', 'committed_units', 'available_units', 'requestable', 'blocking_reasons', 'earliest_hold_expiry', 'provenance', 'inventory_version'],
       product_cells: ['room_type_id', 'room_rate_id', 'rate_plan_id', 'stay_date', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'requestable', 'blocking_reasons', 'provenance'],
       daily_inventory: ['room_type_id', 'stay_date', 'sellable_units', 'sellable_units_mode', 'closed', 'closed_mode', 'reason', 'expires_at', 'version', 'updated_at'],
       unit_calendar_blocks: ['id', 'hotel_id', 'room_type_id', 'unit_id', 'from_date', 'to_date', 'blocked', 'reason', 'expires_at', 'is_active', 'version', 'updated_at'],
       operational_overrides: ['id', 'hotel_id', 'room_rate_id', 'stay_date', 'closed', 'closed_mode', 'closed_to_arrival', 'closed_to_arrival_mode', 'closed_to_departure', 'closed_to_departure_mode', 'availability_reason', 'availability_expires_at', 'availability_active', 'availability_version', 'availability_updated_at'],
       rate_rule_operational_restrictions: ['id', 'room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'closed_to_arrival', 'closed_to_departure', 'availability_version', 'availability_reason', 'availability_actor_id', 'availability_correlation_id', 'availability_updated_at'],
-      booking_allocations: ['id', 'booking_id', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts', 'booking_updated_at', 'booking_arrival_date', 'booking_departure_date', 'current_booking_updated_at', 'current_booking_status', 'active_commitment_from', 'active_commitment_to', 'active_commitments', 'status', 'version', 'updated_at'],
+      booking_allocations: ['id', 'booking_id', 'arrival_date', 'departure_date', 'current_booking_updated_at', 'current_booking_status', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts', 'booking_updated_at', 'status', 'version', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'active_commitments'],
       holds: ['id', 'status', 'expires_at', 'version', 'created_at', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'commitments'],
       unmapped_booking_blockers: ['booking_id', 'booking_updated_at', 'arrival_date', 'departure_date', 'status', 'num_adults', 'num_children', 'reason'],
       recent_activity: ['id', 'entity_type', 'entity_id', 'action', 'before_state', 'after_state', 'actor_type', 'source', 'correlation_id', 'created_at'],
@@ -668,9 +673,9 @@
   function validateCommercialSummary(value, label) {
     if (value === null) return;
     requireExactKeys(value, ['policy', 'calculation_basis', 'customer_price', 'cypruseye_commission', 'partner_net', 'currency'], label);
-    requireExactKeys(value.policy, ['id', 'code', 'commission_mode', 'amount', 'currency', 'version', 'updated_at', 'fingerprint', 'read_only'], `${label}.policy`);
+    requireExactKeys(value.policy, ['id', 'code', 'commission_mode', 'amount', 'currency', 'version', 'fingerprint', 'read_only'], `${label}.policy`);
     requireCanonicalUuid(value.policy.id, `${label}.policy.id`); requireString(value.policy.code, `${label}.policy.code`, { minimum: 1, maximum: 80 }); if (!['per_allocated_room_per_night', 'percent_booking_total'].includes(value.policy.commission_mode) || value.policy.read_only !== true) fail(`${label} commission policy is invalid.`);
-    requireMoney(value.policy.amount, `${label}.policy.amount`); if (!/^[A-Z]{3}$/.test(value.policy.currency)) fail(`${label} policy currency is invalid.`); requireInteger(value.policy.version, `${label}.policy.version`, 1); requireTimestamp(value.policy.updated_at, `${label}.policy.updated_at`); requireSnapshot(value.policy.fingerprint, `${label}.policy.fingerprint`);
+    requireMoney(value.policy.amount, `${label}.policy.amount`); if (!/^[A-Z]{3}$/.test(value.policy.currency)) fail(`${label} policy currency is invalid.`); requireInteger(value.policy.version, `${label}.policy.version`, 1); requireSnapshot(value.policy.fingerprint, `${label}.policy.fingerprint`);
     requireExactKeys(value.calculation_basis, ['code', 'quantity', 'unit_amount', 'booking_total'], `${label}.calculation_basis`); requireString(value.calculation_basis.code, `${label}.basis.code`, { minimum: 1, maximum: 80 }); requireMoney(value.calculation_basis.quantity, `${label}.basis.quantity`); requireMoney(value.calculation_basis.unit_amount, `${label}.basis.unit_amount`); requireMoney(value.calculation_basis.booking_total, `${label}.basis.booking_total`);
     requireMoney(value.customer_price, `${label}.customer_price`); requireMoney(value.cypruseye_commission, `${label}.cypruseye_commission`); requireMoney(value.partner_net, `${label}.partner_net`); if (!/^[A-Z]{3}$/.test(value.currency) || value.policy.currency !== value.currency) fail(`${label} currency is invalid.`);
     const expectedBasis = value.policy.commission_mode === 'percent_booking_total' ? 'booking_total' : 'allocated_room_nights';

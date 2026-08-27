@@ -93,7 +93,7 @@ function pricingWorkspace(active: boolean): any {
     floor_label_i18n: {}, version: 1, updated_at: '2026-08-25T12:00:00Z',
   }];
   const schedule = (id: string, code: string, scope: string, maximum: number, minimum: number) => ({
-    id, hotel_id: HOTEL, code, name_i18n: { pl: code, en: code, he: code }, application_scope: scope,
+    id, hotel_id: HOTEL, code, name_i18n: { en: code }, application_scope: scope,
     currency: 'EUR', maximum_party_size: maximum, minimum_billable_occupancy: minimum,
     is_active: active && id === SHARED_SCHEDULE,
     review_status: active && id === SHARED_SCHEDULE ? 'reviewed' : 'requires_review',
@@ -107,7 +107,7 @@ function pricingWorkspace(active: boolean): any {
   value.pricing = {
     snapshot_token: TOKEN, currency: 'EUR',
     rate_plans: [{
-      id: RATE_PLAN, hotel_id: HOTEL, code: 'standard', name_i18n: { pl: 'Standard', en: 'Standard', he: 'סטנדרט' },
+      id: RATE_PLAN, hotel_id: HOTEL, code: 'standard', name_i18n: { en: 'Standard' },
       is_active: active, review_status: 'reviewed', sort_order: 10, version: active ? 2 : 1,
       updated_at: '2026-08-25T12:00:00Z',
     }],
@@ -170,7 +170,7 @@ function commercial(mode: string, amount: number, quantity: number, customer: nu
   return {
     policy: {
       id: TARGET, code: 'EXACT', commission_mode: mode, amount, currency: 'EUR', version: 1,
-      updated_at: '2026-08-25T12:00:00Z', fingerprint: TOKEN, read_only: true,
+      fingerprint: TOKEN, read_only: true,
     },
     calculation_basis: {
       code: mode === 'percent_booking_total' ? 'booking_total' : 'allocated_room_nights',
@@ -356,12 +356,18 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     expect(() => Core.validateWorkspace({
       ...workspace(), feature_flags: { ...workspace().feature_flags, hotel_external_sync_enabled: 'true' },
     }, { partnerId: PARTNER, hotelId: HOTEL })).toThrow('exact boolean');
+    expect(() => Core.validateWorkspace(workspace(), { partnerId: PARTNER, hotelId: TARGET }))
+      .toThrow('identity is mismatched');
+    expect(() => Core.validateWorkspace({ ...workspace(), raw_private_row: {} }, { partnerId: PARTNER, hotelId: HOTEL }))
+      .toThrow('unexpected field envelope');
   });
 
   test('accepts deterministic PostgreSQL schedule-tier UUIDs before and after pricing activation', () => {
     const before = pricingWorkspace(false);
     const validatedBefore = Core.validateWorkspace(before, { partnerId: PARTNER, hotelId: HOTEL });
     expect(validatedBefore.pricing.schedule_tiers[0].id).toBe(PARTY_SCHEDULE_TIER);
+    expect(validatedBefore.pricing.rate_plans[0].name_i18n).toEqual({ en: 'Standard' });
+    expect(validatedBefore.pricing.schedules[0].name_i18n).toEqual({ en: 'legacy-property-party-preview' });
     expect(Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER)).toBe(PARTY_SCHEDULE_TIER);
     expect(() => Core.requireCanonicalUuid(PARTY_SCHEDULE_TIER)).toThrow('lowercase canonical UUID');
     expect(() => Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER.toUpperCase()))
@@ -424,6 +430,15 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
       .toEqual([PARTY_SCHEDULE_TIER, SHARED_SCHEDULE_TIER]);
   });
 
+  test('uses the authoritative ADMIN-D booking allocation date envelope', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js'), 'utf8');
+    const allocationEnvelope = source.match(/booking_allocations:\s*\[([^\]]+)\]/)?.[1] || '';
+    expect(allocationEnvelope).toContain("'arrival_date'");
+    expect(allocationEnvelope).toContain("'departure_date'");
+    expect(allocationEnvelope).not.toContain("'booking_arrival_date'");
+    expect(allocationEnvelope).not.toContain("'booking_departure_date'");
+  });
+
   test('binds the exact property-proposal GET projection and reviewed-field impact map', () => {
     const { draft, preview } = contentReview(Core);
     expect(Core.validatePlanPreview('content', preview, draft, workspace()).reviewed_plan.operations[0].expected_original)
@@ -447,6 +462,10 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     expect(exact.policy.amount).toBe(10);
     expect(exact.cypruseye_commission).toBe(60);
     expect(exact.partner_net).toBe(140);
+    const smuggled = pricingReview(Core, commercial('percent_booking_total', 10, 1, 100, 10));
+    smuggled.preview.commercial_after.policy.updated_at = '2026-08-25T12:00:00Z';
+    expect(() => Core.validatePlanPreview('pricing', smuggled.preview, smuggled.draft))
+      .toThrow('unexpected field envelope');
   });
 
   test('rejects every Partner attempt to submit commission or commercial totals', () => {

@@ -765,6 +765,23 @@ describe('Hotels V2 ADMIN-C pricing client contracts', () => {
   test('binds exact preview relationships, seven-layer precedence and arithmetic', () => {
     const request = Core.validatePricingPreviewRequest(previewRequest());
     expect(Core.validatePricingPreview(successfulPreview(), request).customer_total).toBe(100);
+    const scheduleTier = successfulPreview();
+    scheduleTier.products[0].base_pricing_source = 'pricing_schedule_tier';
+    scheduleTier.products[0].base_pricing_source_id = 'f6c679b1-c0d7-64c7-d0d1-4b898f285778';
+    scheduleTier.nightly_breakdown[0].base_pricing_source = 'pricing_schedule_tier';
+    scheduleTier.nightly_breakdown[0].base_pricing_source_id = 'f6c679b1-c0d7-64c7-d0d1-4b898f285778';
+    scheduleTier.nightly_breakdown[0].final_pricing_source = 'pricing_schedule_tier';
+    expect(Core.validatePricingPreview(scheduleTier, request).products[0].base_pricing_source_id)
+      .toBe('f6c679b1-c0d7-64c7-d0d1-4b898f285778');
+    const uppercaseTier = structuredClone(scheduleTier);
+    uppercaseTier.products[0].base_pricing_source_id = uppercaseTier.products[0].base_pricing_source_id.toUpperCase();
+    expect(() => Core.validatePricingPreview(uppercaseTier, request)).toThrow(/unexpected or unsafe/i);
+    const malformedTier = structuredClone(scheduleTier);
+    malformedTier.nightly_breakdown[0].base_pricing_source_id = 'legacy-tier-2-2';
+    expect(() => Core.validatePricingPreview(malformedTier, request)).toThrow(/unexpected or unsafe/i);
+    const unrelatedTier = structuredClone(scheduleTier);
+    unrelatedTier.nightly_breakdown[0].base_pricing_source_id = '2aa13aac-b0c1-a4c5-7183-ddedd93dee57';
+    expect(() => Core.validatePricingPreview(unrelatedTier, request)).toThrow(/unrelated nightly price/i);
     const emptySuccess = successfulPreview();
     emptySuccess.allocation = [];
     emptySuccess.products = [];
