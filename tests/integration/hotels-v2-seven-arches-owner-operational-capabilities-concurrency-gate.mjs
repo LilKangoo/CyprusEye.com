@@ -31,7 +31,10 @@ const integrationDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(integrationDir, '..', '..');
 const migrationPath = resolve(repoRoot, 'supabase', 'migrations',
   '20260811436000_hotels_v2_seven_arches_owner_operational_capabilities.sql');
+const preflightPath = resolve(repoRoot, 'supabase', 'manual',
+  'hotels_v2_seven_arches_owner_operational_capabilities_preflight.sql');
 const migrationSql = await readFile(migrationPath, 'utf8');
+const preflightSql = await readFile(preflightPath, 'utf8');
 
 const lockStartToken = '\nlock table\n';
 const lockEndToken = '\nin share row exclusive mode;';
@@ -67,7 +70,7 @@ assert.match(migrationFromApply, /^commit;\s*$/im);
 
 const migrationSha256 = createHash('sha256').update(migrationSql).digest('hex');
 const runSuffix = `${process.pid}_${randomBytes(4).toString('hex')}`;
-const caseDatabaseNames = [1, 2, 3].map((caseNumber) =>
+const caseDatabaseNames = [1, 2, 3, 4].map((caseNumber) =>
   `hotels_v2_114360_race_${runSuffix}_c${caseNumber}`);
 const caseUrls = caseDatabaseNames.map((databaseName) => withDatabase(fixtureUrl, databaseName));
 const adminUrl = withDatabase(fixtureUrl, 'postgres');
@@ -128,6 +131,31 @@ async function runPsql(databaseUrl, sql, applicationName) {
   assert.equal(code, 0,
     `${applicationName} failed (${signal || code}): ${conciseError(stderr, stdout)}`);
   return stdout.trim();
+}
+
+async function runPsqlExpectFailure(databaseUrl, sql, applicationName) {
+  const child = spawn(psqlBin, [
+    '-X', '-A', '-t', '-q', '-d', databaseUrl.href, '-v', 'ON_ERROR_STOP=1',
+  ], {
+    cwd: repoRoot,
+    env: psqlEnvironment(databaseUrl, applicationName),
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.stdin.end(`${sql.trim()}\n`);
+  const { code, signal } = await new Promise((resolveExit, rejectExit) => {
+    child.once('error', rejectExit);
+    child.once('close', (exitCode, exitSignal) =>
+      resolveExit({ code: exitCode, signal: exitSignal }));
+  });
+  assert.notEqual(code, 0,
+    `${applicationName} unexpectedly passed (${signal || code}): ${stdout}`);
+  return conciseError(stderr, stdout);
 }
 
 class PsqlSession {
@@ -299,7 +327,18 @@ async function receiptState(databaseUrl, applicationName) {
         and receipt.stage2_current_protected_fingerprint=
           public.hotel_v2_external_calendar_worker_hash(
             receipt.stage2_current_protected_fingerprints)
-      )
+      ),
+      'owner_user_ids',receipt.owner_user_ids,
+      'owner_membership_fingerprint',receipt.owner_membership_fingerprint,
+      'owner_membership_exact',receipt.owner_user_ids=array[
+          '10000000-0000-4000-8000-000000000002'::uuid]
+        and receipt.owner_membership_fingerprint=encode(extensions.digest(convert_to(
+          jsonb_build_object(
+            'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+            'hotel_id',receipt.hotel_id,'partner_id',receipt.partner_id,
+            'assignment_id',receipt.assignment_id,'role','owner',
+            'owner_user_ids',to_jsonb(receipt.owner_user_ids)
+          )::text,'UTF8'),'sha256'),'hex')
     )::text
     from public.hotel_admin_availability_foundation_evolution_receipts receipt
     where receipt.id=1;
@@ -310,6 +349,31 @@ function assertReceiptDelta(receipt, label) {
   assert.equal(receipt.admin_delta_exact, true, `${label}: ADMIN-D delta escaped exact four keys`);
   assert.equal(receipt.stage2_delta_exact, true, `${label}: Stage 2 delta escaped exact three keys`);
   assert.equal(receipt.self_hashes_exact, true, `${label}: receipt self hash mismatch`);
+  assert.deepEqual(receipt.owner_user_ids,
+    ['10000000-0000-4000-8000-000000000002'],
+    `${label}: one-owner receipt set mismatch`);
+  assert.equal(receipt.owner_membership_exact, true,
+    `${label}: one-owner receipt membership fingerprint mismatch`);
+}
+
+async function normalizeSoleOwner(databaseUrl, applicationName) {
+  const result = await jsonValue(databaseUrl, `
+    delete from public.partner_users
+    where partner_id='20000000-0000-4000-8000-000000000001'::uuid
+      and role='owner'
+      and user_id<>'10000000-0000-4000-8000-000000000002'::uuid;
+    select pg_catalog.json_build_object(
+      'owner_count',count(*),
+      'owner_user_ids',array_agg(member.user_id order by member.user_id)
+    )::text
+    from public.partner_users member
+    where member.partner_id='20000000-0000-4000-8000-000000000001'::uuid
+      and member.role='owner';
+  `, applicationName);
+  assert.deepEqual(result, {
+    owner_count: 1,
+    owner_user_ids: ['10000000-0000-4000-8000-000000000002'],
+  }, `${applicationName}: failed to establish exact one-owner case`);
 }
 
 async function migratePrefix(databaseUrl, applicationName, token) {
@@ -468,6 +532,44 @@ async function caseThree(databaseUrl) {
   };
 }
 
+async function caseFour(databaseUrl) {
+  await runPsql(databaseUrl, `
+    delete from public.partner_users
+    where partner_id='20000000-0000-4000-8000-000000000001'::uuid
+      and role='owner';
+  `, 'hotels_v2_114360_c4_remove_owners');
+  assert.equal(await scalar(databaseUrl, `select count(*) from public.partner_users
+    where partner_id='20000000-0000-4000-8000-000000000001'::uuid
+      and role='owner';`, 'hotels_v2_114360_c4_owner_count'), '0');
+
+  const preflightError = await runPsqlExpectFailure(
+    databaseUrl, preflightSql, 'hotels_v2_114360_c4_zero_owner_preflight');
+  assert.match(preflightError, /HOTELS_V2_SEVEN_ARCHES_OWNER_PREFLIGHT_FAIL:/,
+    `zero-owner preflight failed outside its fail-closed contract: ${preflightError}`);
+  const migrationError = await runPsqlExpectFailure(
+    databaseUrl, migrationSql, 'hotels_v2_114360_c4_zero_owner_migration');
+  assert.match(migrationError,
+    /hotels_v2_seven_arches_owner_capabilities_owner_membership/i,
+    `zero-owner migration failed outside its membership guard: ${migrationError}`);
+  const unchanged = await jsonValue(databaseUrl, `
+    select pg_catalog.json_build_object(
+      'evolution_absent',to_regclass(
+        'public.hotel_admin_availability_foundation_evolution_receipts') is null,
+      'permission_absent',not exists(select 1
+        from public.hotel_partner_hotel_permissions
+        where hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid)
+    )::text;
+  `, 'hotels_v2_114360_c4_rollback_proof');
+  assert.deepEqual(unchanged, { evolution_absent: true, permission_absent: true },
+    'zero-owner failed migration left partial state');
+  return {
+    ownerCount: 0,
+    preflightRejected: true,
+    migrationRejected: true,
+    partialStateAbsent: true,
+  };
+}
+
 async function assertFixtureReady() {
   const ready = await jsonValue(fixtureUrl, `
     select pg_catalog.json_build_object(
@@ -487,15 +589,18 @@ async function assertFixtureReady() {
         from public.site_settings),
       'target_permission_absent',not exists(
         select 1 from public.hotel_partner_hotel_permissions
-        where hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid)
+        where hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid),
+      'target_owner_count',(select count(*) from public.partner_users
+        where partner_id='20000000-0000-4000-8000-000000000001'::uuid
+          and role='owner')
     )::text;
   `, 'hotels_v2_114360_concurrency_fixture_guard');
-  assert.deepEqual(ready, {
-    evolution_absent: true,
-    metadata_columns_present: true,
-    supported_flags: true,
-    target_permission_absent: true,
-  }, `Concurrency template is not at the reviewed pre-114360 boundary: ${JSON.stringify(ready)}`);
+  assert.equal(ready.evolution_absent, true);
+  assert.equal(ready.metadata_columns_present, true);
+  assert.equal(ready.supported_flags, true);
+  assert.equal(ready.target_permission_absent, true);
+  assert.ok(ready.target_owner_count >= 1,
+    `Concurrency template has no target owner: ${JSON.stringify(ready)}`);
 }
 
 async function cloneCaseDatabases() {
@@ -524,10 +629,13 @@ let results;
 try {
   await assertFixtureReady();
   await cloneCaseDatabases();
+  await Promise.all(caseUrls.slice(0, 3).map((databaseUrl, index) =>
+    normalizeSoleOwner(databaseUrl, `hotels_v2_114360_c${index + 1}_sole_owner`)));
   results = {
     case1: await caseOne(caseUrls[0]),
     case2: await caseTwo(caseUrls[1]),
     case3: await caseThree(caseUrls[2]),
+    case4: await caseFour(caseUrls[3]),
   };
 } finally {
   await cleanup();

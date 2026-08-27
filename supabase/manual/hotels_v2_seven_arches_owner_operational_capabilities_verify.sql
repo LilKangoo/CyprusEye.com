@@ -7,10 +7,12 @@ set local statement_timeout='90s';
 do $verify$
 declare
   c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  c_system_actor constant uuid:='00000000-0000-0000-0000-000000000000';
   v_snapshot jsonb;
   v_original public.hotel_admin_availability_foundation_receipts%rowtype;
   v_evolution public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
   v_external boolean;
+  v_current_owner_user_ids uuid[];
   v_current_foreign_permissions_fingerprint text;
 begin
   if to_regclass('public.hotel_admin_availability_foundation_evolution_receipts') is null
@@ -55,6 +57,10 @@ begin
   from public.hotel_admin_availability_foundation_receipts where id=1;
   select * into strict v_evolution
   from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
+  select array_agg(member.user_id order by member.user_id)
+    into v_current_owner_user_ids
+  from public.partner_users member
+  where member.partner_id=v_evolution.partner_id and member.role='owner';
   select md5(coalesce(string_agg(to_jsonb(permission)::text,'|'
       order by permission.assignment_id),''))
     into v_current_foreign_permissions_fingerprint
@@ -105,7 +111,22 @@ begin
      or v_evolution.before_foreign_permissions_fingerprint is distinct from
        v_evolution.current_foreign_permissions_fingerprint
      or v_evolution.current_foreign_permissions_fingerprint is distinct from
-       v_current_foreign_permissions_fingerprint then
+       v_current_foreign_permissions_fingerprint
+     or coalesce(cardinality(v_evolution.owner_user_ids),0)<1
+     or array_position(v_evolution.owner_user_ids,null) is not null
+     or cardinality(v_evolution.owner_user_ids)<>(select count(distinct owner_id)
+       from unnest(v_evolution.owner_user_ids) owner_id)
+     or v_evolution.owner_user_ids is distinct from v_current_owner_user_ids
+     or v_evolution.owner_membership_fingerprint<>encode(extensions.digest(convert_to(
+       jsonb_build_object(
+         'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+         'hotel_id',v_evolution.hotel_id,'partner_id',v_evolution.partner_id,
+         'assignment_id',v_evolution.assignment_id,'role','owner',
+         'owner_user_ids',to_jsonb(v_evolution.owner_user_ids)
+       )::text,'UTF8'),'sha256'),'hex')
+     or not exists(select 1 from public.hotel_partner_action_receipts receipt
+       where receipt.id=v_evolution.action_receipt_id
+         and receipt.actor_user_id=c_system_actor) then
     raise exception 'HOTELS_V2_SEVEN_ARCHES_OWNER_VERIFY_FAIL: current-baseline receipt mismatch';
   end if;
 
@@ -118,6 +139,8 @@ begin
      or not coalesce((v_snapshot->>'stage2_current_matches_latest')::boolean,false)
      or not coalesce((v_snapshot->>'seven_arches_target_foundation_exact')::boolean,false)
      or not coalesce((v_snapshot->>'seven_arches_assignment_exact')::boolean,false)
+     or not coalesce((v_snapshot->>'seven_arches_owner_membership_exact')::boolean,false)
+     or (v_snapshot->>'seven_arches_owner_count')::integer<1
      or not coalesce((v_snapshot->>'seven_arches_owner_preset_exact')::boolean,false)
      or not coalesce((v_snapshot->>'foreign_hotel_permissions_unchanged')::boolean,false)
      or not coalesce((v_snapshot->>'audit_chain_exact')::boolean,false)
@@ -193,6 +216,10 @@ with state as(
   select public.hotel_v2_admin_d_current_foundation_snapshot() value
 ), evolution as(
   select * from public.hotel_admin_availability_foundation_evolution_receipts where id=1
+), current_owner_membership as(
+  select array_agg(member.user_id order by member.user_id) owner_user_ids
+  from public.partner_users member cross join evolution
+  where member.partner_id=evolution.partner_id and member.role='owner'
 ), diagnostics as(
   select
     coalesce((state.value->>'historical_receipts_intact')::boolean,false)
@@ -210,6 +237,23 @@ with state as(
         public.hotel_v2_external_calendar_worker_hash(
           evolution.stage2_current_protected_fingerprints)
       as evolution_receipt_hashes_exact,
+    coalesce(cardinality(evolution.owner_user_ids),0)>=1
+      and array_position(evolution.owner_user_ids,null) is null
+      and evolution.owner_user_ids is not distinct from
+        current_owner_membership.owner_user_ids
+      and cardinality(evolution.owner_user_ids)=(select count(distinct owner_id)
+        from unnest(evolution.owner_user_ids) owner_id)
+      and evolution.owner_membership_fingerprint=encode(extensions.digest(convert_to(
+        jsonb_build_object(
+          'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+          'hotel_id',evolution.hotel_id,'partner_id',evolution.partner_id,
+          'assignment_id',evolution.assignment_id,'role','owner',
+          'owner_user_ids',to_jsonb(evolution.owner_user_ids)
+        )::text,'UTF8'),'sha256'),'hex')
+      and coalesce((state.value->>'seven_arches_owner_membership_exact')::boolean,false)
+      and (state.value->>'seven_arches_owner_count')::integer=
+        cardinality(evolution.owner_user_ids)
+      as owner_membership_exact,
     evolution.allowed_fingerprint_keys=array[
       'hotel_partner_hotel_permissions','hotel_partner_action_receipts',
       'hotel_partner_event_outbox','non_admin_d_activity']::text[]
@@ -247,12 +291,13 @@ with state as(
         where receipt.id=1 and receipt.compatibility_function_fingerprints
           is not distinct from public.hotel_v2_external_calendar_activation_function_fingerprints()))
       as stage2f_function_compatibility
-  from state cross join evolution
+  from state cross join evolution cross join current_owner_membership
 )
 select 'hotels_v2_seven_arches_owner_operational_capabilities_verify_v2' contract_version,
   (not original_receipts_intact)::integer original_receipt_mismatch,
   (not frozen_contracts_exact)::integer frozen_contract_mismatch,
   (not evolution_receipt_hashes_exact)::integer evolution_receipt_hash_mismatch,
+  (not owner_membership_exact)::integer owner_membership_mismatch,
   (not allowed_delta_exact)::integer allowed_delta_mismatch,
   (not current_baseline_exact)::integer current_baseline_mismatch,
   (not stage2_current_baseline_exact)::integer stage2_current_baseline_mismatch,
@@ -262,6 +307,7 @@ select 'hotels_v2_seven_arches_owner_operational_capabilities_verify_v2' contrac
   (not supported_hotels_flags)::integer supported_hotels_flags_mismatch,
   (not stage2f_function_compatibility)::integer stage2f_compatibility_mismatch,
   original_receipts_intact and frozen_contracts_exact and evolution_receipt_hashes_exact
+    and owner_membership_exact
     and allowed_delta_exact and current_baseline_exact and target_foundation_exact
     and stage2_current_baseline_exact and owner_preset_exact and audit_chain_exact
     and supported_hotels_flags and stage2f_function_compatibility

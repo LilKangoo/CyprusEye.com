@@ -13,6 +13,7 @@ declare
   c_activity constant uuid:='37500000-0000-4000-8000-000000000004';
   c_outbox constant uuid:='37500000-0000-4000-8000-000000000005';
   v_partner uuid;
+  v_owner_count integer;
   v_external boolean;
   v_pricing jsonb;
 begin
@@ -220,6 +221,9 @@ begin
 
   select hotel.owner_partner_id into v_partner
   from public.hotels hotel where hotel.id=c_hotel;
+  select count(*)::integer into v_owner_count
+  from public.partner_users member
+  where member.partner_id=v_partner and member.role='owner';
   if v_partner is null
      or not exists(select 1 from public.hotels hotel where hotel.id=c_hotel
        and hotel.architecture_version='legacy'
@@ -236,8 +240,7 @@ begin
          and assignment.resource_id=c_hotel)
      or not exists(select 1 from public.partners partner where partner.id=v_partner
        and partner.status='active' and partner.can_manage_hotels)
-     or (select count(*) from public.partner_users member
-       where member.partner_id=v_partner and member.role='owner')<>1 then
+     or v_owner_count<1 then
     raise exception 'HOTELS_V2_SEVEN_ARCHES_OWNER_PREFLIGHT_FAIL: exact 7 Arches target/assignment boundary mismatch';
   end if;
 
@@ -294,6 +297,10 @@ with constants as(
     md5(hotel.pricing_tiers::text) pricing_fingerprint,
     jsonb_array_length(hotel.pricing_tiers->'rules') pricing_rule_count
   from public.hotels hotel cross join constants where hotel.id=constants.hotel_id
+), owner_membership as(
+  select count(*)::integer owner_count
+  from public.partner_users member cross join target
+  where member.partner_id=target.owner_partner_id and member.role='owner'
 ), pricing as(
   select public.hotel_v2_h3_1p_pricing_promotion_snapshot(constants.hotel_id) value
   from constants
@@ -392,8 +399,7 @@ with constants as(
       and exists(select 1 from public.partner_resources assignment,target
         where assignment.partner_id=target.owner_partner_id
           and assignment.resource_type='hotels' and assignment.resource_id=target.hotel_id)
-      and (select count(*) from public.partner_users member,target
-        where member.partner_id=target.owner_partner_id and member.role='owner')=1
+      and (select owner_count from owner_membership)>=1
       as seven_arches_target_exact,
     (select value#>>'{promotion,status}'='reviewed'
       and value#>>'{source,pricing_fingerprint}'='7208ab4ecc0e47abd64d87ca1ac53a03'
@@ -444,6 +450,7 @@ with constants as(
       as audit_identity_boundary_exact
 )
 select 'hotels_v2_seven_arches_owner_operational_capabilities_preflight_v2' contract_version,
+  owner_membership.owner_count,
   (not historical_receipts_intact)::integer historical_receipt_integrity_mismatch,
   (not frozen_function_security_exact)::integer frozen_function_security_mismatch,
   (not supported_hotels_flags)::integer supported_hotels_flags_mismatch,
@@ -458,5 +465,5 @@ select 'hotels_v2_seven_arches_owner_operational_capabilities_preflight_v2' cont
     and reviewed_pricing_boundary_exact and permission_boundary_exact
     and migration_boundary_exact and audit_identity_boundary_exact
     as hotels_v2_seven_arches_owner_operational_capabilities_preflight_safe
-from checks;
+from checks cross join owner_membership;
 commit;

@@ -339,7 +339,10 @@ create table public.hotel_admin_availability_foundation_evolution_receipts(
   partner_id uuid not null references public.partners(id) on delete restrict,
   assignment_id uuid not null
     references public.hotel_partner_hotel_permissions(assignment_id) on delete restrict,
-  owner_user_id uuid not null,
+  owner_user_ids uuid[] not null check(
+    cardinality(owner_user_ids)>0 and array_position(owner_user_ids,null) is null),
+  owner_membership_fingerprint text not null
+    check(owner_membership_fingerprint~'^[0-9a-f]{64}$'),
   permission_version bigint not null check(permission_version=1),
   capabilities jsonb not null
     check(jsonb_typeof(capabilities)='object'),
@@ -357,7 +360,15 @@ create table public.hotel_admin_availability_foundation_evolution_receipts(
   correlation_id uuid not null unique,
   idempotency_key uuid not null unique,
   request_hash text not null check(request_hash~'^[0-9a-f]{64}$'),
-  created_at timestamptz not null default clock_timestamp()
+  created_at timestamptz not null default clock_timestamp(),
+  constraint hotel_admin_availability_evolution_owner_membership_exact check(
+    owner_membership_fingerprint=encode(extensions.digest(convert_to(
+      jsonb_build_object(
+        'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+        'hotel_id',hotel_id,'partner_id',partner_id,'assignment_id',assignment_id,
+        'role','owner','owner_user_ids',to_jsonb(owner_user_ids)
+      )::text,'UTF8'),'sha256'),'hex')
+  )
 );
 
 alter table public.hotel_admin_availability_foundation_evolution_receipts
@@ -376,10 +387,14 @@ declare
   c_idempotency constant uuid:='37500000-0000-4000-8000-000000000003';
   c_activity constant uuid:='37500000-0000-4000-8000-000000000004';
   c_outbox constant uuid:='37500000-0000-4000-8000-000000000005';
+  -- Audit-only system attribution for the legacy non-null actor column. It is
+  -- never resolved as a membership and never participates in authorization.
+  c_system_actor constant uuid:='00000000-0000-0000-0000-000000000000';
   v_original public.hotel_admin_availability_foundation_receipts%rowtype;
   v_partner_id uuid;
   v_assignment_id uuid;
-  v_owner_user_id uuid;
+  v_owner_user_ids uuid[];
+  v_owner_membership_fingerprint text;
   v_capabilities jsonb:=public.hotel_v2_seven_arches_owner_capabilities();
   v_before_permission jsonb;
   v_after_permission jsonb;
@@ -445,14 +460,22 @@ begin
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_owner_capabilities_partner_ineligible';
   end if;
-  if (select count(*) from public.partner_users member
-      where member.partner_id=v_partner_id and member.role='owner')<>1 then
+  select array_agg(member.user_id order by member.user_id)
+    into v_owner_user_ids
+  from public.partner_users member
+  where member.partner_id=v_partner_id and member.role='owner';
+  if coalesce(cardinality(v_owner_user_ids),0)<1
+     or cardinality(v_owner_user_ids)<>(select count(distinct owner_id)
+       from unnest(v_owner_user_ids) owner_id) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_owner_capabilities_owner_membership_cardinality';
   end if;
-  select member.user_id into strict v_owner_user_id
-  from public.partner_users member
-  where member.partner_id=v_partner_id and member.role='owner';
+  v_owner_membership_fingerprint:=encode(extensions.digest(convert_to(
+    jsonb_build_object(
+      'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+      'hotel_id',c_hotel,'partner_id',v_partner_id,'assignment_id',v_assignment_id,
+      'role','owner','owner_user_ids',to_jsonb(v_owner_user_ids)
+    )::text,'UTF8'),'sha256'),'hex');
   if not exists(select 1 from public.hotels hotel where hotel.id=c_hotel
        and hotel.architecture_version='legacy'
        and md5(hotel.pricing_tiers::text)='7208ab4ecc0e47abd64d87ca1ac53a03'
@@ -531,8 +554,11 @@ begin
 
   v_request:=jsonb_build_object(
     'contract_version','hotels_v2_seven_arches_owner_capability_bootstrap_v1',
+    'actor_type','system',
     'hotel_id',c_hotel,'partner_id',v_partner_id,'assignment_id',v_assignment_id,
-    'owner_user_id',v_owner_user_id,'capabilities',v_capabilities
+    'owner_user_ids',to_jsonb(v_owner_user_ids),
+    'owner_membership_fingerprint',v_owner_membership_fingerprint,
+    'capabilities',v_capabilities
   );
   v_request_hash:=encode(extensions.digest(convert_to(v_request::text,'UTF8'),'sha256'),'hex');
   v_result:=jsonb_build_object(
@@ -558,7 +584,7 @@ begin
     id,partner_id,hotel_id,actor_user_id,action,idempotency_key,
     request_hash,correlation_id,result
   ) values(
-    c_receipt,v_partner_id,c_hotel,v_owner_user_id,
+    c_receipt,v_partner_id,c_hotel,c_system_actor,
     'bootstrap_7_arches_owner_capabilities',c_idempotency,
     v_request_hash,c_correlation,v_result
   );
@@ -622,7 +648,8 @@ begin
     stage2_before_current_protected_fingerprint,
     stage2_current_protected_fingerprints,stage2_current_protected_fingerprint,
     allowed_fingerprint_keys,stage2_allowed_fingerprint_keys,
-    hotel_id,partner_id,assignment_id,owner_user_id,permission_version,capabilities,
+    hotel_id,partner_id,assignment_id,owner_user_ids,owner_membership_fingerprint,
+    permission_version,capabilities,
     before_permission,after_permission,
     before_foreign_permissions_fingerprint,current_foreign_permissions_fingerprint,
     activity_id,action_receipt_id,outbox_id,
@@ -637,7 +664,8 @@ begin
       'hotel_partner_event_outbox','non_admin_d_activity']::text[],
     array['hotel_partner_hotel_permissions','non_external_calendar_activity',
       'non_external_calendar_partner_receipts']::text[],
-    c_hotel,v_partner_id,v_assignment_id,v_owner_user_id,1,v_capabilities,
+    c_hotel,v_partner_id,v_assignment_id,v_owner_user_ids,
+    v_owner_membership_fingerprint,1,v_capabilities,
     v_before_permission,v_after_permission,v_before_foreign_permissions_fingerprint,
     v_current_foreign_permissions_fingerprint,c_activity,c_receipt,c_outbox,
     c_correlation,c_idempotency,v_request_hash
@@ -659,11 +687,14 @@ declare
   c_idempotency constant uuid:='37500000-0000-4000-8000-000000000003';
   c_activity constant uuid:='37500000-0000-4000-8000-000000000004';
   c_outbox constant uuid:='37500000-0000-4000-8000-000000000005';
+  -- Must match the audit-only system attribution emitted by the bootstrap.
+  c_system_actor constant uuid:='00000000-0000-0000-0000-000000000000';
   v_original public.hotel_admin_availability_foundation_receipts%rowtype;
   v_evolution public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
   v_current jsonb;
   v_stage2_current jsonb;
   v_h3 jsonb;
+  v_current_owner_user_ids uuid[];
   v_current_foreign_permissions_fingerprint text;
   v_original_safe boolean:=false;
   v_historical_receipts_safe boolean:=false;
@@ -676,6 +707,7 @@ declare
   v_evolution_safe boolean:=false;
   v_target_foundation_safe boolean:=false;
   v_assignment_safe boolean:=false;
+  v_owner_membership_safe boolean:=false;
   v_permission_safe boolean:=false;
   v_foreign_permissions_safe boolean:=false;
   v_audit_safe boolean:=false;
@@ -685,6 +717,10 @@ begin
   v_current:=public.hotel_v2_admin_d_protected_fingerprints();
   v_stage2_current:=public.hotel_v2_external_calendar_protected_fingerprints();
   v_h3:=public.hotel_v2_h3_1p_pricing_promotion_snapshot(c_hotel);
+  select array_agg(member.user_id order by member.user_id)
+    into v_current_owner_user_ids
+  from public.partner_users member
+  where member.partner_id=v_evolution.partner_id and member.role='owner';
   select md5(coalesce(string_agg(to_jsonb(permission)::text,'|'
       order by permission.assignment_id),''))
     into v_current_foreign_permissions_fingerprint
@@ -938,6 +974,18 @@ begin
         and review.parity_case_count=(v_h3#>>'{parity,total_case_count}')::integer
         and review.parity_mismatch_count=(v_h3#>>'{parity,total_mismatch_count}')::integer
         and review.result->>'target_fingerprint'=review.target_fingerprint);
+  v_owner_membership_safe:=coalesce(cardinality(v_current_owner_user_ids),0)>=1
+    and v_evolution.owner_user_ids is not distinct from v_current_owner_user_ids
+    and array_position(v_evolution.owner_user_ids,null) is null
+    and cardinality(v_evolution.owner_user_ids)=(select count(distinct owner_id)
+      from unnest(v_evolution.owner_user_ids) owner_id)
+    and v_evolution.owner_membership_fingerprint=encode(extensions.digest(convert_to(
+      jsonb_build_object(
+        'contract_version','hotels_v2_seven_arches_owner_membership_v1',
+        'hotel_id',v_evolution.hotel_id,'partner_id',v_evolution.partner_id,
+        'assignment_id',v_evolution.assignment_id,'role','owner',
+        'owner_user_ids',to_jsonb(v_evolution.owner_user_ids)
+      )::text,'UTF8'),'sha256'),'hex');
   v_assignment_safe:=(select count(*)=1 from public.partner_resources assignment
       where assignment.resource_type='hotels' and assignment.resource_id=c_hotel)
     and exists(select 1 from public.hotels hotel
@@ -947,11 +995,7 @@ begin
       where hotel.id=c_hotel and partner.id=v_evolution.partner_id
         and assignment.id=v_evolution.assignment_id
         and partner.status='active' and partner.can_manage_hotels)
-    and (select count(*)=1 from public.partner_users member
-      where member.partner_id=v_evolution.partner_id and member.role='owner')
-    and exists(select 1 from public.partner_users member
-      where member.partner_id=v_evolution.partner_id and member.role='owner'
-        and member.user_id=v_evolution.owner_user_id);
+    and v_owner_membership_safe;
   v_permission_safe:=(select count(*)=1 from public.hotel_partner_hotel_permissions permission
       where permission.hotel_id=c_hotel and permission.assignment_id=v_evolution.assignment_id
         and permission.partner_id=v_evolution.partner_id and permission.version=1
@@ -984,7 +1028,7 @@ begin
           'assignment_id',v_evolution.assignment_id,'partner_id',v_evolution.partner_id))
     and exists(select 1 from public.hotel_partner_action_receipts receipt
       where receipt.id=v_evolution.action_receipt_id and receipt.partner_id=v_evolution.partner_id
-        and receipt.hotel_id=c_hotel and receipt.actor_user_id=v_evolution.owner_user_id
+        and receipt.hotel_id=c_hotel and receipt.actor_user_id=c_system_actor
         and receipt.action='bootstrap_7_arches_owner_capabilities'
         and receipt.idempotency_key=v_evolution.idempotency_key
         and receipt.request_hash=v_evolution.request_hash
@@ -1000,9 +1044,11 @@ begin
           'idempotency_key',v_evolution.idempotency_key)
         and receipt.request_hash=encode(extensions.digest(convert_to(jsonb_build_object(
           'contract_version','hotels_v2_seven_arches_owner_capability_bootstrap_v1',
+          'actor_type','system',
           'hotel_id',c_hotel,'partner_id',v_evolution.partner_id,
           'assignment_id',v_evolution.assignment_id,
-          'owner_user_id',v_evolution.owner_user_id,
+          'owner_user_ids',to_jsonb(v_evolution.owner_user_ids),
+          'owner_membership_fingerprint',v_evolution.owner_membership_fingerprint,
           'capabilities',v_evolution.capabilities)::text,'UTF8'),'sha256'),'hex'))
     and exists(select 1 from public.hotel_partner_event_outbox event
       where event.id=v_evolution.outbox_id and event.partner_id=v_evolution.partner_id
@@ -1029,6 +1075,8 @@ begin
     'current_matches_latest',v_current_evolution_safe,
     'stage2_current_matches_latest',v_stage2_evolution_safe,
     'seven_arches_target_foundation_exact',v_target_foundation_safe,
+    'seven_arches_owner_count',coalesce(cardinality(v_current_owner_user_ids),0),
+    'seven_arches_owner_membership_exact',v_owner_membership_safe,
     'seven_arches_assignment_exact',v_assignment_safe,
     'seven_arches_owner_preset_exact',v_permission_safe,
     'foreign_hotel_permissions_unchanged',v_foreign_permissions_safe,

@@ -204,6 +204,8 @@ for (const [label, token] of [
 assertDenied(await listAssigned(TOKENS.anon, PARTNER_OWNER), 'anon Partner LIST');
 assertDenied(await listAssigned(TOKENS.nonAdmin, PARTNER_OWNER), 'non-member Partner LIST');
 assertDenied(await listAssigned(TOKENS.owner, PARTNER_SECOND), 'foreign-partner LIST');
+assertDenied(await listAssigned(TOKENS.secondOwner, PARTNER_OWNER),
+  'foreign owner requesting 7 Arches Partner LIST');
 assertDenied(await listAssigned(TOKENS.suspendedOwner, PARTNER_SUSPENDED), 'suspended Partner LIST');
 assertDenied(await listAssigned(TOKENS.disabledOwner, PARTNER_DISABLED), 'can_manage_hotels=false LIST');
 
@@ -218,6 +220,16 @@ for (const property of ownerList.payload.properties) {
   assert.equal(property.permission.exists, false);
   assert.equal(property.permission.version, 0);
   assert.deepEqual(property.permission.capabilities, allCapabilities());
+}
+const initialCoOwnerLists = await Promise.all([
+  listAssigned(TOKENS.coOwnerA, PARTNER_OWNER),
+  listAssigned(TOKENS.coOwnerB, PARTNER_OWNER),
+]);
+for (const [index, coOwnerList] of initialCoOwnerLists.entries()) {
+  assert.equal(coOwnerList.status, 200, JSON.stringify(coOwnerList.payload));
+  assertPartnerEnvelope(coOwnerList.payload, PARTNER_OWNER, 'owner');
+  assert.deepEqual(coOwnerList.payload, ownerList.payload,
+    `co-owner ${index + 1} did not inherit the exact Partner assignments`);
 }
 
 const scopedStaffList = await listAssigned(TOKENS.scopedStaff, PARTNER_OWNER);
@@ -450,6 +462,20 @@ assert.equal(owner7kPermission.exists, true);
 assert.equal(owner7kPermission.version, 2);
 assert.deepEqual(owner7kPermission.capabilities, stripeOwnerPlan.capabilities);
 assert.equal(owner7kPermission.has_mutation_capability, true);
+const coOwnersAfterGrant = await Promise.all([
+  listAssigned(TOKENS.coOwnerA, PARTNER_OWNER),
+  listAssigned(TOKENS.coOwnerB, PARTNER_OWNER),
+]);
+for (const [index, coOwnerList] of coOwnersAfterGrant.entries()) {
+  assert.equal(coOwnerList.status, 200, JSON.stringify(coOwnerList.payload));
+  assert.deepEqual(coOwnerList.payload, ownerAfterGrant.payload,
+    `co-owner ${index + 1} did not resolve the exact shared permission row`);
+}
+const final7kAdmin = await getAdminSnapshot(HOTEL_7K);
+const final7kAssignments = final7kAdmin.assignments.filter((row) => row.hotel_id === HOTEL_7K);
+assert.equal(final7kAssignments.length, 1, '7 Arches acquired duplicate assignment permissions');
+assert.equal(final7kAssignments[0].assignment_id, ASSIGNMENT_7K_OWNER);
+assert.equal(final7kAssignments[0].permission.exists, true);
 
 for (const table of [
   'hotel_partner_hotel_permissions',
@@ -490,6 +516,8 @@ console.log(JSON.stringify({
   unscoped_staff_denied: true,
   idempotent_permission_version: afterStaleOwner.permission.version,
   owner_only_stripe_permission_version: owner7kPermission.version,
+  legitimate_owner_count: 3,
+  exact_permission_row_count: final7kAssignments.length,
   sole_mutating_assignment: ASSIGNMENT_RGB_OWNER,
   public_activation: false,
 }));

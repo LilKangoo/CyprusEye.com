@@ -32,6 +32,8 @@ export const USER_IDS = Object.freeze({
   unassignedOwner: '10000000-0000-4000-8000-000000000007',
   secondOwner: '10000000-0000-4000-8000-000000000008',
   disabledOwner: '10000000-0000-4000-8000-000000000009',
+  coOwnerA: '10000000-0000-4000-8000-000000000010',
+  coOwnerB: '10000000-0000-4000-8000-000000000011',
 });
 
 const authenticatedToken = (sub, email) => createTestJwt({
@@ -51,4 +53,6 @@ export const TOKENS = Object.freeze({
   unassignedOwner: authenticatedToken(USER_IDS.unassignedOwner, 'unassigned-owner@example.test'),
   secondOwner: authenticatedToken(USER_IDS.secondOwner, 'second-owner@example.test'),
   disabledOwner: authenticatedToken(USER_IDS.disabledOwner, 'disabled-owner@example.test'),
+  coOwnerA: authenticatedToken(USER_IDS.coOwnerA, 'co-owner-a@example.test'),
+  coOwnerB: authenticatedToken(USER_IDS.coOwnerB, 'co-owner-b@example.test'),
 });

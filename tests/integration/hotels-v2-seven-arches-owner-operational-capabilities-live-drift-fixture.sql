@@ -20,8 +20,11 @@ insert into public.profiles(id,email,is_admin) values
   ('36000000-0000-4000-8000-000000000101','live-drift-referrer@example.test',false),
   ('36000000-0000-4000-8000-000000000102','live-drift-referred@example.test',false);
 insert into auth.users(id,email) values
+  ('10000000-0000-4000-8000-000000000002','partner@example.test'),
   ('36000000-0000-4000-8000-000000000101','live-drift-referrer@example.test'),
-  ('36000000-0000-4000-8000-000000000102','live-drift-referred@example.test');
+  ('36000000-0000-4000-8000-000000000102','live-drift-referred@example.test'),
+  ('10000000-0000-4000-8000-000000000010','co-owner-a@example.test'),
+  ('10000000-0000-4000-8000-000000000011','co-owner-b@example.test');
 
 update public.partners
 set name='Synthetic Other Partner (live drift)'

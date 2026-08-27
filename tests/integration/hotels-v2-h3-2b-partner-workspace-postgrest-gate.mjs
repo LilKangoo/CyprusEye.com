@@ -82,6 +82,8 @@ for (const token of [undefined, TOKENS.anon]) {
 }
 
 denied(await rpc('hotel_v2_partner_get_workspace', TOKENS.nonAdmin, getBody), 'nonmember GET');
+denied(await rpc('hotel_v2_partner_get_workspace', TOKENS.unassignedOwner, getBody),
+  'foreign Partner owner 7 Arches GET');
 denied(await rpc('hotel_v2_partner_get_workspace', TOKENS.owner,
   { ...getBody, p_partner_id: '20000000-0000-4000-8000-000000000005' }), 'foreign partner GET');
 
@@ -102,6 +104,24 @@ assert.equal(Number(workspace.pricing.commission_policy.amount), 10);
 assert.equal(workspace.pricing.commission_policy.currency, 'EUR');
 assert.equal(workspace.pricing.commission_policy.read_only, true);
 stats.get += 1; stats.commission += 1;
+const coOwnerWorkspaces = await Promise.all([
+  rpc('hotel_v2_partner_get_workspace', TOKENS.coOwnerA, getBody),
+  rpc('hotel_v2_partner_get_workspace', TOKENS.coOwnerB, getBody),
+]);
+for (const [index, result] of coOwnerWorkspaces.entries()) {
+  assert.equal(result.status, 200, JSON.stringify(result));
+  assert.equal(result.payload.hotel_id, HOTEL_7K);
+  assert.deepEqual(result.payload.partner, workspace.partner,
+    `co-owner ${index + 1} Partner scope differs`);
+  assert.deepEqual(result.payload.assignment, workspace.assignment,
+    `co-owner ${index + 1} assignment/capabilities differ`);
+  assert.deepEqual(result.payload.sections, workspace.sections,
+    `co-owner ${index + 1} workspace sections differ`);
+  assert.deepEqual(result.payload.pricing.commission_policy,
+    workspace.pricing.commission_policy,
+    `co-owner ${index + 1} commission visibility differs`);
+  stats.get += 1;
+}
 
 const fixedStayRequest = commercialRequest(workspace, HOTEL_7K, isoDay(31), isoDay(33), true);
 denied(await rpc('hotel_v2_partner_preview_commercial_stay', TOKENS.nonAdmin,
@@ -262,4 +282,5 @@ denied(await rpc('h3_2b_can_insert_photo', TOKENS.owner, {}), 'private-schema me
 
 console.log(JSON.stringify({
   sentinel: 'HOTELS_V2_H3_2B_PARTNER_WORKSPACE_POSTGREST_GATE_PASS', stats,
+  legitimate_owner_count: 3,
 }));
