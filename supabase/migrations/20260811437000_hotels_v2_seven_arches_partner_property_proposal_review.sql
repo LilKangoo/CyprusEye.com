@@ -1,9 +1,83 @@
 -- Forward lifecycle evolution after the deployed H3.2B and Stage 2 receipts.
 begin;
+set transaction isolation level read committed;
 set local lock_timeout='15s';
 set local statement_timeout='180s';
 
+-- Lock every relation read by the inherited ADMIN-D/H3.2B/Stage2 protected
+-- projections before establishing the current-baseline snapshot. The two
+-- additional relations are the immutable Task1 authority and the Task2 draft
+-- boundary altered below. A fresh READ COMMITTED snapshot taken after this
+-- statement necessarily includes every protected commit completed before all
+-- locks were acquired; these locks then prevent another protected write
+-- through COMMIT.
+lock table
+  hotels_v2_private.hotel_external_calendar_activation_receipts,
+  hotels_v2_private.hotel_external_calendar_foundation_receipts,
+  public.affiliate_adjustments,
+  public.affiliate_cashout_requests,
+  public.affiliate_commission_events,
+  public.affiliate_payouts,
+  public.affiliate_program_settings,
+  public.affiliate_referrer_overrides,
+  public.hotel_activity_log,
+  public.hotel_admin_availability_action_receipts,
+  public.hotel_admin_availability_foundation_evolution_receipts,
+  public.hotel_admin_availability_foundation_receipts,
+  public.hotel_admin_availability_plan_reviews,
+  public.hotel_admin_pricing_action_receipts,
+  public.hotel_booking_room_allocations,
+  public.hotel_bookings,
+  public.hotel_calendar_overrides,
+  public.hotel_calendar_source_configs,
+  public.hotel_commission_policies,
+  public.hotel_daily_inventory,
+  public.hotel_daily_rates,
+  public.hotel_inventory_commitments,
+  public.hotel_inventory_holds,
+  public.hotel_partner_action_receipts,
+  public.hotel_partner_event_outbox,
+  public.hotel_partner_hotel_permissions,
+  public.hotel_partner_property_drafts,
+  public.hotel_partner_workspace_foundation_receipts,
+  public.hotel_payment_policies,
+  public.hotel_payment_policy_terms,
+  public.hotel_pricing_promotion_reviews,
+  public.hotel_pricing_schedule_occupancy_tiers,
+  public.hotel_pricing_schedules,
+  public.hotel_property_operational_profiles,
+  public.hotel_property_pricing_defaults,
+  public.hotel_rate_plans,
+  public.hotel_rate_rules,
+  public.hotel_room_allocation_rule_items,
+  public.hotel_room_allocation_rules,
+  public.hotel_room_rate_occupancy_tiers,
+  public.hotel_room_rates,
+  public.hotel_room_types,
+  public.hotel_unit_calendar_blocks,
+  public.hotel_units,
+  public.hotels,
+  public.partner_resources,
+  public.partner_service_fulfillment_form_snapshots,
+  public.partner_service_fulfillments,
+  public.partner_user_resources,
+  public.partner_users,
+  public.partners,
+  public.profile_referral_code_aliases,
+  public.referrals,
+  public.service_coupon_redemptions,
+  public.service_coupons,
+  public.service_deposit_overrides,
+  public.service_deposit_requests,
+  public.service_deposit_rules,
+  public.site_settings
+in share row exclusive mode;
+
 do $proposal_review_prerequisites$
+declare
+  v_owner record;
+  v_owner_state jsonb;
+  v_current_stage2 jsonb;
 begin
   if to_regclass('public.hotel_partner_property_drafts') is null
      or to_regclass('public.hotel_partner_workspace_foundation_receipts') is null
@@ -14,6 +88,7 @@ begin
      or to_regprocedure('public.hotel_v2_admin_c_json_uuid_fields_are_canonical(jsonb)') is null
      or to_regprocedure('public.hotel_v2_h2a_require_admin()') is null
      or to_regprocedure('public.hotel_v2_admin_d_current_foundation_snapshot()') is null
+     or to_regclass('public.hotel_admin_availability_foundation_evolution_receipts') is null
      or to_regprocedure('public.hotel_v2_external_calendar_protected_fingerprints()') is null
      or to_regprocedure('public.hotel_v2_external_calendar_worker_hash(jsonb)') is null
      or to_regprocedure('public.hotel_v2_external_calendar_activation_function_fingerprints()') is null
@@ -28,19 +103,71 @@ begin
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_property_proposal_review_boundary_mismatch';
   end if;
+  select * into v_owner
+  from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
+  v_owner_state:=public.hotel_v2_admin_d_current_foundation_snapshot();
+  v_current_stage2:=public.hotel_v2_external_calendar_protected_fingerprints();
   if (select count(*) from public.hotel_partner_workspace_foundation_receipts)<>1
      or not exists(select 1 from public.hotel_partner_workspace_foundation_receipts foundation
        where foundation.id=1
          and foundation.protected_fingerprint=
            public.hotel_v2_h3_2b_hash(foundation.protected_fingerprints))
-     or (public.hotel_v2_h3_2b_protected_fingerprints()-array[
-          'hotel_partner_hotel_permissions','hotel_partner_action_receipts','site_settings',
-          'non_h3_2b_activity','non_h3_2b_partner_receipts']::text[])
-        is distinct from ((select foundation.protected_fingerprints
-          from public.hotel_partner_workspace_foundation_receipts foundation where foundation.id=1)-array[
-          'hotel_partner_hotel_permissions','hotel_partner_action_receipts','site_settings',
-          'non_h3_2b_activity','non_h3_2b_partner_receipts']::text[])
-     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'safe')::boolean,false) then
+     or (select count(*) from public.hotel_admin_availability_foundation_evolution_receipts)<>1
+     or v_owner.id<>1
+     or v_owner.contract_version<>'hotels_v2_admin_d_foundation_evolution_v2'
+     or not exists(select 1 from pg_class relation where relation.oid=
+       'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+       and relation.relowner='postgres'::regrole and relation.relrowsecurity)
+     or not exists(select 1 from pg_trigger trigger_row
+       where trigger_row.tgname='hotel_admin_availability_foundation_evolution_immutable'
+         and trigger_row.tgrelid=
+           'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+         and trigger_row.tgfoid='public.hotel_v2_admin_d_immutable_row()'::regprocedure
+         and not trigger_row.tgisinternal and trigger_row.tgenabled='O'
+         and trigger_row.tgtype=27)
+     or exists(select 1 from pg_policy policy where policy.polrelid=
+       'public.hotel_admin_availability_foundation_evolution_receipts'::regclass)
+     or exists(select 1
+       from unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'])
+         privilege(name)
+       where has_table_privilege(0::oid,
+           'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('anon',
+           'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('authenticated',
+           'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('service_role',
+           'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+           privilege.name))
+     or v_owner.before_current_protected_fingerprint<>
+       public.hotel_v2_h3_2b_hash(v_owner.before_current_protected_fingerprints)
+     or v_owner.current_protected_fingerprint<>
+       public.hotel_v2_h3_2b_hash(v_owner.current_protected_fingerprints)
+     or v_owner.stage2_before_current_protected_fingerprint<>
+       public.hotel_v2_external_calendar_worker_hash(
+         v_owner.stage2_before_current_protected_fingerprints)
+     or v_owner.stage2_current_protected_fingerprint<>
+       public.hotel_v2_external_calendar_worker_hash(
+         v_owner.stage2_current_protected_fingerprints)
+     or v_owner.allowed_fingerprint_keys is distinct from array[
+       'hotel_partner_hotel_permissions','hotel_partner_action_receipts',
+       'hotel_partner_event_outbox','non_admin_d_activity']::text[]
+     or v_owner.stage2_allowed_fingerprint_keys is distinct from array[
+       'hotel_partner_hotel_permissions','non_external_calendar_activity',
+       'non_external_calendar_partner_receipts']::text[]
+     or not coalesce((v_owner_state->>'historical_receipts_intact')::boolean,false)
+     or not coalesce((v_owner_state->>'frozen_contracts_exact')::boolean,false)
+     or not coalesce((v_owner_state->>'supported_hotel_flags')::boolean,false)
+     or not coalesce((v_owner_state->>'stage2f_function_compatibility_exact')::boolean,false)
+     or not coalesce((v_owner_state->>'current_matches_latest')::boolean,false)
+     or not coalesce((v_owner_state->>'stage2_current_matches_latest')::boolean,false)
+     or not coalesce((v_owner_state->>'safe')::boolean,false)
+     or v_current_stage2 is distinct from v_owner.stage2_current_protected_fingerprints
+     or public.hotel_v2_external_calendar_worker_hash(v_current_stage2)
+       is distinct from v_owner.stage2_current_protected_fingerprint then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_property_proposal_foundation_mismatch';
   end if;
@@ -541,6 +668,12 @@ $function$;
 create table public.hotel_partner_property_proposal_foundation_receipts(
   id smallint primary key check(id=1),
   original_h3_2b_foundation_fingerprint text not null check(original_h3_2b_foundation_fingerprint~'^[0-9a-f]{64}$'),
+  owner_evolution_receipt_id smallint not null check(owner_evolution_receipt_id=1)
+    references public.hotel_admin_availability_foundation_evolution_receipts(id) on delete restrict,
+  -- Hash the complete immutable Task1 receipt; its timestamptz is represented
+  -- as epoch JSON when captured/verified so the anchor is timezone-independent.
+  owner_evolution_receipt_fingerprint text not null
+    check(owner_evolution_receipt_fingerprint~'^[0-9a-f]{64}$'),
   proposal_fields_baseline jsonb not null check(jsonb_typeof(proposal_fields_baseline)='object'),
   protected_fingerprints jsonb not null check(jsonb_typeof(protected_fingerprints)='object'),
   protected_fingerprint text not null check(protected_fingerprint~'^[0-9a-f]{64}$'),
@@ -807,16 +940,21 @@ declare
   c_new constant text:='where draft.assignment_id=(v_access->>''assignment_id'')::uuid'
     ||E'\n    and draft.status=''pending_admin_review'';';
   v_activation hotels_v2_private.hotel_external_calendar_activation_receipts%rowtype;
+  v_owner public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
   v_receipt public.hotel_partner_property_proposal_foundation_receipts%rowtype;
   v_current jsonb; v_source text; v_oid oid;
 begin
   if (select count(*) from hotels_v2_private.hotel_external_calendar_activation_receipts)<>1
      or (select count(*) from public.hotel_partner_workspace_foundation_receipts)<>1
+     or (select count(*) from public.hotel_admin_availability_foundation_evolution_receipts)<>1
+     or (select count(*) from public.hotel_admin_availability_foundation_receipts)<>1
      or (select count(*) from public.hotel_partner_property_proposal_foundation_receipts)<>1 then
     return false;
   end if;
   select * into strict v_activation
     from hotels_v2_private.hotel_external_calendar_activation_receipts where id=1;
+  select * into strict v_owner
+    from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
   select * into strict v_receipt
     from public.hotel_partner_property_proposal_foundation_receipts where id=1;
   v_oid:=to_regprocedure(c_signature);
@@ -825,6 +963,70 @@ begin
   v_current:=public.hotel_v2_external_calendar_activation_function_fingerprints();
   return v_receipt.original_h3_2b_foundation_fingerprint=(select protected_fingerprint
       from public.hotel_partner_workspace_foundation_receipts where id=1)
+    and v_receipt.owner_evolution_receipt_id=v_owner.id
+    and v_receipt.owner_evolution_receipt_fingerprint=
+      public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
+        to_jsonb(extract(epoch from v_owner.created_at)),false))
+    and v_owner.contract_version='hotels_v2_admin_d_foundation_evolution_v2'
+    and exists(select 1 from pg_class relation where relation.oid=
+      'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+      and relation.relowner='postgres'::regrole and relation.relrowsecurity)
+    and exists(select 1 from pg_trigger trigger_row
+      where trigger_row.tgname='hotel_admin_availability_foundation_evolution_immutable'
+        and trigger_row.tgrelid=
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+        and trigger_row.tgfoid='public.hotel_v2_admin_d_immutable_row()'::regprocedure
+        and not trigger_row.tgisinternal and trigger_row.tgenabled='O'
+        and trigger_row.tgtype=27)
+    and not exists(select 1 from pg_policy policy where policy.polrelid=
+      'public.hotel_admin_availability_foundation_evolution_receipts'::regclass)
+    and not exists(select 1
+      from unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'])
+        privilege(name)
+      where has_table_privilege(0::oid,
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+          privilege.name)
+        or has_table_privilege('anon',
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+          privilege.name)
+        or has_table_privilege('authenticated',
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+          privilege.name)
+        or has_table_privilege('service_role',
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+          privilege.name))
+    and v_owner.original_foundation_receipt_id=1
+    and v_owner.original_protected_fingerprint=(select protected_fingerprint
+      from public.hotel_admin_availability_foundation_receipts where id=1)
+    and v_owner.before_current_protected_fingerprint=
+      public.hotel_v2_h3_2b_hash(v_owner.before_current_protected_fingerprints)
+    and v_owner.current_protected_fingerprint=
+      public.hotel_v2_h3_2b_hash(v_owner.current_protected_fingerprints)
+    and v_owner.stage2_before_current_protected_fingerprint=
+      public.hotel_v2_external_calendar_worker_hash(
+        v_owner.stage2_before_current_protected_fingerprints)
+    and v_owner.stage2_current_protected_fingerprint=
+      public.hotel_v2_external_calendar_worker_hash(
+        v_owner.stage2_current_protected_fingerprints)
+    and v_owner.allowed_fingerprint_keys=array[
+      'hotel_partner_hotel_permissions','hotel_partner_action_receipts',
+      'hotel_partner_event_outbox','non_admin_d_activity']::text[]
+    and v_owner.stage2_allowed_fingerprint_keys=array[
+      'hotel_partner_hotel_permissions','non_external_calendar_activity',
+      'non_external_calendar_partner_receipts']::text[]
+    and (v_owner.current_protected_fingerprints-v_owner.allowed_fingerprint_keys)
+      is not distinct from
+      (v_owner.before_current_protected_fingerprints-v_owner.allowed_fingerprint_keys)
+    and (v_owner.stage2_current_protected_fingerprints-
+      v_owner.stage2_allowed_fingerprint_keys) is not distinct from
+      (v_owner.stage2_before_current_protected_fingerprints-
+      v_owner.stage2_allowed_fingerprint_keys)
+    and not exists(select 1 from unnest(v_owner.allowed_fingerprint_keys) changed(key)
+      where v_owner.current_protected_fingerprints->changed.key is not distinct from
+        v_owner.before_current_protected_fingerprints->changed.key)
+    and not exists(select 1 from unnest(v_owner.stage2_allowed_fingerprint_keys) changed(key)
+      where v_owner.stage2_current_protected_fingerprints->changed.key is not distinct from
+        v_owner.stage2_before_current_protected_fingerprints->changed.key)
     and v_receipt.protected_fingerprint=public.hotel_v2_h3_2b_hash(v_receipt.protected_fingerprints)
     and v_receipt.stage2_compatibility_source_hash=public.hotel_v2_h3_2b_hash(to_jsonb(
       pg_get_functiondef('public.hotel_v2_external_calendar_stage2_compatible_fingerprints()'::regprocedure)))
@@ -893,17 +1095,17 @@ begin
           and not hotel_instant_booking_enabled and not hotel_stripe_connect_enabled)
         from public.site_settings)
      or not public.hotel_v2_partner_workspace_function_lineage_is_exact()
-     or exists(select 1 from public.site_settings setting where setting.id=1
-       and setting.hotel_external_sync_enabled and not exists(select 1
-         from hotels_v2_private.hotel_external_calendar_activation_receipts activation
-         where activation.id=setting.id
-           and activation.site_settings_without_external_fingerprint=
-             public.hotel_v2_external_calendar_worker_hash(to_jsonb(setting)-'hotel_external_sync_enabled')))
      or v_owner.stage2_current_protected_fingerprint<>
        public.hotel_v2_external_calendar_worker_hash(v_owner.stage2_current_protected_fingerprints)
+     or v_raw->'site_settings' is distinct from
+       v_owner.stage2_current_protected_fingerprints->'site_settings'
      or v_task2_foundation.id is null
      or v_task2_foundation.protected_fingerprint<>
        public.hotel_v2_h3_2b_hash(v_task2_foundation.protected_fingerprints)
+     or v_task2_foundation.owner_evolution_receipt_id<>v_owner.id
+     or v_task2_foundation.owner_evolution_receipt_fingerprint<>
+       public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
+         to_jsonb(extract(epoch from v_owner.created_at)),false))
      or v_task2_foundation.provider_source_attribution_source_hash<>
        public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
          'public.hotel_v2_external_calendar_provider_sources_are_attributable()'::regprocedure)))
@@ -960,11 +1162,14 @@ create trigger hotel_partner_property_proposal_foundation_receipts_immutable
 before update or delete on public.hotel_partner_property_proposal_foundation_receipts
 for each row execute function public.hotel_v2_h3_2b_immutable_row();
 insert into public.hotel_partner_property_proposal_foundation_receipts(
-  id,original_h3_2b_foundation_fingerprint,proposal_fields_baseline,
+  id,original_h3_2b_foundation_fingerprint,owner_evolution_receipt_id,
+  owner_evolution_receipt_fingerprint,proposal_fields_baseline,
   protected_fingerprints,protected_fingerprint,stage2_compatibility_source_hash,
   partner_workspace_source_before_hash,partner_workspace_source_after_hash,
   partner_workspace_lineage_validator_source_hash,provider_source_attribution_source_hash)
-select 1,foundation.protected_fingerprint,jsonb_build_object(
+select 1,foundation.protected_fingerprint,owner_evolution.id,
+  public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(owner_evolution),'{created_at}',
+    to_jsonb(extract(epoch from owner_evolution.created_at)),false)),jsonb_build_object(
     'title',hotel.title,'title_i18n',hotel.title_i18n,
     'description',hotel.description,'description_i18n',hotel.description_i18n,
     'city',hotel.city,'address_line',hotel.address_line,'district',hotel.district,
@@ -984,6 +1189,8 @@ select 1,foundation.protected_fingerprint,jsonb_build_object(
   public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
     'public.hotel_v2_external_calendar_provider_sources_are_attributable()'::regprocedure)))
 from public.hotel_partner_workspace_foundation_receipts foundation
+join public.hotel_admin_availability_foundation_evolution_receipts owner_evolution
+  on owner_evolution.id=foundation.id
 join hotels_v2_private.hotel_external_calendar_activation_receipts activation on activation.id=foundation.id
 join public.hotels hotel on hotel.id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
 cross join lateral (select public.hotel_v2_seven_arches_property_proposal_protected_fingerprints() value) snapshot
@@ -1075,8 +1282,12 @@ grant execute on function public.hotel_v2_admin_preview_partner_property_proposa
 grant execute on function public.hotel_v2_admin_apply_partner_property_proposal_plan(jsonb,uuid) to authenticated;
 
 do $proposal_review_postconditions$
-declare v_signature text; v_oid oid; v_relation text; v_role text; v_privilege text;
+declare
+  v_signature text; v_oid oid; v_relation text; v_role text; v_privilege text;
+  v_owner public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
 begin
+  select * into v_owner
+  from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
   foreach v_signature in array array[
     'public.hotel_v2_admin_get_partner_property_proposals(uuid)',
     'public.hotel_v2_admin_preview_partner_property_proposal_plan(jsonb)',
@@ -1149,6 +1360,20 @@ begin
          from public.hotel_partner_property_proposal_foundation_receipts where id=1) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_property_proposal_foundation_capture_failed';
+  end if;
+  if (select count(*) from public.hotel_admin_availability_foundation_evolution_receipts)<>1
+     or not exists(select 1
+       from public.hotel_partner_property_proposal_foundation_receipts receipt
+       where receipt.id=1 and receipt.owner_evolution_receipt_id=v_owner.id
+         and receipt.owner_evolution_receipt_fingerprint=
+           public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
+             to_jsonb(extract(epoch from v_owner.created_at)),false)))
+     or public.hotel_v2_admin_d_protected_fingerprints()
+       is distinct from v_owner.current_protected_fingerprints
+     or public.hotel_v2_external_calendar_protected_fingerprints()
+       is distinct from v_owner.stage2_current_protected_fingerprints then
+    raise exception using errcode='55000',
+      message='hotels_v2_seven_arches_property_proposal_owner_baseline_lineage_failed';
   end if;
   if (select stage2_compatibility_source_hash from
        public.hotel_partner_property_proposal_foundation_receipts where id=1)

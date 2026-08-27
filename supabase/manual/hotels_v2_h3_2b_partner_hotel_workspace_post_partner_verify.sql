@@ -10,9 +10,31 @@ with protected as(
   select exists(select 1
     from public.hotel_partner_workspace_foundation_receipts original
     join public.hotel_partner_property_proposal_foundation_receipts evolved on evolved.id=original.id
+    join public.hotel_admin_availability_foundation_evolution_receipts owner_evolution
+      on owner_evolution.id=evolved.owner_evolution_receipt_id
+    join public.hotel_admin_availability_foundation_receipts admin_d_original
+      on admin_d_original.id=owner_evolution.original_foundation_receipt_id
     where original.id=1
       and original.protected_fingerprint=public.hotel_v2_h3_2b_hash(original.protected_fingerprints)
       and evolved.original_h3_2b_foundation_fingerprint=original.protected_fingerprint
+      and evolved.owner_evolution_receipt_id=1
+      and evolved.owner_evolution_receipt_fingerprint=
+        public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(owner_evolution),'{created_at}',
+          to_jsonb(extract(epoch from owner_evolution.created_at)),false))
+      and owner_evolution.contract_version='hotels_v2_admin_d_foundation_evolution_v2'
+      and owner_evolution.original_protected_fingerprint=admin_d_original.protected_fingerprint
+      and admin_d_original.protected_fingerprint=
+        public.hotel_v2_h3_2b_hash(admin_d_original.protected_fingerprints)
+      and owner_evolution.before_current_protected_fingerprint=
+        public.hotel_v2_h3_2b_hash(owner_evolution.before_current_protected_fingerprints)
+      and owner_evolution.current_protected_fingerprint=
+        public.hotel_v2_h3_2b_hash(owner_evolution.current_protected_fingerprints)
+      and owner_evolution.stage2_before_current_protected_fingerprint=
+        public.hotel_v2_external_calendar_worker_hash(
+          owner_evolution.stage2_before_current_protected_fingerprints)
+      and owner_evolution.stage2_current_protected_fingerprint=
+        public.hotel_v2_external_calendar_worker_hash(
+          owner_evolution.stage2_current_protected_fingerprints)
       and evolved.protected_fingerprint=public.hotel_v2_h3_2b_hash(evolved.protected_fingerprints)
       and evolved.protected_fingerprints=
         public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()) value

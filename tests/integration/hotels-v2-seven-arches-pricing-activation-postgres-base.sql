@@ -172,6 +172,7 @@ update public.site_settings set hotel_external_sync_enabled=true where id=1;
 \ir ../../supabase/migrations/20260811436000_hotels_v2_seven_arches_owner_operational_capabilities.sql
 \if :{?seven_arches_owner_skip_task2}
 \else
+\ir ../../supabase/manual/hotels_v2_seven_arches_partner_property_proposal_review_preflight.sql
 \ir ../../supabase/migrations/20260811437000_hotels_v2_seven_arches_partner_property_proposal_review.sql
 \endif
 notify pgrst,'reload schema';
