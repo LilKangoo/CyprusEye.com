@@ -48,6 +48,7 @@
   const LANGUAGES = Object.freeze(['pl', 'en', 'he']);
   const SHA256 = /^[0-9a-f]{64}$/;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const POSTGRES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const FORBIDDEN_MUTATION_KEYS = new Set([
     'architecture_version', 'is_published', 'feature_flags', 'public_change', 'legacy_authoritative',
     'commission_policy', 'commission_mode', 'commission_amount', 'commission_rate',
@@ -89,6 +90,13 @@
     if (nullable && value === null) return null;
     if (typeof value !== 'string' || !UUID.test(value)) fail(`${label} must be an exact lowercase canonical UUID.`);
     return value;
+  }
+  function requirePricingTargetUuid(entity, value, label = 'pricing target') {
+    if (entity === 'schedule_tier_price') {
+      if (typeof value !== 'string' || !POSTGRES_UUID.test(value)) fail(`${label} must be an exact lowercase canonical UUID.`);
+      return value;
+    }
+    return requireCanonicalUuid(value, label);
   }
   function isIsoDate(value) {
     if (typeof value !== 'string') return false;
@@ -367,7 +375,9 @@
       const keys = type === 'schedule'
         ? ['id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version', 'updated_at']
         : ['id', 'hotel_id', 'room_rate_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version', 'updated_at'];
-      requireExactKeys(row, keys, `${type} tier`); requireCanonicalUuid(row.id, `${type}_tier.id`);
+      requireExactKeys(row, keys, `${type} tier`);
+      if (type === 'schedule') requirePricingTargetUuid('schedule_tier_price', row.id, 'schedule_tier.id');
+      else requireCanonicalUuid(row.id, 'room_rate_tier.id');
       if (type === 'schedule') { if (!scheduleIds.has(requireCanonicalUuid(row.schedule_id, 'schedule_tier.schedule_id'))) fail('Schedule tier is foreign.'); }
       else if (requireCanonicalUuid(row.hotel_id, 'room_rate_tier.hotel_id') !== hotelId || !roomRateIds.has(requireCanonicalUuid(row.room_rate_id, 'room_rate_tier.room_rate_id'))) fail('Room Rate tier is foreign.');
       requireInteger(row.guest_count, 'tier.guest_count', 1, 50); requireInteger(row.threshold_nights, 'tier.threshold_nights', 1, 3650); requireMoney(row.nightly_rate, 'tier.nightly_rate');
@@ -407,7 +417,9 @@
   function validateActivity(row, hotelId) {
     requireExactKeys(row, ['id', 'hotel_id', 'entity_type', 'entity_id', 'action', 'actor_type', 'source', 'correlation_id', 'created_at'], 'Partner Hotel activity');
     requireCanonicalUuid(row.id, 'activity.id'); if (requireCanonicalUuid(row.hotel_id, 'activity.hotel_id') !== hotelId) fail('Activity belongs to another Hotel.');
-    requireCanonicalUuid(row.entity_id, 'activity.entity_id'); requireCanonicalUuid(row.correlation_id, 'activity.correlation_id', true);
+    if (row.entity_type === 'occupancy_tier') requirePricingTargetUuid('schedule_tier_price', row.entity_id, 'activity.entity_id');
+    else requireCanonicalUuid(row.entity_id, 'activity.entity_id');
+    requireCanonicalUuid(row.correlation_id, 'activity.correlation_id', true);
     ['entity_type', 'action', 'actor_type', 'source'].forEach((key) => requireString(row[key], `activity.${key}`, { minimum: 1, maximum: 120 }));
     requireTimestamp(row.created_at, 'activity.created_at');
   }
@@ -563,7 +575,7 @@
         requireCanonicalUuid(intent.payload.room_rate_id, 'pricing.room_rate_id'); requireIsoDate(intent.payload.stay_date, 'pricing.stay_date');
         if (intent.payload.nightly_rate_mode !== 'set') fail('Partner exact-date pricing supports reviewed SET only.'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
       } else {
-        requireCanonicalUuid(intent.id, 'pricing.intent.id'); requireExactKeys(intent.payload, ['nightly_rate'], 'Pricing payload'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
+        requirePricingTargetUuid(intent.entity, intent.id, 'pricing.intent.id'); requireExactKeys(intent.payload, ['nightly_rate'], 'Pricing payload'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
       }
     } else if (domain === 'availability') {
       if (intent.entity !== 'daily_inventory' || intent.action !== 'upsert' || intent.id !== null) fail('Unsupported Partner availability intent.');
@@ -616,7 +628,10 @@
 
   function validateOperation(domain, operation) {
     requireExactKeys(operation, ['entity', 'action', 'id', 'expected_version', 'expected_original', 'payload', 'reason'], `${domain} reviewed operation`);
-    if (operation.id !== null) requireCanonicalUuid(operation.id, `${domain}.operation.id`);
+    if (operation.id !== null) {
+      if (domain === 'pricing') requirePricingTargetUuid(operation.entity, operation.id, `${domain}.operation.id`);
+      else requireCanonicalUuid(operation.id, `${domain}.operation.id`);
+    }
     if (operation.expected_version !== null) requireInteger(operation.expected_version, `${domain}.operation.expected_version`, 0);
     if (operation.expected_original !== null && !isObject(operation.expected_original)) fail('Reviewed operation original state is invalid.');
     if (!isObject(operation.payload) || !reasonIsValid(operation.reason)) fail('Reviewed operation payload or reason is invalid.');
@@ -639,7 +654,11 @@
   function validateImpact(row) {
     requireExactKeys(row, ['entity', 'action', 'id', 'changed', 'fields', 'before', 'after', 'affected_room_type_ids', 'affected_room_rate_ids', 'from', 'to'], 'Partner Hotel impact');
     requireString(row.entity, 'impact.entity', { minimum: 1, maximum: 80 }); requireString(row.action, 'impact.action', { minimum: 1, maximum: 40 });
-    if (row.id !== null) requireCanonicalUuid(row.id, 'impact.id'); if (typeof row.changed !== 'boolean') fail('Impact changed flag is invalid.');
+    if (row.id !== null) {
+      if (row.entity === 'schedule_tier_price') requirePricingTargetUuid(row.entity, row.id, 'impact.id');
+      else requireCanonicalUuid(row.id, 'impact.id');
+    }
+    if (typeof row.changed !== 'boolean') fail('Impact changed flag is invalid.');
     requireStringArray(row.fields, 'impact.fields', 100); if (row.before !== null && !isObject(row.before)) fail('Impact before state is invalid.'); if (row.after !== null && !isObject(row.after)) fail('Impact after state is invalid.');
     requireStringArray(row.affected_room_type_ids, 'impact.affected_room_type_ids', 1000).forEach((id) => requireCanonicalUuid(id, 'impact.room_type_id'));
     requireStringArray(row.affected_room_rate_ids, 'impact.affected_room_rate_ids', 5000).forEach((id) => requireCanonicalUuid(id, 'impact.room_rate_id'));
@@ -982,7 +1001,7 @@
 
   return Object.freeze({
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS,
-    hasExactKeys, requireCanonicalUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
+    hasExactKeys, requireCanonicalUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
     normalizeExternalCalendarControl, buildExternalCalendarDraft,

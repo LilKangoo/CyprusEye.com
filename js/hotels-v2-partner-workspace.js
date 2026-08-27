@@ -733,7 +733,7 @@
         await review('content', contentDraft({ entity: 'room', action: 'create', id: null, payload, reason: String(data.get('reason') || '').trim() }), opener); return;
       }
       if (form.matches('[data-phw-pricing]')) {
-        const entity = String(data.get('entity')); const target = Core.requireCanonicalUuid(String(data.get('target')), 'pricing target'); const nightly = Number(data.get('nightly_rate'));
+        const entity = String(data.get('entity')); const target = Core.requirePricingTargetUuid(entity, String(data.get('target')), 'pricing target'); const nightly = Number(data.get('nightly_rate'));
         const stayDate = String(data.get('stay_date'));
         if (entity === 'exact_date_price') {
           const existing = state.workspace.pricing.exact_date_prices.some((row) => row.room_rate_id === target && row.stay_date === stayDate);

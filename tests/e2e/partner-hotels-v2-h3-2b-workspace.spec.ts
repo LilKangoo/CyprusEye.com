@@ -8,6 +8,8 @@ const ASSIGNMENT_ID = '33333333-3333-4333-8333-333333333333';
 const ROOM_ID = '44444444-4444-4444-8444-444444444444';
 const PLAN_ID = '55555555-5555-4555-8555-555555555555';
 const RATE_ID = '66666666-6666-4666-8666-666666666666';
+const SCHEDULE_ID = '443065c0-984a-5de3-a22a-d03042c41107';
+const SCHEDULE_TIER_ID = '2aa13aac-b0c1-a4c5-7183-ddedd93dee57';
 const PROPOSAL_ID = '77777777-7777-4777-8777-777777777777';
 const REVIEW_ID = '88888888-8888-4888-8888-888888888888';
 const ACTIVITY_ID = '99999999-9999-4999-8999-999999999999';
@@ -52,7 +54,7 @@ async function installHarness(
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
-  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar, commercialOwnerPreset }) => {
+  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, scheduleId, scheduleTierId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar, commercialOwnerPreset }) => {
     const root = window as any;
     let uuidSequence = 1;
     Object.defineProperty(root.crypto, 'randomUUID', {
@@ -129,7 +131,19 @@ async function installHarness(
         pricing: {
           snapshot_token: token, currency: 'EUR',
           rate_plans: [{ id: planId, hotel_id: hotelId, code: 'STANDARD', name_i18n: { pl: 'Standard', en: 'Standard', he: 'סטנדרטי' }, is_active: false, review_status: 'reviewed', sort_order: 10, version: 1, updated_at: '2026-08-25T10:00:00Z' }],
-          room_rates: [roomRate], schedules: [], schedule_tiers: [], room_rate_tiers: [], exact_date_prices: [], allocation_rules: [],
+          room_rates: [roomRate],
+          schedules: [{
+            id: scheduleId, hotel_id: hotelId, code: 'legacy-property-party-preview',
+            name_i18n: { pl: 'Pełny cennik legacy', en: 'Full legacy pricing preview', he: 'תצוגת תמחור מורשת' },
+            application_scope: 'property_booking_party', currency: 'EUR', maximum_party_size: 8,
+            minimum_billable_occupancy: 1, is_active: false, review_status: 'requires_review',
+            sharing_mode: 'shared', version: 1, updated_at: '2026-08-25T10:00:00Z',
+          }],
+          schedule_tiers: [{
+            id: scheduleTierId, schedule_id: scheduleId, guest_count: 2, threshold_nights: 2,
+            nightly_rate: 100, is_active: true, version: 1, updated_at: '2026-08-25T10:00:00Z',
+          }],
+          room_rate_tiers: [], exact_date_prices: [], allocation_rules: [],
           commission_policy: policy, mutation_blocked_reasons: [],
         },
         availability: null,
@@ -287,7 +301,7 @@ async function installHarness(
       },
       uploadRoom: async () => [],
     };
-  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true, commercialOwnerPreset: options.commercialOwnerPreset === true });
+  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, scheduleId: SCHEDULE_ID, scheduleTierId: SCHEDULE_TIER_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true, commercialOwnerPreset: options.commercialOwnerPreset === true });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace.js') });
   await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
     await (window as any).HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
@@ -373,6 +387,9 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
 
     await workspace.locator('[data-phw-section="rates_pricing"]').click();
     const priceForm = workspace.locator('[data-phw-pricing]');
+    await priceForm.locator('select[name="entity"]').selectOption('schedule_tier_price');
+    await expect(priceForm.locator('select[name="target"]')).toHaveValue(SCHEDULE_TIER_ID);
+    await priceForm.locator('select[name="entity"]').selectOption('room_rate_price');
     await priceForm.locator('input[name="nightly_rate"]').fill('130');
     await priceForm.locator('input[name="reason"]').fill('Reviewed authoritative rate');
     await priceForm.getByRole('button', { name: 'Review' }).click();

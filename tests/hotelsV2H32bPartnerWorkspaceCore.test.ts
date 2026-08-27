@@ -9,6 +9,12 @@ const TARGET = '44444444-4444-4444-8444-444444444444';
 const REVIEW = '55555555-5555-4555-8555-555555555555';
 const UPPER_ROOM = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
 const GROUND_ROOM = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
+const RATE_PLAN = '55555555-5555-4555-8555-555555555555';
+const ROOM_RATE = '66666666-6666-4666-8666-666666666666';
+const SHARED_SCHEDULE = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
+const PARTY_SCHEDULE = '443065c0-984a-5de3-a22a-d03042c41107';
+const SHARED_SCHEDULE_TIER = 'f6c679b1-c0d7-64c7-d0d1-4b898f285778';
+const PARTY_SCHEDULE_TIER = '2aa13aac-b0c1-a4c5-7183-ddedd93dee57';
 const TOKEN = 'a'.repeat(64);
 const FINGERPRINT = 'b'.repeat(64);
 
@@ -71,6 +77,56 @@ function workspace(): any {
     },
     recent_activity: [], legacy_authoritative: true, public_change: false,
   };
+}
+
+function pricingWorkspace(active: boolean): any {
+  const value = workspace();
+  value.assignment.capabilities.manage_prices = true;
+  value.sections.rates_pricing = { visible: true, available: true, status: 'available' };
+  value.rooms = [{
+    id: UPPER_ROOM, hotel_id: HOTEL, code: 'upper',
+    name_i18n: { pl: 'Górny apartament', en: 'Upper Apartment', he: 'הדירה העליונה' },
+    description_i18n: { pl: '', en: '', he: '' }, gallery: [],
+    capacity_adults: null, capacity_children: null, max_occupancy: 4,
+    bed_configuration: [], bathrooms: null, size_sqm: null, amenities: [],
+    inventory_mode: 'pooled', base_inventory_count: 1, status: 'active', sort_order: 10,
+    floor_label_i18n: {}, version: 1, updated_at: '2026-08-25T12:00:00Z',
+  }];
+  const schedule = (id: string, code: string, scope: string, maximum: number, minimum: number) => ({
+    id, hotel_id: HOTEL, code, name_i18n: { pl: code, en: code, he: code }, application_scope: scope,
+    currency: 'EUR', maximum_party_size: maximum, minimum_billable_occupancy: minimum,
+    is_active: active && id === SHARED_SCHEDULE,
+    review_status: active && id === SHARED_SCHEDULE ? 'reviewed' : 'requires_review',
+    sharing_mode: 'shared', version: active && id === SHARED_SCHEDULE ? 2 : 1,
+    updated_at: '2026-08-25T12:00:00Z',
+  });
+  const tier = (id: string, scheduleId: string) => ({
+    id, schedule_id: scheduleId, guest_count: 2, threshold_nights: 2,
+    nightly_rate: 100, is_active: true, version: 1, updated_at: '2026-08-25T12:00:00Z',
+  });
+  value.pricing = {
+    snapshot_token: TOKEN, currency: 'EUR',
+    rate_plans: [{
+      id: RATE_PLAN, hotel_id: HOTEL, code: 'standard', name_i18n: { pl: 'Standard', en: 'Standard', he: 'סטנדרט' },
+      is_active: active, review_status: 'reviewed', sort_order: 10, version: active ? 2 : 1,
+      updated_at: '2026-08-25T12:00:00Z',
+    }],
+    room_rates: [{
+      id: ROOM_RATE, hotel_id: HOTEL, room_type_id: UPPER_ROOM, rate_plan_id: RATE_PLAN,
+      pricing_schedule_id: SHARED_SCHEDULE, pricing_source: 'pricing_schedule',
+      base_nightly_rate: 0, base_nightly_rate_authoritative: false, currency: 'EUR',
+      is_active: active, review_status: 'reviewed', sort_order: 10, version: active ? 2 : 1,
+      updated_at: '2026-08-25T12:00:00Z',
+    }],
+    schedules: [
+      schedule(PARTY_SCHEDULE, 'legacy-property-party-preview', 'property_booking_party', 8, 1),
+      schedule(SHARED_SCHEDULE, 'shared-apartment-occupancy-los', 'room_occupancy', 4, 2),
+    ],
+    schedule_tiers: [tier(PARTY_SCHEDULE_TIER, PARTY_SCHEDULE), tier(SHARED_SCHEDULE_TIER, SHARED_SCHEDULE)],
+    room_rate_tiers: [], exact_date_prices: [], allocation_rules: [], commission_policy: null,
+    mutation_blocked_reasons: [],
+  };
+  return value;
 }
 
 function contentReview(Core: any, original = workspace().property_draft): { draft: any; preview: any } {
@@ -300,6 +356,72 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     expect(() => Core.validateWorkspace({
       ...workspace(), feature_flags: { ...workspace().feature_flags, hotel_external_sync_enabled: 'true' },
     }, { partnerId: PARTNER, hotelId: HOTEL })).toThrow('exact boolean');
+  });
+
+  test('accepts deterministic PostgreSQL schedule-tier UUIDs before and after pricing activation', () => {
+    const before = pricingWorkspace(false);
+    const validatedBefore = Core.validateWorkspace(before, { partnerId: PARTNER, hotelId: HOTEL });
+    expect(validatedBefore.pricing.schedule_tiers[0].id).toBe(PARTY_SCHEDULE_TIER);
+    expect(Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER)).toBe(PARTY_SCHEDULE_TIER);
+    expect(() => Core.requireCanonicalUuid(PARTY_SCHEDULE_TIER)).toThrow('lowercase canonical UUID');
+    expect(() => Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER.toUpperCase()))
+      .toThrow('lowercase canonical UUID');
+    expect(() => Core.requirePricingTargetUuid('schedule_tier_price', 'legacy-tier-2-2'))
+      .toThrow('lowercase canonical UUID');
+    expect(() => Core.requirePricingTargetUuid('room_rate_price', PARTY_SCHEDULE_TIER))
+      .toThrow('lowercase canonical UUID');
+
+    const draft = Core.validateDraft('pricing', {
+      contract_version: Core.CONTRACTS.pricingDraft,
+      partner_id: PARTNER, hotel_id: HOTEL, access_snapshot_token: TOKEN, pricing_snapshot_token: TOKEN,
+      intent: {
+        entity: 'schedule_tier_price', action: 'update', id: SHARED_SCHEDULE_TIER,
+        payload: { nightly_rate: 110 }, reason: 'Reviewed shared schedule tier price',
+      },
+      example_stay: null,
+    });
+    const original = before.pricing.schedule_tiers.find((row: { id: string }) => row.id === SHARED_SCHEDULE_TIER);
+    const operation = {
+      entity: draft.intent.entity, action: draft.intent.action, id: draft.intent.id,
+      expected_version: original.version, expected_original: original,
+      payload: draft.intent.payload, reason: draft.intent.reason,
+    };
+    const summary = commercial('per_allocated_room_per_night', 10, 1, 100, 10);
+    const preview = Core.validatePlanPreview('pricing', {
+      contract_version: Core.CONTRACTS.pricingPreview,
+      partner_id: PARTNER, hotel_id: HOTEL, changed: true, blocking_reasons: [],
+      impacts: [{
+        entity: operation.entity, action: operation.action, id: operation.id, changed: true,
+        fields: ['nightly_rate'], before: { nightly_rate: 100 }, after: { nightly_rate: 110 },
+        affected_room_type_ids: [UPPER_ROOM], affected_room_rate_ids: [ROOM_RATE], from: null, to: null,
+      }],
+      reviewed_plan: {
+        contract_version: Core.CONTRACTS.pricingPlan,
+        review_id: REVIEW, partner_id: PARTNER, hotel_id: HOTEL, assignment_id: ASSIGNMENT,
+        permission_version: 1, access_snapshot_token: TOKEN, domain_snapshot_token: TOKEN,
+        reviewed_at: '2026-08-25T12:01:00Z', expires_at: '2026-08-25T12:31:00Z',
+        operations: [operation], plan_fingerprint: FINGERPRINT,
+      },
+      commercial_before: summary, commercial_after: summary, example_before: null, example_after: null,
+    }, draft, before);
+    expect(preview.reviewed_plan.operations[0].id).toBe(SHARED_SCHEDULE_TIER);
+
+    expect(Core.validateApplyResult('pricing', {
+      contract_version: Core.CONTRACTS.pricingApply,
+      partner_id: PARTNER, hotel_id: HOTEL, correlation_id: REVIEW, idempotency_key: TARGET,
+      replayed: false, changed: true,
+      activity: [{
+        id: TARGET, hotel_id: HOTEL, entity_type: 'occupancy_tier', entity_id: SHARED_SCHEDULE_TIER,
+        action: 'update', actor_type: 'partner', source: 'hotels_v2_h3_2b_partner_workspace',
+        correlation_id: REVIEW, created_at: '2026-08-25T12:02:00Z',
+      }],
+      workspace: null,
+    }, { plan: preview.reviewed_plan, correlationId: REVIEW, idempotencyKey: TARGET }).changed).toBe(true);
+
+    const after = pricingWorkspace(true);
+    expect(Core.validateWorkspace(after, { partnerId: PARTNER, hotelId: HOTEL })
+      .pricing.schedule_tiers.map((row: { id: string }) => row.id))
+      .toEqual([PARTY_SCHEDULE_TIER, SHARED_SCHEDULE_TIER]);
   });
 
   test('binds the exact property-proposal GET projection and reviewed-field impact map', () => {
