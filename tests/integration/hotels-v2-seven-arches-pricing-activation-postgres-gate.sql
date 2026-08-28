@@ -211,6 +211,9 @@ begin
     backend_pid,transaction_id,review_id,actor_id,correlation_id)
   values(pg_backend_pid(),txid_current(),(v_preview#>>'{reviewed_plan,review_id}')::uuid,
     '10000000-0000-4000-8000-000000000001','38800000-0000-4000-8000-000000000098');
+  if public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot() is not null then
+    raise exception 'seven_arches_activation_incomplete_context_projector_allowed';
+  end if;
   v_failed:=false;
   begin update public.hotel_rate_plans set code='smuggled-code'
     where id='22e47a63-a630-4fb6-8f43-816f2d3fdc17';
