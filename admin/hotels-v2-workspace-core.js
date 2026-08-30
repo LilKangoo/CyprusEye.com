@@ -33,6 +33,11 @@
   const SEVEN_ARCHES_PRICING_ACTIVATION_PREVIEW_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_preview_v1';
   const SEVEN_ARCHES_PRICING_ACTIVATION_PLAN_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_plan_v1';
   const SEVEN_ARCHES_PRICING_ACTIVATION_APPLY_CONTRACT = 'hotels_v2_seven_arches_pricing_activation_apply_result_v1';
+  const SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_CONTROL_CONTRACT = 'hotels_v2_seven_arches_reviewed_pricing_admin_control_v1';
+  const SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT = 'hotels_v2_seven_arches_reviewed_pricing_admin_request_v1';
+  const SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PREVIEW_CONTRACT = 'hotels_v2_seven_arches_reviewed_pricing_admin_preview_v1';
+  const SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PLAN_CONTRACT = 'hotels_v2_seven_arches_reviewed_pricing_admin_plan_v1';
+  const SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_APPLY_CONTRACT = 'hotels_v2_seven_arches_reviewed_pricing_admin_apply_v1';
   const PRICING_CONTROL_READ_CONTRACT = 'hotels_v2_admin_c_pricing_control_v1';
   const PRICING_CONTROL_CONTRACT = 'hotels_v2_admin_c_pricing_plan_v1';
   const PRICING_PREVIEW_CONTRACT = 'hotels_v2_admin_c_pricing_preview_v1';
@@ -143,6 +148,10 @@
     ground_room_rate: '3320590d-632d-423f-80d0-fd021cba7293',
     pricing_schedule: 'b0a3104f-7b31-5265-a59f-c2d166f11a23',
     property_party_preview: '443065c0-984a-5de3-a22a-d03042c41107',
+  });
+  const SEVEN_ARCHES_INDEPENDENT_PRICING_IDS = Object.freeze({
+    upper_schedule: 'aec20731-7a56-35f0-334e-92b363351f02',
+    ground_schedule: '9d109336-64f3-3c57-4684-968b59c94c3b',
   });
   const SEVEN_ARCHES_SOURCE_CONTRACT = 'seven_arches_two_apartments_v1';
   const SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT = 'seven_kamares_legacy_to_h3_pricing_v1';
@@ -3889,6 +3898,346 @@
     return Object.freeze(clone(value));
   }
 
+  function exactReviewedPricingHash(value, length = 64) {
+    return typeof value === 'string'
+      && new RegExp(`^[0-9a-f]{${length}}$`).test(value);
+  }
+
+  function validateSevenArchesReviewedPricingCommission(value) {
+    if (!hasExactKeys(value, ['commission_mode', 'amount', 'currency'])
+        || value.commission_mode !== 'per_allocated_room_per_night'
+        || value.amount !== 10 || value.currency !== 'EUR') {
+      throw new Error('7 Arches reviewed pricing commission policy is invalid.');
+    }
+    return clone(value);
+  }
+
+  function reviewedPricingRoomContract(roomKey) {
+    return roomKey === 'upper'
+      ? {
+        room_type_id: SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
+        room_rate_id: SEVEN_ARCHES_SHADOW_IDS.upper_room_rate,
+        pricing_schedule_id: SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.upper_schedule,
+      }
+      : roomKey === 'ground'
+        ? {
+          room_type_id: SEVEN_ARCHES_SHADOW_IDS.ground_room_type,
+          room_rate_id: SEVEN_ARCHES_SHADOW_IDS.ground_room_rate,
+          pricing_schedule_id: SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.ground_schedule,
+        }
+        : null;
+  }
+
+  function validateSevenArchesReviewedPricingItem(value, options = {}) {
+    const includeIndex = options.includeIndex === true;
+    const includeRoomKey = options.includeRoomKey === true;
+    const includeVersion = options.includeVersion === true;
+    const keys = [
+      ...(includeIndex ? ['item_index'] : []),
+      ...(includeRoomKey ? ['room_key'] : []),
+      'hotel_id', 'room_type_id', 'room_rate_id', 'pricing_schedule_id',
+      'schedule_tier_id', 'guest_count', 'minimum_nights', 'currency',
+      'before_price', 'requested_price',
+      ...(includeVersion ? ['before_tier_version'] : []),
+    ];
+    const inferredRoomKey = value?.pricing_schedule_id === SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.upper_schedule
+      ? 'upper' : value?.pricing_schedule_id === SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.ground_schedule
+        ? 'ground' : '';
+    const roomKey = includeRoomKey ? value?.room_key : inferredRoomKey;
+    const room = reviewedPricingRoomContract(roomKey);
+    if (!hasExactKeys(value, keys)
+        || (includeIndex && !isExactInteger(value.item_index, 1, 54))
+        || (includeVersion && !isExactInteger(value.before_tier_version, 1))
+        || !room || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID
+        || value.room_type_id !== room.room_type_id
+        || value.room_rate_id !== room.room_rate_id
+        || value.pricing_schedule_id !== room.pricing_schedule_id
+        || normalizePricingSourceUuid('pricing_schedule_tier', value.schedule_tier_id)
+          !== value.schedule_tier_id
+        || ![2, 3, 4].includes(value.guest_count)
+        || !isExactInteger(value.minimum_nights, 2, 10)
+        || value.currency !== 'EUR'
+        || !isExactMoney(value.before_price, 10)
+        || !isExactMoney(value.requested_price, 10)
+        || value.before_price === value.requested_price) {
+      throw new Error('7 Arches reviewed pricing item is invalid, stale or cross-Room.');
+    }
+    return clone(value);
+  }
+
+  function validateSevenArchesReviewedPricingImpacts(value) {
+    if (!Array.isArray(value) || value.length < 1 || value.length > 100) {
+      throw new Error('7 Arches reviewed pricing commercial impacts are invalid.');
+    }
+    value.forEach((impact) => {
+      const single = impact?.scope === 'single_room';
+      const keys = single
+        ? ['scope', 'room_key', 'guest_count', 'minimum_nights', 'customer_before', 'customer_after', 'cypruseye_commission', 'partner_net_before', 'partner_net_after', 'currency']
+        : ['scope', 'requested_guest_count', 'minimum_nights', 'customer_before', 'customer_after', 'cypruseye_commission', 'partner_net_before', 'partner_net_after', 'currency'];
+      if (!hasExactKeys(impact, keys) || (!single && impact.scope !== 'bundle')
+          || (single && !reviewedPricingRoomContract(impact.room_key))
+          || (single && ![2, 3, 4].includes(impact.guest_count))
+          || (!single && ![5, 6, 7, 8].includes(impact.requested_guest_count))
+          || !isExactInteger(impact.minimum_nights, 2, 10)
+          || !isExactMoney(impact.customer_before, 0)
+          || !isExactMoney(impact.customer_after, 0)
+          || !isExactMoney(impact.cypruseye_commission, 0)
+          || !isExactMoney(impact.partner_net_before, -10000000000)
+          || !isExactMoney(impact.partner_net_after, -10000000000)
+          || impact.cypruseye_commission !== (single ? 10 : 20)
+          || impact.currency !== 'EUR'
+          || impact.partner_net_before !== Number((impact.customer_before - impact.cypruseye_commission).toFixed(2))
+          || impact.partner_net_after !== Number((impact.customer_after - impact.cypruseye_commission).toFixed(2))) {
+        throw new Error('7 Arches reviewed pricing commercial impact is not server-exact.');
+      }
+    });
+    return clone(value);
+  }
+
+  function validateSevenArchesReviewedPricingCurrentState(value) {
+    const hashKeys = [
+      'normalized_fingerprint', 'authority_fingerprint', 'legacy_fingerprint',
+      'commission_fingerprint', 'payment_fingerprint', 'unrelated_fingerprint',
+      'last_receipt_hash', 'snapshot_token',
+    ];
+    if (!hasExactKeys(value, [
+      'contract_version', ...hashKeys.slice(0, 6), 'oracle', 'room_fingerprints',
+      'last_receipt_hash', 'receipt_count', 'snapshot_token',
+    ]) || value.contract_version !== 'hotels_v2_seven_arches_reviewed_pricing_state_v1'
+      || hashKeys.some((key) => !exactReviewedPricingHash(value[key]))
+      || !isExactInteger(value.receipt_count, 0)
+      || !hasExactKeys(value.room_fingerprints, ['ground', 'upper'])
+      || !exactReviewedPricingHash(value.room_fingerprints.ground)
+      || !exactReviewedPricingHash(value.room_fingerprints.upper)
+      || !hasExactKeys(value.oracle, [
+        'contract_version', 'core_case_count', 'core_mismatch_count',
+        'guest_one_case_count', 'guest_one_mismatch_count', 'total_case_count',
+        'fingerprint',
+      ]) || value.oracle.contract_version !== 'hotels_v2_seven_arches_reviewed_pricing_oracle_v1'
+      || value.oracle.core_case_count !== 100 || value.oracle.core_mismatch_count !== 0
+      || value.oracle.guest_one_case_count !== 20 || value.oracle.guest_one_mismatch_count !== 0
+      || value.oracle.total_case_count !== 120
+      || !exactReviewedPricingHash(value.oracle.fingerprint, 32)) {
+      throw new Error('7 Arches reviewed pricing current state is invalid or parity-unsafe.');
+    }
+    return clone(value);
+  }
+
+  function validateSevenArchesReviewedPricingProposal(value) {
+    if (!hasExactKeys(value, [
+      'id', 'initiator_type', 'partner_id', 'assignment_id', 'status', 'version',
+      'reason', 'item_count', 'created_at', 'expires_at', 'fresh', 'items',
+    ]) || !exactCanonicalUuid(value.id)
+      || !['partner', 'admin'].includes(value.initiator_type)
+      || value.status !== 'pending_admin_review' || !isExactInteger(value.version, 1)
+      || typeof value.reason !== 'string' || value.reason !== value.reason.trim()
+      || value.reason.length < 3 || value.reason.length > 500
+      || /[\u0000-\u001f\u007f-\u009f]/u.test(value.reason)
+      || !isExactInteger(value.item_count, 1, 54)
+      || !isExactIsoTimestamp(value.created_at) || !isExactIsoTimestamp(value.expires_at)
+      || typeof value.fresh !== 'boolean' || !Array.isArray(value.items)
+      || value.items.length !== value.item_count) {
+      throw new Error('7 Arches reviewed pricing proposal identity or lifecycle is invalid.');
+    }
+    if (value.initiator_type === 'partner') {
+      if (!exactCanonicalUuid(value.partner_id) || !exactCanonicalUuid(value.assignment_id)) {
+        throw new Error('Partner pricing proposal is missing its exact Partner assignment.');
+      }
+    } else if (value.partner_id !== null || value.assignment_id !== null) {
+      throw new Error('Admin-initiated pricing proposal contains a Partner identity.');
+    }
+    const items = value.items.map((item) => validateSevenArchesReviewedPricingItem(item, {
+      includeIndex: true, includeRoomKey: true,
+    }));
+    if (new Set(items.map((item) => item.item_index)).size !== items.length
+        || new Set(items.map((item) => item.schedule_tier_id)).size !== items.length) {
+      throw new Error('7 Arches reviewed pricing proposal contains duplicate items.');
+    }
+    return Object.freeze({ ...clone(value), items });
+  }
+
+  function validateSevenArchesReviewedPricingControl(value, expectedHotelId = null) {
+    if (!hasExactKeys(value, ['contract_version', 'hotel_id', 'proposals', 'commission_policy', 'current_state'])
+        || value.contract_version !== SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_CONTROL_CONTRACT
+        || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID
+        || (expectedHotelId && value.hotel_id !== expectedHotelId)
+        || !Array.isArray(value.proposals) || value.proposals.length > 100) {
+      throw new Error('7 Arches reviewed pricing Admin control is invalid or cross-property.');
+    }
+    const proposals = value.proposals.map(validateSevenArchesReviewedPricingProposal);
+    if (new Set(proposals.map((proposal) => proposal.id)).size !== proposals.length) {
+      throw new Error('7 Arches reviewed pricing Admin control contains duplicate proposals.');
+    }
+    return Object.freeze({
+      ...clone(value), proposals,
+      commission_policy: validateSevenArchesReviewedPricingCommission(value.commission_policy),
+      current_state: validateSevenArchesReviewedPricingCurrentState(value.current_state),
+    });
+  }
+
+  function validateSevenArchesReviewedPricingAdminRequest(value, controlValue = null) {
+    const proposalRequest = Object.hasOwn(asObject(value), 'proposal_id');
+    const keys = proposalRequest
+      ? ['contract_version', 'hotel_id', 'proposal_id', 'proposal_version', 'action', 'reason']
+      : ['contract_version', 'hotel_id', 'action', 'reason', 'items'];
+    if (!hasExactKeys(value, keys)
+        || value.contract_version !== SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT
+        || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID
+        || !['accept', 'reject'].includes(value.action)
+        || typeof value.reason !== 'string' || value.reason !== value.reason.trim()
+        || value.reason.length < 3 || value.reason.length > 500
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(value.reason)) {
+      throw new Error('7 Arches reviewed pricing Admin request is invalid.');
+    }
+    if (proposalRequest) {
+      if (!exactCanonicalUuid(value.proposal_id) || !isExactInteger(value.proposal_version, 1)) {
+        throw new Error('7 Arches reviewed pricing proposal identity/version is invalid.');
+      }
+      if (controlValue) {
+        const control = validateSevenArchesReviewedPricingControl(controlValue, value.hotel_id);
+        const proposal = control.proposals.find((row) => row.id === value.proposal_id);
+        if (!proposal || proposal.version !== value.proposal_version
+            || (value.action === 'accept' && proposal.fresh !== true)) {
+          throw new Error('7 Arches reviewed pricing proposal is stale or missing.');
+        }
+      }
+    } else {
+      if (value.action !== 'accept' || !Array.isArray(value.items)
+          || value.items.length < 1 || value.items.length > 54) {
+        throw new Error('Admin-initiated 7 Arches pricing requires one to 54 exact changed tiers.');
+      }
+      value.items.forEach((item) => validateSevenArchesReviewedPricingItem(item));
+      if (new Set(value.items.map((item) => item.schedule_tier_id)).size !== value.items.length) {
+        throw new Error('Admin-initiated 7 Arches pricing contains duplicate tiers.');
+      }
+    }
+    return Object.freeze(clone(value));
+  }
+
+  function validateSevenArchesReviewedPricingPlan(value, request) {
+    if (!hasExactKeys(value, [
+      'contract_version', 'review_id', 'hotel_id', 'proposal_id', 'proposal_version',
+      'initiator_type', 'partner_id', 'assignment_id', 'actor_id', 'action',
+      'admin_reason', 'proposal_reason', 'canonical_items', 'commercial_impacts',
+      'commission_policy', 'evolution_snapshot_token', 'reviewed_at', 'expires_at',
+      'plan_fingerprint',
+    ]) || value.contract_version !== SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PLAN_CONTRACT
+      || !exactCanonicalUuid(value.review_id) || value.hotel_id !== request.hotel_id
+      || !exactCanonicalUuid(value.proposal_id) || !isExactInteger(value.proposal_version, 1)
+      || !['partner', 'admin'].includes(value.initiator_type)
+      || !exactCanonicalUuid(value.actor_id) || value.action !== request.action
+      || value.admin_reason !== request.reason
+      || typeof value.proposal_reason !== 'string' || value.proposal_reason !== value.proposal_reason.trim()
+      || value.proposal_reason.length < 3 || value.proposal_reason.length > 500
+      || !Array.isArray(value.canonical_items) || value.canonical_items.length < 1
+      || value.canonical_items.length > 54
+      || !exactReviewedPricingHash(value.evolution_snapshot_token)
+      || !isExactIsoTimestamp(value.reviewed_at) || !isExactIsoTimestamp(value.expires_at)
+      || Date.parse(value.expires_at) <= Date.parse(value.reviewed_at)
+      || Date.parse(value.expires_at) > Date.parse(value.reviewed_at) + 30 * 60 * 1000
+      || !exactReviewedPricingHash(value.plan_fingerprint)) {
+      throw new Error('7 Arches reviewed pricing plan is invalid or not bound to the request.');
+    }
+    if (Object.hasOwn(request, 'proposal_id')
+        && (value.proposal_id !== request.proposal_id
+          || value.proposal_version !== request.proposal_version)) {
+      throw new Error('7 Arches reviewed pricing plan switched proposal identity.');
+    }
+    if (value.initiator_type === 'partner') {
+      if (!exactCanonicalUuid(value.partner_id) || !exactCanonicalUuid(value.assignment_id)) {
+        throw new Error('7 Arches Partner pricing plan lost assignment lineage.');
+      }
+    } else if (value.partner_id !== null || value.assignment_id !== null) {
+      throw new Error('7 Arches Admin pricing plan contains Partner lineage.');
+    }
+    const canonicalItems = value.canonical_items.map((item) => validateSevenArchesReviewedPricingItem(item, {
+      includeRoomKey: true, includeVersion: true,
+    }));
+    if (new Set(canonicalItems.map((item) => item.schedule_tier_id)).size !== canonicalItems.length) {
+      throw new Error('7 Arches reviewed pricing plan contains duplicate tier identities.');
+    }
+    validateSevenArchesReviewedPricingImpacts(value.commercial_impacts);
+    validateSevenArchesReviewedPricingCommission(value.commission_policy);
+    return Object.freeze({ ...clone(value), canonical_items: canonicalItems });
+  }
+
+  function validateSevenArchesReviewedPricingPreview(value, requestValue, controlValue = null) {
+    const request = validateSevenArchesReviewedPricingAdminRequest(requestValue, controlValue);
+    if (!hasExactKeys(value, [
+      'contract_version', 'hotel_id', 'proposal_id', 'action', 'changed',
+      'proposal_fresh', 'commercial_impacts', 'commission_policy', 'reviewed_plan',
+    ]) || value.contract_version !== SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PREVIEW_CONTRACT
+      || value.hotel_id !== request.hotel_id || !exactCanonicalUuid(value.proposal_id)
+      || value.action !== request.action || value.changed !== (request.action === 'accept')
+      || typeof value.proposal_fresh !== 'boolean') {
+      throw new Error('7 Arches reviewed pricing Preview envelope is invalid.');
+    }
+    const plan = validateSevenArchesReviewedPricingPlan(value.reviewed_plan, request);
+    if (plan.proposal_id !== value.proposal_id
+        || stableJson(value.commercial_impacts) !== stableJson(plan.commercial_impacts)
+        || stableJson(value.commission_policy) !== stableJson(plan.commission_policy)) {
+      throw new Error('7 Arches reviewed pricing Preview differs from its exact reviewed plan.');
+    }
+    validateSevenArchesReviewedPricingImpacts(value.commercial_impacts);
+    validateSevenArchesReviewedPricingCommission(value.commission_policy);
+    return Object.freeze({ ...clone(value), reviewed_plan: plan });
+  }
+
+  function validateSevenArchesReviewedPricingApplyResult(value, plan, correlationId, idempotencyKey) {
+    const accepted = plan.action === 'accept';
+    if (!hasExactKeys(value, [
+      'contract_version', 'hotel_id', 'proposal_id', 'review_id', 'action', 'status',
+      'changed', 'replayed', 'correlation_id', 'idempotency_key', 'receipt_sequence',
+      'receipt_id', 'receipt_hash', 'changed_items', 'commercial_impacts',
+      'commission_policy', 'activity_ids',
+    ]) || value.contract_version !== SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_APPLY_CONTRACT
+      || value.hotel_id !== plan.hotel_id || value.proposal_id !== plan.proposal_id
+      || value.review_id !== plan.review_id || value.action !== plan.action
+      || value.status !== (accepted ? 'accepted' : 'rejected')
+      || value.changed !== accepted || typeof value.replayed !== 'boolean'
+      || value.correlation_id !== correlationId || value.idempotency_key !== idempotencyKey
+      || !Array.isArray(value.changed_items) || !Array.isArray(value.activity_ids)
+      || value.activity_ids.length !== 1 || !exactCanonicalUuid(value.activity_ids[0])
+      || stableJson(value.commercial_impacts) !== stableJson(plan.commercial_impacts)
+      || stableJson(value.commission_policy) !== stableJson(plan.commission_policy)) {
+      throw new Error('7 Arches reviewed pricing Save receipt is invalid or cross-review.');
+    }
+    if (accepted) {
+      if (!isExactInteger(value.receipt_sequence, 1) || !exactCanonicalUuid(value.receipt_id)
+          || !exactReviewedPricingHash(value.receipt_hash)
+          || value.changed_items.length !== plan.canonical_items.length) {
+        throw new Error('Accepted 7 Arches pricing Save omitted its immutable receipt evidence.');
+      }
+      value.changed_items.forEach((item, index) => {
+        const reviewed = plan.canonical_items[index];
+        if (!hasExactKeys(item, [
+          'room_key', 'room_type_id', 'room_rate_id', 'pricing_schedule_id',
+          'schedule_tier_id', 'pricing_occupancy', 'minimum_nights', 'currency',
+          'before_price', 'after_price', 'before_version', 'after_version',
+        ]) || item.room_key !== reviewed.room_key
+          || item.room_type_id !== reviewed.room_type_id
+          || item.room_rate_id !== reviewed.room_rate_id
+          || item.pricing_schedule_id !== reviewed.pricing_schedule_id
+          || item.schedule_tier_id !== reviewed.schedule_tier_id
+          || item.pricing_occupancy !== reviewed.guest_count
+          || item.minimum_nights !== reviewed.minimum_nights
+          || item.currency !== reviewed.currency
+          || item.before_price !== reviewed.before_price
+          || item.after_price !== reviewed.requested_price
+          || item.before_version !== reviewed.before_tier_version
+          || item.after_version !== reviewed.before_tier_version + 1) {
+          throw new Error('Accepted 7 Arches pricing Save changed-item evidence differs from the reviewed plan.');
+        }
+      });
+    } else if (value.receipt_sequence !== null || value.receipt_id !== null
+        || value.receipt_hash !== null || value.changed_items.length) {
+      throw new Error('Rejected 7 Arches pricing proposal unexpectedly returned mutation evidence.');
+    }
+    validateSevenArchesReviewedPricingImpacts(value.commercial_impacts);
+    validateSevenArchesReviewedPricingCommission(value.commission_policy);
+    return Object.freeze(clone(value));
+  }
+
   function canonicalPricingDescriptionI18n(value, maximumLength = 5000) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const keys = Object.keys(value);
@@ -7619,6 +7968,7 @@
     SEVEN_ARCHES_CHECK_IN_FROM,
     SEVEN_ARCHES_CHECK_OUT_UNTIL,
     SEVEN_ARCHES_SHADOW_IDS,
+    SEVEN_ARCHES_INDEPENDENT_PRICING_IDS,
     SEVEN_ARCHES_SOURCE_CONTRACT,
     PARTNER_PROPERTY_PROPOSALS_ADMIN_CONTRACT,
     PARTNER_PROPERTY_PROPOSAL_REQUEST_CONTRACT,
@@ -7630,6 +7980,11 @@
     SEVEN_ARCHES_PRICING_ACTIVATION_PREVIEW_CONTRACT,
     SEVEN_ARCHES_PRICING_ACTIVATION_PLAN_CONTRACT,
     SEVEN_ARCHES_PRICING_ACTIVATION_APPLY_CONTRACT,
+    SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_CONTROL_CONTRACT,
+    SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
+    SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PREVIEW_CONTRACT,
+    SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_PLAN_CONTRACT,
+    SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_APPLY_CONTRACT,
     SEVEN_KAMARES_PRICING_PROMOTION_CONTRACT,
     SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT,
     SEVEN_ARCHES_ROOM_DEFINITIONS,
@@ -7665,6 +8020,12 @@
     validateSevenArchesPricingActivationPlan,
     validateSevenArchesPricingActivationPreview,
     validateSevenArchesPricingActivationApplyResult,
+    validateSevenArchesReviewedPricingItem,
+    validateSevenArchesReviewedPricingControl,
+    validateSevenArchesReviewedPricingAdminRequest,
+    validateSevenArchesReviewedPricingPlan,
+    validateSevenArchesReviewedPricingPreview,
+    validateSevenArchesReviewedPricingApplyResult,
     normalizeHotelPartnerCapabilities,
     hotelPartnerCapabilitiesHaveMutation,
     normalizePartnerHotelPermissions,

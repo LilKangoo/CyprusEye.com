@@ -27,6 +27,9 @@
     pricingControl: null,
     pricingControlError: null,
     pricingControlLoading: false,
+    reviewedPricingControl: null,
+    reviewedPricingError: null,
+    reviewedPricingLoading: false,
     pricingSelection: {
       room_rate_id: null,
       section: null,
@@ -2123,6 +2126,9 @@
       state.pricingControl = null;
       state.pricingControlError = null;
       state.pricingControlLoading = false;
+      state.reviewedPricingControl = null;
+      state.reviewedPricingError = null;
+      state.reviewedPricingLoading = false;
       state.pricingSelection = { room_rate_id: null, section: null };
       try {
         state.h3Configuration = await Repository.getH3Configuration(id);
@@ -2164,6 +2170,13 @@
         state.pricingControl = await Repository.getPricingControl(id);
       } catch (error) {
         state.pricingControlError = error;
+      }
+      if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
+        try {
+          state.reviewedPricingControl = await Repository.getSevenArchesReviewedPricing(id);
+        } catch (error) {
+          state.reviewedPricingError = error;
+        }
       }
       state.calendar = {
         loading: false,
@@ -2211,6 +2224,9 @@
     state.pricingControl = null;
     state.pricingControlError = null;
     state.pricingControlLoading = false;
+    state.reviewedPricingControl = null;
+    state.reviewedPricingError = null;
+    state.reviewedPricingLoading = false;
     state.pricingSelection = { room_rate_id: null, section: null };
     state.calendar.data = null;
     if (workspaceElement) {
@@ -3782,6 +3798,220 @@
     return `<li class="hotel-pricing-activity-row"><div><strong>${escapeHtml(action)} · ${escapeHtml(entity)}</strong><span>${escapeHtml(actor)} · ${escapeHtml(formatted)}</span></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(activity.entity_id)}</code><code>${escapeHtml(activity.correlation_id)}</code>${activity.actor_id ? `<code>${escapeHtml(activity.actor_id)}</code>` : '<span>No human actor ID recorded</span>'}</details></li>`;
   }
 
+  function sevenArchesReviewedPricingTierRows() {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return [];
+    const definitions = [
+      {
+        room_key: 'upper', label: 'Upper Floor Apartment',
+        room_type_id: Core.SEVEN_ARCHES_SHADOW_IDS.upper_room_type,
+        room_rate_id: Core.SEVEN_ARCHES_SHADOW_IDS.upper_room_rate,
+        pricing_schedule_id: Core.SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.upper_schedule,
+      },
+      {
+        room_key: 'ground', label: 'Ground Floor Apartment',
+        room_type_id: Core.SEVEN_ARCHES_SHADOW_IDS.ground_room_type,
+        room_rate_id: Core.SEVEN_ARCHES_SHADOW_IDS.ground_room_rate,
+        pricing_schedule_id: Core.SEVEN_ARCHES_INDEPENDENT_PRICING_IDS.ground_schedule,
+      },
+    ];
+    return definitions.flatMap((definition) => {
+      const schedule = Core.asArray(state.pricingControl?.pricing_schedules)
+        .find((row) => row.id === definition.pricing_schedule_id);
+      return Core.asArray(schedule?.tiers).map((tier) => ({
+        ...definition,
+        schedule_tier_id: tier.id,
+        guest_count: Number(tier.guest_count),
+        minimum_nights: Number(tier.threshold_nights),
+        currency: String(schedule.currency || 'EUR'),
+        before_price: Number(tier.nightly_rate),
+      }));
+    }).sort((left, right) => left.room_key.localeCompare(right.room_key)
+      || left.guest_count - right.guest_count
+      || left.minimum_nights - right.minimum_nights);
+  }
+
+  function sevenArchesCommercialImpactsMarkup(impacts) {
+    const rows = Core.asArray(impacts);
+    return `<div class="hotel-review-table-wrap hotel-reviewed-pricing-impact"><table class="hotel-review-table"><thead><tr><th>Scope</th><th>Guests / minimum nights</th><th>Customer</th><th>CyprusEye commission</th><th>Partner net</th></tr></thead><tbody>${rows.map((impact) => {
+      const scope = impact.scope === 'single_room'
+        ? `${impact.room_key === 'upper' ? 'Upper' : 'Ground'} Room`
+        : 'Upper + Ground bundle';
+      const guests = impact.scope === 'single_room' ? impact.guest_count : impact.requested_guest_count;
+      return `<tr><th>${escapeHtml(scope)}</th><td>${escapeHtml(guests)} guests · ${escapeHtml(impact.minimum_nights)}+ nights</td><td>${escapeHtml(formatMoney(impact.customer_before, impact.currency))} → <strong>${escapeHtml(formatMoney(impact.customer_after, impact.currency))}</strong></td><td>${escapeHtml(formatMoney(impact.cypruseye_commission, impact.currency))}</td><td>${escapeHtml(formatMoney(impact.partner_net_before, impact.currency))} → <strong>${escapeHtml(formatMoney(impact.partner_net_after, impact.currency))}</strong></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  }
+
+  function sevenArchesReviewedPricingProposalMarkup(proposal) {
+    const partner = proposal.initiator_type === 'partner';
+    const stale = proposal.fresh !== true;
+    return `<article class="hotel-reviewed-pricing-proposal" data-reviewed-pricing-proposal="${escapeAttr(proposal.id)}"><header><div><span class="hotel-workspace-eyebrow">${partner ? 'Partner proposal' : 'Admin-initiated proposal'}</span><h5>${stale ? 'Stale — acceptance disabled' : 'Pending Admin review'}</h5></div><span class="hotel-workspace-status hotel-workspace-status--${stale ? 'warning' : 'success'}">${escapeHtml(proposal.status.replaceAll('_', ' ').toUpperCase())}</span></header><p>${escapeHtml(proposal.reason)}</p><div class="hotel-review-table-wrap"><table class="hotel-review-table"><thead><tr><th>Room</th><th>Guests</th><th>Minimum nights</th><th>Requested nightly price</th></tr></thead><tbody>${proposal.items.map((item) => `<tr><th>${item.room_key === 'upper' ? 'Upper Floor Apartment' : 'Ground Floor Apartment'}</th><td>${escapeHtml(item.guest_count)}</td><td>${escapeHtml(item.minimum_nights)}+</td><td>${escapeHtml(formatMoney(item.before_price, item.currency))} → <strong>${escapeHtml(formatMoney(item.requested_price, item.currency))}</strong></td></tr>`).join('')}</tbody></table></div><div class="hotel-workspace-panel-actions"><button class="btn-primary" type="button" data-reviewed-pricing-action="accept" data-reviewed-pricing-proposal-id="${escapeAttr(proposal.id)}" ${stale ? 'disabled' : ''}>Review Accept</button><button class="btn-secondary" type="button" data-reviewed-pricing-action="reject" data-reviewed-pricing-proposal-id="${escapeAttr(proposal.id)}">Review Reject</button></div><details class="hotel-review-diagnostics"><summary>Technical diagnostics</summary><code>${escapeHtml(proposal.id)}</code>${proposal.partner_id ? `<code>${escapeHtml(proposal.partner_id)}</code>` : ''}${proposal.assignment_id ? `<code>${escapeHtml(proposal.assignment_id)}</code>` : ''}<span>Version ${escapeHtml(proposal.version)} · expires ${escapeHtml(proposal.expires_at)}</span></details></article>`;
+  }
+
+  function renderSevenArchesReviewedPricingPanel() {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
+    if (state.reviewedPricingLoading) return '<section class="hotel-workspace-card hotel-reviewed-pricing-control"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading reviewed independent pricing…</section>';
+    if (state.reviewedPricingError || !state.reviewedPricingControl) {
+      return `<section class="hotel-workspace-card hotel-property-empty--error hotel-reviewed-pricing-control"><span class="hotel-workspace-eyebrow">Independent Room pricing</span><h4>Reviewed pricing control unavailable</h4><p>${escapeHtml(state.reviewedPricingError?.userMessage || state.reviewedPricingError?.message || 'The exact 114415 Admin control could not be loaded.')}</p><button class="btn-secondary" type="button" data-retry-reviewed-pricing>Retry secure load</button></section>`;
+    }
+    const control = state.reviewedPricingControl;
+    const proposals = Core.asArray(control.proposals);
+    return `<section class="hotel-workspace-card hotel-reviewed-pricing-control"><div class="hotel-workspace-card-heading"><div><span class="hotel-workspace-eyebrow">Reviewed independent Room pricing</span><h4>Upper and Ground pricing changes</h4><p>Partner proposals and Admin-initiated changes use the same server planner. Only explicitly selected tiers change; commission and payment policy remain protected.</p></div><button class="btn-primary" type="button" data-start-reviewed-pricing>Start Admin pricing Review</button></div><dl class="hotel-reviewed-pricing-summary"><div><dt>Pending proposals</dt><dd>${proposals.length}</dd></div><div><dt>Receipt chain</dt><dd>${control.current_state.receipt_count}</dd></div><div><dt>Parity</dt><dd>${control.current_state.oracle.core_case_count} / ${control.current_state.oracle.core_mismatch_count} mismatches</dd></div><div><dt>Commission</dt><dd>${escapeHtml(formatMoney(control.commission_policy.amount, control.commission_policy.currency))} per allocated Room/night</dd></div></dl>${proposals.length ? `<div class="hotel-reviewed-pricing-proposals">${proposals.map(sevenArchesReviewedPricingProposalMarkup).join('')}</div>` : '<div class="hotel-property-empty"><p>No Partner or Admin pricing proposal is awaiting review.</p></div>'}<p class="hotel-workspace-safety-note">The generic ADMIN-C editor remains locked for this protected Hotel. This dedicated flow sends exact independent schedule-tier identities to the 114415 server contract.</p></section>`;
+  }
+
+  async function refreshSevenArchesReviewedPricing() {
+    if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID
+        || state.reviewedPricingLoading) return;
+    const hotelId = state.workspace.property.id;
+    state.reviewedPricingLoading = true;
+    state.reviewedPricingError = null;
+    if (state.activeTab === 'pricing') renderActivePanel();
+    try {
+      state.reviewedPricingControl = await Repository.getSevenArchesReviewedPricing(hotelId);
+    } catch (error) {
+      state.reviewedPricingError = error;
+    } finally {
+      state.reviewedPricingLoading = false;
+      if (state.workspace?.property?.id === hotelId && state.activeTab === 'pricing') renderActivePanel();
+    }
+  }
+
+  function openSevenArchesReviewedPricingFinalReview(preview, opener) {
+    const plan = preview.reviewed_plan;
+    const correlationId = Core.newUuid();
+    const idempotencyKey = Core.newUuid();
+    const accepting = plan.action === 'accept';
+    openPricingModal({
+      title: accepting ? 'Review independent Room price changes' : 'Review proposal rejection',
+      className: 'hotel-workspace-modal--wide hotel-workspace-modal--review',
+      body: `<section class="hotel-review-summary"><p>${accepting ? 'The server derived every customer, commission and Partner-net impact from the exact current topology.' : 'Rejection is terminal for this proposal and performs no pricing mutation.'}</p><dl><div><dt>Initiator</dt><dd>${escapeHtml(plan.initiator_type)}</dd></div><div><dt>Action</dt><dd>${escapeHtml(plan.action)}</dd></div><div><dt>Changed tiers</dt><dd>${accepting ? plan.canonical_items.length : 0}</dd></div><div><dt>Proposal fresh</dt><dd>${preview.proposal_fresh ? 'Yes' : 'No'}</dd></div></dl></section><p class="hotel-workspace-safety-note"><strong>Partner reason:</strong> ${escapeHtml(plan.proposal_reason)}<br/><strong>Admin reason:</strong> ${escapeHtml(plan.admin_reason)}</p>${sevenArchesCommercialImpactsMarkup(preview.commercial_impacts)}<details class="hotel-review-diagnostics"><summary>Exact reviewed lineage</summary><code>${escapeHtml(plan.proposal_id)}</code><code>${escapeHtml(plan.review_id)}</code><code>${escapeHtml(plan.plan_fingerprint)}</code><span>Expires ${escapeHtml(plan.expires_at)}</span></details>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Back</button><button class="btn-primary" type="button" data-apply-reviewed-pricing>Apply exact server Review</button>',
+      onReady(overlay) {
+        overlay.querySelector('[data-apply-reviewed-pricing]')?.addEventListener('click', async (event) => {
+          const button = event.currentTarget;
+          button.disabled = true;
+          button.textContent = 'Saving…';
+          setModalSaving(overlay, true);
+          try {
+            const result = await Repository.applySevenArchesReviewedPricing(
+              plan, correlationId, idempotencyKey,
+            );
+            state.reviewedPricingControl = result.control;
+            state.reviewedPricingError = null;
+            state.pricingControl = result.pricing_control;
+            state.pricingControlError = null;
+            syncWorkspacePricing(result.pricing_control);
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            renderWorkspace();
+            void loadPropertyList().catch(() => {});
+            toast(accepting
+              ? `Reviewed pricing applied with receipt #${result.receipt_sequence}.`
+              : 'Reviewed pricing proposal rejected; live prices are unchanged.', 'success');
+          } catch (error) {
+            setModalSaving(overlay, false);
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await Promise.all([refreshSevenArchesReviewedPricing(), refreshPricingControl()]);
+            toast(error.userMessage || error.message, error?.isAmbiguousOutcome || error?.isStale ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+    state.lastFocused = opener || state.lastFocused;
+  }
+
+  function openSevenArchesReviewedPricingProposalAction(proposalId, action, opener) {
+    const control = state.reviewedPricingControl;
+    const proposal = Core.asArray(control?.proposals).find((row) => row.id === proposalId);
+    if (!proposal || !['accept', 'reject'].includes(action)) {
+      toast('The exact reviewed pricing proposal is no longer available.', 'error');
+      return;
+    }
+    openPricingModal({
+      title: action === 'accept' ? 'Prepare proposal acceptance' : 'Prepare proposal rejection',
+      body: `<form id="sevenArchesReviewedPricingReasonForm" class="hotel-workspace-form"><p>${action === 'accept' ? 'The server will recalculate every customer, commission and Partner-net impact before Save.' : 'Reject records a terminal decision without mutating live prices.'}</p><label class="admin-form-field"><span>Admin review reason</span><textarea name="reason" minlength="3" maxlength="500" rows="3" required></textarea><small>Required, trimmed Admin audit reason.</small></label></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="sevenArchesReviewedPricingReasonForm">Build server Review</button>',
+      onReady(overlay) {
+        const form = overlay.querySelector('#sevenArchesReviewedPricingReasonForm');
+        form?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const submit = overlay.querySelector('button[form="sevenArchesReviewedPricingReasonForm"]');
+          submit.disabled = true;
+          try {
+            const preview = await Repository.previewSevenArchesReviewedPricing({
+              contract_version: Core.SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
+              hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID,
+              proposal_id: proposal.id,
+              proposal_version: proposal.version,
+              action,
+              reason: String(new FormData(form).get('reason') || '').trim(),
+            }, control);
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            openSevenArchesReviewedPricingFinalReview(preview, opener);
+          } catch (error) {
+            submit.disabled = false;
+            toast(error.userMessage || error.message, error?.isStale ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function openSevenArchesReviewedPricingEditor(opener) {
+    const rows = sevenArchesReviewedPricingTierRows();
+    if (rows.length !== 54) {
+      toast('The exact 54-row independent pricing topology is unavailable. Refresh before preparing a Review.', 'error');
+      return;
+    }
+    openPricingModal({
+      title: 'Start Admin independent pricing Review',
+      className: 'hotel-workspace-modal--wide hotel-reviewed-pricing-editor-modal',
+      body: `<form id="sevenArchesReviewedPricingAdminForm" class="hotel-workspace-form"><p class="hotel-workspace-safety-note">Select only tiers that should change. Upper and Ground remain independently selectable. Customer totals, commission and Partner net are calculated by the server.</p><label class="admin-form-field"><span>Reason</span><textarea name="reason" minlength="3" maxlength="500" rows="3" required></textarea></label><div class="hotel-review-table-wrap"><table class="hotel-review-table hotel-reviewed-pricing-tier-editor"><thead><tr><th>Change</th><th>Room</th><th>Guests</th><th>Minimum nights</th><th>Current</th><th>Requested nightly price</th></tr></thead><tbody>${rows.map((row) => `<tr data-reviewed-pricing-tier="${escapeAttr(row.schedule_tier_id)}" data-room-key="${escapeAttr(row.room_key)}" data-room-type-id="${escapeAttr(row.room_type_id)}" data-room-rate-id="${escapeAttr(row.room_rate_id)}" data-schedule-id="${escapeAttr(row.pricing_schedule_id)}" data-guest-count="${escapeAttr(row.guest_count)}" data-minimum-nights="${escapeAttr(row.minimum_nights)}" data-currency="${escapeAttr(row.currency)}" data-before-price="${escapeAttr(row.before_price)}"><td><input type="checkbox" data-reviewed-pricing-select aria-label="Change ${escapeAttr(row.label)}, ${escapeAttr(row.guest_count)} guests, ${escapeAttr(row.minimum_nights)} nights" /></td><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.guest_count)}</td><td>${escapeHtml(row.minimum_nights)}+</td><td>${escapeHtml(formatMoney(row.before_price, row.currency))}</td><td><input type="number" min="10" max="9999999999.99" step="0.01" value="${escapeAttr(row.before_price)}" data-reviewed-pricing-price disabled /></td></tr>`).join('')}</tbody></table></div></form>`,
+      footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="sevenArchesReviewedPricingAdminForm">Build server Review</button>',
+      onReady(overlay) {
+        overlay.querySelectorAll('[data-reviewed-pricing-select]').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => {
+            const input = checkbox.closest('[data-reviewed-pricing-tier]')?.querySelector('[data-reviewed-pricing-price]');
+            if (input) input.disabled = !checkbox.checked;
+          });
+        });
+        const form = overlay.querySelector('#sevenArchesReviewedPricingAdminForm');
+        form?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const selected = Array.from(overlay.querySelectorAll('[data-reviewed-pricing-tier]'))
+            .filter((row) => row.querySelector('[data-reviewed-pricing-select]')?.checked);
+          const submit = overlay.querySelector('button[form="sevenArchesReviewedPricingAdminForm"]');
+          submit.disabled = true;
+          try {
+            const items = selected.map((row) => ({
+              hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID,
+              room_type_id: row.dataset.roomTypeId,
+              room_rate_id: row.dataset.roomRateId,
+              pricing_schedule_id: row.dataset.scheduleId,
+              schedule_tier_id: row.dataset.reviewedPricingTier,
+              guest_count: Number(row.dataset.guestCount),
+              minimum_nights: Number(row.dataset.minimumNights),
+              currency: row.dataset.currency,
+              before_price: Number(row.dataset.beforePrice),
+              requested_price: Number(row.querySelector('[data-reviewed-pricing-price]')?.value),
+            }));
+            const preview = await Repository.previewSevenArchesReviewedPricing({
+              contract_version: Core.SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
+              hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID,
+              action: 'accept',
+              reason: String(new FormData(form).get('reason') || '').trim(),
+              items,
+            }, state.reviewedPricingControl);
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            openSevenArchesReviewedPricingFinalReview(preview, opener);
+          } catch (error) {
+            submit.disabled = false;
+            toast(error.userMessage || error.message, error?.isStale ? 'warning' : 'error');
+          }
+        });
+      },
+    });
+    state.lastFocused = opener || state.lastFocused;
+  }
+
   async function refreshPricingControl() {
     if (!state.workspace || state.pricingControlLoading) return;
     const hotelId = state.workspace.property.id;
@@ -3820,7 +4050,8 @@
     const headerActions = `<div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-preview-pricing>Preview stay</button>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-schedule>+ Schedule</button><button class="btn-primary" type="button" data-add-pricing-plan>+ Rate Plan</button>'}</div>`;
     panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.', headerActions)}
       <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsOff ? 'success' : 'danger'}">FLAGS ${pricingUiHtml(flagsOff ? 'OFF' : 'DRIFT')}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
-      ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Accepted H3.1P boundary</span><h4>7 Kamares pricing control is read-only</h4><p>The exact 1 Rate Plan / 2 schedules / 2 Room Rates / 5 allocation rules / 10 items graph and its 70-case parity receipt must remain unchanged. Use the structured preview below; configure full ADMIN-C CRUD on another future Hotel.</p></section>' : ''}
+      ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Protected 7 Arches boundary</span><h4>The generic ADMIN-C pricing editor remains read-only</h4><p>Use the dedicated reviewed independent Room pricing control below. It is the only Admin path allowed to evolve the protected Upper/Ground schedule tiers while preserving topology, parity, commission, payment and receipt lineage.</p></section>' : ''}
+      ${renderSevenArchesReviewedPricingPanel()}
       ${pricingPromotionCardMarkup()}
       ${sevenArchesPricingActivationCardMarkup()}
       ${pricingPropertyDefaultMarkup(control)}
@@ -3836,6 +4067,13 @@
   }
 
   function bindPricingPanel(panel) {
+    panel.querySelector('[data-retry-reviewed-pricing]')?.addEventListener('click', () => void refreshSevenArchesReviewedPricing());
+    panel.querySelector('[data-start-reviewed-pricing]')?.addEventListener('click', (event) => openSevenArchesReviewedPricingEditor(event.currentTarget));
+    panel.querySelectorAll('[data-reviewed-pricing-action]').forEach((button) => {
+      button.addEventListener('click', () => openSevenArchesReviewedPricingProposalAction(
+        button.dataset.reviewedPricingProposalId, button.dataset.reviewedPricingAction, button,
+      ));
+    });
     panel.querySelector('[data-open-seven-arches-pricing-activation]')?.addEventListener('click', (event) => openSevenArchesPricingActivation(event.currentTarget));
     panel.querySelector('[data-preview-pricing]')?.addEventListener('click', openPricingPreview);
     panel.querySelector('[data-add-pricing-plan]')?.addEventListener('click', () => openPricingPlanEditor());

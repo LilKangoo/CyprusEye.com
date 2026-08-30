@@ -13,6 +13,9 @@
     applyContent: 'hotel_v2_partner_apply_content_plan',
     previewPricing: 'hotel_v2_partner_preview_pricing_plan',
     applyPricing: 'hotel_v2_partner_apply_pricing_plan',
+    previewSevenArchesPricingProposal: 'hotel_v2_partner_preview_seven_arches_pricing_proposal',
+    submitSevenArchesPricingProposal: 'hotel_v2_partner_submit_seven_arches_pricing_proposal',
+    sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing',
     previewCommercialStay: 'hotel_v2_partner_preview_commercial_stay',
     previewAvailability: 'hotel_v2_partner_preview_availability_plan',
     applyAvailability: 'hotel_v2_partner_apply_availability_plan',
@@ -25,6 +28,7 @@
   const workspaceRanges = new Map();
   const currentWorkspaces = new Map();
   const reviewedExternalCalendarPlans = new Map();
+  const reviewedSevenArchesPricingPlans = new Map();
 
   async function sha256Hex(value) {
     if (typeof crypto === 'undefined' || !crypto.subtle || typeof TextEncoder === 'undefined') {
@@ -206,6 +210,64 @@
     return Core.validateCommercialStayPreview(value, clean);
   }
 
+  async function previewSevenArchesPricingProposal(draft) {
+    const current = currentWorkspaces.get(`${draft?.partner_id}:${draft?.hotel_id}`);
+    const cleanDraft = Core.validateSevenArchesReviewedPricingDraft(draft, current);
+    const value = await call(RPC.previewSevenArchesPricingProposal, { p_draft: cleanDraft }, 'seven_arches_pricing');
+    const preview = Core.validateSevenArchesReviewedPricingPreview(value, cleanDraft, current);
+    const plan = preview.reviewed_plan;
+    reviewedSevenArchesPricingPlans.clear();
+    reviewedSevenArchesPricingPlans.set(plan.plan_fingerprint, {
+      bytes: stable(plan),
+      plan,
+    });
+    return preview;
+  }
+
+  async function getSevenArchesPricingControl(partnerId, hotelId) {
+    const expectedPartnerId = exactUuid(partnerId, 'partner_id');
+    const expectedHotelId = exactUuid(hotelId, 'hotel_id');
+    const current = currentWorkspaces.get(`${expectedPartnerId}:${expectedHotelId}`);
+    if (!current) throw new Error('Load the exact Partner Hotel workspace before reviewed pricing control.');
+    const value = await call(RPC.sevenArchesPricingControl, {
+      p_partner_id: expectedPartnerId,
+      p_hotel_id: expectedHotelId,
+    }, 'seven_arches_pricing');
+    return Core.validateSevenArchesReviewedPricingControl(value, current);
+  }
+
+  async function submitSevenArchesPricingProposal(planValue, correlationId, idempotencyKey) {
+    const correlation = exactUuid(correlationId, 'correlation_id');
+    const idempotency = exactUuid(idempotencyKey, 'idempotency_key');
+    const cache = reviewedSevenArchesPricingPlans.get(planValue?.plan_fingerprint);
+    if (!cache || cache.plan !== planValue || cache.bytes !== stable(planValue)) {
+      throw new Error('Only the exact unchanged server-reviewed 7 Arches pricing proposal can be submitted. Run Preview again.');
+    }
+    let value;
+    try {
+      value = await call(RPC.submitSevenArchesPricingProposal, {
+        p_reviewed_plan: planValue,
+        p_correlation_id: correlation,
+        p_idempotency_key: idempotency,
+      }, 'seven_arches_pricing');
+    } finally {
+      reviewedSevenArchesPricingPlans.delete(planValue.plan_fingerprint);
+    }
+    try {
+      return Core.validateSevenArchesReviewedPricingSubmit(value, {
+        plan: planValue,
+        correlationId: correlation,
+        idempotencyKey: idempotency,
+      });
+    } catch (error) {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      wrapped.saveSucceeded = true;
+      wrapped.isAmbiguousOutcome = false;
+      wrapped.userMessage = 'Proposal submission returned success, but its exact pending-review receipt could not be verified. Nothing was retried.';
+      throw wrapped;
+    }
+  }
+
   async function getExternalCalendarControl(partnerId, hotelId) {
     const expectedPartnerId = exactUuid(partnerId, 'partner_id');
     const expectedHotelId = exactUuid(hotelId, 'hotel_id');
@@ -280,6 +342,7 @@
   function clearReviewedPlans() {
     reviewedPlans.clear();
     reviewedExternalCalendarPlans.clear();
+    reviewedSevenArchesPricingPlans.clear();
   }
 
   return Object.freeze({
@@ -289,6 +352,9 @@
     applyContentPlan: (plan, correlationId, idempotencyKey) => apply('content', plan, correlationId, idempotencyKey),
     previewPricingPlan: (draft) => preview('pricing', draft),
     applyPricingPlan: (plan, correlationId, idempotencyKey) => apply('pricing', plan, correlationId, idempotencyKey),
+    previewSevenArchesPricingProposal,
+    submitSevenArchesPricingProposal,
+    getSevenArchesPricingControl,
     previewCommercialStay,
     previewAvailabilityPlan: (draft) => preview('availability', draft),
     applyAvailabilityPlan: (plan, correlationId, idempotencyKey) => apply('availability', plan, correlationId, idempotencyKey),

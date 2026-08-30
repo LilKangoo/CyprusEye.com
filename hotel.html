@@ -25,6 +25,7 @@
   <script type="module" src="/js/authUi.js?v=4"></script>
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
+  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260830_1"></script>
   <script src="/js/footer-referral.js" defer></script>
   <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
 </head>
@@ -434,6 +435,7 @@
     let hotelReferralController = null;
     let hotelReferralUiPromise = null;
     let hotelPhoneModulePromise = null;
+    let sevenArchesQuoteSession = null;
 
     function getHotelReferralUiModule() {
       if (!hotelReferralUiPromise) {
@@ -983,6 +985,11 @@
         roomInputName: 'hotel_room_type_id',
         ratePlanInputName: 'hotel_rate_plan_id',
       });
+      window.HotelsV2SevenArchesPublicPricing?.syncRoomSelectionUi?.(
+        hotel,
+        form,
+        Number(form?.elements?.adults?.value || 0) + Number(form?.elements?.children?.value || 0),
+      );
       const amenitiesCard = document.getElementById('hotelAmenitiesCard');
       const policyCard = document.getElementById('hotelPolicyCard');
       const locationCard = document.getElementById('hotelLocationCard');
@@ -1205,6 +1212,10 @@
       const adults=Number($('#adults').value||0), children=Number($('#children').value||0);
       let nights=0;
       const persons=adults+children;
+      if (window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(hotel)) {
+        void updateSevenArchesAuthoritativeQuote();
+        return;
+      }
       const maxPersons = hotelPageBookingUi?.getRoomCapacity
         ? hotelPageBookingUi.getRoomCapacity(hotel, {
           form: $('#bookForm'),
@@ -1264,6 +1275,33 @@
       syncCouponButtons();
     }
 
+    async function updateSevenArchesAuthoritativeQuote(){
+      const bridge = window.HotelsV2SevenArchesPublicPricing;
+      const form = $('#bookForm');
+      if (!bridge?.isSevenArches?.(hotel) || !form) return null;
+      const guests = Number(form.elements.adults?.value || 0) + Number(form.elements.children?.value || 0);
+      bridge.syncRoomSelectionUi(hotel, form, guests);
+      const note = $('#priceNote');
+      try {
+        const { supabase } = await import('/js/supabaseClient.js');
+        if (!sevenArchesQuoteSession) sevenArchesQuoteSession = bridge.createQuoteSession(supabase);
+        const quote = await sevenArchesQuoteSession.refresh(hotel, form);
+        if (sevenArchesQuoteSession.current !== quote) return null;
+        const coupon = getCouponContext(quote.customer_total);
+        $('#priceLive').textContent = formatMoney(coupon.finalTotal);
+        note.textContent = `${bridge.quoteSummary(quote, getHotelPageLanguage())}. ${pageText('Cena wyliczona przez serwer', 'Server-derived Room pricing')}.`;
+        return quote;
+      } catch (error) {
+        $('#priceLive').textContent = formatMoney(0);
+        note.textContent = /Room selection|required/i.test(String(error?.message || ''))
+          ? pageText('Wybierz dokładny apartament, aby otrzymać cenę.', 'Select an exact apartment to receive the authoritative quote.')
+          : String(error?.message || pageText('Cena serwerowa jest chwilowo niedostępna.', 'The server quote is temporarily unavailable.'));
+        return null;
+      } finally {
+        syncCouponButtons();
+      }
+    }
+
     async function loadHotel(){
       if(!slug){
         hotelLoadState = 'missing-slug';
@@ -1280,7 +1318,8 @@
           .single();
         if(error) throw error;
         if(!data) throw new Error('Hotel not found');
-        hotel = data;
+      hotel = data;
+      sevenArchesQuoteSession = null;
       }catch(err){
         console.error('Failed to load hotel:', err);
         hotelLoadState = 'not-found';
@@ -1389,6 +1428,37 @@
         }
       }
       const referralPayload = referralController?.getPayload?.() || {};
+      const publicPricing = window.HotelsV2SevenArchesPublicPricing;
+      if (publicPricing?.isSevenArches?.(hotel)) {
+        const submitButton = f.querySelector('[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
+        try {
+          if (!sevenArchesQuoteSession) sevenArchesQuoteSession = publicPricing.createQuoteSession(supabase);
+          const result = await sevenArchesQuoteSession.submit(hotel, f, {
+            language: getHotelBookingLanguage(),
+            referral: referralPayload,
+          });
+          $('#bookMsg').hidden = false;
+          $('#bookMsg').className = 'offer-form-message offer-span-full success';
+          $('#bookMsg').textContent = hotelT(
+            'hotels.booking.successTotal',
+            'Rezerwacja przyjęta. Suma: {{total}}. Sprawdź email i folder Spam w ciągu 24h.',
+            'Booking received. Total: {{total}}. Please check your email and Spam folder within 24 hours.',
+            { total: formatMoney(result.customer_total) },
+          );
+          f.reset();
+          sevenArchesQuoteSession.clear();
+          renderHotelPageBookingUi({ selectedExtraIds: [] });
+          void syncHotelPagePhoneInput();
+        } catch (error) {
+          $('#bookMsg').hidden = false;
+          $('#bookMsg').className = 'offer-form-message offer-span-full error';
+          $('#bookMsg').textContent = String(error?.message || error);
+        } finally {
+          if (submitButton) submitButton.disabled = false;
+        }
+        return;
+      }
       const insertPayload = {
         hotel_id: hotel.id,
         hotel_slug: hotel.slug,

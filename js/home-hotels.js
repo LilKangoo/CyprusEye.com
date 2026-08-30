@@ -13,6 +13,7 @@ let homeHotelReferralController = null;
 let homeHotelReferralUiPromise = null;
 let homeHotelsCarouselUpdate = null;
 let homeHotelPhoneModulePromise = null;
+let homeSevenArchesQuoteSession = null;
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -832,7 +833,8 @@ function initHomeHotels() {
           ratePlanInputName: 'hotel_rate_plan_id',
         })
         : (Number(homeCurrentHotel.max_persons || 0) || null);
-      if (maxPersons && persons > maxPersons) {
+      if (!window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(homeCurrentHotel)
+          && maxPersons && persons > maxPersons) {
         throw new Error(hotelsTWithParams('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
       }
 
@@ -853,6 +855,28 @@ function initHomeHotels() {
       }
       const coupon = getHomeHotelCouponContext(baseTotal);
       const referralPayload = referralController?.getPayload ? referralController.getPayload() : null;
+      const publicPricing = window.HotelsV2SevenArchesPublicPricing;
+      if (publicPricing?.isSevenArches?.(homeCurrentHotel)) {
+        if (!homeSevenArchesQuoteSession) homeSevenArchesQuoteSession = publicPricing.createQuoteSession(supabase);
+        const result = await homeSevenArchesQuoteSession.submit(homeCurrentHotel, form, {
+          language: getHomeHotelLang(),
+          referral: referralPayload,
+        });
+        showSuccessPopup(
+          hotelsT('hotels.booking.successTitle', '✅ Booking received!'),
+          hotelsTWithParams('hotels.booking.successTotal', 'Booking received. Total: {{total}}.', {
+            total: formatHomeHotelPrice(result.customer_total),
+          }),
+        );
+        form.reset();
+        homeSevenArchesQuoteSession.clear();
+        clearFormValidation(form);
+        void syncHomeHotelPhoneInput(form);
+        clearHomeHotelCouponState({ clearInput: true });
+        renderHomeHotelBookingUiSections({ selectedExtraIds: [] });
+        updateHotelLivePrice();
+        return;
+      }
       
       const payload = {
         hotel_id: homeCurrentHotel.id,
@@ -1207,6 +1231,11 @@ function renderHomeHotelBookingUiSections(options = {}) {
     roomInputName: 'hotel_room_type_id',
     ratePlanInputName: 'hotel_rate_plan_id',
   });
+  window.HotelsV2SevenArchesPublicPricing?.syncRoomSelectionUi?.(
+    homeCurrentHotel,
+    form,
+    Number(form?.elements?.adults?.value || 0) + Number(form?.elements?.children?.value || 0),
+  );
 }
 
 function extractHomeHotelMissingColumn(error) {
@@ -1530,6 +1559,10 @@ function updateHotelLivePrice(){
   const adults = Number((form.querySelector('#hotelBookingAdults')||{}).value||0);
   const children = Number((form.querySelector('#hotelBookingChildren')||{}).value||0);
   let persons = adults + children;
+  if (window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(homeCurrentHotel)) {
+    void updateHomeSevenArchesAuthoritativeQuote();
+    return;
+  }
   const maxPersons = homeHotelBookingUi?.getRoomCapacity
     ? homeHotelBookingUi.getRoomCapacity(homeCurrentHotel, {
       form,
@@ -1600,6 +1633,44 @@ function updateHotelLivePrice(){
   syncHomeHotelCouponButtons();
 }
 
+async function updateHomeSevenArchesAuthoritativeQuote(){
+  const bridge = window.HotelsV2SevenArchesPublicPricing;
+  const form = document.getElementById('hotelBookingForm');
+  if (!bridge?.isSevenArches?.(homeCurrentHotel) || !form) return null;
+  const guests = Number(form.elements.adults?.value || 0) + Number(form.elements.children?.value || 0);
+  bridge.syncRoomSelectionUi(homeCurrentHotel, form, guests);
+  const note = document.getElementById('hotelPriceNote');
+  try {
+    const supabase = await waitForSupabaseClientHomeHotels();
+    if (!supabase) throw new Error('Hotel pricing connection is unavailable.');
+    if (!homeSevenArchesQuoteSession) homeSevenArchesQuoteSession = bridge.createQuoteSession(supabase);
+    const quote = await homeSevenArchesQuoteSession.refresh(homeCurrentHotel, form);
+    if (homeSevenArchesQuoteSession.current !== quote) return null;
+    const coupon = getHomeHotelCouponContext(quote.customer_total);
+    const price = document.getElementById('modalHotelPrice');
+    if (price) price.textContent = formatHomeHotelPrice(coupon.finalTotal);
+    if (note) {
+      note.style.display = 'block';
+      note.className = 'booking-message';
+      note.textContent = `${bridge.quoteSummary(quote, getHomeHotelLang())}. ${hotelsT('hotels.price.serverAuthority', 'Server-derived Room pricing')}.`;
+    }
+    return quote;
+  } catch (error) {
+    const price = document.getElementById('modalHotelPrice');
+    if (price) price.textContent = formatHomeHotelPrice(0);
+    if (note) {
+      note.style.display = 'block';
+      note.className = 'booking-message error';
+      note.textContent = /Room selection|required/i.test(String(error?.message || ''))
+        ? hotelsT('hotels.price.roomRequired', 'Select Upper Floor Apartment or Ground Floor Apartment for an authoritative quote.')
+        : String(error?.message || hotelsT('hotels.price.serverUnavailable', 'The authoritative quote is temporarily unavailable.'));
+    }
+    return null;
+  } finally {
+    syncHomeHotelCouponButtons();
+  }
+}
+
 function openHotelModalRecordInternal(hotelRecord, options = {}) {
   const homeHotelBookingUi = getHomeHotelBookingUiApi();
   const h = hotelRecord;
@@ -1612,6 +1683,7 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
     : Math.max(0, modalList.findIndex((entry) => String(entry?.id || '') === String(h.id || '')));
   homeHotelModalList = modalList;
   homeCurrentHotel = h;
+  homeSevenArchesQuoteSession = null;
   homeHotelIndex = derivedIndex >= 0 ? derivedIndex : null;
   const title = window.getHotelName ? window.getHotelName(h) : pickHomeHotelLocalizedValue(h.title, getHomeHotelLang(), h.slug);
   const image = getMediaViewerUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
@@ -1670,13 +1742,15 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
   if (departureEl) departureEl.min = today;
   
   // max persons
-  const maxPersons = homeHotelBookingUi?.getRoomCapacity
-    ? homeHotelBookingUi.getRoomCapacity(h, {
+  const maxPersons = window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(h)
+    ? 8
+    : homeHotelBookingUi?.getRoomCapacity
+      ? homeHotelBookingUi.getRoomCapacity(h, {
       form,
       roomInputName: 'hotel_room_type_id',
       ratePlanInputName: 'hotel_rate_plan_id',
-    })
-    : (Number(h.max_persons||0) || null);
+      })
+      : (Number(h.max_persons||0) || null);
   const adultsEl = document.getElementById('hotelBookingAdults');
   const childrenEl = document.getElementById('hotelBookingChildren');
   if (adultsEl && childrenEl) {

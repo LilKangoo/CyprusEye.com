@@ -219,6 +219,7 @@
   <meta name="ce-auth" content="on" />
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
+  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260830_1"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=8"></script>
@@ -608,6 +609,7 @@
     let currentHotel = null;
     let hotelAmenitiesMap = {};
     let hotelCouponState = { applied: null };
+    let sevenArchesQuoteSession = null;
     const hotelPricing = window.CE_HOTEL_PRICING || null;
 
     // Load amenities for display
@@ -1109,6 +1111,11 @@
         roomInputName: 'hotel_room_type_id',
         ratePlanInputName: 'hotel_rate_plan_id',
       });
+      window.HotelsV2SevenArchesPublicPricing?.syncRoomSelectionUi?.(
+        currentHotel,
+        form,
+        Number(form?.elements?.adults?.value || 0) + Number(form?.elements?.children?.value || 0),
+      );
     }
 
     function extractHotelMissingColumn(error) {
@@ -1307,6 +1314,10 @@
       const adults = Number(document.getElementById('bookingAdults').value||0);
       const children = Number(document.getElementById('bookingChildren').value||0);
       let persons = adults + children;
+      if (window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(currentHotel)) {
+        void updateSevenArchesAuthoritativeQuote();
+        return;
+      }
       const maxPersons = hotelBookingUi?.getRoomCapacity
         ? hotelBookingUi.getRoomCapacity(currentHotel, {
           form: document.getElementById('hotelBookingForm'),
@@ -1367,6 +1378,36 @@
       syncHotelCouponButtons();
     }
 
+    async function updateSevenArchesAuthoritativeQuote(){
+      const bridge = window.HotelsV2SevenArchesPublicPricing;
+      const form = document.getElementById('hotelBookingForm');
+      if (!bridge?.isSevenArches?.(currentHotel) || !form) return null;
+      const guests = Number(form.elements.adults?.value || 0) + Number(form.elements.children?.value || 0);
+      bridge.syncRoomSelectionUi(currentHotel, form, guests);
+      const note = document.getElementById('hotelPriceNote');
+      try {
+        if (!sevenArchesQuoteSession) sevenArchesQuoteSession = bridge.createQuoteSession(supabase);
+        const quote = await sevenArchesQuoteSession.refresh(currentHotel, form);
+        if (sevenArchesQuoteSession.current !== quote) return null;
+        const coupon = getHotelCouponContext(quote.customer_total);
+        document.getElementById('modalHotelPrice').textContent = formatHotelPrice(coupon.finalTotal);
+        note.style.display = 'block';
+        note.className = 'booking-message';
+        note.textContent = `${bridge.quoteSummary(quote, getHotelsPageBookingLanguage())}. ${t('hotels.price.serverAuthority', 'Server-derived Room pricing')}.`;
+        return quote;
+      } catch (error) {
+        document.getElementById('modalHotelPrice').textContent = formatHotelPrice(0);
+        note.style.display = 'block';
+        note.className = 'booking-message error';
+        note.textContent = /Room selection|required/i.test(String(error?.message || ''))
+          ? t('hotels.price.roomRequired', 'Select Upper Floor Apartment or Ground Floor Apartment for an authoritative quote.')
+          : String(error?.message || t('hotels.price.serverUnavailable', 'The authoritative quote is temporarily unavailable.'));
+        return null;
+      } finally {
+        syncHotelCouponButtons();
+      }
+    }
+
     // Prefill form with user data if logged in
     async function prefillUserData() {
       try {
@@ -1410,6 +1451,7 @@
       const h = list[idx];
       if(!h) return;
       currentHotel = h;
+      sevenArchesQuoteSession = null;
       const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
       const image = mediaDisplayUrl(h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png');
       const imgEl = document.getElementById('modalHotelImage');
@@ -1541,7 +1583,8 @@
             ratePlanInputName: 'hotel_rate_plan_id',
           })
           : (Number(currentHotel.max_persons||0) || null);
-        if (maxPersons && persons > maxPersons) {
+        if (!window.HotelsV2SevenArchesPublicPricing?.isSevenArches?.(currentHotel)
+            && maxPersons && persons > maxPersons) {
           throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
         const quote = getCurrentHotelQuote();
@@ -1595,6 +1638,28 @@
             roomInputName: 'hotel_room_type_id',
             ratePlanInputName: 'hotel_rate_plan_id',
           }));
+        }
+        const publicPricing = window.HotelsV2SevenArchesPublicPricing;
+        if (publicPricing?.isSevenArches?.(currentHotel)) {
+          const referralController = await ensureHotelReferralUi();
+          if (referralController && !(await referralController.ensureReadyForSubmit())) {
+            throw new Error(t('referral.invalid', 'This referral code is not valid.'));
+          }
+          if (!sevenArchesQuoteSession) sevenArchesQuoteSession = publicPricing.createQuoteSession(supabase);
+          const result = await sevenArchesQuoteSession.submit(currentHotel, e.target, {
+            language: getHotelsPageBookingLanguage(),
+            referral: referralController?.getPayload?.() || null,
+          });
+          msg.className='booking-message success';
+          msg.textContent=t('hotels.booking.successTotal', `Booking received. Total: ${formatHotelPrice(result.customer_total)}.`, { total: formatHotelPrice(result.customer_total) });
+          msg.style.display='block';
+          e.target.reset();
+          sevenArchesQuoteSession.clear();
+          syncHotelsBookingPhoneInput();
+          clearHotelCouponState({ clearInput: true });
+          renderHotelBookingUiSections({ selectedExtraIds: [] });
+          updateLivePrice();
+          return;
         }
         let insertPayload = { ...payload };
         let insertError = null;

@@ -66,6 +66,13 @@
       calendarUrl: 'Private HTTPS iCal URL', calendarUrlNeverShown: 'The URL is sent only for this reviewed Save and is never displayed again.',
       never_synced: 'Never synced', healthy: 'Healthy', degraded: 'Degraded', syncing: 'Syncing',
       locationUnknown: 'Location not specified', allOff: 'All capabilities OFF', assignedHotels: 'exact assigned Hotels', loadingAssignments: 'Loading exact assigned Hotels…',
+      reviewedPricingIntro: 'Propose exact independent Room prices for Admin review. Live prices do not change when this proposal is submitted.',
+      reviewedPricingMatrix: 'Reviewed Room pricing matrix', minimumNights: 'Minimum nights', currentPrice: 'Current price', requestedPrice: 'Requested price',
+      previewProposal: 'Preview proposal', submitProposal: 'Submit for Admin review', proposalSubmitted: 'Pricing proposal submitted for Admin review. Live pricing is unchanged.',
+      proposalStatus: 'Proposal status', proposalId: 'Proposal ID', roomImpact: 'Room price impact', bundleImpact: '5–8 guest bundle impact',
+      commissionReadOnly: 'Commission is server-derived and read-only.', noPricingChanges: 'Change at least one exact Room tier before Preview.',
+      pricingProposalHistory: 'Reviewed pricing proposals', pricingControlUnavailable: 'Exact reviewed pricing control is unavailable. No proposal can be prepared.',
+      acceptedProposal: 'Accepted', rejectedProposal: 'Rejected', consumed: 'Consumed', expires: 'Expires',
     },
     pl: {
       openWorkspace: 'Otwórz panel', back: 'Wróć do rezerwacji hotelowych', refresh: 'Odśwież dokładny panel',
@@ -128,6 +135,13 @@
       calendarUrl: 'Prywatny adres HTTPS iCal', calendarUrlNeverShown: 'URL jest wysyłany tylko dla tego sprawdzonego zapisu i nigdy nie jest ponownie wyświetlany.',
       never_synced: 'Nigdy nie synchronizowano', healthy: 'Prawidłowy', degraded: 'Pogorszony', syncing: 'Synchronizacja',
       locationUnknown: 'Nie podano lokalizacji', allOff: 'Wszystkie możliwości WYŁĄCZONE', assignedHotels: 'dokładnie przypisanych hoteli', loadingAssignments: 'Ładowanie dokładnie przypisanych hoteli…',
+      reviewedPricingIntro: 'Zaproponuj dokładne ceny niezależnych pokoi do weryfikacji przez Admina. Wysłanie propozycji nie zmienia bieżących cen.',
+      reviewedPricingMatrix: 'Macierz cen pokoju do weryfikacji', minimumNights: 'Minimalna liczba nocy', currentPrice: 'Bieżąca cena', requestedPrice: 'Proponowana cena',
+      previewProposal: 'Wyświetl propozycję', submitProposal: 'Wyślij do Admina', proposalSubmitted: 'Propozycję cen wysłano do weryfikacji przez Admina. Bieżące ceny nie uległy zmianie.',
+      proposalStatus: 'Status propozycji', proposalId: 'Identyfikator propozycji', roomImpact: 'Wpływ na cenę pokoju', bundleImpact: 'Wpływ na pakiet dla 5–8 gości',
+      commissionReadOnly: 'Prowizja jest wyliczana przez serwer i tylko do odczytu.', noPricingChanges: 'Przed podglądem zmień co najmniej jeden dokładny próg pokoju.',
+      pricingProposalHistory: 'Propozycje cen do weryfikacji', pricingControlUnavailable: 'Dokładna kontrola cen do weryfikacji jest niedostępna. Nie można przygotować propozycji.',
+      acceptedProposal: 'Zaakceptowana', rejectedProposal: 'Odrzucona', consumed: 'Rozpatrzona', expires: 'Wygasa',
     },
     he: {
       openWorkspace: 'פתיחת סביבת העבודה', back: 'חזרה להזמנות המלון', refresh: 'רענון סביבת העבודה המדויקת',
@@ -190,6 +204,13 @@
       calendarUrl: 'כתובת iCal פרטית ב-HTTPS', calendarUrlNeverShown: 'הכתובת נשלחת רק בשמירה שנבדקה ואינה מוצגת שוב.',
       never_synced: 'טרם סונכרן', healthy: 'תקין', degraded: 'פגום', syncing: 'בסנכרון',
       locationUnknown: 'לא צוין מיקום', allOff: 'כל היכולות כבויות', assignedHotels: 'מלונות משויכים מדויקים', loadingAssignments: 'טוען מלונות משויכים מדויקים…',
+      reviewedPricingIntro: 'הצעת מחירים מדויקים לחדרים עצמאיים לבדיקת Admin. השליחה אינה משנה את המחירים החיים.',
+      reviewedPricingMatrix: 'מטריצת תמחור חדרים לבדיקה', minimumNights: 'מינימום לילות', currentPrice: 'מחיר נוכחי', requestedPrice: 'מחיר מבוקש',
+      previewProposal: 'תצוגה מקדימה להצעה', submitProposal: 'שליחה לבדיקת Admin', proposalSubmitted: 'הצעת התמחור נשלחה לבדיקת Admin. התמחור החי לא השתנה.',
+      proposalStatus: 'סטטוס הצעה', proposalId: 'מזהה הצעה', roomImpact: 'השפעה על מחיר החדר', bundleImpact: 'השפעה על חבילה ל־5–8 אורחים',
+      commissionReadOnly: 'העמלה מחושבת בשרת ומוצגת לקריאה בלבד.', noPricingChanges: 'יש לשנות לפחות מדרגת חדר מדויקת אחת לפני התצוגה המקדימה.',
+      pricingProposalHistory: 'הצעות תמחור לבדיקה', pricingControlUnavailable: 'בקרת התמחור המדויקת אינה זמינה. לא ניתן להכין הצעה.',
+      acceptedProposal: 'אושרה', rejectedProposal: 'נדחתה', consumed: 'טופלה', expires: 'תפוגה',
     },
   });
 
@@ -197,6 +218,7 @@
     root: null, dialog: null, portal: null, partnerId: null, assignment: null, workspace: null,
     language: 'en', section: 'overview', loading: false, generation: 0, pending: null,
     opener: null, roomEditor: null, commercialPreview: null, commercialRequest: null,
+    pricingProposal: null, pricingControl: null, pricingControlError: null,
     mediaDraft: { property: [], rooms: {} }, photoDraft: { property: null, rooms: {} },
     externalCalendar: null, externalCalendarError: null,
   };
@@ -242,7 +264,7 @@
   }
   function diagnostics(id) { return `<details class="partner-hotel-workspace__diagnostics"><summary>${html(text('technical'))}</summary><code>${html(id || '')}</code></details>`; }
   function enumLabel(value) {
-    const keys = { active: 'active', inactive: 'inactive', draft: 'draft', disabled: 'disabled', requires_review: 'requiresReview', reviewed: 'reviewed', pooled: 'pooled', unitized: 'unitized' };
+    const keys = { active: 'active', inactive: 'inactive', draft: 'draft', disabled: 'disabled', requires_review: 'requiresReview', reviewed: 'reviewed', pooled: 'pooled', unitized: 'unitized', pending_admin_review: 'pendingReview', accepted: 'acceptedProposal', rejected: 'rejectedProposal' };
     return text(keys[value] || value);
   }
   function blockerLabel(value) {
@@ -456,6 +478,11 @@
   function renderPricing() {
     const pricing = state.workspace.pricing;
     if (!pricing) return '';
+    const reviewedTargets = Core.sevenArchesReviewedPricingTargets(state.workspace);
+    if (reviewedTargets) return renderSevenArchesReviewedPricing(pricing, reviewedTargets);
+    if (Core.hasSevenArchesReviewedPricingIdentity(state.workspace)) {
+      return `<section class="partner-hotel-workspace__panel" data-phw-panel="rates_pricing"><h2>${html(text('pricing'))}</h2><div class="partner-hotel-workspace__status" data-tone="error">${html(text('pricingControlUnavailable'))}</div></section>`;
+    }
     const blocked = pricing.mutation_blocked_reasons || [];
     const plans = pricing.rate_plans.map((row) => `<article class="partner-hotel-workspace__card"><h3>${html(localized(row.name_i18n, row.code))}</h3><p>${html(enumLabel(row.review_status))} · ${html(text(row.is_active ? 'active' : 'inactive'))}</p>${diagnostics(row.id)}</article>`).join('');
     const rates = pricing.room_rates.map((row) => `<article class="partner-hotel-workspace__card" data-phw-room-rate-product><h3>${html(rateName(row.id))}</h3><p>${html(enumLabel(row.review_status))} · ${html(text(row.is_active ? 'active' : 'inactive'))}</p><dl><div><dt>${html(text('pricingSource'))}</dt><dd>${html(pricingSourceLabel(row))}</dd></div><div><dt>${html(text('currentNightlyPrice'))}</dt><dd>${html(formatMoney(row.base_nightly_rate, row.currency))}</dd></div></dl><p>${html(text(row.base_nightly_rate_authoritative ? 'editableBasePrice' : 'tierOwnedPrice'))}</p>${diagnostics(row.id)}</article>`).join('');
@@ -466,6 +493,28 @@
       <form class="partner-hotel-workspace__form" data-phw-pricing ${blocked.length ? 'aria-disabled="true"' : ''}><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('priceField'))}<select name="entity"><option value="room_rate_price" ${hasAuthoritativeBase ? '' : 'disabled'}>${html(text('basePrice'))}</option><option value="schedule_tier_price">${html(text('sharedTier'))}</option><option value="room_rate_tier_price">${html(text('directTier'))}</option><option value="exact_date_price">${html(text('exactDate'))}</option></select></label><label class="partner-hotel-workspace__field">${html(text('exactProduct'))}<select name="target"></select></label><label class="partner-hotel-workspace__field" data-phw-exact-date hidden>${html(text('stayDate'))}<input name="stay_date" type="date" min="${todayIso()}" /></label><label class="partner-hotel-workspace__field">${html(text('nightlyPrice'))}<input name="nightly_rate" type="number" min="0" step="0.01" required /></label></div>${hasAuthoritativeBase ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('authoritativeOnly'))}</p>`}<label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" maxlength="500" required /></label><button class="btn-sm primary" ${blocked.length ? 'disabled' : ''}>${html(text('review'))}</button></form>
       <form class="partner-hotel-workspace__form" data-phw-stay><h3>${html(text('stayPreview'))}</h3><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('checkIn'))}<input name="check_in" type="date" min="${todayIso()}" value="${addDays(todayIso(), 1)}" required /></label><label class="partner-hotel-workspace__field">${html(text('checkOut'))}<input name="check_out" type="date" min="${addDays(todayIso(), 1)}" value="${addDays(todayIso(), 3)}" required /></label><label class="partner-hotel-workspace__field">${html(text('adults'))}<input name="adults" type="number" min="1" max="50" value="2" required /></label><label class="partner-hotel-workspace__field">${html(text('childAges'))}<input name="child_ages" placeholder="8, 12" /></label><label class="partner-hotel-workspace__field">${html(text('ratePlan'))}<select name="rate_plan_id"><option value="">${html(text('automatic'))}</option>${pricing.rate_plans.map((row) => `<option value="${row.id}">${html(localized(row.name_i18n, row.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="selected_room_type_id"><option value="">${html(text('automatic'))}</option>${state.workspace.rooms.map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.code))}</option>`).join('')}</select></label><label class="partner-hotel-workspace__field">${html(text('allocation'))}<select name="allocation_rule_id"><option value="">${html(text('automatic'))}</option>${pricing.allocation_rules.map((row) => `<option value="${row.id}">${html(row.code)}</option>`).join('')}</select></label></div><button class="btn-sm" type="submit">${html(text('previewStay'))}</button></form>${renderCommercial(state.commercialPreview)}
     </section>`;
+  }
+
+  function renderSevenArchesReviewedPricing(pricing, targets) {
+    const policy = pricing.commission_policy;
+    const policyCard = policy ? `<article class="partner-hotel-workspace__card" data-phw-commission-policy><h3>${html(text('commissionPolicy'))}</h3><p><strong>${html(commissionRule(policy))}</strong></p><p>${html(text('commissionReadOnly'))}</p><small>${html(policy.code)}</small></article>` : '';
+    const proposals = [...(state.pricingControl?.proposals || [])];
+    if (state.pricingProposal && !proposals.some((entry) => entry.proposal_id === state.pricingProposal.proposal_id)) {
+      proposals.unshift({ ...state.pricingProposal, reason: '', item_count: 0, created_at: null, expires_at: null, consumed_at: null });
+    }
+    const proposalStatus = (entry) => entry.status === 'pending_admin_review'
+      && entry.expires_at && Date.parse(entry.expires_at) <= Date.now()
+      ? 'expired'
+      : entry.status;
+    const proposal = proposals.length ? `<section data-phw-reviewed-pricing-status><h3>${html(text('pricingProposalHistory'))}</h3><div class="partner-hotel-workspace__grid">${proposals.map((entry) => `<article class="partner-hotel-workspace__card"><strong>${html(enumLabel(proposalStatus(entry)))}</strong><p>${entry.reason ? html(entry.reason) : ''}</p><small>${html(text('proposalId'))}: ${html(entry.proposal_id)}</small>${entry.expires_at ? `<br><small>${html(text('expires'))}: ${html(entry.expires_at)}</small>` : ''}${entry.consumed_at ? `<br><small>${html(text('consumed'))}: ${html(entry.consumed_at)}</small>` : ''}</article>`).join('')}</div></section>` : '';
+    const matrices = targets.map((target) => {
+      const rows = target.tiers.map((tier) => `<tr data-phw-reviewed-tier-row><th scope="row">${tier.guest_count}</th><td>${tier.threshold_nights}</td><td>${html(formatMoney(tier.nightly_rate, target.schedule.currency))}</td><td><input data-phw-reviewed-tier name="price_${html(tier.id)}" data-tier-id="${html(tier.id)}" data-before-price="${html(tier.nightly_rate)}" type="number" min="10" max="9999999999.99" step="0.01" value="${html(tier.nightly_rate)}" aria-label="${html(`${localized(target.room.name_i18n, target.room.code)} · ${tier.guest_count} ${text('guests')} · ${tier.threshold_nights} ${text('nights')}`)}"></td></tr>`).join('');
+      return `<article class="partner-hotel-workspace__card" data-phw-reviewed-room="${html(target.roomKey)}"><h3>${html(localized(target.room.name_i18n, target.room.code))}</h3><p>${html(localized(target.schedule.name_i18n, target.schedule.code))} · ${html(text('reviewedPricingMatrix'))}</p><div style="overflow:auto"><table><thead><tr><th>${html(text('guests'))}</th><th>${html(text('minimumNights'))}</th><th>${html(text('currentPrice'))}</th><th>${html(text('requestedPrice'))}</th></tr></thead><tbody>${rows}</tbody></table></div>${diagnostics(target.room.id)}${diagnostics(target.rate.id)}</article>`;
+    }).join('');
+    const unavailable = state.pricingControlError ? `<div class="partner-hotel-workspace__status" data-tone="error">${html(state.pricingControlError)}</div>` : '';
+    const hasPending = proposals.some((entry) => proposalStatus(entry) === 'pending_admin_review');
+    const form = state.pricingControl && !hasPending ? `<form class="partner-hotel-workspace__form" data-phw-seven-arches-pricing><div class="partner-hotel-workspace__grid">${matrices}${policyCard}</div><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" type="submit">${html(text('previewProposal'))}</button></form>` : `<div class="partner-hotel-workspace__grid">${matrices}${policyCard}</div><div class="partner-hotel-workspace__status" data-tone="warning">${html(text(hasPending ? 'pendingReview' : 'pricingControlUnavailable'))}</div>`;
+    return `<section class="partner-hotel-workspace__panel" data-phw-panel="rates_pricing"><h2>${html(text('pricing'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('reviewedPricingIntro'))}</p>${proposal}${unavailable}${form}</section>`;
   }
 
   function externalCalendarProviderLabel(sourceType) {
@@ -540,6 +589,7 @@
     try {
       const preview = domain === 'content' ? await Repository.previewContentPlan(draft)
         : domain === 'pricing' ? await Repository.previewPricingPlan(draft)
+          : domain === 'seven_arches_pricing' ? await Repository.previewSevenArchesPricingProposal(draft)
           : domain === 'availability' ? await Repository.previewAvailabilityPlan(draft)
             : await Repository.previewExternalCalendarPlan(draft, state.externalCalendar);
       if (!preview.changed) { setStatus(text('noChange'), 'success'); return; }
@@ -554,9 +604,22 @@
     return `<div class="partner-hotel-workspace-review__commercial"><div><small>${html(text(exactStay ? 'exactStayCustomerTotal' : 'customerSellingPrice'))}</small><strong>${html(formatMoney(value.customer_price, value.currency))}</strong></div><div><small>${html(text('commission'))}</small><strong>${html(formatMoney(value.cypruseye_commission, value.currency))}</strong></div><div><small>${html(text('partnerNet'))}</small><strong>${html(formatMoney(value.partner_net, value.currency))}</strong></div></div><p><small>${html(text('commissionBasis'))}: ${html(policy)}</small></p>`;
   }
   function exampleCommercial(result) { return result?.commercial ? commercialColumns(result.commercial, true) : `<p>${html(text('notCalculated'))}</p>`; }
+  function reviewedPricingImpact(impact) {
+    const roomScope = impact.scope === 'single_room';
+    const title = roomScope ? `${text('roomImpact')} · ${impact.room_key}` : `${text('bundleImpact')} · ${impact.requested_guest_count} ${text('guests')}`;
+    return `<article class="partner-hotel-workspace__card" data-phw-reviewed-commercial-impact><h3>${html(title)}</h3><p>${impact.minimum_nights} ${html(text('nights'))}</p><div class="partner-hotel-workspace-review__commercial"><div><small>${html(text('before'))}</small><strong>${html(formatMoney(impact.customer_before, impact.currency))}</strong></div><div><small>${html(text('after'))}</small><strong>${html(formatMoney(impact.customer_after, impact.currency))}</strong></div><div><small>${html(text('commission'))}</small><strong>${html(formatMoney(impact.cypruseye_commission, impact.currency))}</strong></div><div><small>${html(text('partnerNet'))}</small><strong>${html(formatMoney(impact.partner_net_after, impact.currency))}</strong></div></div></article>`;
+  }
   function focusables(node) { return Array.from(node.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')); }
   function openReview() {
     const { preview, domain } = state.pending;
+    if (domain === 'seven_arches_pricing') {
+      const policy = preview.reviewed_plan.commission_policy;
+      state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
+      state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><p>${html(text('reviewedPricingIntro'))}</p><div class="partner-hotel-workspace__grid">${preview.commercial_impacts.map(reviewedPricingImpact).join('')}</div><article class="partner-hotel-workspace__card"><h3>${html(text('commissionPolicy'))}</h3><strong>${html(commissionRule(policy))}</strong><p>${html(text('commissionReadOnly'))}</p></article><p>${html(text('readOnly'))}</p></div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save>${html(text('submitProposal'))}</button></footer></div>`;
+      state.dialog.showModal();
+      focusables(state.dialog)[0]?.focus();
+      return;
+    }
     const impact = preview.impacts[0];
     state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
     const affectedRooms = impact.affected_room_type_ids || [];
@@ -565,7 +628,7 @@
     state.dialog.showModal();
     focusables(state.dialog)[0]?.focus();
   }
-  function closeReview() { if (state.dialog?.open) state.dialog.close(); const opener = state.pending?.opener; if (state.pending?.domain === 'external_calendar') Repository.clearReviewedPlans(); if (state.dialog) state.dialog.innerHTML = ''; state.pending = null; opener?.focus?.(); }
+  function closeReview() { if (state.dialog?.open) state.dialog.close(); const opener = state.pending?.opener; if (['external_calendar', 'seven_arches_pricing'].includes(state.pending?.domain)) Repository.clearReviewedPlans(); if (state.dialog) state.dialog.innerHTML = ''; state.pending = null; opener?.focus?.(); }
 
   async function saveReview(button) {
     if (!state.pending) return;
@@ -577,6 +640,8 @@
         ? await Repository.applyContentPlan(preview.reviewed_plan, correlation, idempotency)
         : domain === 'pricing'
           ? await Repository.applyPricingPlan(preview.reviewed_plan, correlation, idempotency)
+          : domain === 'seven_arches_pricing'
+            ? await Repository.submitSevenArchesPricingProposal(preview.reviewed_plan, correlation, idempotency)
           : domain === 'availability'
             ? await Repository.applyAvailabilityPlan(preview.reviewed_plan, correlation, idempotency)
             : await Repository.applyExternalCalendarPlan(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
@@ -584,7 +649,17 @@
       if (domain === 'external_calendar') state.externalCalendar = result.control;
       if (domain === 'content') { state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} }; }
       if (domain === 'pricing') { state.commercialPreview = null; state.commercialRequest = null; }
-      closeReview(); render(); setStatus(text('saved'), 'success');
+      if (domain === 'seven_arches_pricing') {
+        state.pricingProposal = result;
+        try {
+          state.pricingControl = await Repository.getSevenArchesPricingControl(state.partnerId, state.workspace.hotel_id);
+          state.pricingControlError = null;
+        } catch (error) {
+          state.pricingControl = null;
+          state.pricingControlError = error.userMessage || error.message;
+        }
+      }
+      closeReview(); render(); setStatus(text(domain === 'seven_arches_pricing' ? 'proposalSubmitted' : 'saved'), 'success');
     } catch (error) {
       closeReview();
       setStatus(error.userMessage || error.message, error.isStale || error.saveSucceeded ? 'warning' : 'error');
@@ -656,7 +731,14 @@
       const workspace = await Repository.getWorkspace(state.partnerId, state.assignment.hotel_id, from, to);
       if (generation !== state.generation) return;
       state.workspace = workspace;
-      state.externalCalendar = null; state.externalCalendarError = null;
+      state.externalCalendar = null; state.externalCalendarError = null; state.pricingControl = null; state.pricingControlError = null;
+      if (Core.isSevenArchesReviewedPricingWorkspace(workspace)) {
+        try {
+          state.pricingControl = await Repository.getSevenArchesPricingControl(state.partnerId, workspace.hotel_id);
+        } catch (error) {
+          state.pricingControlError = error.userMessage || error.message;
+        }
+      }
       if (workspace.assignment.capabilities.manage_availability === true) {
         try {
           state.externalCalendar = await Repository.getExternalCalendarControl(state.partnerId, workspace.hotel_id);
@@ -677,11 +759,11 @@
     state.partnerId = Core.requireCanonicalUuid(options.partnerId, 'partner_id');
     Core.requireCanonicalUuid(options.assignment?.assignment_id, 'assignment_id'); Core.requireCanonicalUuid(options.assignment?.hotel_id, 'hotel_id');
     state.assignment = options.assignment; state.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    state.language = initialLanguage(); state.section = 'overview'; state.workspace = null; state.commercialPreview = null; state.commercialRequest = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
+    state.language = initialLanguage(); state.section = 'overview'; state.workspace = null; state.commercialPreview = null; state.commercialRequest = null; state.pricingProposal = null; state.pricingControl = null; state.pricingControlError = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
     if (state.portal) state.portal.hidden = true; state.root.hidden = false; await load(); state.root.focus?.();
   }
   function close(options = {}) {
-    state.generation += 1; Repository?.clearReviewedPlans?.(); closeReview(); state.workspace = null; state.assignment = null; state.partnerId = null; state.commercialRequest = null; state.commercialPreview = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
+    state.generation += 1; Repository?.clearReviewedPlans?.(); closeReview(); state.workspace = null; state.assignment = null; state.partnerId = null; state.commercialRequest = null; state.commercialPreview = null; state.pricingProposal = null; state.pricingControl = null; state.pricingControlError = null; state.externalCalendar = null; state.externalCalendarError = null; state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} };
     if (state.root) { state.root.hidden = true; state.root.innerHTML = ''; }
     if (options.restorePortal !== false && state.portal) state.portal.hidden = false;
     state.opener?.focus?.(); state.opener = null;
@@ -733,7 +815,7 @@
         await review('content', contentDraft({ entity: 'room', action: 'create', id: null, payload, reason: String(data.get('reason') || '').trim() }), opener); return;
       }
       if (form.matches('[data-phw-pricing]')) {
-        const entity = String(data.get('entity')); const target = Core.requireCanonicalUuid(String(data.get('target')), 'pricing target'); const nightly = Number(data.get('nightly_rate'));
+        const entity = String(data.get('entity')); const target = Core.requirePricingTargetUuid(entity, String(data.get('target')), 'pricing target'); const nightly = Number(data.get('nightly_rate'));
         const stayDate = String(data.get('stay_date'));
         if (entity === 'exact_date_price') {
           const existing = state.workspace.pricing.exact_date_prices.some((row) => row.room_rate_id === target && row.stay_date === stayDate);
@@ -742,6 +824,19 @@
         const intent = entity === 'exact_date_price' ? { entity, action: 'upsert', id: null, payload: { room_rate_id: target, stay_date: stayDate, nightly_rate_mode: 'set', nightly_rate: nightly }, reason: String(data.get('reason') || '').trim() } : { entity, action: 'update', id: target, payload: { nightly_rate: nightly }, reason: String(data.get('reason') || '').trim() };
         const example = state.commercialRequest?.pricing_snapshot_token === state.workspace.pricing.snapshot_token ? state.commercialRequest : null;
         await review('pricing', pricingDraft(intent, example), opener); return;
+      }
+      if (form.matches('[data-phw-seven-arches-pricing]')) {
+        const requestedItems = Array.from(form.querySelectorAll('[data-phw-reviewed-tier]')).filter((input) => {
+          const requested = Number(input.value);
+          const before = Number(input.dataset.beforePrice);
+          return Number.isFinite(requested) && requested !== before;
+        }).map((input) => ({ schedule_tier_id: input.dataset.tierId, requested_price: Number(input.value) }));
+        if (!requestedItems.length) { setStatus(text('noPricingChanges'), 'warning'); return; }
+        try {
+          const draft = Core.buildSevenArchesReviewedPricingDraft(state.workspace, requestedItems, String(data.get('reason') || '').trim());
+          await review('seven_arches_pricing', draft, opener);
+        } catch (error) { setStatus(error.message || String(error), 'error'); }
+        return;
       }
       if (form.matches('[data-phw-stay]')) {
         const request = { contract_version: Core.CONTRACTS.commercialRequest, partner_id: state.partnerId, hotel_id: state.workspace.hotel_id, pricing_snapshot_token: state.workspace.pricing.snapshot_token, rate_plan_id: nullableText(data.get('rate_plan_id')), allocation_rule_id: nullableText(data.get('allocation_rule_id')), selected_room_type_id: nullableText(data.get('selected_room_type_id')), check_in: String(data.get('check_in')), check_out: String(data.get('check_out')), adults: Number(data.get('adults')), child_ages: String(data.get('child_ages') || '').trim() ? String(data.get('child_ages')).split(',').map((age) => Number(age.trim())) : [] };

@@ -16494,6 +16494,44 @@ body.car-multicity-modal-open {
 }
 .hotel-pricing-safety-banner h4,.hotel-pricing-safety-banner p { margin:0; }
 .hotel-pricing-safety-banner p { margin-top:6px; color:var(--admin-text-muted); line-height:1.5; }
+.hotel-reviewed-pricing-control {
+  display:grid;
+  gap:14px;
+  margin-bottom:14px;
+  border-color:rgba(52,211,153,.38);
+  background:linear-gradient(145deg,rgba(6,78,59,.2),rgba(15,23,42,.86));
+}
+.hotel-reviewed-pricing-control h4,.hotel-reviewed-pricing-control h5,
+.hotel-reviewed-pricing-control p { margin:0; }
+.hotel-reviewed-pricing-summary {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+  margin:0;
+}
+.hotel-reviewed-pricing-summary > div {
+  min-width:0;
+  padding:10px;
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:10px;
+  background:rgba(15,23,42,.55);
+}
+.hotel-reviewed-pricing-summary dt { color:var(--admin-text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.hotel-reviewed-pricing-summary dd { margin:4px 0 0; color:#f8fafc; font-weight:700; overflow-wrap:anywhere; }
+.hotel-reviewed-pricing-proposals { display:grid; gap:10px; }
+.hotel-reviewed-pricing-proposal {
+  min-width:0;
+  display:grid;
+  gap:10px;
+  padding:13px;
+  border:1px solid rgba(148,163,184,.23);
+  border-radius:12px;
+  background:rgba(15,23,42,.64);
+}
+.hotel-reviewed-pricing-proposal > header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.hotel-reviewed-pricing-tier-editor input[type="number"] { min-width:120px; }
+.hotel-reviewed-pricing-tier-editor input:disabled { opacity:.55; }
+.hotel-reviewed-pricing-impact strong { color:#a7f3d0; }
 .hotel-pricing-jump-nav {
   position:sticky;
   top:106px;
@@ -16797,6 +16835,8 @@ html[dir="rtl"] .hotel-pricing-property-default > div:last-child { justify-items
   .hotel-pricing-product-grid,.hotel-pricing-schedule-grid,
   .hotel-pricing-allocation-grid,.hotel-pricing-rule-columns,
   .hotel-pricing-preview-allocation,.hotel-pricing-preview-products { grid-template-columns:1fr; }
+  .hotel-reviewed-pricing-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hotel-reviewed-pricing-proposal > header { align-items:stretch; flex-direction:column; }
   .hotel-pricing-section > header,.hotel-pricing-product-card > header,
   .hotel-pricing-schedule-card > header,.hotel-pricing-allocation-card > header,
   .hotel-pricing-preview-result > header { align-items:stretch; flex-direction:column; }

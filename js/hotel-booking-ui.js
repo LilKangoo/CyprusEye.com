@@ -588,6 +588,8 @@
   }
 
   function getRoomCapacity(hotel, options) {
+    const roomAwareCapacity = globalScope.HotelsV2SevenArchesPublicPricing?.getGuestCapacity?.(hotel);
+    if (Number.isInteger(roomAwareCapacity) && roomAwareCapacity > 0) return roomAwareCapacity;
     const api = getPricingApi();
     const selection = getRoomSelection(hotel, options);
     if (api?.getHotelRoomCapacity) {
@@ -813,6 +815,13 @@
     const roomType = summary.selection.roomType || null;
     const ratePlans = Array.isArray(summary.selection.ratePlans) ? summary.selection.ratePlans : [];
     const ratePlan = summary.selection.ratePlan || null;
+    const roomAwareBridge = typeof window !== 'undefined' ? window.HotelsV2SevenArchesPublicPricing : null;
+    const exactRoomRequired = Boolean(roomAwareBridge?.isSevenArches?.(hotel));
+    const explicitRoomTypeId = String(
+      options?.selectedRoomTypeId != null
+        ? options.selectedRoomTypeId
+        : getSelectedRoomTypeId(form, roomInputName),
+    ).trim();
     if (!roomTypes.length || !roomType) {
       target.hidden = true;
       target.innerHTML = '';
@@ -846,10 +855,11 @@
           <label style="display:grid; gap:6px; font-size:13px; color:#334155;">
             <span>${roomLabel}</span>
             <select name="${roomInputName}" style="padding:12px; border-radius:12px; border:1px solid rgba(148,163,184,.35); background:#fff; color:#0f172a;">
+              ${exactRoomRequired ? `<option value="" ${explicitRoomTypeId ? '' : 'selected'}>${pickUiLabel(language, { pl: 'Wybierz dokładny apartament', en: 'Choose an exact apartment', he: 'בחרו דירה מדויקת' })}</option>` : ''}
               ${roomTypes.map((entry) => {
                 const label = localizeText(entry.name, language) || entry.id;
                 const cap = entry.max_persons ? ` · ${guestsLabel} ${entry.max_persons} ${guestsSuffix}` : '';
-                return `<option value="${entry.id}" ${entry.id === roomType.id ? 'selected' : ''}>${label}${cap}</option>`;
+                return `<option value="${entry.id}" ${entry.id === (exactRoomRequired ? explicitRoomTypeId : roomType.id) ? 'selected' : ''}>${label}${cap}</option>`;
               }).join('')}
             </select>
           </label>

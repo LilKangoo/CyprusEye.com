@@ -44,6 +44,9 @@
     sevenArchesPricingActivation: 'hotel_v2_admin_get_seven_arches_pricing_activation',
     previewSevenArchesPricingActivation: 'hotel_v2_admin_preview_seven_arches_pricing_activation',
     applySevenArchesPricingActivation: 'hotel_v2_admin_apply_seven_arches_pricing_activation',
+    sevenArchesReviewedPricing: 'hotel_v2_admin_get_seven_arches_reviewed_pricing',
+    previewSevenArchesReviewedPricing: 'hotel_v2_admin_preview_seven_arches_reviewed_pricing',
+    applySevenArchesReviewedPricing: 'hotel_v2_admin_apply_seven_arches_reviewed_pricing',
   });
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,6 +54,7 @@
   const reviewedExternalCalendarPlans = new Map();
   const reviewedPartnerPropertyProposalPlans = new Map();
   const reviewedSevenArchesPricingActivationPlans = new Map();
+  const reviewedSevenArchesReviewedPricingPlans = new Map();
 
   function stableJson(value) {
     if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
@@ -78,6 +82,18 @@
 
   function reviewedShadowUserMessage(message) {
     const key = String(message || '').trim().toLowerCase();
+    if (/hotels_v2_seven_arches_reviewed_pricing_(?:proposal_stale|assignment_stale|tier_stale|review_expired|review_consumed)/.test(key)) {
+      return 'This reviewed 7 Arches pricing proposal changed or expired. Fresh server values must be loaded and explicitly reviewed again; nothing was retried.';
+    }
+    if (/hotels_v2_seven_arches_reviewed_pricing_(?:apply_identity_conflict|idempotency|correlation)/.test(key)) {
+      return 'This reviewed pricing correlation or idempotency identity is already bound to another operation. Reload current state and prepare a new Review.';
+    }
+    if (/hotels_v2_seven_arches_reviewed_pricing_(?:topology|parity|commission|payment|receipt|authority|untouched|postcondition)/.test(key)) {
+      return 'The protected 7 Arches pricing topology or commercial evidence no longer matches the reviewed plan. The entire save was rolled back.';
+    }
+    if (/hotels_v2_seven_arches_reviewed_pricing_/.test(key)) {
+      return 'The reviewed 7 Arches pricing request is invalid, incomplete or outside the exact independent Room topology. No pricing change was saved.';
+    }
     if (/hotels_v2_admin_d_(?:stale_availability_snapshot|stale_hold|stale_daily_inventory|stale_unit_calendar_block|stale_operational_override|stale_rate_rule_operational_restriction|stale_booking_allocation|booking_stale|concurrent_availability_conflict|review_required|expiry_elapsed_since_review|reviewed_operation_state_changed)/.test(key)) {
       return 'Availability changed after Review. Reload the exact range and explicitly review fresh values; nothing was retried.';
     }
@@ -214,7 +230,7 @@
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
     normalized.userMessage = reviewedShadowUserMessage(message);
-    normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion)|hotels_v2_seven_arches_(?:property_proposal|pricing_activation))_[a-z0-9_]+$/i.test(message)
+    normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion)|hotels_v2_seven_arches_(?:property_proposal|pricing_activation|reviewed_pricing))_[a-z0-9_]+$/i.test(message)
       ? message
       : null;
     // H2B.1 uses PostgREST's explicit HTTP-conflict SQLSTATE for reviewed
@@ -398,6 +414,75 @@
       return { ...validated, activation, workspace, pricing_control: pricingControl };
     } catch (cause) {
       const error = new Error('The activation receipt was validated, but exact current pricing could not be refreshed. Refresh current state; the mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
+  }
+
+  async function getSevenArchesReviewedPricing(hotelId = Core.SEVEN_ARCHES_PROPERTY_ID) {
+    const id = Core.normalizeUuid(hotelId);
+    if (id !== Core.SEVEN_ARCHES_PROPERTY_ID) {
+      throw new Error('Reviewed independent pricing is available only for the exact 7 Arches Hotel.');
+    }
+    return Core.validateSevenArchesReviewedPricingControl(await runRpc(
+      RPC.sevenArchesReviewedPricing, {}, 'Load reviewed 7 Arches pricing control',
+    ), id);
+  }
+
+  async function previewSevenArchesReviewedPricing(requestValue, controlValue = null) {
+    const request = Core.validateSevenArchesReviewedPricingAdminRequest(requestValue, controlValue);
+    const preview = Core.validateSevenArchesReviewedPricingPreview(await runRpc(
+      RPC.previewSevenArchesReviewedPricing, { p_request: request },
+      'Review 7 Arches independent pricing',
+    ), request, controlValue);
+    reviewedSevenArchesReviewedPricingPlans.set(preview.reviewed_plan.plan_fingerprint, {
+      bytes: stableJson(preview.reviewed_plan),
+      plan: preview.reviewed_plan,
+    });
+    return preview;
+  }
+
+  async function applySevenArchesReviewedPricing(planValue, correlationId, idempotencyKey) {
+    const fingerprint = String(planValue?.plan_fingerprint || '');
+    const cached = reviewedSevenArchesReviewedPricingPlans.get(fingerprint);
+    if (!cached || cached.bytes !== stableJson(planValue)) {
+      throw new Error('7 Arches pricing Save requires the exact server-reviewed plan from the current explicit Review.');
+    }
+    const correlation = correlationId == null ? Core.newUuid() : Core.normalizeUuid(correlationId);
+    const idempotency = idempotencyKey == null ? Core.newUuid() : Core.normalizeUuid(idempotencyKey);
+    if (!correlation || (correlationId != null && correlation !== correlationId)
+        || !idempotency || (idempotencyKey != null && idempotency !== idempotencyKey)) {
+      throw new Error('7 Arches pricing correlation and idempotency IDs must be exact lowercase canonical UUIDs.');
+    }
+    const plan = cached.plan;
+    reviewedSevenArchesReviewedPricingPlans.delete(fingerprint);
+    let receipt;
+    try {
+      receipt = await runRpc(RPC.applySevenArchesReviewedPricing, {
+        p_reviewed_plan: plan,
+        p_correlation_id: correlation,
+        p_idempotency_key: idempotency,
+      }, 'Save reviewed 7 Arches independent pricing');
+    } catch (error) { throw error; }
+    let validated;
+    try {
+      validated = Core.validateSevenArchesReviewedPricingApplyResult(
+        receipt, plan, correlation, idempotency,
+      );
+    } catch (cause) {
+      const error = new Error('The reviewed pricing RPC completed but its immutable result could not be validated. Refresh current state; the mutation will not be retried.');
+      error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
+      error.userMessage = error.message; error.cause = cause;
+      throw error;
+    }
+    try {
+      const [control, pricingControl] = await Promise.all([
+        getSevenArchesReviewedPricing(plan.hotel_id), getPricingControl(plan.hotel_id),
+      ]);
+      return { ...validated, control, pricing_control: pricingControl };
+    } catch (cause) {
+      const error = new Error('The reviewed pricing receipt was validated, but current Admin pricing state could not be refreshed. Refresh current state; the mutation will not be retried.');
       error.saveSucceeded = true; error.isAmbiguousOutcome = true; error.isDefinitiveFailure = false;
       error.userMessage = error.message; error.cause = cause;
       throw error;
@@ -1297,6 +1382,9 @@
     getSevenArchesPricingActivation,
     previewSevenArchesPricingActivation,
     applySevenArchesPricingActivation,
+    getSevenArchesReviewedPricing,
+    previewSevenArchesReviewedPricing,
+    applySevenArchesReviewedPricing,
     getContentControl,
     applyWorkspacePlan,
     createPropertyDraft,

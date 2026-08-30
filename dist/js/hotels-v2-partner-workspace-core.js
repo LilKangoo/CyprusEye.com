@@ -15,6 +15,11 @@
     pricingPreview: 'hotels_v2_h3_2b_pricing_preview_v1',
     pricingPlan: 'hotels_v2_h3_2b_pricing_plan_v1',
     pricingApply: 'hotels_v2_h3_2b_pricing_apply_result_v1',
+    sevenArchesPricingDraft: 'hotels_v2_seven_arches_reviewed_pricing_partner_draft_v1',
+    sevenArchesPricingPreview: 'hotels_v2_seven_arches_reviewed_pricing_partner_preview_v1',
+    sevenArchesPricingPlan: 'hotels_v2_seven_arches_reviewed_pricing_partner_plan_v1',
+    sevenArchesPricingSubmit: 'hotels_v2_seven_arches_reviewed_pricing_submit_result_v1',
+    sevenArchesPricingControl: 'hotels_v2_seven_arches_reviewed_pricing_partner_control_v1',
     availabilityDraft: 'hotels_v2_h3_2b_availability_draft_v1',
     availabilityPreview: 'hotels_v2_h3_2b_availability_preview_v1',
     availabilityPlan: 'hotels_v2_h3_2b_availability_plan_v1',
@@ -48,6 +53,19 @@
   const LANGUAGES = Object.freeze(['pl', 'en', 'he']);
   const SHA256 = /^[0-9a-f]{64}$/;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const POSTGRES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const SEVEN_ARCHES_REVIEWED_PRICING = Object.freeze({
+    upper: Object.freeze({
+      roomTypeId: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94',
+      roomRateId: '7e420964-9cbf-4f1b-abd3-09840af5240f',
+      scheduleId: 'aec20731-7a56-35f0-334e-92b363351f02',
+    }),
+    ground: Object.freeze({
+      roomTypeId: '825c01b7-9f82-492a-9c81-9b1d5cd7acd3',
+      roomRateId: '3320590d-632d-423f-80d0-fd021cba7293',
+      scheduleId: '9d109336-64f3-3c57-4684-968b59c94c3b',
+    }),
+  });
   const FORBIDDEN_MUTATION_KEYS = new Set([
     'architecture_version', 'is_published', 'feature_flags', 'public_change', 'legacy_authoritative',
     'commission_policy', 'commission_mode', 'commission_amount', 'commission_rate',
@@ -89,6 +107,16 @@
     if (nullable && value === null) return null;
     if (typeof value !== 'string' || !UUID.test(value)) fail(`${label} must be an exact lowercase canonical UUID.`);
     return value;
+  }
+  function requirePostgresUuid(value, label = 'id') {
+    if (typeof value !== 'string' || !POSTGRES_UUID.test(value)) fail(`${label} must be an exact lowercase PostgreSQL UUID.`);
+    return value;
+  }
+  function requirePricingTargetUuid(entity, value, label = 'pricing target') {
+    if (entity === 'schedule_tier_price') {
+      return requirePostgresUuid(value, label);
+    }
+    return requireCanonicalUuid(value, label);
   }
   function isIsoDate(value) {
     if (typeof value !== 'string') return false;
@@ -155,6 +183,11 @@
         || keys.some((key) => typeof value[key] !== 'string' || value[key] !== value[key].trim() || value[key].length > (options.maximum ?? 12000))) {
       fail(`${label} must contain only exact PL/EN/HE strings.`);
     }
+    return value;
+  }
+  function requireNonemptyPartialI18n(value, label, maximum = 12000) {
+    requireI18n(value, label, { partial: true, maximum });
+    if (!Object.values(value).some((entry) => entry.length > 0)) fail(`${label} requires at least one exact locale.`);
     return value;
   }
   function compactI18n(value, maximum = 12000) {
@@ -330,7 +363,7 @@
       requireExactKeys(row, ['id', 'hotel_id', 'code', 'name_i18n', 'is_active', 'review_status', 'sort_order', 'version', 'updated_at'], 'Rate Plan');
       const id = requireCanonicalUuid(row.id, 'rate_plan.id');
       if (requireCanonicalUuid(row.hotel_id, 'rate_plan.hotel_id') !== hotelId || planIds.has(id)) fail('Rate Plan identity is invalid or duplicated.');
-      planIds.add(id); requireString(row.code, 'rate_plan.code', { minimum: 1, maximum: 80 }); requireI18n(row.name_i18n, 'rate_plan.name_i18n', { maximum: 240 });
+      planIds.add(id); requireString(row.code, 'rate_plan.code', { minimum: 1, maximum: 80 }); requireNonemptyPartialI18n(row.name_i18n, 'rate_plan.name_i18n', 240);
       if (typeof row.is_active !== 'boolean' || !['requires_review', 'reviewed'].includes(row.review_status)) fail('Rate Plan status is invalid.');
       requireInteger(row.sort_order, 'rate_plan.sort_order', 0, 1000000); requireInteger(row.version, 'rate_plan.version', 1); requireTimestamp(row.updated_at, 'rate_plan.updated_at');
     });
@@ -338,9 +371,9 @@
     const scheduleIds = new Set();
     schedules.forEach((row) => {
       requireExactKeys(row, ['id', 'hotel_id', 'code', 'name_i18n', 'application_scope', 'currency', 'maximum_party_size', 'minimum_billable_occupancy', 'is_active', 'review_status', 'sharing_mode', 'version', 'updated_at'], 'Pricing schedule');
-      const id = requireCanonicalUuid(row.id, 'schedule.id');
+      const id = requirePostgresUuid(row.id, 'schedule.id');
       if (requireCanonicalUuid(row.hotel_id, 'schedule.hotel_id') !== hotelId || scheduleIds.has(id)) fail('Schedule identity is invalid or duplicated.');
-      scheduleIds.add(id); requireString(row.code, 'schedule.code', { minimum: 1, maximum: 80 }); requireI18n(row.name_i18n, 'schedule.name_i18n', { maximum: 240 });
+      scheduleIds.add(id); requireString(row.code, 'schedule.code', { minimum: 1, maximum: 80 }); requireNonemptyPartialI18n(row.name_i18n, 'schedule.name_i18n', 240);
       if (!['shared', 'independent'].includes(row.sharing_mode) || typeof row.is_active !== 'boolean' || !['requires_review', 'reviewed'].includes(row.review_status)) fail('Schedule state is invalid.');
       requireString(row.application_scope, 'schedule.application_scope', { minimum: 1, maximum: 80 });
       if (!/^[A-Z]{3}$/.test(row.currency)) fail('Schedule currency is invalid.');
@@ -356,7 +389,7 @@
           || !roomIds.has(requireCanonicalUuid(row.room_type_id, 'room_rate.room_type_id'))
           || !planIds.has(requireCanonicalUuid(row.rate_plan_id, 'room_rate.rate_plan_id'))) fail('Room Rate relationship is invalid or duplicated.');
       roomRateIds.add(id);
-      if (row.pricing_schedule_id !== null && !scheduleIds.has(requireCanonicalUuid(row.pricing_schedule_id, 'room_rate.pricing_schedule_id'))) fail('Room Rate schedule is foreign.');
+      if (row.pricing_schedule_id !== null && !scheduleIds.has(requirePostgresUuid(row.pricing_schedule_id, 'room_rate.pricing_schedule_id'))) fail('Room Rate schedule is foreign.');
       requireString(row.pricing_source, 'room_rate.pricing_source', { minimum: 1, maximum: 80 });
       requireMoney(row.base_nightly_rate, 'room_rate.base_nightly_rate', true);
       if (typeof row.base_nightly_rate_authoritative !== 'boolean' || !/^[A-Z]{3}$/.test(row.currency)
@@ -367,8 +400,10 @@
       const keys = type === 'schedule'
         ? ['id', 'schedule_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version', 'updated_at']
         : ['id', 'hotel_id', 'room_rate_id', 'guest_count', 'threshold_nights', 'nightly_rate', 'is_active', 'version', 'updated_at'];
-      requireExactKeys(row, keys, `${type} tier`); requireCanonicalUuid(row.id, `${type}_tier.id`);
-      if (type === 'schedule') { if (!scheduleIds.has(requireCanonicalUuid(row.schedule_id, 'schedule_tier.schedule_id'))) fail('Schedule tier is foreign.'); }
+      requireExactKeys(row, keys, `${type} tier`);
+      if (type === 'schedule') requirePricingTargetUuid('schedule_tier_price', row.id, 'schedule_tier.id');
+      else requireCanonicalUuid(row.id, 'room_rate_tier.id');
+      if (type === 'schedule') { if (!scheduleIds.has(requirePostgresUuid(row.schedule_id, 'schedule_tier.schedule_id'))) fail('Schedule tier is foreign.'); }
       else if (requireCanonicalUuid(row.hotel_id, 'room_rate_tier.hotel_id') !== hotelId || !roomRateIds.has(requireCanonicalUuid(row.room_rate_id, 'room_rate_tier.room_rate_id'))) fail('Room Rate tier is foreign.');
       requireInteger(row.guest_count, 'tier.guest_count', 1, 50); requireInteger(row.threshold_nights, 'tier.threshold_nights', 1, 3650); requireMoney(row.nightly_rate, 'tier.nightly_rate');
       if (typeof row.is_active !== 'boolean') fail('Tier state is invalid.'); requireInteger(row.version, 'tier.version', 1); requireTimestamp(row.updated_at, 'tier.updated_at');
@@ -407,7 +442,9 @@
   function validateActivity(row, hotelId) {
     requireExactKeys(row, ['id', 'hotel_id', 'entity_type', 'entity_id', 'action', 'actor_type', 'source', 'correlation_id', 'created_at'], 'Partner Hotel activity');
     requireCanonicalUuid(row.id, 'activity.id'); if (requireCanonicalUuid(row.hotel_id, 'activity.hotel_id') !== hotelId) fail('Activity belongs to another Hotel.');
-    requireCanonicalUuid(row.entity_id, 'activity.entity_id'); requireCanonicalUuid(row.correlation_id, 'activity.correlation_id', true);
+    if (row.entity_type === 'occupancy_tier') requirePricingTargetUuid('schedule_tier_price', row.entity_id, 'activity.entity_id');
+    else requireCanonicalUuid(row.entity_id, 'activity.entity_id');
+    requireCanonicalUuid(row.correlation_id, 'activity.correlation_id', true);
     ['entity_type', 'action', 'actor_type', 'source'].forEach((key) => requireString(row[key], `activity.${key}`, { minimum: 1, maximum: 120 }));
     requireTimestamp(row.created_at, 'activity.created_at');
   }
@@ -436,13 +473,13 @@
       room_types: ['id', 'hotel_id', 'code', 'name_i18n', 'inventory_mode', 'base_inventory_count', 'status', 'sort_order', 'max_occupancy', 'capacity_adults', 'capacity_children', 'version', 'updated_at'],
       room_rates: ['id', 'hotel_id', 'room_type_id', 'rate_plan_id', 'is_active', 'review_status', 'sort_order', 'version', 'updated_at'],
       units: ['id', 'room_type_id', 'code', 'name_i18n', 'status', 'version', 'updated_at'],
-      cells: ['room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'blocked_unit_ids', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'held_units', 'booked_units', 'committed_units', 'available_units', 'requestable', 'blocking_reasons', 'earliest_hold_expiry', 'provenance', 'inventory_version'],
+      cells: ['room_type_id', 'stay_date', 'inventory_mode', 'physical_capacity', 'configured_sellable_units', 'blocked_unit_count', 'blocked_unit_ids', 'operational_closed', 'safety_closed', 'held_units', 'booked_units', 'committed_units', 'available_units', 'requestable', 'blocking_reasons', 'earliest_hold_expiry', 'provenance', 'inventory_version'],
       product_cells: ['room_type_id', 'room_rate_id', 'rate_plan_id', 'stay_date', 'operational_closed', 'closed_to_arrival', 'closed_to_departure', 'safety_closed', 'requestable', 'blocking_reasons', 'provenance'],
       daily_inventory: ['room_type_id', 'stay_date', 'sellable_units', 'sellable_units_mode', 'closed', 'closed_mode', 'reason', 'expires_at', 'version', 'updated_at'],
       unit_calendar_blocks: ['id', 'hotel_id', 'room_type_id', 'unit_id', 'from_date', 'to_date', 'blocked', 'reason', 'expires_at', 'is_active', 'version', 'updated_at'],
       operational_overrides: ['id', 'hotel_id', 'room_rate_id', 'stay_date', 'closed', 'closed_mode', 'closed_to_arrival', 'closed_to_arrival_mode', 'closed_to_departure', 'closed_to_departure_mode', 'availability_reason', 'availability_expires_at', 'availability_active', 'availability_version', 'availability_updated_at'],
       rate_rule_operational_restrictions: ['id', 'room_rate_id', 'valid_from', 'valid_to', 'weekdays', 'closed_to_arrival', 'closed_to_departure', 'availability_version', 'availability_reason', 'availability_actor_id', 'availability_correlation_id', 'availability_updated_at'],
-      booking_allocations: ['id', 'booking_id', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts', 'booking_updated_at', 'booking_arrival_date', 'booking_departure_date', 'current_booking_updated_at', 'current_booking_status', 'active_commitment_from', 'active_commitment_to', 'active_commitments', 'status', 'version', 'updated_at'],
+      booking_allocations: ['id', 'booking_id', 'arrival_date', 'departure_date', 'current_booking_updated_at', 'current_booking_status', 'room_type_id', 'rate_plan_id', 'room_rate_id', 'unit_ids', 'units_required', 'allocated_guest_counts', 'pricing_guest_counts', 'booking_updated_at', 'status', 'version', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'active_commitments'],
       holds: ['id', 'status', 'expires_at', 'version', 'created_at', 'updated_at', 'active_commitment_from', 'active_commitment_to', 'commitments'],
       unmapped_booking_blockers: ['booking_id', 'booking_updated_at', 'arrival_date', 'departure_date', 'status', 'num_adults', 'num_children', 'reason'],
       recent_activity: ['id', 'entity_type', 'entity_id', 'action', 'before_state', 'after_state', 'actor_type', 'source', 'correlation_id', 'created_at'],
@@ -563,7 +600,7 @@
         requireCanonicalUuid(intent.payload.room_rate_id, 'pricing.room_rate_id'); requireIsoDate(intent.payload.stay_date, 'pricing.stay_date');
         if (intent.payload.nightly_rate_mode !== 'set') fail('Partner exact-date pricing supports reviewed SET only.'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
       } else {
-        requireCanonicalUuid(intent.id, 'pricing.intent.id'); requireExactKeys(intent.payload, ['nightly_rate'], 'Pricing payload'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
+        requirePricingTargetUuid(intent.entity, intent.id, 'pricing.intent.id'); requireExactKeys(intent.payload, ['nightly_rate'], 'Pricing payload'); requireMoney(intent.payload.nightly_rate, 'pricing.nightly_rate');
       }
     } else if (domain === 'availability') {
       if (intent.entity !== 'daily_inventory' || intent.action !== 'upsert' || intent.id !== null) fail('Unsupported Partner availability intent.');
@@ -616,7 +653,10 @@
 
   function validateOperation(domain, operation) {
     requireExactKeys(operation, ['entity', 'action', 'id', 'expected_version', 'expected_original', 'payload', 'reason'], `${domain} reviewed operation`);
-    if (operation.id !== null) requireCanonicalUuid(operation.id, `${domain}.operation.id`);
+    if (operation.id !== null) {
+      if (domain === 'pricing') requirePricingTargetUuid(operation.entity, operation.id, `${domain}.operation.id`);
+      else requireCanonicalUuid(operation.id, `${domain}.operation.id`);
+    }
     if (operation.expected_version !== null) requireInteger(operation.expected_version, `${domain}.operation.expected_version`, 0);
     if (operation.expected_original !== null && !isObject(operation.expected_original)) fail('Reviewed operation original state is invalid.');
     if (!isObject(operation.payload) || !reasonIsValid(operation.reason)) fail('Reviewed operation payload or reason is invalid.');
@@ -639,7 +679,11 @@
   function validateImpact(row) {
     requireExactKeys(row, ['entity', 'action', 'id', 'changed', 'fields', 'before', 'after', 'affected_room_type_ids', 'affected_room_rate_ids', 'from', 'to'], 'Partner Hotel impact');
     requireString(row.entity, 'impact.entity', { minimum: 1, maximum: 80 }); requireString(row.action, 'impact.action', { minimum: 1, maximum: 40 });
-    if (row.id !== null) requireCanonicalUuid(row.id, 'impact.id'); if (typeof row.changed !== 'boolean') fail('Impact changed flag is invalid.');
+    if (row.id !== null) {
+      if (row.entity === 'schedule_tier_price') requirePricingTargetUuid(row.entity, row.id, 'impact.id');
+      else requireCanonicalUuid(row.id, 'impact.id');
+    }
+    if (typeof row.changed !== 'boolean') fail('Impact changed flag is invalid.');
     requireStringArray(row.fields, 'impact.fields', 100); if (row.before !== null && !isObject(row.before)) fail('Impact before state is invalid.'); if (row.after !== null && !isObject(row.after)) fail('Impact after state is invalid.');
     requireStringArray(row.affected_room_type_ids, 'impact.affected_room_type_ids', 1000).forEach((id) => requireCanonicalUuid(id, 'impact.room_type_id'));
     requireStringArray(row.affected_room_rate_ids, 'impact.affected_room_rate_ids', 5000).forEach((id) => requireCanonicalUuid(id, 'impact.room_rate_id'));
@@ -649,9 +693,9 @@
   function validateCommercialSummary(value, label) {
     if (value === null) return;
     requireExactKeys(value, ['policy', 'calculation_basis', 'customer_price', 'cypruseye_commission', 'partner_net', 'currency'], label);
-    requireExactKeys(value.policy, ['id', 'code', 'commission_mode', 'amount', 'currency', 'version', 'updated_at', 'fingerprint', 'read_only'], `${label}.policy`);
+    requireExactKeys(value.policy, ['id', 'code', 'commission_mode', 'amount', 'currency', 'version', 'fingerprint', 'read_only'], `${label}.policy`);
     requireCanonicalUuid(value.policy.id, `${label}.policy.id`); requireString(value.policy.code, `${label}.policy.code`, { minimum: 1, maximum: 80 }); if (!['per_allocated_room_per_night', 'percent_booking_total'].includes(value.policy.commission_mode) || value.policy.read_only !== true) fail(`${label} commission policy is invalid.`);
-    requireMoney(value.policy.amount, `${label}.policy.amount`); if (!/^[A-Z]{3}$/.test(value.policy.currency)) fail(`${label} policy currency is invalid.`); requireInteger(value.policy.version, `${label}.policy.version`, 1); requireTimestamp(value.policy.updated_at, `${label}.policy.updated_at`); requireSnapshot(value.policy.fingerprint, `${label}.policy.fingerprint`);
+    requireMoney(value.policy.amount, `${label}.policy.amount`); if (!/^[A-Z]{3}$/.test(value.policy.currency)) fail(`${label} policy currency is invalid.`); requireInteger(value.policy.version, `${label}.policy.version`, 1); requireSnapshot(value.policy.fingerprint, `${label}.policy.fingerprint`);
     requireExactKeys(value.calculation_basis, ['code', 'quantity', 'unit_amount', 'booking_total'], `${label}.calculation_basis`); requireString(value.calculation_basis.code, `${label}.basis.code`, { minimum: 1, maximum: 80 }); requireMoney(value.calculation_basis.quantity, `${label}.basis.quantity`); requireMoney(value.calculation_basis.unit_amount, `${label}.basis.unit_amount`); requireMoney(value.calculation_basis.booking_total, `${label}.basis.booking_total`);
     requireMoney(value.customer_price, `${label}.customer_price`); requireMoney(value.cypruseye_commission, `${label}.cypruseye_commission`); requireMoney(value.partner_net, `${label}.partner_net`); if (!/^[A-Z]{3}$/.test(value.currency) || value.policy.currency !== value.currency) fail(`${label} currency is invalid.`);
     const expectedBasis = value.policy.commission_mode === 'percent_booking_total' ? 'booking_total' : 'allocated_room_nights';
@@ -928,6 +972,311 @@
     return clone(value);
   }
 
+  function sevenArchesReviewedPricingTargets(workspace) {
+    const pricing = workspace?.pricing;
+    if (!pricing || workspace?.assignment?.capabilities?.manage_prices !== true) return null;
+    const result = [];
+    for (const [roomKey, identity] of Object.entries(SEVEN_ARCHES_REVIEWED_PRICING)) {
+      const room = workspace.rooms?.find((row) => row.id === identity.roomTypeId);
+      const rate = pricing.room_rates?.find((row) => row.id === identity.roomRateId);
+      const schedule = pricing.schedules?.find((row) => row.id === identity.scheduleId);
+      const tiers = pricing.schedule_tiers?.filter((row) => row.schedule_id === identity.scheduleId) || [];
+      const coordinates = new Set(tiers.map((row) => `${row.guest_count}:${row.threshold_nights}`));
+      if (!room || room.status !== 'active' || !rate || rate.room_type_id !== identity.roomTypeId
+          || rate.pricing_schedule_id !== identity.scheduleId || !rate.is_active
+          || !schedule || schedule.sharing_mode !== 'independent' || !schedule.is_active
+          || schedule.currency !== 'EUR' || tiers.length !== 27 || coordinates.size !== 27
+          || tiers.some((row) => !row.is_active || ![2, 3, 4].includes(row.guest_count)
+            || row.threshold_nights < 2 || row.threshold_nights > 10)
+          || [2, 3, 4].some((guests) => Array.from({ length: 9 }, (_unused, index) => index + 2)
+            .some((nights) => !coordinates.has(`${guests}:${nights}`)))) return null;
+      result.push({
+        roomKey, room, rate, schedule,
+        tiers: [...tiers].sort((left, right) => left.guest_count - right.guest_count
+          || left.threshold_nights - right.threshold_nights),
+      });
+    }
+    return result;
+  }
+
+  function isSevenArchesReviewedPricingWorkspace(workspace) {
+    return sevenArchesReviewedPricingTargets(workspace) !== null;
+  }
+
+  function hasSevenArchesReviewedPricingIdentity(workspace) {
+    const identities = Object.values(SEVEN_ARCHES_REVIEWED_PRICING);
+    return identities.some((identity) => workspace?.rooms?.some((row) => row.id === identity.roomTypeId)
+      || workspace?.pricing?.room_rates?.some((row) => row.id === identity.roomRateId)
+      || workspace?.pricing?.schedules?.some((row) => row.id === identity.scheduleId));
+  }
+
+  function validateSevenArchesPricingItem(value, label, canonical = false) {
+    const keys = [
+      'hotel_id', 'room_type_id', 'room_rate_id', 'pricing_schedule_id',
+      'schedule_tier_id', 'guest_count', 'minimum_nights', 'currency',
+      'before_price', 'requested_price',
+    ];
+    if (canonical) {
+      keys.splice(1, 0, 'room_key');
+      keys.push('before_tier_version');
+    }
+    requireExactKeys(value, keys, label);
+    requireCanonicalUuid(value.hotel_id, `${label}.hotel_id`);
+    requireCanonicalUuid(value.room_type_id, `${label}.room_type_id`);
+    requireCanonicalUuid(value.room_rate_id, `${label}.room_rate_id`);
+    requirePostgresUuid(value.pricing_schedule_id, `${label}.pricing_schedule_id`);
+    requirePostgresUuid(value.schedule_tier_id, `${label}.schedule_tier_id`);
+    requireInteger(value.guest_count, `${label}.guest_count`, 2, 4);
+    requireInteger(value.minimum_nights, `${label}.minimum_nights`, 2, 10);
+    if (value.currency !== 'EUR') fail(`${label}.currency must be exact EUR.`);
+    requireMoney(value.before_price, `${label}.before_price`);
+    requireMoney(value.requested_price, `${label}.requested_price`);
+    if (value.requested_price < 10 || value.requested_price === value.before_price) fail(`${label} must contain one bounded real price change.`);
+    const identity = canonical ? SEVEN_ARCHES_REVIEWED_PRICING[value.room_key] : Object.values(SEVEN_ARCHES_REVIEWED_PRICING)
+      .find((row) => row.scheduleId === value.pricing_schedule_id);
+    if (!identity || value.room_type_id !== identity.roomTypeId || value.room_rate_id !== identity.roomRateId
+        || value.pricing_schedule_id !== identity.scheduleId) fail(`${label} is not bound to an exact independent Room product.`);
+    if (canonical) requireInteger(value.before_tier_version, `${label}.before_tier_version`, 1);
+    return value;
+  }
+
+  function buildSevenArchesReviewedPricingDraft(workspace, requestedItems, reason) {
+    const targets = sevenArchesReviewedPricingTargets(workspace);
+    if (!targets) fail('The exact independent 7 Arches pricing topology is unavailable.');
+    if (!reasonIsValid(reason)) fail('A single-line reviewed reason from 3 to 500 characters is required.');
+    requireArray(requestedItems, 'reviewed pricing requested items', 54);
+    if (!requestedItems.length) fail('Choose at least one exact Room tier price change.');
+    const tiers = new Map(targets.flatMap((target) => target.tiers.map((tier) => [tier.id, { target, tier }])));
+    const seen = new Set();
+    const items = requestedItems.map((request, index) => {
+      requireExactKeys(request, ['schedule_tier_id', 'requested_price'], `reviewed pricing request ${index + 1}`);
+      const tierId = requirePostgresUuid(request.schedule_tier_id, `reviewed pricing request ${index + 1}.schedule_tier_id`);
+      if (seen.has(tierId)) fail('Reviewed pricing request contains a duplicate tier.');
+      seen.add(tierId);
+      const binding = tiers.get(tierId);
+      if (!binding) fail('Reviewed pricing request targets a foreign tier.');
+      const requestedPrice = requireMoney(request.requested_price, `reviewed pricing request ${index + 1}.requested_price`);
+      const item = {
+        hotel_id: workspace.hotel_id,
+        room_type_id: binding.target.room.id,
+        room_rate_id: binding.target.rate.id,
+        pricing_schedule_id: binding.target.schedule.id,
+        schedule_tier_id: binding.tier.id,
+        guest_count: binding.tier.guest_count,
+        minimum_nights: binding.tier.threshold_nights,
+        currency: binding.target.schedule.currency,
+        before_price: binding.tier.nightly_rate,
+        requested_price: requestedPrice,
+      };
+      validateSevenArchesPricingItem(item, `reviewed pricing item ${index + 1}`);
+      return item;
+    });
+    return {
+      contract_version: CONTRACTS.sevenArchesPricingDraft,
+      partner_id: workspace.partner.id,
+      hotel_id: workspace.hotel_id,
+      access_snapshot_token: workspace.assignment.access_snapshot_token,
+      pricing_snapshot_token: workspace.pricing.snapshot_token,
+      items,
+      reason,
+    };
+  }
+
+  function validateSevenArchesReviewedPricingDraft(value, workspace) {
+    requireExactKeys(value, [
+      'contract_version', 'partner_id', 'hotel_id', 'access_snapshot_token',
+      'pricing_snapshot_token', 'items', 'reason',
+    ], '7 Arches reviewed pricing draft');
+    if (value.contract_version !== CONTRACTS.sevenArchesPricingDraft) fail('Unsupported 7 Arches reviewed pricing draft contract.');
+    requireCanonicalUuid(value.partner_id, 'reviewed pricing draft.partner_id');
+    requireCanonicalUuid(value.hotel_id, 'reviewed pricing draft.hotel_id');
+    requireSnapshot(value.access_snapshot_token, 'reviewed pricing draft.access_snapshot_token');
+    requireSnapshot(value.pricing_snapshot_token, 'reviewed pricing draft.pricing_snapshot_token');
+    if (!workspace) fail('Load the exact Partner Hotel workspace before reviewed pricing Preview.');
+    const requests = requireArray(value.items, 'reviewed pricing draft.items', 54).map((item, index) => {
+      validateSevenArchesPricingItem(item, `reviewed pricing draft item ${index + 1}`);
+      return { schedule_tier_id: item.schedule_tier_id, requested_price: item.requested_price };
+    });
+    const rebuilt = buildSevenArchesReviewedPricingDraft(workspace, requests, value.reason);
+    if (canonicalJson(rebuilt) !== canonicalJson(value)) fail('Reviewed pricing draft differs from the exact loaded Room-tier state.');
+    return clone(value);
+  }
+
+  function validateSevenArchesCommercialImpact(value, canonicalItems, label) {
+    if (value?.scope === 'single_room') {
+      requireExactKeys(value, [
+        'scope', 'room_key', 'guest_count', 'minimum_nights', 'customer_before',
+        'customer_after', 'cypruseye_commission', 'partner_net_before',
+        'partner_net_after', 'currency',
+      ], label);
+      if (!SEVEN_ARCHES_REVIEWED_PRICING[value.room_key]
+          || !canonicalItems.some((item) => item.room_key === value.room_key
+            && item.guest_count === value.guest_count && item.minimum_nights === value.minimum_nights
+            && item.before_price === value.customer_before && item.requested_price === value.customer_after)) {
+        fail(`${label} is not bound to an exact changed Room tier.`);
+      }
+      requireInteger(value.guest_count, `${label}.guest_count`, 2, 4);
+      requireInteger(value.minimum_nights, `${label}.minimum_nights`, 2, 10);
+      if (value.cypruseye_commission !== 10) fail(`${label} commission changed.`);
+    } else if (value?.scope === 'bundle') {
+      requireExactKeys(value, [
+        'scope', 'requested_guest_count', 'minimum_nights', 'customer_before',
+        'customer_after', 'cypruseye_commission', 'partner_net_before',
+        'partner_net_after', 'currency',
+      ], label);
+      requireInteger(value.requested_guest_count, `${label}.requested_guest_count`, 5, 8);
+      requireInteger(value.minimum_nights, `${label}.minimum_nights`, 2, 10);
+      if (value.cypruseye_commission !== 20) fail(`${label} bundle commission changed.`);
+    } else fail(`${label} scope is invalid.`);
+    ['customer_before', 'customer_after', 'cypruseye_commission', 'partner_net_before', 'partner_net_after']
+      .forEach((key) => requireMoney(value[key], `${label}.${key}`));
+    if (value.currency !== 'EUR'
+        || Number((value.customer_before - value.cypruseye_commission).toFixed(2)) !== value.partner_net_before
+        || Number((value.customer_after - value.cypruseye_commission).toFixed(2)) !== value.partner_net_after) {
+      fail(`${label} server commercial arithmetic is inconsistent.`);
+    }
+    return value;
+  }
+
+  function validateSevenArchesReviewedPricingPlan(value, draft, workspace) {
+    requireExactKeys(value, [
+      'contract_version', 'partner_id', 'hotel_id', 'assignment_id', 'assignment_version',
+      'access_snapshot_token', 'pricing_snapshot_token', 'evolution_snapshot_token',
+      'items', 'canonical_items', 'commercial_impacts', 'reason', 'commission_policy',
+      'plan_fingerprint',
+    ], '7 Arches reviewed pricing plan');
+    if (value.contract_version !== CONTRACTS.sevenArchesPricingPlan) fail('Unsupported 7 Arches reviewed pricing plan contract.');
+    ['partner_id', 'hotel_id', 'assignment_id'].forEach((key) => requireCanonicalUuid(value[key], `reviewed pricing plan.${key}`));
+    requireInteger(value.assignment_version, 'reviewed pricing plan.assignment_version', 1);
+    ['access_snapshot_token', 'pricing_snapshot_token', 'evolution_snapshot_token', 'plan_fingerprint']
+      .forEach((key) => requireSnapshot(value[key], `reviewed pricing plan.${key}`));
+    requireString(value.reason, 'reviewed pricing plan.reason', { minimum: 3, maximum: 500 });
+    requireExactKeys(value.commission_policy, ['commission_mode', 'amount', 'currency'], 'reviewed pricing plan commission');
+    if (value.commission_policy.commission_mode !== 'per_allocated_room_per_night'
+        || value.commission_policy.amount !== 10 || value.commission_policy.currency !== 'EUR') fail('Reviewed pricing plan commission policy changed.');
+    const items = requireArray(value.items, 'reviewed pricing plan.items', 54);
+    const canonicalItems = requireArray(value.canonical_items, 'reviewed pricing plan.canonical_items', 54);
+    if (!items.length || items.length !== canonicalItems.length) fail('Reviewed pricing plan item cardinality is invalid.');
+    items.forEach((item, index) => validateSevenArchesPricingItem(item, `reviewed pricing plan item ${index + 1}`));
+    canonicalItems.forEach((item, index) => validateSevenArchesPricingItem(item, `reviewed pricing canonical item ${index + 1}`, true));
+    const rawByTier = new Map(items.map((item) => [item.schedule_tier_id, item]));
+    if (new Set(items.map((item) => item.schedule_tier_id)).size !== items.length
+        || new Set(canonicalItems.map((item) => item.schedule_tier_id)).size !== canonicalItems.length
+        || canonicalItems.some((item) => {
+          const raw = rawByTier.get(item.schedule_tier_id);
+          return !raw || Object.keys(raw).some((key) => canonicalJson(raw[key]) !== canonicalJson(item[key]));
+        })) fail('Reviewed pricing canonical items differ from the exact Partner items.');
+    const impacts = requireArray(value.commercial_impacts, 'reviewed pricing plan.commercial_impacts', 1000);
+    impacts.forEach((impact, index) => validateSevenArchesCommercialImpact(impact, canonicalItems, `reviewed pricing commercial impact ${index + 1}`));
+    if (impacts.filter((impact) => impact.scope === 'single_room').length !== items.length) fail('Reviewed pricing plan is missing an exact single-Room commercial impact.');
+    if (!draft || canonicalJson(items) !== canonicalJson(draft.items) || value.partner_id !== draft.partner_id
+        || value.hotel_id !== draft.hotel_id || value.access_snapshot_token !== draft.access_snapshot_token
+        || value.pricing_snapshot_token !== draft.pricing_snapshot_token || value.reason !== draft.reason) {
+      fail('Reviewed pricing plan differs from the exact Partner draft.');
+    }
+    if (!workspace || value.assignment_id !== workspace.assignment.id
+        || value.assignment_version !== workspace.assignment.permission_version) fail('Reviewed pricing plan is not bound to the exact loaded assignment.');
+    return value;
+  }
+
+  function validateSevenArchesReviewedPricingPreview(value, draft, workspace) {
+    validateSevenArchesReviewedPricingDraft(draft, workspace);
+    requireExactKeys(value, ['contract_version', 'changed', 'reviewed_plan', 'commercial_impacts'], '7 Arches reviewed pricing Preview');
+    if (value.contract_version !== CONTRACTS.sevenArchesPricingPreview || value.changed !== true) fail('Unsupported or unchanged 7 Arches reviewed pricing Preview.');
+    const plan = validateSevenArchesReviewedPricingPlan(value.reviewed_plan, draft, workspace);
+    if (canonicalJson(value.commercial_impacts) !== canonicalJson(plan.commercial_impacts)) fail('Reviewed pricing Preview commercial impacts differ from its exact plan.');
+    return clone(value);
+  }
+
+  function validateSevenArchesReviewedPricingSubmit(value, expected) {
+    requireExactKeys(value, [
+      'contract_version', 'proposal_id', 'hotel_id', 'partner_id', 'status', 'changed',
+      'replayed', 'correlation_id', 'idempotency_key', 'activity',
+    ], '7 Arches reviewed pricing Submit result');
+    if (value.contract_version !== CONTRACTS.sevenArchesPricingSubmit
+        || value.status !== 'pending_admin_review' || value.changed !== false
+        || typeof value.replayed !== 'boolean') fail('Reviewed pricing Submit lifecycle is invalid.');
+    ['proposal_id', 'hotel_id', 'partner_id', 'correlation_id', 'idempotency_key']
+      .forEach((key) => requireCanonicalUuid(value[key], `reviewed pricing Submit.${key}`));
+    if (!expected || value.hotel_id !== expected.plan.hotel_id || value.partner_id !== expected.plan.partner_id
+        || value.correlation_id !== expected.correlationId || value.idempotency_key !== expected.idempotencyKey) {
+      fail('Reviewed pricing Submit identity is invalid.');
+    }
+    validateActivity(value.activity, value.hotel_id);
+    if (value.activity.entity_type !== 'pricing_schedule' || value.activity.entity_id !== value.proposal_id
+        || value.activity.action !== 'create' || value.activity.actor_type !== 'partner'
+        || value.activity.source !== 'hotels_v2_h3_2b_partner_workspace'
+        || value.activity.correlation_id !== value.correlation_id) fail('Reviewed pricing Submit activity is invalid.');
+    return clone(value);
+  }
+
+  function validateSevenArchesReviewedPricingControl(value, workspace) {
+    requireExactKeys(value, [
+      'contract_version', 'partner_id', 'hotel_id', 'assignment_id',
+      'assignment_version', 'access_snapshot_token', 'pricing_snapshot_token',
+      'evolution_snapshot_token', 'commission_policy', 'current_items', 'proposals',
+    ], '7 Arches reviewed pricing Partner control');
+    if (value.contract_version !== CONTRACTS.sevenArchesPricingControl) fail('Unsupported 7 Arches reviewed pricing Partner control contract.');
+    ['partner_id', 'hotel_id', 'assignment_id'].forEach((key) => requireCanonicalUuid(value[key], `reviewed pricing control.${key}`));
+    requireInteger(value.assignment_version, 'reviewed pricing control.assignment_version', 1);
+    ['access_snapshot_token', 'pricing_snapshot_token', 'evolution_snapshot_token']
+      .forEach((key) => requireSnapshot(value[key], `reviewed pricing control.${key}`));
+    if (!workspace || value.partner_id !== workspace.partner.id || value.hotel_id !== workspace.hotel_id
+        || value.assignment_id !== workspace.assignment.id || value.assignment_version !== workspace.assignment.permission_version
+        || value.access_snapshot_token !== workspace.assignment.access_snapshot_token
+        || value.pricing_snapshot_token !== workspace.pricing?.snapshot_token) {
+      fail('Reviewed pricing control is not bound to the exact loaded Partner workspace.');
+    }
+    requireExactKeys(value.commission_policy, ['commission_mode', 'amount', 'currency'], 'reviewed pricing control commission');
+    if (value.commission_policy.commission_mode !== 'per_allocated_room_per_night'
+        || value.commission_policy.amount !== 10 || value.commission_policy.currency !== 'EUR') fail('Reviewed pricing control commission changed.');
+    const targets = sevenArchesReviewedPricingTargets(workspace);
+    if (!targets) fail('Reviewed pricing control requires the exact independent Room topology.');
+    const bindings = new Map(targets.flatMap((target) => target.tiers.map((tier) => [tier.id, { target, tier }])));
+    const items = requireArray(value.current_items, 'reviewed pricing control.current_items', 54);
+    if (items.length !== 54) fail('Reviewed pricing control must contain exactly 54 current Room tiers.');
+    const seen = new Set();
+    items.forEach((item, index) => {
+      requireExactKeys(item, [
+        'room_key', 'hotel_id', 'room_type_id', 'room_rate_id', 'pricing_schedule_id',
+        'schedule_tier_id', 'guest_count', 'minimum_nights', 'currency',
+        'current_price', 'tier_version',
+      ], `reviewed pricing current item ${index + 1}`);
+      requireCanonicalUuid(item.hotel_id, `reviewed pricing current item ${index + 1}.hotel_id`);
+      requireCanonicalUuid(item.room_type_id, `reviewed pricing current item ${index + 1}.room_type_id`);
+      requireCanonicalUuid(item.room_rate_id, `reviewed pricing current item ${index + 1}.room_rate_id`);
+      requirePostgresUuid(item.pricing_schedule_id, `reviewed pricing current item ${index + 1}.pricing_schedule_id`);
+      const tierId = requirePostgresUuid(item.schedule_tier_id, `reviewed pricing current item ${index + 1}.schedule_tier_id`);
+      requireInteger(item.guest_count, `reviewed pricing current item ${index + 1}.guest_count`, 2, 4);
+      requireInteger(item.minimum_nights, `reviewed pricing current item ${index + 1}.minimum_nights`, 2, 10);
+      requireMoney(item.current_price, `reviewed pricing current item ${index + 1}.current_price`);
+      requireInteger(item.tier_version, `reviewed pricing current item ${index + 1}.tier_version`, 1);
+      const binding = bindings.get(tierId);
+      if (seen.has(tierId) || !binding || item.room_key !== binding.target.roomKey
+          || item.hotel_id !== workspace.hotel_id || item.room_type_id !== binding.target.room.id
+          || item.room_rate_id !== binding.target.rate.id || item.pricing_schedule_id !== binding.target.schedule.id
+          || item.guest_count !== binding.tier.guest_count || item.minimum_nights !== binding.tier.threshold_nights
+          || item.currency !== binding.target.schedule.currency || item.current_price !== binding.tier.nightly_rate
+          || item.tier_version !== binding.tier.version) fail('Reviewed pricing current item differs from its exact Room-tier authority.');
+      seen.add(tierId);
+    });
+    requireArray(value.proposals, 'reviewed pricing control.proposals', 100).forEach((proposal, index) => {
+      requireExactKeys(proposal, [
+        'proposal_id', 'status', 'reason', 'item_count', 'created_at', 'expires_at',
+        'consumed_at',
+      ], `reviewed pricing proposal ${index + 1}`);
+      requireCanonicalUuid(proposal.proposal_id, `reviewed pricing proposal ${index + 1}.proposal_id`);
+      if (!['pending_admin_review', 'accepted', 'rejected'].includes(proposal.status)
+          || !reasonIsValid(proposal.reason)) fail(`reviewed pricing proposal ${index + 1} lifecycle is invalid.`);
+      requireInteger(proposal.item_count, `reviewed pricing proposal ${index + 1}.item_count`, 1, 54);
+      requireTimestamp(proposal.created_at, `reviewed pricing proposal ${index + 1}.created_at`);
+      requireTimestamp(proposal.expires_at, `reviewed pricing proposal ${index + 1}.expires_at`);
+      requireTimestamp(proposal.consumed_at, `reviewed pricing proposal ${index + 1}.consumed_at`, true);
+      if ((proposal.status === 'pending_admin_review') !== (proposal.consumed_at === null)) fail(`reviewed pricing proposal ${index + 1} consumption state is invalid.`);
+    });
+    return clone(value);
+  }
+
   function localized(value, language = 'en', fallback = '') {
     if (!isObject(value)) return fallback;
     const lang = ['pl', 'en', 'he'].includes(language) ? language : 'en';
@@ -981,10 +1330,15 @@
   }
 
   return Object.freeze({
-    CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS,
-    hasExactKeys, requireCanonicalUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
+    CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING,
+    hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
+    sevenArchesReviewedPricingTargets, isSevenArchesReviewedPricingWorkspace,
+    hasSevenArchesReviewedPricingIdentity,
+    buildSevenArchesReviewedPricingDraft, validateSevenArchesReviewedPricingDraft,
+    validateSevenArchesReviewedPricingPlan, validateSevenArchesReviewedPricingPreview,
+    validateSevenArchesReviewedPricingSubmit, validateSevenArchesReviewedPricingControl,
     normalizeExternalCalendarControl, buildExternalCalendarDraft,
     validateExternalCalendarPreview, validateExternalCalendarApplyResult,
   });
