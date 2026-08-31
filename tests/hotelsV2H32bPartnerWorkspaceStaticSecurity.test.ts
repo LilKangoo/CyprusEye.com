@@ -64,8 +64,9 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     expect(html).toContain('id="partnerAssignedHotelsCard"');
     expect(partnerDiscovery).toContain('data-assigned-hotel-workspace');
     expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260830_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace-repository.js?v=20260830_1');
+    expect(html).toContain('/js/hotels-v2-workspace-help.js?v=20260831_2');
+    expect(html).toContain('/js/hotels-v2-partner-workspace-repository.js?v=20260831_2');
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260830_1');
+    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260831_2');
   });
 });

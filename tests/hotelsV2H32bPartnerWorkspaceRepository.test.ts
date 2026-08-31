@@ -107,7 +107,7 @@ describe('Hotels V2 H3.2B independent Partner workspace repository', () => {
       applyAvailability: 'hotel_v2_partner_apply_availability_plan',
       externalCalendarControl: 'hotel_v2_partner_get_external_calendar_control',
       previewExternalCalendar: 'hotel_v2_partner_preview_external_calendar_plan',
-      applyExternalCalendar: 'hotel_v2_partner_apply_external_calendar_plan',
+      submitExternalCalendarProposal: 'hotel_v2_partner_apply_external_calendar_plan',
     });
   });
 

@@ -16855,3 +16855,55 @@ html[dir="rtl"] .hotel-pricing-property-default > div:last-child { justify-items
   .hotel-pricing-inclusion-row button { width:100%; }
   .hotel-pricing-preview-modal .hotel-workspace-modal__body { overflow-x:hidden; }
 }
+
+/* Shared Hotel workspace guidance and read-only booking/payment presentation. */
+.hotel-workspace-help-heading,
+.partner-hotel-workspace__panel > h2,
+.partner-hotel-workspace__form > h3 { display:flex; align-items:center; gap:8px; min-width:0; }
+.hotels-v2-help-trigger {
+  flex:0 0 auto; display:inline-grid; place-items:center; width:30px; height:30px; padding:0;
+  border:1px solid rgba(56,189,248,.5); border-radius:999px; color:#bae6fd;
+  background:rgba(14,116,144,.18); font:700 16px/1 Jost,system-ui,sans-serif; cursor:pointer;
+}
+.hotels-v2-help-trigger:hover,.hotels-v2-help-trigger:focus-visible {
+  border-color:#38bdf8; background:rgba(14,116,144,.34); outline:2px solid transparent;
+}
+.hotels-v2-help-dialog {
+  width:min(620px,calc(100vw - 32px)); max-height:min(82vh,760px); margin:auto; padding:0;
+  border:1px solid var(--admin-border); border-radius:16px; color:var(--admin-text);
+  background:#0f172a; box-shadow:0 24px 70px rgba(2,6,23,.72);
+}
+.hotels-v2-help-dialog::backdrop { background:rgba(2,6,23,.72); backdrop-filter:blur(3px); }
+.hotels-v2-help-dialog__surface { display:grid; max-height:inherit; grid-template-rows:auto minmax(0,1fr); }
+.hotels-v2-help-dialog__header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:20px 22px 14px; border-bottom:1px solid var(--admin-border); }
+.hotels-v2-help-dialog__header h2 { margin:0; font-size:1.2rem; }
+.hotels-v2-help-dialog__body { overflow:auto; display:grid; gap:14px; padding:18px 22px 24px; overscroll-behavior:contain; }
+.hotels-v2-help-dialog__body section { display:grid; gap:4px; }
+.hotels-v2-help-dialog__body h3,.hotels-v2-help-dialog__body p { margin:0; }
+.hotels-v2-help-dialog__body h3 { font-size:.82rem; letter-spacing:.04em; text-transform:uppercase; color:#7dd3fc; }
+.hotels-v2-help-dialog__body p { color:var(--admin-text-muted); line-height:1.55; white-space:pre-line; }
+.hotel-workspace-lifecycle,.partner-hotel-workspace__lifecycle {
+  display:grid; gap:7px; margin:0 0 14px; padding:12px 14px;
+  border:1px solid rgba(56,189,248,.35); border-radius:12px; background:rgba(14,116,144,.12);
+}
+.hotel-workspace-lifecycle ul,.partner-hotel-workspace__lifecycle ul { display:grid; gap:4px; margin:0; padding-inline-start:20px; }
+.hotel-workspace-presentation-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-bottom:16px; }
+.hotel-workspace-booking-card header,.partner-hotel-workspace__booking-card header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.hotel-workspace-booking-card dl,.partner-hotel-workspace__booking-card dl { display:grid; gap:8px; margin:12px 0 0; }
+.hotel-workspace-booking-card dl > div,.partner-hotel-workspace__booking-card dl > div { display:grid; grid-template-columns:minmax(110px,.75fr) minmax(0,1.25fr); gap:12px; }
+.hotel-workspace-booking-card dt,.partner-hotel-workspace__booking-card dt { color:var(--admin-text-muted); }
+.hotel-workspace-booking-card dd,.partner-hotel-workspace__booking-card dd { margin:0; overflow-wrap:anywhere; }
+.hotel-workspace-allocation-list,.partner-hotel-workspace__allocation { margin:0; padding-inline-start:18px; }
+.partner-hotel-workspace__summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.partner-hotel-workspace__summary span { display:grid; gap:3px; padding:12px; border:1px solid var(--admin-border); border-radius:10px; }
+.partner-hotel-workspace__summary strong { font-size:1.35rem; }
+[dir="rtl"] .hotels-v2-help-dialog__body,[dir="rtl"] .hotels-v2-help-dialog__header { text-align:right; }
+@media (max-width:640px) {
+  .hotels-v2-help-dialog { width:100vw; max-width:none; max-height:88dvh; margin:auto 0 0; border-radius:18px 18px 0 0; }
+  .hotels-v2-help-dialog__header,.hotels-v2-help-dialog__body { padding-inline:18px; }
+  .partner-hotel-workspace__summary { grid-template-columns:1fr; }
+  .hotel-workspace-booking-card dl > div,.partner-hotel-workspace__booking-card dl > div { grid-template-columns:1fr; gap:2px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .hotels-v2-help-dialog,.hotels-v2-help-dialog::backdrop { scroll-behavior:auto; transition:none!important; animation:none!important; }
+}

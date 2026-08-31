@@ -119,6 +119,43 @@
     return workspace;
   }
 
+  async function getBookingsPaymentsPresentation(partnerId, hotelId, options = {}) {
+    exactUuid(partnerId, 'partner_id');
+    const expectedHotelId = exactUuid(hotelId, 'hotel_id');
+    const settings = options && typeof options === 'object' ? options : { limit: options };
+    const boundedLimit = Number(settings.limit ?? 100);
+    if (!Number.isInteger(boundedLimit) || boundedLimit < 1 || boundedLimit > 200) {
+      throw new Error('Bookings presentation limit must be between 1 and 200.');
+    }
+    const Presentation = typeof globalThis !== 'undefined'
+      ? globalThis.HotelsV2WorkspaceHelp
+      : null;
+    if (!Presentation?.unavailablePresentation) {
+      throw new Error('Bookings and Payments presentation validator is unavailable.');
+    }
+    const presentationOptions = {
+      hotelId: expectedHotelId,
+      scope: 'partner',
+      bookingsVisible: settings.bookingsVisible === true,
+      paymentsVisible: false,
+      fullBookingManagement: settings.fullBookingManagement === true,
+      fullPaymentManagement: settings.fullPaymentManagement === true,
+      upcomingBookings: null,
+    };
+    return settings.availability && Presentation.presentationFromAvailability
+      ? Presentation.presentationFromAvailability({
+        hotelId: expectedHotelId, scope: 'partner',
+        bookingsVisible: presentationOptions.bookingsVisible,
+        paymentsVisible: false,
+        fullBookingManagement: presentationOptions.fullBookingManagement,
+        fullPaymentManagement: presentationOptions.fullPaymentManagement,
+        upcomingBookings: null,
+        availability: settings.availability,
+        rooms: settings.availability.room_types || settings.rooms || [],
+      })
+      : Presentation.unavailablePresentation({ ...presentationOptions, bookingsVisible: false });
+  }
+
   async function preview(domain, draft) {
     const names = {
       content: RPC.previewContent,
@@ -357,6 +394,7 @@
   return Object.freeze({
     RPC,
     getWorkspace,
+    getBookingsPaymentsPresentation,
     previewContentPlan: (draft) => preview('content', draft),
     applyContentPlan: (plan, correlationId, idempotencyKey) => apply('content', plan, correlationId, idempotencyKey),
     previewPricingPlan: (draft) => preview('pricing', draft),

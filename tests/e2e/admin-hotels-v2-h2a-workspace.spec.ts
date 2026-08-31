@@ -1249,6 +1249,56 @@ async function setReviewedSevenKamaresShadowState(page: Page): Promise<void> {
   });
 }
 
+test('Admin Hotel workspace exposes exact contextual help, lifecycle, Bookings and Payments presentation', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(seedHotelsV2H2aWorkspace(), {
+    adminId: ADMIN_ID,
+    hotelId: HOTEL_ID,
+    partnerId: PARTNER_ID,
+  });
+  await enableSupabaseStub(page);
+  await page.goto('/admin/dashboard.html', { waitUntil: 'domcontentloaded' });
+  await waitForSupabaseStub(page);
+  await page.locator('button.admin-nav-item[data-view="hotels"]').click();
+  await page.locator('#hotelPropertyList [data-hotel-open-workspace]').click();
+  await expect(page.locator('#hotelPropertyWorkspace')).toBeVisible();
+  await expect(page.locator('[data-hotel-workspace-lifecycle]')).toBeVisible();
+
+  await expect(page.locator('#hotelWorkspaceActivePanel [data-hv2-help-topic="section.overview"][data-hv2-section-help]')).toHaveCount(1);
+  await expect(page.locator('#hotelWorkspaceActivePanel [data-hv2-help-topic="section.property"][data-hv2-section-help]')).toHaveCount(1);
+  await expect(page.locator('#hotelWorkspaceActivePanel [data-hv2-help-topic="controls.property"]:not([data-hv2-section-help])')).toHaveCount(1);
+
+  for (const [tab, topic, control] of [
+    ['rooms', 'section.rooms', 'controls.rooms'],
+    ['pricing', 'section.pricing', 'controls.pricing'],
+    ['calendar', 'section.calendar', 'controls.calendar'],
+    ['bookings', 'section.bookings', 'controls.bookings'],
+    ['payments', 'section.payments', 'controls.payments'],
+  ] as const) {
+    await page.locator(`[data-hotel-workspace-tab="${tab}"]`).click();
+    await expect(page.locator(`#hotelWorkspaceActivePanel [data-hv2-help-topic="${topic}"][data-hv2-section-help]`)).toHaveCount(1);
+    await expect(page.locator(`#hotelWorkspaceActivePanel [data-hv2-help-topic="${control}"]:not([data-hv2-section-help])`)).toHaveCount(1);
+  }
+
+  await page.locator('[data-hotel-workspace-tab="pricing"]').click();
+  const pricingHelp = page.locator('#hotelWorkspaceActivePanel [data-hv2-help-topic="controls.pricing"]');
+  await pricingHelp.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.locator('dialog#hotels-v2-workspace-help-dialog[open]');
+  await expect(dialog).toContainText(/Accept/i);
+  await expect(dialog).toContainText(/Reject/i);
+  await page.keyboard.press('Escape');
+  await expect(pricingHelp).toBeFocused();
+
+  await page.locator('[data-hotel-workspace-tab="bookings"]').click();
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText(/Booking details are unavailable|Visible bookings/i);
+  await expect(page.locator('#hotelWorkspaceActivePanel [data-open-current-hotel-bookings]')).toBeVisible();
+  await page.locator('[data-hotel-workspace-tab="payments"]').click();
+  await expect(page.locator('#hotelWorkspaceActivePanel')).toContainText(/Payment details are unavailable|Current legacy payment due/i);
+  await expect(page.locator('#hotelWorkspaceActivePanel [data-open-hotel-deposit]')).toBeVisible();
+  await expect(page.locator('#hotelWorkspaceActivePanel input[name="commission"], #hotelWorkspaceActivePanel input[name="partner_net"]')).toHaveCount(0);
+});
+
 test('H2A Property Workspace keeps one legacy property inert while Rooms, Units and Rates use reviewed exact-ID RPCs', async ({ page }) => {
   test.setTimeout(120_000);
   await page.addInitScript(seedHotelsV2H2aWorkspace(), {

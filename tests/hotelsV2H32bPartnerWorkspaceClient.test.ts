@@ -115,7 +115,7 @@ describe('Hotels V2 H3.2B Partner workspace client', () => {
 
   test('validates exact non-negative server commercial arithmetic and rejects a fabricated commission', () => {
     const summary = {
-      policy: { id: TARGET, code: 'CE10', commission_mode: 'percent_booking_total', amount: 10, currency: 'EUR', version: 1, updated_at: '2026-08-25T12:00:00Z', fingerprint: TOKEN, read_only: true },
+      policy: { id: TARGET, code: 'CE10', commission_mode: 'percent_booking_total', amount: 10, currency: 'EUR', version: 1, fingerprint: TOKEN, read_only: true },
       calculation_basis: { code: 'booking_total', quantity: 1, unit_amount: 10, booking_total: 100 },
       customer_price: 100, cypruseye_commission: 10, partner_net: 90, currency: 'EUR',
     };

@@ -1,8 +1,8 @@
 (function attachHotelsV2Workspace(root, factory) {
-  const api = factory(root.HotelsV2WorkspaceCore, root.HotelsV2WorkspaceRepository);
+  const api = factory(root.HotelsV2WorkspaceCore, root.HotelsV2WorkspaceRepository, root);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.HotelsV2Workspace = api;
-})(typeof globalThis !== 'undefined' ? globalThis : window, function createHotelsV2Workspace(Core, Repository) {
+})(typeof globalThis !== 'undefined' ? globalThis : window, function createHotelsV2Workspace(Core, Repository, root) {
   'use strict';
 
   if (!Core || !Repository) throw new Error('Hotels V2 Workspace dependencies are missing.');
@@ -30,6 +30,9 @@
     reviewedPricingControl: null,
     reviewedPricingError: null,
     reviewedPricingLoading: false,
+    presentation: null,
+    presentationError: null,
+    helpController: null,
     pricingSelection: {
       room_rate_id: null,
       section: null,
@@ -1530,6 +1533,97 @@
     return escapeAttr(pricingUiText(source, replacements));
   }
 
+  const WORKSPACE_PRESENTATION_COPY = Object.freeze({
+    en: Object.freeze({
+      lifecycle: 'Current workspace state', pricingUnavailable: 'Reviewed pricing is read-only until the exact server control is available.',
+      pricingPending: 'A pricing proposal is pending Admin review; live customer prices remain unchanged.',
+      providerUnavailable: 'External provider controls are unavailable until the reviewed provider stage is installed.',
+      providerUrlMissing: 'A reviewed calendar source still needs its private export URL before activation.',
+      providerReady: 'A reviewed calendar source has a private URL and is ready for activation.', providerActive: 'An external calendar source is active.',
+      providerSetup: 'Provider controls are ready. Create or review a Room source and configure its private export URL before activation.',
+      providerReviewPending: 'A provider source change is pending Admin review; the live source remains unchanged.',
+      providerWarning: 'An active calendar source reports a sanitized synchronization warning.',
+      visibleBookings: 'Visible bookings', upcoming: 'Upcoming', recent: 'Current / recent', noBookings: 'No matching bookings are currently available.',
+      noPayments: 'No authorized payment summaries are currently available.', stay: 'Stay', guests: 'Guests', allocation: 'Room allocation',
+      customerPays: 'Customer pays', paid: 'Paid', remaining: 'Remaining', commission: 'CyprusEye commission', partnerReceives: 'Partner receives',
+      paymentState: 'Payment state', unavailable: 'Unavailable', openBookings: 'Open complete Hotel booking management', openPayments: 'Open secure payment management',
+      bookingConfirmed: 'Confirmed', bookingPending: 'Pending', bookingCancelled: 'Cancelled', bookingCompleted: 'Completed',
+      paymentPaid: 'Paid', paymentPartiallyPaid: 'Partially paid', paymentUnpaid: 'Unpaid', paymentPending: 'Pending',
+      bookingUnavailable: 'Booking details are unavailable from the secure read contract.', paymentUnavailable: 'Payment details are unavailable from the secure read contract.',
+      bookingsTitle: 'Bookings', bookingsDescription: 'Hotel-scoped booking dates, status, guests, exact Room allocation and authoritative customer total.',
+      paymentsTitle: 'Payments', paymentsDescription: 'Read-only Hotel-scoped customer, deposit, commission and Partner-receives presentation from server-derived values.',
+      legacyPaymentDue: 'Current legacy payment due', noOnlinePaymentRequired: 'No online payment is required by this rule.',
+      percentBookingTotal: '{amount}% of booking total', perDay: '{amount} per day', perHour: '{amount} per hour', perPerson: '{amount} per person', flatAmount: '{amount} flat', configuredCentralRule: 'Configured central payment rule',
+      exactPropertyOverrideSource: 'Exact Property override from the existing central Deposit Settings.', defaultHotelRuleSource: 'Hotels default rule from the existing central Deposit Settings.',
+      manageDepositSettings: 'Manage in Deposit Settings', shadowPaymentTerms: 'H3 shadow payment terms', reviewedStep: '{count} reviewed step', reviewedSteps: '{count} reviewed steps', notConfigured: 'Not configured',
+      shadowTermsInert: 'These request-confirmation terms are inert and do not replace the current central deposit rule.', openBookingSetup: 'Open Booking setup',
+      platformCommission: 'Platform commission', commissionSeparate: 'Commission is a separate commercial calculation; it is never treated as customer prepayment or Partner payout.',
+      partnerPayoutStripe: 'Partner payout / Stripe Connect', capabilityDisabled: 'Capability disabled', stripeDisabled: 'No connected-account or payout behavior is exposed in this stage.',
+    }),
+    pl: Object.freeze({
+      lifecycle: 'Bieżący stan panelu', pricingUnavailable: 'Ceny pozostają tylko do odczytu, dopóki dokładny serwerowy panel weryfikacji nie jest dostępny.',
+      pricingPending: 'Propozycja ceny oczekuje na akceptację Admina; aktualne ceny dla klientów nie uległy zmianie.',
+      providerUnavailable: 'Kontrolki dostawców są niedostępne do czasu instalacji zweryfikowanego etapu dostawców.',
+      providerUrlMissing: 'Zweryfikowane źródło kalendarza nadal wymaga prywatnego adresu eksportu przed aktywacją.',
+      providerReady: 'Zweryfikowane źródło kalendarza ma prywatny adres i jest gotowe do aktywacji.', providerActive: 'Źródło kalendarza zewnętrznego jest aktywne.',
+      providerSetup: 'Kontrolki dostawców są gotowe. Utwórz lub zweryfikuj źródło Pokoju i skonfiguruj jego prywatny adres eksportu przed aktywacją.',
+      providerReviewPending: 'Zmiana źródła dostawcy oczekuje na akceptację Admina; aktywne źródło pozostaje bez zmian.',
+      providerWarning: 'Aktywne źródło kalendarza zgłasza bezpieczne ostrzeżenie synchronizacji.',
+      visibleBookings: 'Widoczne rezerwacje', upcoming: 'Nadchodzące', recent: 'Bieżące / ostatnie', noBookings: 'Obecnie nie ma pasujących rezerwacji.',
+      noPayments: 'Obecnie nie ma dostępnych podsumowań płatności w tym zakresie uprawnień.', stay: 'Pobyt', guests: 'Goście', allocation: 'Przydział pokoi',
+      customerPays: 'Klient płaci', paid: 'Zapłacono', remaining: 'Pozostało', commission: 'Prowizja CyprusEye', partnerReceives: 'Partner otrzymuje',
+      paymentState: 'Stan płatności', unavailable: 'Niedostępne', openBookings: 'Otwórz pełną obsługę rezerwacji hotelowych', openPayments: 'Otwórz bezpieczną obsługę płatności',
+      bookingConfirmed: 'Potwierdzona', bookingPending: 'Oczekująca', bookingCancelled: 'Anulowana', bookingCompleted: 'Zakończona',
+      paymentPaid: 'Zapłacono', paymentPartiallyPaid: 'Częściowo zapłacono', paymentUnpaid: 'Niezapłacona', paymentPending: 'Oczekuje',
+      bookingUnavailable: 'Szczegóły rezerwacji są niedostępne w bezpiecznym kontrakcie odczytu.', paymentUnavailable: 'Szczegóły płatności są niedostępne w bezpiecznym kontrakcie odczytu.',
+      bookingsTitle: 'Rezerwacje', bookingsDescription: 'Daty, status, goście, dokładny przydział Pokoi i autorytatywna kwota „Klient płaci” dla tego Hotelu.',
+      paymentsTitle: 'Płatności', paymentsDescription: 'Podsumowanie tylko do odczytu dla tego Hotelu: kwoty klienta, depozyt, prowizja i kwota „Partner otrzymuje”, wyliczone przez serwer.',
+      legacyPaymentDue: 'Bieżąca należność według starszej reguły', noOnlinePaymentRequired: 'Ta reguła nie wymaga płatności online.',
+      percentBookingTotal: '{amount}% wartości rezerwacji', perDay: '{amount} za dzień', perHour: '{amount} za godzinę', perPerson: '{amount} za osobę', flatAmount: '{amount} ryczałtem', configuredCentralRule: 'Skonfigurowana centralna reguła płatności',
+      exactPropertyOverrideSource: 'Dokładne ustawienie tego obiektu z istniejącej centralnej sekcji Ustawienia depozytu.', defaultHotelRuleSource: 'Domyślna reguła Hoteli z istniejącej centralnej sekcji Ustawienia depozytu.',
+      manageDepositSettings: 'Zarządzaj w Ustawieniach depozytu', shadowPaymentTerms: 'Testowe warunki płatności H3', reviewedStep: '{count} zatwierdzony etap', reviewedSteps: '{count} zatwierdzone etapy', notConfigured: 'Nie skonfigurowano',
+      shadowTermsInert: 'Te warunki procesu „prośba–potwierdzenie” są nieaktywne i nie zastępują bieżącej centralnej reguły depozytu.', openBookingSetup: 'Otwórz ustawienia rezerwacji',
+      platformCommission: 'Prowizja platformy', commissionSeparate: 'Prowizja jest oddzielnym wyliczeniem handlowym; nigdy nie jest traktowana jako przedpłata klienta ani wypłata dla Partnera.',
+      partnerPayoutStripe: 'Wypłata dla Partnera / Stripe Connect', capabilityDisabled: 'Funkcja wyłączona', stripeDisabled: 'Na tym etapie nie są dostępne połączone konta ani wypłaty.',
+    }),
+    he: Object.freeze({
+      lifecycle: 'מצב סביבת העבודה הנוכחי', pricingUnavailable: 'התמחור נשאר לקריאה בלבד עד שבקרת השרת המדויקת זמינה.',
+      pricingPending: 'הצעת מחיר ממתינה לבדיקת האדמין; המחירים החיים ללקוחות לא השתנו.',
+      providerUnavailable: 'בקרות הספק אינן זמינות עד להתקנת שלב הספק שנבדק.',
+      providerUrlMissing: 'מקור יומן שנבדק עדיין דורש כתובת יצוא פרטית לפני הפעלה.',
+      providerReady: 'למקור יומן שנבדק יש כתובת פרטית והוא מוכן להפעלה.', providerActive: 'מקור יומן חיצוני פעיל.',
+      providerSetup: 'בקרות הספק מוכנות. יש ליצור או לבדוק מקור לחדר ולהגדיר את כתובת היצוא הפרטית שלו לפני הפעלה.',
+      providerReviewPending: 'שינוי במקור ספק ממתין לבדיקת האדמין; המקור החי נשאר ללא שינוי.',
+      providerWarning: 'מקור יומן פעיל מציג אזהרת סנכרון בטוחה.',
+      visibleBookings: 'הזמנות מוצגות', upcoming: 'קרובות', recent: 'נוכחיות / אחרונות', noBookings: 'אין כרגע הזמנות תואמות.',
+      noPayments: 'אין כרגע סיכומי תשלום מורשים להצגה.', stay: 'שהייה', guests: 'אורחים', allocation: 'הקצאת חדרים',
+      customerPays: 'הלקוח משלם', paid: 'שולם', remaining: 'נותר', commission: 'עמלת CyprusEye', partnerReceives: 'השותף מקבל',
+      paymentState: 'מצב תשלום', unavailable: 'לא זמין', openBookings: 'פתיחת ניהול הזמנות המלון המלא', openPayments: 'פתיחת ניהול התשלום המאובטח',
+      bookingConfirmed: 'מאושרת', bookingPending: 'ממתינה', bookingCancelled: 'בוטלה', bookingCompleted: 'הושלמה',
+      paymentPaid: 'שולם', paymentPartiallyPaid: 'שולם חלקית', paymentUnpaid: 'לא שולם', paymentPending: 'ממתין',
+      bookingUnavailable: 'פרטי ההזמנה אינם זמינים מחוזה הקריאה המאובטח.', paymentUnavailable: 'פרטי התשלום אינם זמינים מחוזה הקריאה המאובטח.',
+      bookingsTitle: 'הזמנות', bookingsDescription: 'תאריכים, סטטוס, אורחים, הקצאת חדרים מדויקת והסכום המוסמך שהלקוח משלם, בהיקף המלון הזה.',
+      paymentsTitle: 'תשלומים', paymentsDescription: 'תצוגה לקריאה בלבד, בהיקף המלון, של סכומי הלקוח, הפיקדון, העמלה והסכום שהשותף מקבל, כפי שנגזרו מהשרת.',
+      legacyPaymentDue: 'הסכום הנוכחי לתשלום לפי הכלל הקודם', noOnlinePaymentRequired: 'כלל זה אינו דורש תשלום מקוון.',
+      percentBookingTotal: '{amount}% מסכום ההזמנה', perDay: '{amount} ליום', perHour: '{amount} לשעה', perPerson: '{amount} לאדם', flatAmount: '{amount} בסכום קבוע', configuredCentralRule: 'כלל התשלום המרכזי שהוגדר',
+      exactPropertyOverrideSource: 'הגדרה מדויקת של הנכס מתוך הגדרות הפיקדון המרכזיות הקיימות.', defaultHotelRuleSource: 'כלל ברירת המחדל של המלונות מתוך הגדרות הפיקדון המרכזיות הקיימות.',
+      manageDepositSettings: 'ניהול בהגדרות הפיקדון', shadowPaymentTerms: 'תנאי התשלום הניסיוניים של H3', reviewedStep: 'שלב אחד שנבדק', reviewedSteps: '{count} שלבים שנבדקו', notConfigured: 'לא הוגדר',
+      shadowTermsInert: 'תנאי הבקשה והאישור האלה אינם פעילים ואינם מחליפים את כלל הפיקדון המרכזי הנוכחי.', openBookingSetup: 'פתיחת הגדרות ההזמנה',
+      platformCommission: 'עמלת הפלטפורמה', commissionSeparate: 'העמלה היא חישוב מסחרי נפרד; היא לעולם אינה נחשבת למקדמת לקוח או להעברה לשותף.',
+      partnerPayoutStripe: 'העברה לשותף / Stripe Connect', capabilityDisabled: 'היכולת מושבתת', stripeDisabled: 'בשלב זה לא נחשפת התנהגות של חשבון מקושר או העברת כספים.',
+    }),
+  });
+
+  function workspacePresentationText(key, replacements = {}) {
+    let translated = WORKSPACE_PRESENTATION_COPY[pricingUiLanguage()]?.[key]
+      || WORKSPACE_PRESENTATION_COPY.en[key]
+      || key;
+    Object.entries(replacements).forEach(([name, value]) => {
+      translated = translated.replaceAll(`{${name}}`, String(value));
+    });
+    return translated;
+  }
+
   function localizePricingUi(rootNode) {
     if (!rootNode || pricingUiLanguage() === 'en') return;
     // Pricing content is a reviewed business contract. Never walk the whole
@@ -2131,6 +2225,8 @@
       state.reviewedPricingControl = null;
       state.reviewedPricingError = null;
       state.reviewedPricingLoading = false;
+      state.presentation = null;
+      state.presentationError = null;
       state.pricingSelection = { room_rate_id: null, section: null };
       try {
         state.h3Configuration = await Repository.getH3Configuration(id);
@@ -2169,6 +2265,32 @@
         state.partnerPermissionsError = error;
       }
       try {
+        let bookingAvailability = null;
+        try {
+          const presentationFrom = todayIsoDate();
+          bookingAvailability = await Repository.getAvailabilityControl(
+            id,
+            presentationFrom,
+            addCalendarDays(presentationFrom, 30),
+          );
+        } catch (_error) {
+          bookingAvailability = null;
+        }
+        state.presentation = await Repository.getBookingsPaymentsPresentation(id, {
+          limit: 100,
+          fullBookingManagement: true,
+          fullPaymentManagement: true,
+          upcomingBookings: Number.isInteger(state.workspace.counts?.upcoming_bookings)
+            ? state.workspace.counts.upcoming_bookings
+            : null,
+          availability: bookingAvailability,
+          rooms: state.workspace.room_types,
+          currency: state.workspace.property.currency,
+        });
+      } catch (error) {
+        state.presentationError = error;
+      }
+      try {
         state.pricingControl = await Repository.getPricingControl(id);
       } catch (error) {
         state.pricingControlError = error;
@@ -2197,6 +2319,11 @@
         external_calendar_provider_reviews: null,
         external_calendar_provider_reviews_error: null,
       };
+      try {
+        state.calendar.external_calendar = await Repository.getExternalCalendarControl(id);
+      } catch (error) {
+        state.calendar.external_calendar_error = error;
+      }
       state.activeTab = options.tab || 'overview';
       renderWorkspace();
       workspaceElement.scrollIntoView({ block: 'start' });
@@ -2233,6 +2360,10 @@
     state.reviewedPricingControl = null;
     state.reviewedPricingError = null;
     state.reviewedPricingLoading = false;
+    state.presentation = null;
+    state.presentationError = null;
+    state.helpController?.destroy?.();
+    state.helpController = null;
     state.pricingSelection = { room_rate_id: null, section: null };
     state.calendar.data = null;
     if (workspaceElement) {
@@ -2266,6 +2397,7 @@
             : ''}
         </div>
       </header>
+      ${adminLifecycleBannerMarkup()}
       <nav class="hotel-workspace-tabs" role="tablist" aria-label="Property Workspace sections">
         ${WORKSPACE_TABS.map(([key, label]) => `
           <button type="button" role="tab" id="hotelWorkspaceTab-${key}" data-hotel-workspace-tab="${key}" aria-controls="hotelWorkspaceActivePanel" aria-selected="${state.activeTab === key}" tabindex="${state.activeTab === key ? '0' : '-1'}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(key === 'pricing' ? pricingUiText(label) : label)}</button>
@@ -2319,10 +2451,72 @@
       activity: renderActivityPanel,
     };
     (renderers[state.activeTab] || renderOverviewPanel)(panel);
+    activateWorkspaceHelp();
   }
 
   function workspacePanelHeader(title, description, actions = '') {
-    return `<header class="hotel-workspace-panel-header"><div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${actions}</header>`;
+    const normalized = String(title || '').toLowerCase();
+    const topic = normalized.startsWith('overview') ? 'section.overview'
+      : normalized.startsWith('rooms') ? 'section.rooms'
+        : normalized.startsWith('rates') ? 'section.pricing'
+          : normalized.startsWith('calendar') ? 'section.calendar'
+            : normalized.startsWith('bookings') ? 'section.bookings'
+              : normalized.startsWith('payments') ? 'section.payments' : null;
+    const controlTopic = topic === 'section.rooms' ? 'controls.rooms'
+      : topic === 'section.pricing' ? 'controls.pricing'
+        : topic === 'section.calendar' ? 'controls.calendar'
+          : topic === 'section.bookings' ? 'controls.bookings'
+            : topic === 'section.payments' ? 'controls.payments' : null;
+    return `<header class="hotel-workspace-panel-header"><div><div class="hotel-workspace-help-heading"><h3>${escapeHtml(title)}</h3>${topic ? workspaceHelpButton(topic, true) : ''}${controlTopic ? workspaceHelpButton(controlTopic) : ''}</div><p>${escapeHtml(description)}</p></div>${actions}</header>`;
+  }
+
+  function workspaceHelpButton(topic, section = false) {
+    return root.HotelsV2WorkspaceHelp?.helpButton?.(topic, { section }) || '';
+  }
+
+  function activateWorkspaceHelp() {
+    if (!root.HotelsV2WorkspaceHelp?.createController) return;
+    state.helpController?.destroy?.();
+    state.helpController = root.HotelsV2WorkspaceHelp.createController({
+      root: byId('hotelPropertyWorkspace'), language: pricingUiLanguage(), role: 'admin',
+    });
+  }
+
+  function adminLifecycleBannerMarkup() {
+    const messages = [];
+    if (state.workspace?.property?.id === Core.SEVEN_ARCHES_PROPERTY_ID && !state.reviewedPricingControl) {
+      messages.push(workspacePresentationText('pricingUnavailable'));
+    }
+    if (Core.asArray(state.reviewedPricingControl?.proposals).some((proposal) => proposal.status === 'pending_admin_review')) {
+      messages.push(workspacePresentationText('pricingPending'));
+    }
+    const external = state.calendar?.external_calendar;
+    if (state.calendar?.external_calendar_error) messages.push(workspacePresentationText('providerUnavailable'));
+    else if (external) {
+      const capability = external.provider_capability;
+      const sources = Core.asArray(external.sources);
+      if (capability?.stage !== 'provider_types_active') messages.push(workspacePresentationText('providerUnavailable'));
+      else {
+        if (Core.asArray(external.provider_proposals).some((proposal) => proposal.status === 'pending_admin_review')) {
+          messages.push(workspacePresentationText('providerReviewPending'));
+        }
+        if (sources.some((source) => source.is_enabled && source.health?.status === 'degraded')) messages.push(workspacePresentationText('providerWarning'));
+        else if (sources.some((source) => source.is_enabled)) messages.push(workspacePresentationText('providerActive'));
+        else if (sources.some((source) => source.review_status === 'reviewed' && source.secret_configured)) messages.push(workspacePresentationText('providerReady'));
+        else if (sources.some((source) => !source.secret_configured)) messages.push(workspacePresentationText('providerUrlMissing'));
+        else if (!sources.length) messages.push(workspacePresentationText('providerSetup'));
+      }
+    }
+    if (!messages.length) return '';
+    return `<aside class="hotel-workspace-lifecycle" data-hotel-workspace-lifecycle><strong>${escapeHtml(workspacePresentationText('lifecycle'))}</strong><ul>${messages.map((message) => `<li>${escapeHtml(message)}</li>`).join('')}</ul></aside>`;
+  }
+
+  function refreshAdminLifecycleBanner() {
+    const container = byId('hotelPropertyWorkspace');
+    const header = container?.querySelector('.hotel-workspace-header');
+    container?.querySelector('[data-hotel-workspace-lifecycle]')?.remove();
+    const markup = adminLifecycleBannerMarkup();
+    if (header && markup) header.insertAdjacentHTML('afterend', markup);
   }
 
   function i18nFields(prefix, label, values, type = 'input', maxLength = null) {
@@ -2838,6 +3032,7 @@
       ${renderPartnerPropertyProposalPanel(property)}
       <div class="hotel-workspace-overview-grid">
         <form id="hotelWorkspaceOverviewForm" class="hotel-workspace-card hotel-workspace-form">
+          <div class="hotel-workspace-help-heading"><h3>${escapeHtml(propertyTitle(property))}</h3>${workspaceHelpButton('section.property', true)}${workspaceHelpButton('controls.property')}</div>
           <input type="hidden" name="property_id" value="${escapeAttr(property.id)}" />
           ${i18nFields('title', 'Property name', property.title_i18n || property.title, 'input', 240)}
           ${i18nFields('description', 'Property description', property.description_i18n || property.description, 'textarea', 12000)}
@@ -7407,6 +7602,7 @@
       state.calendar.external_calendar_error = externalResult.error;
       state.calendar.external_calendar_provider_reviews = externalResult.reviews;
       state.calendar.external_calendar_provider_reviews_error = externalResult.reviewsError;
+      refreshAdminLifecycleBanner();
       const targetIds = new Set([...data.room_types.map((room) => room.id), ...data.room_rates.map((rate) => rate.id)]);
       state.calendar.selected_product_ids = state.calendar.selected_product_ids.filter((id) => targetIds.has(id));
     } catch (error) {
@@ -8962,28 +9158,85 @@
   }
 
   function renderBookingsPanel(panel) {
-    const upcoming = Number(state.workspace.counts?.upcoming_bookings || 0);
-    panel.innerHTML = `${workspacePanelHeader('Bookings', 'Existing Hotel booking and partner-confirmation behavior remains unchanged.')}
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Current legacy booking system</span><h4>${upcoming} upcoming booking${upcoming === 1 ? '' : 's'}</h4><p>H2A does not introduce a V2 booking engine. Open the existing Hotels Bookings view to manage current request-confirmation bookings.</p><button class="btn-primary" type="button" data-open-current-hotel-bookings>Open current Hotel bookings</button></section>`;
+    const presentation = state.presentation;
+    if (!presentation?.capabilities.bookings_visible) {
+      const exactUpcoming = Number.isInteger(state.workspace?.counts?.upcoming_bookings)
+        ? `<section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('upcoming'))}</span><h4>${escapeHtml(state.workspace.counts.upcoming_bookings)}</h4></section>`
+        : '';
+      panel.innerHTML = `${workspacePanelHeader(workspacePresentationText('bookingsTitle'), workspacePresentationText('bookingsDescription'))}
+        ${exactUpcoming}<section class="hotel-workspace-card hotel-placeholder-card"><p>${escapeHtml(state.presentationError?.message || workspacePresentationText('bookingUnavailable'))}</p></section>
+        <button class="btn-primary" type="button" data-open-current-hotel-bookings>${escapeHtml(workspacePresentationText('openBookings'))}</button>`;
+      panel.querySelector('[data-open-current-hotel-bookings]')?.addEventListener('click', () => {
+        closeWorkspace();
+        document.querySelector('.hotels-tab-button[data-tab="bookings"]')?.click?.();
+      });
+      return;
+    }
+    panel.innerHTML = `${workspacePanelHeader(workspacePresentationText('bookingsTitle'), workspacePresentationText('bookingsDescription'))}
+      <div class="hotel-workspace-summary-grid hotel-workspace-booking-summary">
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('visibleBookings'))}</span><h4>${adminPresentationCount(presentation.summary.total_bookings)}</h4></section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('upcoming'))}</span><h4>${adminPresentationCount(presentation.summary.upcoming_bookings)}</h4></section>
+        <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('recent'))}</span><h4>${adminPresentationCount(presentation.summary.current_recent_bookings)}</h4></section>
+      </div>
+      <div class="hotel-workspace-presentation-grid">${presentation.bookings.length ? presentation.bookings.map((booking) => adminBookingPresentationCard(booking, false)).join('') : `<section class="hotel-workspace-card"><p>${escapeHtml(workspacePresentationText('noBookings'))}</p></section>`}</div>
+      ${presentation.capabilities.full_booking_management ? `<button class="btn-primary" type="button" data-open-current-hotel-bookings>${escapeHtml(workspacePresentationText('openBookings'))}</button>` : ''}`;
     panel.querySelector('[data-open-current-hotel-bookings]')?.addEventListener('click', () => {
       closeWorkspace();
       document.querySelector('.hotels-tab-button[data-tab="bookings"]')?.click?.();
     });
   }
 
+  function adminPresentationMoney(value, currency) {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? formatMoney(value, currency)
+      : workspacePresentationText('unavailable');
+  }
+
+  function adminPresentationCount(value) {
+    return Number.isInteger(value) && value >= 0
+      ? String(value)
+      : escapeHtml(workspacePresentationText('unavailable'));
+  }
+
+  function adminPresentationStatus(value, kind = 'booking') {
+    if (typeof value !== 'string' || !value.trim()) return workspacePresentationText('unavailable');
+    const normalized = value.trim().toLowerCase();
+    const booking = {
+      confirmed: 'bookingConfirmed', pending: 'bookingPending', cancelled: 'bookingCancelled',
+      canceled: 'bookingCancelled', completed: 'bookingCompleted',
+    };
+    const payment = {
+      paid: 'paymentPaid', partially_paid: 'paymentPartiallyPaid', unpaid: 'paymentUnpaid', pending: 'paymentPending',
+    };
+    return workspacePresentationText((kind === 'payment' ? payment : booking)[normalized] || normalized.replaceAll('_', ' '));
+  }
+
+  function adminAllocationMarkup(booking) {
+    if (!Core.asArray(booking.allocation).length) return escapeHtml(workspacePresentationText('unavailable'));
+    return `<ul class="hotel-workspace-allocation-list">${booking.allocation.map((entry) => `<li>${escapeHtml(Core.i18nText(entry.room_name_i18n, pricingUiLanguage(), 'Room'))}${entry.units > 1 ? ` × ${entry.units}` : ''}</li>`).join('')}</ul>`;
+  }
+
+  function adminBookingPresentationCard(booking, includePayment) {
+    const payment = booking.payment;
+    return `<article class="hotel-workspace-card hotel-workspace-booking-card" data-booking-id="${escapeAttr(booking.booking_id)}">
+      <header><div><span class="hotel-workspace-eyebrow">${escapeHtml(booking.reference || workspacePresentationText('visibleBookings'))}</span><h4>${escapeHtml(workspacePresentationText('stay'))}: ${escapeHtml(booking.arrival_date)} – ${escapeHtml(booking.departure_date)}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${statusTone(booking.status)}">${escapeHtml(adminPresentationStatus(booking.status))}</span></header>
+      <dl><div><dt>${escapeHtml(workspacePresentationText('guests'))}</dt><dd>${booking.guest_count == null ? escapeHtml(workspacePresentationText('unavailable')) : escapeHtml(booking.guest_count)}</dd></div><div><dt>${escapeHtml(workspacePresentationText('allocation'))}</dt><dd>${adminAllocationMarkup(booking)}</dd></div><div><dt>${escapeHtml(workspacePresentationText('customerPays'))}</dt><dd>${escapeHtml(adminPresentationMoney(booking.customer_total, booking.currency))}</dd></div>${includePayment ? `<div><dt>${escapeHtml(workspacePresentationText('paymentState'))}</dt><dd>${escapeHtml(adminPresentationStatus(payment?.state, 'payment'))}</dd></div><div><dt>${escapeHtml(workspacePresentationText('paid'))}</dt><dd>${escapeHtml(adminPresentationMoney(payment?.paid, payment?.currency || booking.currency))}</dd></div><div><dt>${escapeHtml(workspacePresentationText('remaining'))}</dt><dd>${escapeHtml(adminPresentationMoney(payment?.remaining, payment?.currency || booking.currency))}</dd></div><div><dt>${escapeHtml(workspacePresentationText('commission'))}</dt><dd>${escapeHtml(adminPresentationMoney(payment?.cypruseye_commission, payment?.currency || booking.currency))}</dd></div><div><dt>${escapeHtml(workspacePresentationText('partnerReceives'))}</dt><dd>${escapeHtml(adminPresentationMoney(payment?.partner_net, payment?.currency || booking.currency))}</dd></div>` : ''}</dl>
+    </article>`;
+  }
+
   function depositRuleLabel(rule) {
     const source = Core.asObject(rule);
-    if (!source.enabled) return 'No online payment required by this rule';
+    if (!source.enabled) return workspacePresentationText('noOnlinePaymentRequired');
     const amount = Number(source.amount || 0);
     const currency = String(source.currency || state.workspace.property.currency || 'EUR');
     const labels = {
-      percent_total: `${amount}% of booking total`,
-      per_day: `${formatMoney(amount, currency)} per day`,
-      per_hour: `${formatMoney(amount, currency)} per hour`,
-      per_person: `${formatMoney(amount, currency)} per person`,
-      flat: `${formatMoney(amount, currency)} flat`,
+      percent_total: workspacePresentationText('percentBookingTotal', { amount }),
+      per_day: workspacePresentationText('perDay', { amount: formatMoney(amount, currency) }),
+      per_hour: workspacePresentationText('perHour', { amount: formatMoney(amount, currency) }),
+      per_person: workspacePresentationText('perPerson', { amount: formatMoney(amount, currency) }),
+      flat: workspacePresentationText('flatAmount', { amount: formatMoney(amount, currency) }),
     };
-    return labels[source.mode] || 'Configured central payment rule';
+    return labels[source.mode] || workspacePresentationText('configuredCentralRule');
   }
 
   function openCentralHotelDepositSettings() {
@@ -9004,11 +9257,16 @@
     const h3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
     const h3Payment = h3?.payment_policies.find((entry) => entry.is_active);
     const h3Commission = h3?.commission_policies.find((entry) => entry.is_active);
-    panel.innerHTML = `${workspacePanelHeader('Payments', 'Current central deposit behavior and future reviewed H3 request-confirmation terms remain separate.')}
-      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Current legacy payment due</span><h4>${escapeHtml(depositRuleLabel(effective))}</h4><p>${Object.keys(exact).length ? 'Exact property override' : 'Hotels default rule'} from the existing central Deposit Settings tables.</p><button class="btn-primary" type="button" data-open-hotel-deposit>Manage in Deposit Settings</button></section>
-      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">H3 shadow payment terms</span><h4>${h3Payment ? `${h3Payment.terms.length} reviewed step${h3Payment.terms.length === 1 ? '' : 's'}` : 'Not configured'}</h4><p>These request-confirmation terms are inert and do not replace the current central deposit rule.</p><button class="btn-secondary" type="button" data-open-h3-payment-setup>Open Booking setup</button></section>
-      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Platform commission</span><h4>${escapeHtml(h3CommissionLabel(h3Commission))}</h4><p>Commission is a separate commercial calculation; it is never treated as customer prepayment or partner payout.</p></section>
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Partner payout / Stripe Connect</span><h4>Capability disabled</h4><p>No connected-account or payout behavior is exposed in this stage.</p></section></div>`;
+    const presentation = state.presentation;
+    const paymentRows = presentation?.capabilities.payments_visible
+      ? presentation.bookings.filter((booking) => booking.payment !== null)
+      : [];
+    panel.innerHTML = `${workspacePanelHeader(workspacePresentationText('paymentsTitle'), workspacePresentationText('paymentsDescription'))}
+      ${presentation?.capabilities.payments_visible ? `<div class="hotel-workspace-presentation-grid">${paymentRows.length ? paymentRows.map((booking) => adminBookingPresentationCard(booking, true)).join('') : `<section class="hotel-workspace-card"><p>${escapeHtml(workspacePresentationText('noPayments'))}</p></section>`}</div>` : `<section class="hotel-workspace-card hotel-placeholder-card"><p>${escapeHtml(state.presentationError?.message || workspacePresentationText('paymentUnavailable'))}</p></section>`}
+      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('legacyPaymentDue'))}</span><h4>${escapeHtml(depositRuleLabel(effective))}</h4><p>${escapeHtml(workspacePresentationText(Object.keys(exact).length ? 'exactPropertyOverrideSource' : 'defaultHotelRuleSource'))}</p><button class="btn-primary" type="button" data-open-hotel-deposit>${escapeHtml(workspacePresentationText('manageDepositSettings'))}</button></section>
+      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('shadowPaymentTerms'))}</span><h4>${h3Payment ? escapeHtml(workspacePresentationText(h3Payment.terms.length === 1 ? 'reviewedStep' : 'reviewedSteps', { count: h3Payment.terms.length })) : escapeHtml(workspacePresentationText('notConfigured'))}</h4><p>${escapeHtml(workspacePresentationText('shadowTermsInert'))}</p><button class="btn-secondary" type="button" data-open-h3-payment-setup>${escapeHtml(workspacePresentationText('openBookingSetup'))}</button></section>
+      <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('platformCommission'))}</span><h4>${escapeHtml(h3CommissionLabel(h3Commission))}</h4><p>${escapeHtml(workspacePresentationText('commissionSeparate'))}</p></section>
+      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('partnerPayoutStripe'))}</span><h4>${escapeHtml(workspacePresentationText('capabilityDisabled'))}</h4><p>${escapeHtml(workspacePresentationText('stripeDisabled'))}</p></section></div>`;
     panel.querySelector('[data-open-hotel-deposit]')?.addEventListener('click', openCentralHotelDepositSettings);
     panel.querySelector('[data-open-h3-payment-setup]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
   }

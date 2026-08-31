@@ -371,9 +371,9 @@ describe('Hotels V2 H3.2B independent Partner workspace Core contract', () => {
     expect(Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER)).toBe(PARTY_SCHEDULE_TIER);
     expect(() => Core.requireCanonicalUuid(PARTY_SCHEDULE_TIER)).toThrow('lowercase canonical UUID');
     expect(() => Core.requirePricingTargetUuid('schedule_tier_price', PARTY_SCHEDULE_TIER.toUpperCase()))
-      .toThrow('lowercase canonical UUID');
+      .toThrow('lowercase PostgreSQL UUID');
     expect(() => Core.requirePricingTargetUuid('schedule_tier_price', 'legacy-tier-2-2'))
-      .toThrow('lowercase canonical UUID');
+      .toThrow('lowercase PostgreSQL UUID');
     expect(() => Core.requirePricingTargetUuid('room_rate_price', PARTY_SCHEDULE_TIER))
       .toThrow('lowercase canonical UUID');
 

@@ -285,6 +285,46 @@
     return workspace;
   }
 
+  async function getBookingsPaymentsPresentation(hotelId, options = {}) {
+    const id = Core.normalizeUuid(hotelId);
+    const settings = options && typeof options === 'object' ? options : { limit: options };
+    const boundedLimit = Number(settings.limit ?? 100);
+    if (!id) throw new Error('A valid property ID is required.');
+    if (!Number.isInteger(boundedLimit) || boundedLimit < 1 || boundedLimit > 200) {
+      throw new Error('Bookings presentation limit must be between 1 and 200.');
+    }
+    const Presentation = typeof globalThis !== 'undefined'
+      ? globalThis.HotelsV2WorkspaceHelp
+      : null;
+    if (!Presentation?.unavailablePresentation) {
+      throw new Error('Bookings and Payments presentation validator is unavailable.');
+    }
+    const presentationOptions = {
+      hotelId: id,
+      scope: 'admin',
+      bookingsVisible: true,
+      paymentsVisible: false,
+      fullBookingManagement: settings.fullBookingManagement === true,
+      fullPaymentManagement: settings.fullPaymentManagement === true,
+      upcomingBookings: Number.isInteger(settings.upcomingBookings) && settings.upcomingBookings >= 0
+        ? settings.upcomingBookings
+        : null,
+    };
+    return settings.availability && Presentation.presentationFromAvailability
+      ? Presentation.presentationFromAvailability({
+        hotelId: id, scope: 'admin', bookingsVisible: true,
+        paymentsVisible: false,
+        fullBookingManagement: presentationOptions.fullBookingManagement,
+        fullPaymentManagement: presentationOptions.fullPaymentManagement,
+        upcomingBookings: presentationOptions.upcomingBookings,
+        availability: settings.availability,
+        rooms: settings.availability.room_types || settings.rooms || [],
+      })
+      : Presentation.unavailablePresentation({
+        ...presentationOptions, bookingsVisible: false, upcomingBookings: null,
+      });
+  }
+
   async function getPartnerPropertyProposals(hotelId) {
     const id = Core.normalizeUuid(hotelId);
     if (!id || id !== Core.SEVEN_ARCHES_PROPERTY_ID) throw new Error('Partner property proposals are available only for the exact reviewed 7 Arches Hotel.');
@@ -1475,6 +1515,7 @@
     getClient,
     listProperties,
     getWorkspace,
+    getBookingsPaymentsPresentation,
     getPartnerPropertyProposals,
     previewPartnerPropertyProposalPlan,
     applyPartnerPropertyProposalPlan,
