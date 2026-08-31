@@ -1,164 +1,376 @@
--- Standalone dual-mode verifier after 114450. It accepts either the inert
--- pre-2F state or the exact manually activated 2F state.
+-- Standalone read-only verifier for the provider-lineage boundary.
 begin;
 set transaction read only;
-set local statement_timeout='120s';
+set local statement_timeout='180s';
+
 do $verify$
-declare c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
-  v_signature text; v_role text; v_relation text; v_external boolean; v_count integer;
+declare
+  v_signature text;
+  v_relation text;
+  v_role text;
+  v_incoming_timezone text:=current_setting('TimeZone');
+  v_nicosia jsonb;
+  v_utc jsonb;
 begin
-  if not public.hotel_v2_external_calendar_provider_evolution_is_safe()
+  if to_regclass('hotels_v2_private.hotel_external_calendar_provider_evolution_receipts') is null
+     or to_regclass('hotels_v2_private.hotel_external_calendar_partner_proposals') is null
+     or to_regclass('hotels_v2_private.hotel_external_calendar_provider_review_receipts') is null
+     or to_regclass('hotels_v2_private.hotel_external_calendar_provider_admin_previews') is null
+     or to_regprocedure('public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()') is null
+     or to_regprocedure('public.hotel_v2_external_calendar_provider_evolution_is_safe()') is null
+     or to_regprocedure(
+       'public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()') is null
+     or to_regprocedure('public.hotel_v2_admin_get_external_calendar_provider_reviews(uuid)') is null
+     or to_regprocedure('public.hotel_v2_admin_preview_external_calendar_partner_proposal(uuid,text)') is null
+     or to_regprocedure(
+       'public.hotel_v2_admin_apply_external_calendar_partner_proposal(uuid,jsonb,uuid,uuid,text)') is null
+     or to_regprocedure(
+       'public.hotel_v2_admin_reject_external_calendar_partner_proposal(uuid,text,uuid,uuid)') is null then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_foundation_missing';
+  end if;
+
+  if (select count(*) from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts)<>1
+     or not public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()
+     or not public.hotel_v2_external_calendar_provider_evolution_is_safe()
      or not public.hotel_v2_external_calendar_provider_sources_are_attributable()
-     or not exists(select 1 from public.hotel_partner_property_proposal_foundation_receipts receipt
-       where receipt.id=1 and receipt.provider_source_attribution_source_hash=
-         public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
-           'public.hotel_v2_external_calendar_provider_sources_are_attributable()'::regprocedure))))
+     or (select receipt.prior_function_source_hashes->>
+       'public.hotel_v2_external_calendar_provider_sources_are_attributable()'
+       from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+       where receipt.id=1) is distinct from
+       '6aee1bb6d02b999877d6384633dd9eab1e8d533917b24ab25e20c83973a0025f'
      or public.hotel_v2_external_calendar_site_settings_fingerprint() is null
      or not public.hotel_v2_partner_workspace_function_lineage_is_exact()
-     or not exists(select 1 from pg_proc procedure where procedure.oid=
-       'public.hotel_v2_external_calendar_site_settings_fingerprint()'::regprocedure
-       and procedure.proowner='postgres'::regrole and procedure.prosecdef
-       and procedure.proconfig=array['search_path=pg_catalog, public']::text[])
-     or not exists(select 1 from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
-       join hotels_v2_private.hotel_external_calendar_foundation_receipts foundation on foundation.id=receipt.id
-       where receipt.id=1 and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
-         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
-         and receipt.evolved_function_fingerprints=
-           hotels_v2_private.hotel_external_calendar_provider_function_fingerprints()) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_receipt_drift';
-  end if;
-  if exists(select 1
-      from public.hotel_seven_arches_pricing_activation_evolution_receipts activation
-      join hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
-        on receipt.id=activation.id
-      where exists(select 1
-        from unnest(activation.stage2_allowed_fingerprint_keys) changed(changed_key)
-        where receipt.prior_compatible_fingerprints->(changed.changed_key)
-          is distinct from activation.before_stage2_protected_fingerprints->(changed.changed_key))) then
+     or not public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
+     or not public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
+     or not public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
+     or not public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=
+         'public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()'::regprocedure
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+           'sha256'),'hex')=
+           'c0e257ae4a8bbf8fae16270025dbbd34490ff39ebeda1733e26de1215b372e0e'
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=
+         'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure
+         and procedure_row.proowner='postgres'::regrole
+         and language_row.lanname='plpgsql'
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+           'sha256'),'hex')=
+           '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'original_receipt_intact')::boolean,false)
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'audit_chain_exact')::boolean,false) then
     raise exception using errcode='55000',
-      message='hotels_v2_external_calendar_provider_verify_prior_normalization_drift';
+      message='hotels_v2_external_calendar_provider_verify_lineage_drift';
   end if;
+
   if not (public.hotel_v2_external_calendar_ics_source_type_is_supported('booking_com')
       and public.hotel_v2_external_calendar_ics_source_type_is_supported('airbnb')
       and public.hotel_v2_external_calendar_ics_source_type_is_supported('ical'))
-     or public.hotel_v2_external_calendar_ics_source_type_is_supported('manual') then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_enum_mismatch';
+     or public.hotel_v2_external_calendar_ics_source_type_is_supported('manual')
+     or public.hotel_v2_external_calendar_ics_source_type_is_supported('expedia') then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_provider_set_mismatch';
   end if;
-  select hotel_external_sync_enabled into strict v_external from public.site_settings where id=1;
-  if not v_external and (exists(select 1 from public.hotel_calendar_source_configs source
-       where source.source_type<>'manual' and source.is_enabled)
-     or exists(select 1 from hotels_v2_private.hotel_external_calendar_sync_jobs
-       where status in('queued','leased','running'))) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_inert_runtime_drift';
+
+  if not exists(select 1
+      from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+      join hotels_v2_private.hotel_external_calendar_foundation_receipts foundation
+        on foundation.id=receipt.id
+      join public.hotel_partner_property_proposal_foundation_receipts property
+        on property.id=receipt.id
+      join public.hotel_admin_availability_foundation_evolution_receipts owner_receipt
+        on owner_receipt.id=receipt.id
+      join public.hotel_seven_arches_task2_stage2_compatibility_receipts canonical
+        on canonical.id=receipt.id
+      join hotels_v2_private.hotel_external_calendar_activation_receipts site_activation
+        on site_activation.id=receipt.id
+      where receipt.id=1
+        and receipt.contract_version=
+          'hotels_v2_external_calendar_provider_evolution_v1'
+        and 'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
+          any(receipt.changed_function_signatures)
+        and receipt.provider_bridge_source_hash=(select encode(extensions.digest(
+          convert_to(procedure_row.prosrc,'UTF8'),'sha256'),'hex')
+          from pg_proc procedure_row where procedure_row.oid=
+            'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
+        and receipt.provider_bridge_source_hash=
+          '705e4d226dd071986a60954de6b5c970476c3e48098c7c9c7463545fbf05e8bf'
+        and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
+        and receipt.original_protected_fingerprints=foundation.protected_fingerprints
+        and receipt.historical_property_site_settings_raw_fingerprint=
+          property.protected_fingerprints->>'site_settings'
+        and receipt.historical_stage2_site_settings_raw_fingerprint=
+          owner_receipt.stage2_current_protected_fingerprints->>'site_settings'
+        and receipt.historical_property_site_settings_raw_fingerprint=
+          receipt.historical_stage2_site_settings_raw_fingerprint
+        and receipt.historical_property_map_fingerprint=property.protected_fingerprint
+        and property.protected_fingerprint=
+          public.hotel_v2_h3_2b_hash(property.protected_fingerprints)
+        and receipt.historical_stage2_map_fingerprint=
+          owner_receipt.stage2_current_protected_fingerprint
+        and owner_receipt.stage2_current_protected_fingerprint=
+          public.hotel_v2_external_calendar_worker_hash(
+            owner_receipt.stage2_current_protected_fingerprints)
+        and receipt.canonical_site_settings_lifecycle_fingerprint=
+          '9d385718586ec03664878d35552e73373bd2e4dca170dc497025fc6780c79bf5'
+        and receipt.canonical_site_settings_lifecycle_fingerprint=
+          public.hotel_v2_external_calendar_site_settings_fingerprint()
+        and receipt.canonical_site_settings_helper_source_hash=
+          'e297f1b640f544644d695b36b4aca0b2dc90385e83709e8a494044aabc3b95bd'
+        and receipt.canonical_site_settings_helper_source_hash=
+          (select encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+            'sha256'),'hex') from pg_proc procedure_row where procedure_row.oid=
+              'public.hotel_v2_external_calendar_site_settings_fingerprint()'::regprocedure)
+        and canonical.canonical_task2_protected_fingerprints=jsonb_set(
+          property.protected_fingerprints,'{site_settings}',
+          to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
+        and canonical.canonical_stage2_protected_fingerprints=jsonb_set(
+          owner_receipt.stage2_current_protected_fingerprints,'{site_settings}',
+          to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
+        and receipt.site_settings_activation_receipt_fingerprint=
+          public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+            to_jsonb(site_activation),'{created_at}',to_jsonb(
+              (extract(epoch from site_activation.created_at)*1000000)::bigint),false))
+        and receipt.prior_function_source_hashes->>
+          'public.hotel_v2_external_calendar_protected_fingerprints()'=
+          'e9df9093d67ff5039855a0435174416c2eaca71b67700d4806eb56466e9c4af5'
+        and receipt.prior_function_source_hashes->>
+          'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
+          'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650'
+        and receipt.evolved_function_source_hashes->>
+          'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
+          '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
+        and receipt.evolved_function_source_hashes->>
+          'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
+          (select encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+            'sha256'),'hex') from pg_proc procedure_row where procedure_row.oid=
+              'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure)
+        and receipt.prior_function_source_hashes->>
+          'public.hotel_v2_h3_2b_protected_fingerprints()'=
+          '7ca318d9b7b441fa67b1f67b95100d4feee5cf9e1e336a826cbe7408edac97f2'
+        and receipt.evolved_function_source_hashes->>
+          'public.hotel_v2_h3_2b_protected_fingerprints()'=
+          '7ca318d9b7b441fa67b1f67b95100d4feee5cf9e1e336a826cbe7408edac97f2'
+        and receipt.evolved_function_fingerprints=
+          hotels_v2_private.hotel_external_calendar_provider_function_fingerprints()
+        and receipt.evolved_function_source_hashes=
+          hotels_v2_private.hotel_external_calendar_provider_function_source_hashes()
+        and receipt.evolved_protected_fingerprints=
+          public.hotel_v2_external_calendar_provider_protected_fingerprints()
+        and receipt.evolved_protected_fingerprint=
+          public.hotel_v2_external_calendar_worker_hash(receipt.evolved_protected_fingerprints)
+        and receipt.fingerprint_helper_source_hashes=jsonb_build_object(
+          'provider_function_fingerprints',
+            public.hotel_v2_external_calendar_worker_hash(to_jsonb(pg_get_functiondef(
+              'hotels_v2_private.hotel_external_calendar_provider_function_fingerprints()'::regprocedure))),
+          'provider_helper_fingerprints',
+            public.hotel_v2_external_calendar_worker_hash(to_jsonb(pg_get_functiondef(
+              'hotels_v2_private.hotel_external_calendar_provider_helper_fingerprints()'::regprocedure))),
+          'historical_raw_site_settings_helper',
+            '7ca318d9b7b441fa67b1f67b95100d4feee5cf9e1e336a826cbe7408edac97f2',
+          'canonical_site_settings_helper',
+            'e297f1b640f544644d695b36b4aca0b2dc90385e83709e8a494044aabc3b95bd')
+        and receipt.receipt_hash=public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+          to_jsonb(receipt)-'receipt_hash','{created_at}',to_jsonb(
+            (extract(epoch from receipt.created_at)*1000000)::bigint),false))
+        and receipt.prior_reviewed_pricing_catalog_fingerprint=
+          (select catalog_fingerprint
+           from public.hotel_seven_arches_reviewed_pricing_foundation_receipts where id=1)
+        and receipt.evolved_reviewed_pricing_catalog_fingerprint=
+          public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_receipt_drift';
   end if;
-  if v_external then
-    if to_regclass('cron.job') is null
-       or (select count(*) from vault.decrypted_secrets
-         where name='hotels-v2-external-calendar-worker-url'
-           and decrypted_secret='https://daoohnbnnowmmcizgvrq.functions.supabase.co/hotels-v2-external-calendar-sync')<>1
-       or (select count(*) from vault.decrypted_secrets
-         where name='hotels-v2-external-calendar-worker-shared-secret'
-           and length(decrypted_secret)>=32 and decrypted_secret!~'[[:space:][:cntrl:]]')<>1 then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_active_vault_drift';
-    end if;
-    execute $sql$select count(*) from cron.job where jobname='hotels-v2-external-calendar-15m'
-      and schedule='*/15 * * * *' and active$sql$ into v_count;
-    if v_count<>1 then raise exception using errcode='55000',
-      message='hotels_v2_external_calendar_provider_verify_active_scheduler_drift'; end if;
-    if exists(select 1 from public.hotel_calendar_source_configs source
-      left join hotels_v2_private.hotel_external_calendar_source_secrets binding on binding.source_id=source.id
-      left join public.hotel_room_types room on room.id=source.room_type_id and room.hotel_id=source.hotel_id
-      where source.is_enabled and source.source_type<>'manual'
-        and (not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
-        or source.review_status<>'reviewed' or binding.source_id is null
-        or binding.hotel_id<>source.hotel_id or binding.room_type_id<>source.room_type_id
-        or room.id is null or room.status<>'active'
-        or (source.configuration->>'units_per_event')::integer>case when room.inventory_mode='unitized'
-          then (select count(*)::integer from public.hotel_units unit
-            where unit.room_type_id=room.id and unit.status='active') else room.base_inventory_count end)) then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_enabled_topology';
-    end if;
+
+  -- Prove both sides of the site_settings representation bridge. The lower
+  -- Property/Stage2 projectors retain the exact raw whole-row fingerprint;
+  -- only the provider projection substitutes the canonical Hotels lifecycle.
+  if public.hotel_v2_external_calendar_site_settings_fingerprint()
+       is distinct from public.hotel_v2_external_calendar_worker_hash(
+         jsonb_build_object(
+           'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+           'id',1,
+           'hotel_rooms_v2_enabled',false,
+           'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+           'hotel_instant_booking_enabled',false,
+           'hotel_stripe_connect_enabled',false))
+     or public.hotel_v2_external_calendar_site_settings_fingerprint()
+       is distinct from
+         '9d385718586ec03664878d35552e73373bd2e4dca170dc497025fc6780c79bf5'
+     or public.hotel_v2_h3_2b_protected_fingerprints()->>'site_settings'
+       is distinct from md5(pg_catalog.query_to_xml($query$
+         select to_jsonb(row_value)::text
+         from public.site_settings row_value
+         order by to_jsonb(row_value)::text$query$,true,true,'')::text)
+     or public.hotel_v2_external_calendar_stage2_compatible_fingerprints()
+          ->>'site_settings'
+       is distinct from md5(pg_catalog.query_to_xml($query$
+         select to_jsonb(row_value)::text
+         from public.site_settings row_value
+         order by to_jsonb(row_value)::text$query$,true,true,'')::text)
+     or public.hotel_v2_external_calendar_provider_protected_fingerprints()
+          ->>'site_settings'
+       is distinct from public.hotel_v2_external_calendar_site_settings_fingerprint()
+     or exists(select 1
+       from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+       where receipt.id=1 and (
+         receipt.prior_compatible_fingerprints->>'site_settings'
+           is distinct from public.hotel_v2_external_calendar_site_settings_fingerprint()
+         or receipt.evolved_protected_fingerprints->>'site_settings'
+           is distinct from public.hotel_v2_external_calendar_site_settings_fingerprint()
+         or receipt.prior_function_source_hashes->>
+              'public.hotel_v2_external_calendar_site_settings_fingerprint()'
+           is distinct from receipt.evolved_function_source_hashes->>
+              'public.hotel_v2_external_calendar_site_settings_fingerprint()'
+         or receipt.prior_function_source_hashes->>
+              'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'
+           is distinct from
+              'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650'
+         or receipt.evolved_function_source_hashes->>
+              'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'
+           is distinct from
+              '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b')) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_site_settings_bridge_drift';
   end if;
-  if (select count(*) from public.hotel_room_types room where room.hotel_id=c_hotel
-      and room.id in('b4ef504f-cdeb-4e3c-a54d-932146ef4e94','825c01b7-9f82-492a-9c81-9b1d5cd7acd3')
-      and room.status='active' and room.inventory_mode='pooled' and room.base_inventory_count=1)<>2
-     or exists(select 1 from public.hotel_calendar_source_configs source where source.hotel_id=c_hotel
-       and source.source_type<>'manual'
-       and not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type))
-     or exists(select 1 from hotels_v2_private.hotel_external_calendar_source_secrets binding
-       join public.hotel_calendar_source_configs source on source.id=binding.source_id
-       where source.hotel_id=c_hotel and (binding.hotel_id<>source.hotel_id
-         or binding.room_type_id<>source.room_type_id)) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_seven_arches_topology';
+
+  perform set_config('TimeZone','Asia/Nicosia',true);
+  select jsonb_build_object(
+    'historical_property_raw',
+      receipt.historical_property_site_settings_raw_fingerprint,
+    'historical_stage2_raw',
+      receipt.historical_stage2_site_settings_raw_fingerprint,
+    'canonical_lifecycle',receipt.canonical_site_settings_lifecycle_fingerprint,
+    'canonical_helper_source',receipt.canonical_site_settings_helper_source_hash,
+    'activation_receipt',receipt.site_settings_activation_receipt_fingerprint,
+    'receipt_hash',receipt.receipt_hash,
+    'activation_receipt_exact',receipt.site_settings_activation_receipt_fingerprint=
+      public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+        to_jsonb(site_activation),'{created_at}',to_jsonb(
+          (extract(epoch from site_activation.created_at)*1000000)::bigint),false)),
+    'receipt_self_exact',receipt.receipt_hash=
+      public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+        to_jsonb(receipt)-'receipt_hash','{created_at}',to_jsonb(
+          (extract(epoch from receipt.created_at)*1000000)::bigint),false)),
+    'fingerprint_helper_sources',receipt.fingerprint_helper_source_hashes,
+    'protected',receipt.evolved_protected_fingerprint,
+    'prior_compatible',receipt.prior_compatible_fingerprint,
+    'manual_source',receipt.manual_source_fingerprint,
+    'function_sources',receipt.evolved_function_source_hashes)
+    into strict v_nicosia
+  from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+  join hotels_v2_private.hotel_external_calendar_activation_receipts site_activation
+    on site_activation.id=receipt.id
+  where receipt.id=1;
+  perform set_config('TimeZone','UTC',true);
+  select jsonb_build_object(
+    'historical_property_raw',
+      receipt.historical_property_site_settings_raw_fingerprint,
+    'historical_stage2_raw',
+      receipt.historical_stage2_site_settings_raw_fingerprint,
+    'canonical_lifecycle',receipt.canonical_site_settings_lifecycle_fingerprint,
+    'canonical_helper_source',receipt.canonical_site_settings_helper_source_hash,
+    'activation_receipt',receipt.site_settings_activation_receipt_fingerprint,
+    'receipt_hash',receipt.receipt_hash,
+    'activation_receipt_exact',receipt.site_settings_activation_receipt_fingerprint=
+      public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+        to_jsonb(site_activation),'{created_at}',to_jsonb(
+          (extract(epoch from site_activation.created_at)*1000000)::bigint),false)),
+    'receipt_self_exact',receipt.receipt_hash=
+      public.hotel_v2_external_calendar_worker_hash(jsonb_set(
+        to_jsonb(receipt)-'receipt_hash','{created_at}',to_jsonb(
+          (extract(epoch from receipt.created_at)*1000000)::bigint),false)),
+    'fingerprint_helper_sources',receipt.fingerprint_helper_source_hashes,
+    'protected',receipt.evolved_protected_fingerprint,
+    'prior_compatible',receipt.prior_compatible_fingerprint,
+    'manual_source',receipt.manual_source_fingerprint,
+    'function_sources',receipt.evolved_function_source_hashes)
+    into strict v_utc
+  from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+  join hotels_v2_private.hotel_external_calendar_activation_receipts site_activation
+    on site_activation.id=receipt.id
+  where receipt.id=1;
+  perform set_config('TimeZone',v_incoming_timezone,true);
+  if v_nicosia is distinct from v_utc
+     or (v_nicosia->>'activation_receipt_exact')::boolean is not true
+     or (v_nicosia->>'receipt_self_exact')::boolean is not true
+     or current_setting('TimeZone')<>v_incoming_timezone then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_timezone_drift';
   end if;
-  if exists(select 1 from hotels_v2_private.hotel_external_calendar_day_blocks block
-      join public.hotel_calendar_source_configs source on source.id=block.source_id
-      where source.hotel_id<>block.hotel_id or source.room_type_id<>block.room_type_id
-        or not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
-        or block.units_blocked<=0) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_block_topology';
+
+  if exists(select 1 from public.hotel_calendar_source_configs source
+      left join public.hotel_room_types room
+        on room.id=source.room_type_id and room.hotel_id=source.hotel_id
+      left join hotels_v2_private.hotel_external_calendar_source_secrets binding
+        on binding.source_id=source.id
+      where public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
+        and (room.id is null or room.status<>'active'
+          or (source.is_enabled and (source.review_status<>'reviewed'
+            or binding.source_id is null or binding.hotel_id<>source.hotel_id
+            or binding.room_type_id<>source.room_type_id
+            or (source.configuration->>'units_per_event')::integer>
+              case when room.inventory_mode='unitized' then
+                (select count(*)::integer from public.hotel_units unit
+                 where unit.room_type_id=room.id and unit.status='active')
+              else room.base_inventory_count end))))
+     or exists(select 1 from hotels_v2_private.hotel_external_calendar_day_blocks block
+       left join public.hotel_calendar_source_configs source on source.id=block.source_id
+       where source.id is null or source.hotel_id<>block.hotel_id
+         or source.room_type_id<>block.room_type_id
+         or not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
+         or block.units_blocked<=0) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_source_topology_drift';
   end if;
-  if exists(select 1 from hotels_v2_private.hotel_external_calendar_sync_jobs job
-      left join public.hotel_calendar_source_configs source on source.id=job.source_id
-      left join hotels_v2_private.hotel_external_calendar_source_secrets binding on binding.source_id=job.source_id
-      where source.id is null or not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
-        or job.hotel_id<>source.hotel_id or job.room_type_id<>source.room_type_id
-        or job.source_version>source.version or binding.source_id is null
-        or job.binding_version>binding.version)
-     or exists(select 1 from hotels_v2_private.hotel_external_calendar_sync_runs run
-      left join hotels_v2_private.hotel_external_calendar_sync_jobs job on job.id=run.job_id
-      left join public.hotel_calendar_source_configs source on source.id=run.source_id
-      where job.id is null or source.id is null
-        or not public.hotel_v2_external_calendar_ics_source_type_is_supported(source.source_type)
-        or run.source_id<>job.source_id or run.hotel_id<>job.hotel_id
-        or run.room_type_id<>job.room_type_id or run.source_version<>job.source_version
-        or run.binding_version<>job.binding_version or run.trigger_type<>job.trigger_type) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_run_topology';
+
+  if exists(select 1 from hotels_v2_private.hotel_external_calendar_partner_proposals proposal
+      where proposal.status='pending_admin_review'
+        and (proposal.reviewed_at is not null or proposal.reviewed_by is not null
+          or proposal.admin_reason is not null or proposal.result is not null
+          or (proposal.entity='ical_secret' and proposal.action in('set','rotate')
+            and (proposal.vault_secret_id is null or proposal.url_fingerprint is null
+              or (select count(*) from vault.secrets secret
+                where secret.id=proposal.vault_secret_id)<>1))
+          or (not(proposal.entity='ical_secret' and proposal.action in('set','rotate'))
+            and (proposal.vault_secret_id is not null
+              or proposal.url_fingerprint is not null))))
+     or exists(select 1 from hotels_v2_private.hotel_external_calendar_partner_proposals proposal
+       where proposal.status in('accepted','rejected')
+         and (proposal.reviewed_at is null or proposal.reviewed_by is null
+           or proposal.admin_reason is null or proposal.result is null
+           or proposal.vault_secret_id is not null or proposal.url_fingerprint is not null
+           or proposal.result::text~'vault_secret_id'
+           or (proposal.entity='ical_secret' and proposal.action in('set','rotate')
+             and coalesce(proposal.result->>'url_fingerprint','')!~'^[0-9a-f]{64}$')))
+     or exists(select 1 from hotels_v2_private.hotel_external_calendar_provider_review_receipts receipt
+       left join hotels_v2_private.hotel_external_calendar_partner_proposals proposal
+         on proposal.id=receipt.proposal_id
+       where proposal.id is null or proposal.status<>receipt.action) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_review_ledger_drift';
   end if;
-  if exists(select 1 from hotels_v2_private.hotel_external_calendar_plan_reviews review
-    where review.consumed_at is not null and (
-      (select count(*) from public.hotel_activity_log activity
-       where activity.source='hotels_v2_external_calendar_control'
-         and activity.correlation_id=review.consumed_correlation_id
-         and activity.hotel_id=review.hotel_id and activity.actor_id=review.actor_id
-         and activity.actor_type=review.actor_type and activity.entity_type='calendar_source'
-         and activity.entity_id=(review.reviewed_plan#>>'{operations,0,id}')::uuid
-         and activity.action=case review.reviewed_plan#>>'{operations,0,action}'
-           when 'create' then 'create' when 'disable' then 'disable' else 'update' end)<>1
-      or not exists(select 1 from hotels_v2_private.hotel_external_calendar_correlations correlation
-        where correlation.correlation_id=review.consumed_correlation_id
-          and correlation.actor_type=review.actor_type and correlation.actor_id=review.actor_id
-          and correlation.idempotency_key is not null and correlation.request_hash~'^[0-9a-f]{64}$')
-      or (review.actor_type='admin' and not exists(select 1
-        from hotels_v2_private.hotel_external_calendar_admin_receipts receipt
-        join hotels_v2_private.hotel_external_calendar_correlations correlation
-          on correlation.correlation_id=receipt.correlation_id
-        where receipt.correlation_id=review.consumed_correlation_id and receipt.actor_id=review.actor_id
-          and receipt.hotel_id=review.hotel_id and receipt.idempotency_key=correlation.idempotency_key
-          and receipt.request_hash=correlation.request_hash
-          and receipt.result->>'correlation_id'=receipt.correlation_id::text
-          and receipt.result->>'idempotency_key'=receipt.idempotency_key::text
-          and receipt.result->>'hotel_id'=receipt.hotel_id::text))
-      or (review.actor_type='partner' and not exists(select 1 from public.hotel_partner_action_receipts receipt
-        join hotels_v2_private.hotel_external_calendar_correlations correlation
-          on correlation.correlation_id=receipt.correlation_id
-        where receipt.correlation_id=review.consumed_correlation_id and receipt.actor_user_id=review.actor_id
-          and receipt.partner_id=review.partner_id and receipt.hotel_id=review.hotel_id
-          and receipt.action='h3_2d_external_calendar'
-          and receipt.idempotency_key=correlation.idempotency_key
-          and receipt.request_hash=correlation.request_hash
-          and receipt.result->>'correlation_id'=receipt.correlation_id::text
-          and receipt.result->>'idempotency_key'=receipt.idempotency_key::text
-          and receipt.result->>'hotel_id'=receipt.hotel_id::text))))
-     or exists(select 1 from public.hotel_activity_log activity
-       where activity.source='hotels_v2_external_calendar_control' and not exists(
-         select 1 from hotels_v2_private.hotel_external_calendar_plan_reviews review
-         where review.consumed_correlation_id=activity.correlation_id and review.consumed_at is not null))
-     or exists(select 1 from hotels_v2_private.hotel_external_calendar_correlations correlation
-       where not exists(select 1 from hotels_v2_private.hotel_external_calendar_plan_reviews review
-         where review.consumed_correlation_id=correlation.correlation_id and review.consumed_at is not null)) then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_ledger_mismatch';
-  end if;
+
   foreach v_signature in array array[
     'public.hotel_v2_external_calendar_worker_get_source(uuid)',
     'public.hotel_v2_external_calendar_worker_list_sources(integer)',
@@ -167,82 +379,82 @@ begin
     'public.hotel_v2_external_calendar_worker_fail_sync(jsonb)',
     'public.hotel_v2_external_calendar_scheduler_enqueue(integer)',
     'public.hotel_v2_external_calendar_scheduler_lease(integer,uuid,integer)'] loop
-    if not exists(select 1 from pg_proc procedure where procedure.oid=v_signature::regprocedure
-         and procedure.proowner='postgres'::regrole and procedure.prosecdef
-         and procedure.proconfig=array['search_path=pg_catalog, public']::text[])
+    if not exists(select 1 from pg_proc procedure_row
+        where procedure_row.oid=v_signature::regprocedure
+          and procedure_row.proowner='postgres'::regrole
+          and procedure_row.prosecdef
+          and procedure_row.proconfig=array['search_path=pg_catalog, public']::text[])
        or has_function_privilege(0::oid,v_signature::regprocedure,'EXECUTE')
        or has_function_privilege('anon',v_signature,'EXECUTE')
        or has_function_privilege('authenticated',v_signature,'EXECUTE')
        or not has_function_privilege('service_role',v_signature,'EXECUTE') then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_worker_acl'; end if;
+      raise exception using errcode='55000',
+        message='hotels_v2_external_calendar_provider_verify_worker_acl';
+    end if;
   end loop;
+
   foreach v_signature in array array[
     'public.hotel_v2_admin_get_external_calendar_control(uuid)',
     'public.hotel_v2_admin_preview_external_calendar_plan(jsonb)',
     'public.hotel_v2_admin_apply_external_calendar_plan(jsonb,uuid,uuid,text)',
     'public.hotel_v2_partner_get_external_calendar_control(uuid,uuid)',
     'public.hotel_v2_partner_preview_external_calendar_plan(jsonb)',
-    'public.hotel_v2_partner_apply_external_calendar_plan(jsonb,uuid,uuid,text)'] loop
-    if not exists(select 1 from pg_proc procedure where procedure.oid=v_signature::regprocedure
-         and procedure.proowner='postgres'::regrole and procedure.prosecdef
-         and procedure.proconfig=array['search_path=pg_catalog, public, auth']::text[])
+    'public.hotel_v2_partner_apply_external_calendar_plan(jsonb,uuid,uuid,text)',
+    'public.hotel_v2_admin_get_external_calendar_provider_reviews(uuid)',
+    'public.hotel_v2_admin_preview_external_calendar_partner_proposal(uuid,text)',
+    'public.hotel_v2_admin_apply_external_calendar_partner_proposal(uuid,jsonb,uuid,uuid,text)',
+    'public.hotel_v2_admin_reject_external_calendar_partner_proposal(uuid,text,uuid,uuid)'] loop
+    if not exists(select 1 from pg_proc procedure_row
+        where procedure_row.oid=v_signature::regprocedure
+          and procedure_row.proowner='postgres'::regrole
+          and procedure_row.prosecdef
+          and procedure_row.proconfig=array['search_path=pg_catalog, public, auth']::text[])
        or has_function_privilege(0::oid,v_signature::regprocedure,'EXECUTE')
        or has_function_privilege('anon',v_signature,'EXECUTE')
        or has_function_privilege('service_role',v_signature,'EXECUTE')
        or not has_function_privilege('authenticated',v_signature,'EXECUTE') then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_control_acl'; end if;
+      raise exception using errcode='55000',
+        message='hotels_v2_external_calendar_provider_verify_control_acl';
+    end if;
   end loop;
-  foreach v_signature in array array[
-    'public.hotel_v2_external_calendar_ics_source_type_is_supported(text)',
-    'public.hotel_v2_external_calendar_provider_sources_are_attributable()',
-    'public.hotel_v2_external_calendar_stage2_compatible_fingerprints()',
-    'public.hotel_v2_external_calendar_protected_fingerprints()',
-    'public.hotel_v2_external_calendar_site_settings_fingerprint()',
-    'public.hotel_v2_partner_workspace_function_lineage_is_exact()',
-    'public.hotel_v2_external_calendar_provider_protected_fingerprints()',
-    'public.hotel_v2_external_calendar_provider_evolution_is_safe()',
-    'hotels_v2_private.hotel_external_calendar_provider_function_fingerprints()',
-    'hotels_v2_private.hotel_external_calendar_provider_helper_fingerprints()'] loop
-    if has_function_privilege(0::oid,v_signature::regprocedure,'EXECUTE')
-       or has_function_privilege('anon',v_signature,'EXECUTE')
-       or has_function_privilege('authenticated',v_signature,'EXECUTE')
-       or has_function_privilege('service_role',v_signature,'EXECUTE') then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_internal_acl'; end if;
-  end loop;
-  foreach v_relation in array array['hotel_external_calendar_provider_evolution_receipts',
+
+  foreach v_relation in array array[
+      'hotel_external_calendar_provider_evolution_receipts',
+      'hotel_external_calendar_partner_proposals',
+      'hotel_external_calendar_provider_review_receipts',
+      'hotel_external_calendar_provider_admin_previews',
       'hotel_external_calendar_source_secrets','hotel_external_calendar_sync_runs',
       'hotel_external_calendar_source_state','hotel_external_calendar_events',
       'hotel_external_calendar_day_blocks','hotel_external_calendar_sync_jobs',
       'hotel_external_calendar_plan_reviews','hotel_external_calendar_admin_receipts',
       'hotel_external_calendar_correlations'] loop
-    if has_table_privilege(0::oid,('hotels_v2_private.'||v_relation)::regclass,'SELECT')
-       or has_table_privilege(0::oid,('hotels_v2_private.'||v_relation)::regclass,'INSERT')
-       or has_table_privilege(0::oid,('hotels_v2_private.'||v_relation)::regclass,'UPDATE')
-       or has_table_privilege(0::oid,('hotels_v2_private.'||v_relation)::regclass,'DELETE') then
-      raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_public_raw_acl'; end if;
     foreach v_role in array array['anon','authenticated','service_role'] loop
       if has_table_privilege(v_role,'hotels_v2_private.'||v_relation,'SELECT')
          or has_table_privilege(v_role,'hotels_v2_private.'||v_relation,'INSERT')
          or has_table_privilege(v_role,'hotels_v2_private.'||v_relation,'UPDATE')
          or has_table_privilege(v_role,'hotels_v2_private.'||v_relation,'DELETE') then
-        raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_raw_acl'; end if;
+        raise exception using errcode='55000',
+          message='hotels_v2_external_calendar_provider_verify_raw_acl';
+      end if;
     end loop;
   end loop;
-  if pg_get_functiondef('public.hotel_v2_external_calendar_scheduler_dispatch()'::regprocedure)
-       not like '%https://daoohnbnnowmmcizgvrq.functions.supabase.co/hotels-v2-external-calendar-sync%'
-     or pg_get_functiondef('public.hotel_v2_external_calendar_scheduler_dispatch()'::regprocedure)
-       not like '%timeout_milliseconds=>150000%'
-     or pg_get_functiondef('public.hotel_v2_external_calendar_scheduler_dispatch()'::regprocedure)
-       not like '%''limit'',8%' then
-    raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_verify_dispatch_drift';
+
+  if has_table_privilege('anon','vault.secrets','SELECT')
+     or has_table_privilege('authenticated','vault.secrets','SELECT')
+     or has_table_privilege('anon','vault.decrypted_secrets','SELECT')
+     or has_table_privilege('authenticated','vault.decrypted_secrets','SELECT') then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_verify_vault_raw_acl';
   end if;
 end
 $verify$;
-select 'hotels_v2_external_calendar_provider_types_verify_v1' contract_version,
-  0 protected_mismatch_count,0 security_mismatch_count,0 ledger_mismatch_count,
-  0 topology_mismatch_count,2 seven_arches_room_count,
+
+select 'hotels_v2_external_calendar_provider_types_verify_v2' contract_version,
+  0 lineage_mismatch_count,0 security_mismatch_count,0 topology_mismatch_count,
   (select count(*)::integer from public.hotel_calendar_source_configs
-    where hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca' and source_type<>'manual') provider_source_count,
-  (select hotel_external_sync_enabled from public.site_settings where id=1) external_sync_active,
-  true provider_evolution_safe;
+   where source_type in('booking_com','airbnb','ical')) provider_source_count,
+  (select count(*)::integer
+   from hotels_v2_private.hotel_external_calendar_partner_proposals) provider_proposal_count,
+  true site_settings_representation_bridge_exact,
+  true timezone_stable,true provider_evolution_safe;
 commit;

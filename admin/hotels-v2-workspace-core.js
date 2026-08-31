@@ -49,10 +49,16 @@
   const AVAILABILITY_STAY_REQUEST_CONTRACT = 'hotels_v2_admin_d_stay_preview_request_v1';
   const AVAILABILITY_STAY_PREVIEW_CONTRACT = 'hotels_v2_admin_d_available_stay_preview_v1';
   const EXTERNAL_CALENDAR_CONTROL_CONTRACT = 'hotels_v2_external_calendar_control_v1';
+  const EXTERNAL_CALENDAR_PROVIDER_CONTROL_CONTRACT = 'hotels_v2_external_calendar_control_v2';
+  const EXTERNAL_CALENDAR_PROVIDER_CAPABILITY_CONTRACT = 'hotels_v2_external_calendar_provider_capability_v1';
   const EXTERNAL_CALENDAR_DRAFT_CONTRACT = 'hotels_v2_external_calendar_draft_v1';
   const EXTERNAL_CALENDAR_PREVIEW_CONTRACT = 'hotels_v2_external_calendar_preview_v1';
   const EXTERNAL_CALENDAR_PLAN_CONTRACT = 'hotels_v2_external_calendar_plan_v1';
   const EXTERNAL_CALENDAR_APPLY_CONTRACT = 'hotels_v2_external_calendar_apply_result_v1';
+  const EXTERNAL_CALENDAR_PARTNER_PROPOSAL_SUBMIT_CONTRACT = 'hotels_v2_external_calendar_partner_proposal_submit_v1';
+  const EXTERNAL_CALENDAR_PROVIDER_REVIEW_LIST_CONTRACT = 'hotels_v2_external_calendar_provider_review_list_v1';
+  const EXTERNAL_CALENDAR_PROVIDER_ADMIN_PREVIEW_CONTRACT = 'hotels_v2_external_calendar_provider_admin_preview_v1';
+  const EXTERNAL_CALENDAR_PROVIDER_ADMIN_APPLY_CONTRACT = 'hotels_v2_external_calendar_provider_admin_apply_v1';
   const AVAILABILITY_CONTROL_ENTITIES = Object.freeze([
     'daily_inventory',
     'unit_calendar_block',
@@ -7525,19 +7531,109 @@
     return row;
   }
 
+  function normalizeExternalCalendarProviderProposal(value, expected = {}) {
+    const row = asObject(clone(value));
+    const keys = [
+      'proposal_id', 'hotel_id', 'partner_id', 'assignment_id', 'entity', 'action',
+      'source_id', 'source_type', 'room_type_id', 'reason', 'plan_fingerprint', 'status', 'submitted_at',
+      'expires_at', 'is_fresh', 'reviewed_at', 'reviewed_by', 'admin_reason',
+    ];
+    const entityActions = Object.freeze({
+      calendar_source: Object.freeze(['create', 'update', 'enable', 'disable']),
+      ical_secret: Object.freeze(['set', 'rotate', 'clear']),
+      sync_job: Object.freeze(['enqueue']),
+    });
+    if (!hasExactKeys(row, keys) || externalCalendarContainsPrivateField(row)
+        || !externalCalendarExactUuid(row.proposal_id, 'external_calendar.proposal.proposal_id')
+        || !externalCalendarExactUuid(row.hotel_id, 'external_calendar.proposal.hotel_id')
+        || !externalCalendarExactUuid(row.partner_id, 'external_calendar.proposal.partner_id')
+        || !externalCalendarExactUuid(row.assignment_id, 'external_calendar.proposal.assignment_id')
+        || !Object.hasOwn(entityActions, row.entity) || !entityActions[row.entity].includes(row.action)
+        || !externalCalendarExactUuid(row.source_id, 'external_calendar.proposal.source_id')
+        || !EXTERNAL_CALENDAR_SOURCE_TYPES.includes(row.source_type)
+        || !externalCalendarExactUuid(row.room_type_id, 'external_calendar.proposal.room_type_id')
+        || !isExactSnapshotToken(row.plan_fingerprint)
+        || !['pending_admin_review', 'accepted', 'rejected'].includes(row.status)
+        || !isExactIsoTimestamp(row.submitted_at) || !isExactIsoTimestamp(row.expires_at)
+        || Date.parse(row.expires_at) <= Date.parse(row.submitted_at)
+        || typeof row.is_fresh !== 'boolean') {
+      throw new Error('External calendar provider proposal is invalid or contains private fields.');
+    }
+    externalCalendarExactText(row.reason, 'external_calendar.proposal.reason', { minimum: 3, maximum: 500 });
+    const pending = row.status === 'pending_admin_review';
+    if ((pending && (row.reviewed_at !== null || row.reviewed_by !== null || row.admin_reason !== null))
+        || (!pending && (!isExactIsoTimestamp(row.reviewed_at)
+          || (expected.redactReviewer
+            ? row.reviewed_by !== null
+            : !externalCalendarExactUuid(row.reviewed_by, 'external_calendar.proposal.reviewed_by'))
+          || Date.parse(row.reviewed_at) < Date.parse(row.submitted_at)
+          || externalCalendarExactText(row.admin_reason, 'external_calendar.proposal.admin_reason', { minimum: 3, maximum: 500 }) !== row.admin_reason
+          || row.is_fresh !== false))
+        || (expected.hotelId && row.hotel_id !== expected.hotelId)
+        || (expected.partnerId && row.partner_id !== expected.partnerId)
+        || (expected.assignmentId && row.assignment_id !== expected.assignmentId)
+        || (expected.proposalId && row.proposal_id !== expected.proposalId)
+        || (expected.status && row.status !== expected.status)
+        || (expected.roomIds && row.room_type_id !== null && !expected.roomIds.has(row.room_type_id))) {
+      throw new Error('External calendar provider proposal lifecycle or identity binding is invalid.');
+    }
+    return Object.freeze(row);
+  }
+
   function normalizeExternalCalendarControl(value, expected = {}) {
     const source = asObject(clone(value));
-    const keys = [
+    const legacyKeys = [
       'contract_version', 'hotel_id', 'partner_id', 'assignment_id', 'permission_version',
       'access_snapshot_token', 'snapshot_token', 'hotel_external_sync_enabled', 'rooms',
       'sources', 'public_change',
     ];
-    if (!hasExactKeys(source, keys) || source.contract_version !== EXTERNAL_CALENDAR_CONTROL_CONTRACT
+    const providerActive = source.contract_version === EXTERNAL_CALENDAR_PROVIDER_CONTROL_CONTRACT;
+    const keys = providerActive ? [...legacyKeys, 'provider_capability', 'provider_proposals'] : legacyKeys;
+    if (!hasExactKeys(source, keys)
+        || (!providerActive && source.contract_version !== EXTERNAL_CALENDAR_CONTROL_CONTRACT)
         || source.public_change !== false || typeof source.hotel_external_sync_enabled !== 'boolean'
         || !Array.isArray(source.rooms) || source.rooms.length > 1000
         || !Array.isArray(source.sources) || source.sources.length > 5000
+        || (providerActive && (!Array.isArray(source.provider_proposals) || source.provider_proposals.length > 100))
         || !isExactSnapshotToken(source.snapshot_token)) {
       throw new Error('External calendar control returned an unsupported field envelope.');
+    }
+    const providerCapability = providerActive
+      ? asObject(source.provider_capability)
+      : {
+          contract_version: EXTERNAL_CALENDAR_PROVIDER_CAPABILITY_CONTRACT,
+          stage: 'provider_types_unavailable',
+          supported_providers: [],
+          source_review_available: false,
+          private_url_management_available: false,
+          activation_available: false,
+          manual_sync_available: false,
+          worker_scheduler_ready: false,
+        };
+    const capabilityKeys = [
+      'contract_version', 'stage', 'supported_providers', 'source_review_available',
+      'private_url_management_available', 'activation_available',
+      'manual_sync_available', 'worker_scheduler_ready',
+    ];
+    if (!hasExactKeys(providerCapability, capabilityKeys)
+        || providerCapability.contract_version !== EXTERNAL_CALENDAR_PROVIDER_CAPABILITY_CONTRACT
+        || !['provider_types_unavailable', 'provider_types_active'].includes(providerCapability.stage)
+        || !Array.isArray(providerCapability.supported_providers)
+        || providerCapability.supported_providers.some((entry) => typeof entry !== 'string')
+        || capabilityKeys.slice(3).some((key) => typeof providerCapability[key] !== 'boolean')
+        || (providerCapability.stage === 'provider_types_unavailable'
+          && (providerCapability.supported_providers.length !== 0
+            || capabilityKeys.slice(3).some((key) => providerCapability[key] !== false)))
+        || (providerCapability.stage === 'provider_types_active'
+          && (externalCalendarCanonicalJson(providerCapability.supported_providers)
+              !== externalCalendarCanonicalJson(EXTERNAL_CALENDAR_SOURCE_TYPES)
+            || providerCapability.source_review_available !== true
+            || providerCapability.private_url_management_available !== true
+            || providerCapability.activation_available
+              !== (source.hotel_external_sync_enabled && providerCapability.worker_scheduler_ready)
+            || providerCapability.manual_sync_available
+              !== (source.hotel_external_sync_enabled && providerCapability.worker_scheduler_ready)))) {
+      throw new Error('External calendar provider capability is invalid or inconsistent with its exact lifecycle stage.');
     }
     const hotelId = externalCalendarExactUuid(source.hotel_id, 'external_calendar.hotel_id');
     const partnerMode = source.partner_id !== null;
@@ -7584,6 +7680,7 @@
       };
       if (normalized.hotel_id !== hotelId || !roomIds.has(normalized.room_type_id)
           || !EXTERNAL_CALENDAR_SOURCE_TYPES.includes(normalized.source_type)
+          || (!providerActive && normalized.source_type !== 'ical')
           || !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(normalized.code)
           || typeof normalized.is_enabled !== 'boolean'
           || (normalized.is_enabled && !source.hotel_external_sync_enabled)
@@ -7604,14 +7701,36 @@
         || new Set(sources.map((row) => row.code)).size !== sources.length) {
       throw new Error('External calendar control returned duplicate source identities.');
     }
-    return Object.freeze({
+    const providerProposals = providerActive
+      ? source.provider_proposals.map((proposal) => normalizeExternalCalendarProviderProposal(proposal, {
+          hotelId, partnerId: partnerId || undefined, assignmentId: assignmentId || undefined,
+          roomIds, redactReviewer: partnerMode,
+        }))
+      : [];
+    if (new Set(providerProposals.map((proposal) => proposal.proposal_id)).size !== providerProposals.length) {
+      throw new Error('External calendar control returned duplicate provider proposal identities.');
+    }
+    const normalizedControl = {
       ...source, hotel_id: hotelId, partner_id: partnerId, assignment_id: assignmentId,
       permission_version: permissionVersion, rooms, sources,
-    });
+    };
+    if (!providerActive) {
+      Object.defineProperties(normalizedControl, {
+        provider_capability: { value: Object.freeze(providerCapability), enumerable: false },
+        provider_proposals: { value: Object.freeze([]), enumerable: false },
+      });
+    } else {
+      normalizedControl.provider_capability = Object.freeze(providerCapability);
+      normalizedControl.provider_proposals = providerProposals;
+    }
+    return Object.freeze(normalizedControl);
   }
 
   function validateExternalCalendarIntent(intentValue, controlValue) {
     const control = normalizeExternalCalendarControl(controlValue);
+    if (!control.provider_capability.source_review_available) {
+      throw new Error('External calendar provider controls are read-only until the reviewed provider stage is installed.');
+    }
     const intent = asObject(clone(intentValue));
     if (!hasExactKeys(intent, ['entity', 'action', 'id', 'expected_version', 'payload', 'reason'])
         || !['calendar_source', 'ical_secret', 'calendar_sync'].includes(intent.entity)
@@ -7637,7 +7756,8 @@
     } else if (intent.entity === 'calendar_source' && ['enable', 'disable'].includes(intent.action)) {
       if (!hasExactKeys(intent.payload, []) || !source || intent.id !== source.id
           || intent.expected_version !== source.version
-          || (intent.action === 'enable' && !control.hotel_external_sync_enabled)) {
+          || (intent.action === 'enable' && (!control.provider_capability.activation_available
+            || source.review_status !== 'reviewed' || !source.secret_configured))) {
         throw new Error(intent.action === 'enable'
           ? 'External calendars are not activated for this Hotel.'
           : 'External calendar lifecycle draft is invalid or stale.');
@@ -7645,6 +7765,7 @@
     } else if (intent.entity === 'ical_secret' && ['set', 'rotate'].includes(intent.action)) {
       if (!hasExactKeys(intent.payload, ['source_id', 'ical_url']) || !source
           || intent.id !== source.id || intent.expected_version !== (source.binding_version || 0)
+          || !control.provider_capability.private_url_management_available
           || !externalCalendarHttpsUrl(intent.payload.ical_url) || source.is_enabled
           || (intent.action === 'set' && source.secret_configured)
           || (intent.action === 'rotate' && !source.secret_configured)) {
@@ -7652,6 +7773,7 @@
       }
     } else if (intent.entity === 'ical_secret' && intent.action === 'clear') {
       if (!hasExactKeys(intent.payload, ['source_id']) || !source || intent.id !== source.id
+          || !control.provider_capability.private_url_management_available
           || intent.expected_version !== source.binding_version || !source.secret_configured
           || source.is_enabled || source.binding_version < 1) {
         throw new Error('External calendar secret clear requires an exact disabled configured source.');
@@ -7659,7 +7781,7 @@
     } else if (intent.entity === 'calendar_sync' && intent.action === 'trigger') {
       if (!hasExactKeys(intent.payload, ['source_id']) || !source || intent.id !== source.id
           || intent.expected_version !== source.health.state_version || !source.is_enabled
-          || !control.hotel_external_sync_enabled) {
+          || !control.provider_capability.manual_sync_available) {
         throw new Error('External calendar manual-sync draft is invalid or stale.');
       }
     } else {
@@ -7918,6 +8040,183 @@
     return Object.freeze({ ...result, activity, control });
   }
 
+  function externalCalendarProposalOperationIdentity(proposal) {
+    return proposal.entity === 'sync_job'
+      ? { entity: 'calendar_sync', action: 'trigger' }
+      : { entity: proposal.entity, action: proposal.action };
+  }
+
+  function externalCalendarProposalMatchesPlan(proposal, plan, options = {}) {
+    const operation = plan?.operations?.[0];
+    const expected = externalCalendarProposalOperationIdentity(proposal);
+    return Boolean(operation)
+      && operation.entity === expected.entity
+      && operation.action === expected.action
+      && operation.id === proposal.source_id
+      && (!Object.hasOwn(options, 'expectedReason') || operation.reason === options.expectedReason)
+      && (!options.requirePartnerPlanFingerprint || plan.plan_fingerprint === proposal.plan_fingerprint);
+  }
+
+  function externalCalendarProposalImmutableIdentityMatches(left, right) {
+    const keys = [
+      'proposal_id', 'hotel_id', 'partner_id', 'assignment_id', 'entity', 'action',
+      'source_id', 'source_type', 'room_type_id', 'reason', 'plan_fingerprint',
+      'submitted_at', 'expires_at',
+    ];
+    return keys.every((key) => left?.[key] === right?.[key]);
+  }
+
+  function validateExternalCalendarPartnerProposalSubmit(value, expected = {}) {
+    const result = asObject(clone(value));
+    if (!hasExactKeys(result, ['contract_version', 'proposal', 'replayed', 'control'])
+        || externalCalendarContainsPrivateField(result)
+        || result.contract_version !== EXTERNAL_CALENDAR_PARTNER_PROPOSAL_SUBMIT_CONTRACT
+        || typeof result.replayed !== 'boolean') {
+      throw new Error('External calendar Partner proposal submission envelope is invalid.');
+    }
+    const plan = expected.plan;
+    const proposal = normalizeExternalCalendarProviderProposal(result.proposal, {
+      proposalId: expected.proposalId,
+      hotelId: plan?.hotel_id,
+      partnerId: plan?.partner_id,
+      assignmentId: plan?.assignment_id,
+      status: 'pending_admin_review',
+    });
+    const control = normalizeExternalCalendarControl(result.control, {
+      actorType: 'partner', hotelId: plan?.hotel_id, partnerId: plan?.partner_id,
+      assignmentId: plan?.assignment_id, permissionVersion: plan?.permission_version,
+      accessSnapshotToken: plan?.access_snapshot_token,
+    });
+    const current = control.provider_proposals.find((row) => row.proposal_id === proposal.proposal_id);
+    if (!externalCalendarProposalMatchesPlan(proposal, plan, {
+          expectedReason: proposal.reason, requirePartnerPlanFingerprint: true,
+        })
+        || !current || externalCalendarCanonicalJson(current) !== externalCalendarCanonicalJson(proposal)) {
+      throw new Error('External calendar Partner proposal is not bound to the exact reviewed operation or current control.');
+    }
+    return Object.freeze({ ...result, proposal, control });
+  }
+
+  function validateExternalCalendarProviderReviewList(value, expectedHotelId = null) {
+    const result = asObject(clone(value));
+    if (!hasExactKeys(result, ['contract_version', 'hotel_id', 'proposals'])
+        || externalCalendarContainsPrivateField(result)
+        || result.contract_version !== EXTERNAL_CALENDAR_PROVIDER_REVIEW_LIST_CONTRACT
+        || !externalCalendarExactUuid(result.hotel_id, 'external_calendar.provider_reviews.hotel_id')
+        || (expectedHotelId && result.hotel_id !== expectedHotelId)
+        || !Array.isArray(result.proposals) || result.proposals.length > 100) {
+      throw new Error('External calendar provider review list is invalid or cross-property.');
+    }
+    const proposals = result.proposals.map((proposal) => normalizeExternalCalendarProviderProposal(proposal, {
+      hotelId: result.hotel_id,
+    }));
+    if (new Set(proposals.map((proposal) => proposal.proposal_id)).size !== proposals.length) {
+      throw new Error('External calendar provider review list contains duplicate proposals.');
+    }
+    return Object.freeze({ ...result, proposals });
+  }
+
+  function validateExternalCalendarProviderAdminPreview(value, expected = {}) {
+    const result = asObject(clone(value));
+    if (!hasExactKeys(result, ['contract_version', 'proposal', 'preview'])
+        || externalCalendarContainsPrivateField(result)
+        || result.contract_version !== EXTERNAL_CALENDAR_PROVIDER_ADMIN_PREVIEW_CONTRACT) {
+      throw new Error('External calendar provider Admin Preview envelope is invalid.');
+    }
+    const proposal = normalizeExternalCalendarProviderProposal(result.proposal, {
+      proposalId: expected.proposalId, hotelId: expected.hotelId, status: 'pending_admin_review',
+    });
+    const expectedProposal = expected.proposal
+      ? normalizeExternalCalendarProviderProposal(expected.proposal, { status: 'pending_admin_review' })
+      : null;
+    const preview = asObject(result.preview);
+    const previewKeys = ['contract_version', 'hotel_id', 'partner_id', 'changed', 'blocking_reasons', 'impacts', 'reviewed_plan'];
+    if (!proposal.is_fresh || !hasExactKeys(preview, previewKeys)
+        || preview.contract_version !== EXTERNAL_CALENDAR_PREVIEW_CONTRACT
+        || preview.hotel_id !== proposal.hotel_id || preview.partner_id !== null
+        || preview.changed !== true || !Array.isArray(preview.blocking_reasons)
+        || preview.blocking_reasons.length !== 0 || !Array.isArray(preview.impacts)
+        || preview.impacts.length !== 1
+        || (expectedProposal && externalCalendarCanonicalJson(expectedProposal)
+          !== externalCalendarCanonicalJson(proposal))) {
+      throw new Error('External calendar provider Admin Preview is stale, blocked, or cross-proposal.');
+    }
+    const impact = asObject(preview.impacts[0]);
+    const proposalOperation = externalCalendarProposalOperationIdentity(proposal);
+    if (!hasExactKeys(impact, ['entity', 'action', 'id', 'changed', 'fields', 'before', 'after', 'affected_room_type_ids', 'from', 'to'])
+        || impact.entity !== proposalOperation.entity || impact.action !== proposalOperation.action
+        || impact.changed !== true || impact.id !== proposal.source_id
+        || !Array.isArray(impact.fields) || !Array.isArray(impact.affected_room_type_ids)
+        || impact.from !== null || impact.to !== null
+        || (proposal.room_type_id !== null && !impact.affected_room_type_ids.includes(proposal.room_type_id))
+        || (proposal.source_type !== null && ['create', 'update'].includes(proposal.action)
+          && asObject(impact.after).source_type !== proposal.source_type)
+        || (proposal.room_type_id !== null && ['create', 'update'].includes(proposal.action)
+          && asObject(impact.after).room_type_id !== proposal.room_type_id)) {
+      throw new Error('External calendar provider Admin Preview impact is invalid.');
+    }
+    const plan = asObject(preview.reviewed_plan);
+    const planKeys = [
+      'contract_version', 'review_id', 'actor_type', 'partner_id', 'hotel_id',
+      'assignment_id', 'permission_version', 'access_snapshot_token', 'snapshot_token',
+      'reviewed_at', 'expires_at', 'operations', 'plan_fingerprint',
+    ];
+    if (!hasExactKeys(plan, planKeys) || plan.contract_version !== EXTERNAL_CALENDAR_PLAN_CONTRACT
+        || !externalCalendarExactUuid(plan.review_id, 'external_calendar.provider_admin_preview.review_id')
+        || plan.actor_type !== 'admin' || plan.partner_id !== null
+        || plan.hotel_id !== proposal.hotel_id || plan.assignment_id !== null
+        || plan.permission_version !== null || plan.access_snapshot_token !== null
+        || !isExactSnapshotToken(plan.snapshot_token)
+        || !isExactIsoTimestamp(plan.reviewed_at) || !isExactIsoTimestamp(plan.expires_at)
+        || Date.parse(plan.expires_at) <= Date.parse(plan.reviewed_at)
+        || !isExactSnapshotToken(plan.plan_fingerprint)
+        || !Array.isArray(plan.operations) || plan.operations.length !== 1
+        || !hasExactKeys(asObject(plan.operations[0]), [
+          'entity', 'action', 'id', 'expected_version', 'expected_original', 'payload', 'reason',
+        ])
+        || !isExactInteger(plan.operations[0].expected_version, 0)
+        || (proposal.entity === 'calendar_source' && ['create', 'update'].includes(proposal.action)
+          && externalCalendarCanonicalJson(asObject(plan.operations[0].payload))
+            !== externalCalendarCanonicalJson(asObject(impact.after)))
+        || !externalCalendarProposalMatchesPlan(proposal, plan, { expectedReason: expected.adminReason })
+        || (expected.proposalPlanFingerprint
+          && proposal.plan_fingerprint !== expected.proposalPlanFingerprint)) {
+      throw new Error('External calendar provider Admin Preview plan is invalid or not bound to the proposal.');
+    }
+    return Object.freeze({ ...result, proposal, preview: Object.freeze({ ...clone(preview), reviewed_plan: Object.freeze(clone(plan)) }) });
+  }
+
+  function validateExternalCalendarProviderAdminApply(value, expected = {}) {
+    const result = asObject(clone(value));
+    if (!hasExactKeys(result, ['contract_version', 'proposal', 'apply', 'replayed'])
+        || externalCalendarContainsPrivateField(result)
+        || result.contract_version !== EXTERNAL_CALENDAR_PROVIDER_ADMIN_APPLY_CONTRACT
+        || typeof result.replayed !== 'boolean'
+        || !['accepted', 'rejected'].includes(expected.status)) {
+      throw new Error('External calendar provider Admin decision envelope is invalid.');
+    }
+    const proposal = normalizeExternalCalendarProviderProposal(result.proposal, {
+      proposalId: expected.proposalId, hotelId: expected.hotelId, status: expected.status,
+    });
+    const expectedProposal = expected.proposal
+      ? normalizeExternalCalendarProviderProposal(expected.proposal, { status: 'pending_admin_review' })
+      : null;
+    if (expectedProposal && !externalCalendarProposalImmutableIdentityMatches(expectedProposal, proposal)) {
+      throw new Error('External calendar provider Admin decision changed immutable proposal lineage.');
+    }
+    if (expected.status === 'rejected') {
+      if (result.apply !== null) throw new Error('Rejected external calendar provider proposal returned mutation evidence.');
+      return Object.freeze({ ...result, proposal });
+    }
+    const apply = validateExternalCalendarApplyResult(result.apply, {
+      plan: expected.plan, correlationId: expected.correlationId, idempotencyKey: expected.idempotencyKey,
+    });
+    if (!externalCalendarProposalMatchesPlan(proposal, expected.plan, { expectedReason: expected.adminReason })) {
+      throw new Error('Accepted external calendar provider proposal does not match the applied review.');
+    }
+    return Object.freeze({ ...result, proposal, apply });
+  }
+
   return Object.freeze({
     LANGUAGES,
     ROOM_STATUSES,
@@ -7953,10 +8252,16 @@
     AVAILABILITY_STAY_REQUEST_CONTRACT,
     AVAILABILITY_STAY_PREVIEW_CONTRACT,
     EXTERNAL_CALENDAR_CONTROL_CONTRACT,
+    EXTERNAL_CALENDAR_PROVIDER_CONTROL_CONTRACT,
+    EXTERNAL_CALENDAR_PROVIDER_CAPABILITY_CONTRACT,
     EXTERNAL_CALENDAR_DRAFT_CONTRACT,
     EXTERNAL_CALENDAR_PREVIEW_CONTRACT,
     EXTERNAL_CALENDAR_PLAN_CONTRACT,
     EXTERNAL_CALENDAR_APPLY_CONTRACT,
+    EXTERNAL_CALENDAR_PARTNER_PROPOSAL_SUBMIT_CONTRACT,
+    EXTERNAL_CALENDAR_PROVIDER_REVIEW_LIST_CONTRACT,
+    EXTERNAL_CALENDAR_PROVIDER_ADMIN_PREVIEW_CONTRACT,
+    EXTERNAL_CALENDAR_PROVIDER_ADMIN_APPLY_CONTRACT,
     AVAILABILITY_CONTROL_ENTITIES,
     AVAILABILITY_CONTROL_ACTIONS,
     AVAILABILITY_CONTROL_READ_LIMITS,
@@ -8114,5 +8419,10 @@
     validateExternalCalendarDraft,
     validateExternalCalendarPreview,
     validateExternalCalendarApplyResult,
+    normalizeExternalCalendarProviderProposal,
+    validateExternalCalendarPartnerProposalSubmit,
+    validateExternalCalendarProviderReviewList,
+    validateExternalCalendarProviderAdminPreview,
+    validateExternalCalendarProviderAdminApply,
   });
 });

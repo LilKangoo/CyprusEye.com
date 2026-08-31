@@ -143,6 +143,30 @@ Deno.test("accepts the exact 4096-character Stage 2A URL and strict Hotel timezo
   assert(failed, "An invalid Hotel timezone must fail closed");
 });
 
+Deno.test("accepts exactly Booking.com, Airbnb and Generic iCal provider source contracts", () => {
+  const base = {
+    contract_version: CONTRACTS.source,
+    source_id: "11111111-1111-4111-8111-111111111111",
+    hotel_id: "22222222-2222-4222-8222-222222222222",
+    room_type_id: "33333333-3333-4333-8333-333333333333",
+    source_version: 1,
+    binding_version: 1,
+    is_enabled: true,
+    review_status: "reviewed",
+    hotel_external_sync_enabled: true,
+    hotel_timezone: "Europe/Nicosia",
+    ical_url: "https://calendar.example/private-export.ics",
+  };
+  for (const source_type of ["booking_com", "airbnb", "ical"] as const) {
+    assert(parseSourceContract({ ...base, source_type }).source_type === source_type);
+  }
+  for (const source_type of ["booking", "vrbo", "manual", "ICAL"]) {
+    let failed = false;
+    try { parseSourceContract({ ...base, source_type }); } catch { failed = true; }
+    assert(failed, `Unsupported provider ${source_type} must fail closed`);
+  }
+});
+
 Deno.test("normalizes all-day, UTC, offset and cancelled VEVENT data without retaining UID", async () => {
   const calendar = await parseICalendar([
     "BEGIN:VCALENDAR",
@@ -250,6 +274,20 @@ Deno.test("selects the highest sequence/last-modified duplicate deterministicall
   assert(calendar.events[0].source_sequence === 2);
   assert(calendar.events[0].event_status === "cancelled");
   assert(calendar.active_event_count === 0);
+});
+
+Deno.test("produces an identical fingerprint for an unchanged provider feed", async () => {
+  const feed = [
+    "BEGIN:VCALENDAR", "VERSION:2.0",
+    "BEGIN:VEVENT", "UID:stable-private-provider-id",
+    "DTSTART;VALUE=DATE:20260910", "DTEND;VALUE=DATE:20260912",
+    "SEQUENCE:7", "LAST-MODIFIED:20260830T120000Z", "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const first = await parseICalendar(feed, "Europe/Nicosia");
+  const second = await parseICalendar(feed, "Europe/Nicosia");
+  assert(first.content_fingerprint === second.content_fingerprint);
+  assert(JSON.stringify(first).includes("stable-private-provider-id") === false);
 });
 
 Deno.test("fails closed on floating time, reversed range, missing DTEND and day caps", async () => {

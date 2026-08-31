@@ -21,7 +21,7 @@
     applyAvailability: 'hotel_v2_partner_apply_availability_plan',
     externalCalendarControl: 'hotel_v2_partner_get_external_calendar_control',
     previewExternalCalendar: 'hotel_v2_partner_preview_external_calendar_plan',
-    applyExternalCalendar: 'hotel_v2_partner_apply_external_calendar_plan',
+    submitExternalCalendarProposal: 'hotel_v2_partner_apply_external_calendar_plan',
   });
 
   const reviewedPlans = new Map();
@@ -312,13 +312,13 @@
     return preview;
   }
 
-  async function applyExternalCalendarPlan(planValue, correlationId, idempotencyKey, icalUrl = null) {
+  async function submitExternalCalendarProposal(planValue, correlationId, idempotencyKey, icalUrl = null) {
     const plan = planValue;
     const correlation = exactUuid(correlationId, 'correlation_id');
     const idempotency = exactUuid(idempotencyKey, 'idempotency_key');
     const cache = reviewedExternalCalendarPlans.get(plan?.plan_fingerprint);
     if (!cache || cache.plan !== planValue || cache.bytes !== stable(plan)) {
-      throw new Error('Only the exact unchanged server-reviewed external-calendar plan can be saved. Run Review again.');
+      throw new Error('Only the exact unchanged server-reviewed external-calendar plan can be submitted. Run Review again.');
     }
     const secretOperation = plan.operations?.[0]?.entity === 'ical_secret';
     const secretWrite = secretOperation && ['set', 'rotate'].includes(plan.operations[0].action);
@@ -328,15 +328,24 @@
       throw new Error('The transient calendar URL changed after Review. Run Review again.');
     }
     reviewedExternalCalendarPlans.delete(plan.plan_fingerprint);
-    const value = await call(RPC.applyExternalCalendar, {
+    cache.secretUrl = null;
+    const value = await call(RPC.submitExternalCalendarProposal, {
       p_reviewed_plan: plan,
       p_correlation_id: correlation,
       p_idempotency_key: idempotency,
       p_ical_url: secretWrite ? icalUrl : null,
     }, 'external_calendar');
-    return Core.validateExternalCalendarApplyResult(value, {
-      plan, correlationId: correlation, idempotencyKey: idempotency,
-    });
+    try {
+      return Core.validateExternalCalendarPartnerProposalSubmit(value, {
+        plan, correlationId: correlation, idempotencyKey: idempotency,
+      });
+    } catch (error) {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      wrapped.saveSucceeded = true;
+      wrapped.isAmbiguousOutcome = false;
+      wrapped.userMessage = 'Provider proposal submission returned success, but its exact pending-review receipt could not be verified. Nothing was retried.';
+      throw wrapped;
+    }
   }
 
   function clearReviewedPlans() {
@@ -360,7 +369,7 @@
     applyAvailabilityPlan: (plan, correlationId, idempotencyKey) => apply('availability', plan, correlationId, idempotencyKey),
     getExternalCalendarControl,
     previewExternalCalendarPlan,
-    applyExternalCalendarPlan,
+    submitExternalCalendarProposal,
     clearReviewedPlans,
   });
 });

@@ -27,11 +27,12 @@
     commercialRequest: 'hotels_v2_h3_2b_commercial_stay_request_v1',
     commercialPreview: 'hotels_v2_h3_2b_commercial_stay_preview_v1',
     adminAvailability: 'hotels_v2_admin_d_availability_control_v1',
-    externalCalendarControl: 'hotels_v2_external_calendar_control_v1',
+    externalCalendarControl: 'hotels_v2_external_calendar_control_v2',
     externalCalendarDraft: 'hotels_v2_external_calendar_draft_v1',
     externalCalendarPreview: 'hotels_v2_external_calendar_preview_v1',
     externalCalendarPlan: 'hotels_v2_external_calendar_plan_v1',
     externalCalendarApply: 'hotels_v2_external_calendar_apply_result_v1',
+    externalCalendarProposalSubmit: 'hotels_v2_external_calendar_partner_proposal_submit_v1',
   });
 
   const CAPABILITIES = Object.freeze([
@@ -1329,6 +1330,10 @@
     return requireExternalCalendarCore('validateExternalCalendarApplyResult')(value, expected);
   }
 
+  function validateExternalCalendarPartnerProposalSubmit(value, expected) {
+    return requireExternalCalendarCore('validateExternalCalendarPartnerProposalSubmit')(value, expected);
+  }
+
   return Object.freeze({
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING,
     hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
@@ -1341,5 +1346,6 @@
     validateSevenArchesReviewedPricingSubmit, validateSevenArchesReviewedPricingControl,
     normalizeExternalCalendarControl, buildExternalCalendarDraft,
     validateExternalCalendarPreview, validateExternalCalendarApplyResult,
+    validateExternalCalendarPartnerProposalSubmit,
   });
 });

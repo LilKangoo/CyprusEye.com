@@ -38,6 +38,10 @@
     externalCalendarControl: 'hotel_v2_admin_get_external_calendar_control',
     previewExternalCalendarPlan: 'hotel_v2_admin_preview_external_calendar_plan',
     applyExternalCalendarPlan: 'hotel_v2_admin_apply_external_calendar_plan',
+    externalCalendarProviderReviews: 'hotel_v2_admin_get_external_calendar_provider_reviews',
+    previewExternalCalendarPartnerProposal: 'hotel_v2_admin_preview_external_calendar_partner_proposal',
+    applyExternalCalendarPartnerProposal: 'hotel_v2_admin_apply_external_calendar_partner_proposal',
+    rejectExternalCalendarPartnerProposal: 'hotel_v2_admin_reject_external_calendar_partner_proposal',
     partnerPropertyProposals: 'hotel_v2_admin_get_partner_property_proposals',
     previewPartnerPropertyProposalPlan: 'hotel_v2_admin_preview_partner_property_proposal_plan',
     applyPartnerPropertyProposalPlan: 'hotel_v2_admin_apply_partner_property_proposal_plan',
@@ -52,6 +56,7 @@
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const reviewedAvailabilityPlans = new Map();
   const reviewedExternalCalendarPlans = new Map();
+  const reviewedExternalCalendarPartnerProposalPlans = new Map();
   const reviewedPartnerPropertyProposalPlans = new Map();
   const reviewedSevenArchesPricingActivationPlans = new Map();
   const reviewedSevenArchesReviewedPricingPlans = new Map();
@@ -815,8 +820,102 @@
     });
   }
 
+  async function getExternalCalendarProviderReviews(hotelId) {
+    const id = Core.normalizeUuid(hotelId);
+    if (!id || id !== hotelId) throw new Error('A canonical exact property ID is required.');
+    const data = await runRpc(RPC.externalCalendarProviderReviews, {
+      p_hotel_id: id,
+    }, 'Load Partner provider reviews');
+    return Core.validateExternalCalendarProviderReviewList(data, id);
+  }
+
+  async function previewExternalCalendarPartnerProposal(proposalValue, adminReason) {
+    const expectedProposal = Core.normalizeExternalCalendarProviderProposal(proposalValue, {
+      status: 'pending_admin_review',
+    });
+    const proposal = expectedProposal.proposal_id;
+    const hotel = expectedProposal.hotel_id;
+    const reason = String(adminReason || '');
+    if (expectedProposal.is_fresh !== true
+        || reason !== reason.trim() || reason.length < 3 || reason.length > 500
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(reason)) {
+      throw new Error('Provider proposal Review requires exact identities and a bounded Admin reason.');
+    }
+    const data = await runRpc(RPC.previewExternalCalendarPartnerProposal, {
+      p_proposal_id: proposal,
+      p_admin_reason: reason,
+    }, 'Review Partner provider proposal');
+    const preview = Core.validateExternalCalendarProviderAdminPreview(data, {
+      proposalId: proposal, hotelId: hotel, proposal: expectedProposal,
+      proposalPlanFingerprint: expectedProposal.plan_fingerprint, adminReason: reason,
+    });
+    reviewedExternalCalendarPartnerProposalPlans.clear();
+    reviewedExternalCalendarPartnerProposalPlans.set(preview.preview.reviewed_plan.plan_fingerprint, {
+      bytes: stableJson(preview.preview.reviewed_plan),
+      plan: preview.preview.reviewed_plan,
+      proposal: preview.proposal,
+      adminReason: reason,
+    });
+    return preview;
+  }
+
+  async function applyExternalCalendarPartnerProposal(previewValue, correlationId, idempotencyKey) {
+    const plan = previewValue?.preview?.reviewed_plan;
+    const correlation = Core.normalizeUuid(correlationId);
+    const idempotency = Core.normalizeUuid(idempotencyKey);
+    const cached = reviewedExternalCalendarPartnerProposalPlans.get(plan?.plan_fingerprint);
+    if (!correlation || correlation !== correlationId || !idempotency || idempotency !== idempotencyKey
+        || !cached || cached.plan !== plan || cached.bytes !== stableJson(plan)
+        || stableJson(cached.proposal) !== stableJson(previewValue?.proposal)) {
+      throw new Error('Provider proposal Accept requires the exact unchanged Admin-reviewed plan and request IDs.');
+    }
+    reviewedExternalCalendarPartnerProposalPlans.delete(plan.plan_fingerprint);
+    const data = await runRpc(RPC.applyExternalCalendarPartnerProposal, {
+      p_proposal_id: cached.proposal.proposal_id,
+      p_reviewed_plan: plan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+      p_admin_reason: cached.adminReason,
+    }, 'Accept Partner provider proposal');
+    return Core.validateExternalCalendarProviderAdminApply(data, {
+      status: 'accepted', proposalId: cached.proposal.proposal_id,
+      hotelId: cached.proposal.hotel_id, proposal: cached.proposal, plan,
+      adminReason: cached.adminReason,
+      correlationId: correlation, idempotencyKey: idempotency,
+    });
+  }
+
+  async function rejectExternalCalendarPartnerProposal(proposalValue, adminReason, correlationId, idempotencyKey) {
+    const expectedProposal = Core.normalizeExternalCalendarProviderProposal(proposalValue, {
+      status: 'pending_admin_review',
+    });
+    const proposal = expectedProposal.proposal_id;
+    const hotel = expectedProposal.hotel_id;
+    const correlation = Core.normalizeUuid(correlationId);
+    const idempotency = Core.normalizeUuid(idempotencyKey);
+    const reason = String(adminReason || '');
+    if (expectedProposal.is_fresh !== true
+        || !correlation || correlation !== correlationId || !idempotency || idempotency !== idempotencyKey
+        || reason !== reason.trim() || reason.length < 3 || reason.length > 500
+        || /[\u0000-\u001f\u007f-\u009f]/u.test(reason)) {
+      throw new Error('Provider proposal Reject requires exact identities, request IDs and a bounded Admin reason.');
+    }
+    reviewedExternalCalendarPartnerProposalPlans.clear();
+    const data = await runRpc(RPC.rejectExternalCalendarPartnerProposal, {
+      p_proposal_id: proposal,
+      p_admin_reason: reason,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+    }, 'Reject Partner provider proposal');
+    return Core.validateExternalCalendarProviderAdminApply(data, {
+      status: 'rejected', proposalId: proposal, hotelId: hotel, proposal: expectedProposal,
+      correlationId: correlation, idempotencyKey: idempotency,
+    });
+  }
+
   function clearExternalCalendarReviewedPlan() {
     reviewedExternalCalendarPlans.clear();
+    reviewedExternalCalendarPartnerProposalPlans.clear();
   }
 
   async function resolveRate(roomRateId, checkIn, checkOut, guestCount) {
@@ -1397,6 +1496,10 @@
     getExternalCalendarControl,
     previewExternalCalendarPlan,
     applyExternalCalendarPlan,
+    getExternalCalendarProviderReviews,
+    previewExternalCalendarPartnerProposal,
+    applyExternalCalendarPartnerProposal,
+    rejectExternalCalendarPartnerProposal,
     clearExternalCalendarReviewedPlan,
     resolveRate,
     applyGuestPolicyPlan,

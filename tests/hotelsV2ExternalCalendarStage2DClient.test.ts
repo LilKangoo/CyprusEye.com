@@ -16,16 +16,72 @@ const CORRELATION = '55555555-5555-4555-8555-555555555555';
 const IDEMPOTENCY = '66666666-6666-4666-8666-666666666666';
 const ACTIVITY = '77777777-7777-4777-8777-777777777777';
 const CREATED_SOURCE = '88888888-8888-4888-8888-888888888888';
+const PARTNER = '99999999-9999-4999-8999-999999999999';
+const ASSIGNMENT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const PROVIDER_PROPOSAL = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const ADMIN_ACTOR = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const TOKEN = 'a'.repeat(64);
 const NEXT_TOKEN = 'b'.repeat(64);
 const ICAL_URL = 'https://calendar.example.test/private/feed.ics?token=secret';
 const URL_FINGERPRINT = crypto.createHash('sha256').update(ICAL_URL).digest('hex');
 
+function providerProposal(overrides: Record<string, unknown> = {}): any {
+  return {
+    proposal_id: PROVIDER_PROPOSAL, hotel_id: HOTEL, partner_id: PARTNER, assignment_id: ASSIGNMENT,
+    entity: 'calendar_source', action: 'update', source_id: SOURCE, source_type: 'airbnb', room_type_id: ROOM,
+    reason: 'Update exact reviewed source fields', plan_fingerprint: NEXT_TOKEN,
+    status: 'pending_admin_review', submitted_at: '2026-08-25T12:01:00Z', expires_at: '2026-08-25T12:31:00Z',
+    is_fresh: true, reviewed_at: null, reviewed_by: null, admin_reason: null,
+    ...overrides,
+  };
+}
+
+function adminProviderPreview(adminReason = 'Admin confirms exact provider change'): any {
+  const proposal = providerProposal();
+  const original = JSON.parse(JSON.stringify(control().sources[0]));
+  const payload = {
+    room_type_id: ROOM, code: 'airbnb-upper-reviewed', source_type: 'airbnb', sync_interval_minutes: 120,
+    units_per_event: 1, priority: 90,
+  };
+  const fields = ['code', 'priority', 'room_type_id', 'source_type', 'sync_interval_minutes', 'units_per_event'];
+  return {
+    contract_version: 'hotels_v2_external_calendar_provider_admin_preview_v1',
+    proposal,
+    preview: {
+      contract_version: 'hotels_v2_external_calendar_preview_v1', hotel_id: HOTEL, partner_id: null,
+      changed: true, blocking_reasons: [],
+      impacts: [{
+        entity: 'calendar_source', action: 'update', id: SOURCE, changed: true, fields,
+        before: Object.fromEntries(fields.map((field) => [field, original[field]])), after: payload,
+        affected_room_type_ids: [ROOM], from: null, to: null,
+      }],
+      reviewed_plan: {
+        contract_version: 'hotels_v2_external_calendar_plan_v1', review_id: REVIEW,
+        actor_type: 'admin', partner_id: null, hotel_id: HOTEL, assignment_id: null,
+        permission_version: null, access_snapshot_token: null, snapshot_token: TOKEN,
+        reviewed_at: '2026-08-25T12:03:00Z', expires_at: '2026-08-25T12:33:00Z',
+        operations: [{
+          entity: 'calendar_source', action: 'update', id: SOURCE, expected_version: 1,
+          expected_original: original, payload, reason: adminReason,
+        }],
+        plan_fingerprint: TOKEN,
+      },
+    },
+  };
+}
+
 function control(overrides: Record<string, unknown> = {}): any {
   return {
-    contract_version: 'hotels_v2_external_calendar_control_v1', hotel_id: HOTEL,
+    contract_version: 'hotels_v2_external_calendar_control_v2', hotel_id: HOTEL,
     partner_id: null, assignment_id: null, permission_version: null, access_snapshot_token: null,
     snapshot_token: TOKEN, hotel_external_sync_enabled: false,
+    provider_capability: {
+      contract_version: 'hotels_v2_external_calendar_provider_capability_v1',
+      stage: 'provider_types_active', supported_providers: ['booking_com', 'airbnb', 'ical'],
+      source_review_available: true, private_url_management_available: true,
+      activation_available: false, manual_sync_available: false, worker_scheduler_ready: true,
+    },
+    provider_proposals: [],
     rooms: [{ id: ROOM, name_i18n: { pl: 'Pokój', en: 'Room', he: 'חדר' }, status: 'active', version: 1 }],
     sources: [{
       id: SOURCE, hotel_id: HOTEL, room_type_id: ROOM, code: 'airbnb-upper', source_type: 'airbnb',
@@ -173,6 +229,18 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
     expect(Core.normalizeExternalCalendarControl(unconfigured).sources[0].binding_version).toBeNull();
     const foreignProvider = control(); foreignProvider.sources[0].source_type = 'booking';
     expect(() => Core.normalizeExternalCalendarControl(foreignProvider)).toThrow('invalid, foreign');
+    const forgedCapability = control(); forgedCapability.provider_capability.manual_sync_available = true;
+    expect(() => Core.normalizeExternalCalendarControl(forgedCapability)).toThrow('provider capability');
+    const legacy = control(); legacy.contract_version = 'hotels_v2_external_calendar_control_v1'; delete legacy.provider_capability; delete legacy.provider_proposals; legacy.sources[0].source_type = 'ical';
+    const unavailable = Core.normalizeExternalCalendarControl(legacy);
+    expect(unavailable.provider_capability.stage).toBe('provider_types_unavailable');
+    expect(() => Core.buildExternalCalendarDraft(unavailable, {
+      entity: 'calendar_source', action: 'update', id: SOURCE, expected_version: 1,
+      payload: { room_type_id: ROOM, code: 'legacy-read-only', source_type: 'ical', sync_interval_minutes: 60, units_per_event: 1, priority: 100 },
+      reason: 'Legacy provider stage stays read only',
+    })).toThrow('read-only');
+    const legacyProvider = control(); legacyProvider.contract_version = 'hotels_v2_external_calendar_control_v1'; delete legacyProvider.provider_capability; delete legacyProvider.provider_proposals;
+    expect(() => Core.normalizeExternalCalendarControl(legacyProvider)).toThrow('invalid, foreign');
   });
 
   test('accepts both exact 7 Arches Room mappings with honest EN-only names and no fabricated translations', () => {
@@ -195,6 +263,47 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
     expect(normalized.sources.map((source: any) => [source.source_type, source.room_type_id])).toEqual([
       ['booking_com', UPPER_ROOM], ['airbnb', GROUND_ROOM],
     ]);
+  });
+
+  test('validates exact redacted provider capability and proposal lifecycle without requiring worker readiness', () => {
+    const deferredWorker = control();
+    deferredWorker.provider_capability.worker_scheduler_ready = false;
+    expect(Core.normalizeExternalCalendarControl(deferredWorker).provider_capability.activation_available).toBe(false);
+
+    const partner = control({
+      partner_id: PARTNER, assignment_id: ASSIGNMENT, permission_version: 1,
+      access_snapshot_token: TOKEN, provider_proposals: [providerProposal()],
+    });
+    const normalized = Core.normalizeExternalCalendarControl(partner, {
+      actorType: 'partner', hotelId: HOTEL, partnerId: PARTNER, assignmentId: ASSIGNMENT,
+      permissionVersion: 1, accessSnapshotToken: TOKEN,
+    });
+    expect(normalized.provider_proposals[0].plan_fingerprint).toBe(NEXT_TOKEN);
+    const leaked = control({ provider_proposals: [{ ...providerProposal(), vault_secret_id: SOURCE }] });
+    expect(() => Core.normalizeExternalCalendarControl(leaked)).toThrow('private fields');
+    const missingBinding = control({ provider_proposals: [{ ...providerProposal(), plan_fingerprint: null }] });
+    expect(() => Core.normalizeExternalCalendarControl(missingBinding)).toThrow('provider proposal');
+    const accepted = providerProposal({
+      status: 'accepted', is_fresh: false, reviewed_at: '2026-08-25T12:10:00Z',
+      reviewed_by: ADMIN_ACTOR, admin_reason: 'Accept exact provider proposal',
+    });
+    expect(Core.validateExternalCalendarProviderReviewList({
+      contract_version: 'hotels_v2_external_calendar_provider_review_list_v1',
+      hotel_id: HOTEL, proposals: [accepted],
+    }, HOTEL).proposals[0].status).toBe('accepted');
+    const partnerTerminal = control({
+      partner_id: PARTNER, assignment_id: ASSIGNMENT, permission_version: 1,
+      access_snapshot_token: TOKEN,
+      provider_proposals: [{ ...accepted, reviewed_by: null }],
+    });
+    expect(Core.normalizeExternalCalendarControl(partnerTerminal, {
+      actorType: 'partner', hotelId: HOTEL, partnerId: PARTNER, assignmentId: ASSIGNMENT,
+      permissionVersion: 1, accessSnapshotToken: TOKEN,
+    }).provider_proposals[0].reviewed_by).toBeNull();
+    expect(() => Core.validateExternalCalendarProviderReviewList({
+      contract_version: 'hotels_v2_external_calendar_provider_review_list_v1',
+      hotel_id: HOTEL, proposals: [{ ...accepted, reviewed_by: null }],
+    }, HOTEL)).toThrow('reviewed_by');
   });
 
   test('builds exact review-first drafts, redacts/fingerprint-binds URL plans, and supports disabled-source secret clear', () => {
@@ -256,6 +365,98 @@ describe('Hotels V2 external calendar Stage 2D strict client contract', () => {
     wrongCreateOriginal.reviewed_plan.operations[0].expected_original = {};
     expect(() => Core.validateExternalCalendarPreview(wrongCreateOriginal, created.draft, control()))
       .toThrow('differs from the explicit Review');
+  });
+
+  test('binds Partner submission to an immutable redacted pending proposal without live source mutation', () => {
+    const partnerSnapshot = control({
+      partner_id: PARTNER, assignment_id: ASSIGNMENT, permission_version: 1,
+      access_snapshot_token: TOKEN,
+    });
+    const fixture = updatePreview(Core, partnerSnapshot);
+    fixture.preview.partner_id = PARTNER;
+    Object.assign(fixture.preview.reviewed_plan, {
+      actor_type: 'partner', partner_id: PARTNER, assignment_id: ASSIGNMENT,
+      permission_version: 1, access_snapshot_token: TOKEN,
+    });
+    const reviewed = Core.validateExternalCalendarPreview(fixture.preview, fixture.draft, partnerSnapshot);
+    const summary = providerProposal({
+      reason: reviewed.reviewed_plan.operations[0].reason,
+      plan_fingerprint: reviewed.reviewed_plan.plan_fingerprint,
+    });
+    const currentControl = control({
+      partner_id: PARTNER, assignment_id: ASSIGNMENT, permission_version: 1,
+      access_snapshot_token: TOKEN, provider_proposals: [summary],
+    });
+    const result = Core.validateExternalCalendarPartnerProposalSubmit({
+      contract_version: 'hotels_v2_external_calendar_partner_proposal_submit_v1',
+      proposal: summary, replayed: false, control: currentControl,
+    }, { plan: reviewed.reviewed_plan, correlationId: CORRELATION, idempotencyKey: IDEMPOTENCY });
+    expect(result.proposal.status).toBe('pending_admin_review');
+    expect(result.control.sources[0].priority).toBe(100);
+    const switched = JSON.parse(JSON.stringify(summary)); switched.source_id = SECOND_SOURCE;
+    expect(() => Core.validateExternalCalendarPartnerProposalSubmit({
+      contract_version: 'hotels_v2_external_calendar_partner_proposal_submit_v1',
+      proposal: switched, replayed: false,
+      control: { ...currentControl, provider_proposals: [switched] },
+    }, { plan: reviewed.reviewed_plan })).toThrow('exact reviewed operation');
+  });
+
+  test('binds Partner lineage to a fresh Admin-owned provider plan and Admin-attributed Apply', () => {
+    const adminReason = 'Admin confirms exact provider change';
+    const envelope = adminProviderPreview(adminReason);
+    const reviewed = Core.validateExternalCalendarProviderAdminPreview(envelope, {
+      proposalId: PROVIDER_PROPOSAL, hotelId: HOTEL, proposal: envelope.proposal,
+      proposalPlanFingerprint: NEXT_TOKEN, adminReason,
+    });
+    expect(reviewed.preview.reviewed_plan.actor_type).toBe('admin');
+    expect(reviewed.preview.reviewed_plan.partner_id).toBeNull();
+
+    const partnerActor = JSON.parse(JSON.stringify(envelope));
+    Object.assign(partnerActor.preview.reviewed_plan, {
+      actor_type: 'partner', partner_id: PARTNER, assignment_id: ASSIGNMENT,
+      permission_version: 1, access_snapshot_token: TOKEN,
+    });
+    expect(() => Core.validateExternalCalendarProviderAdminPreview(partnerActor, {
+      proposal: envelope.proposal, adminReason,
+    })).toThrow('not bound to the proposal');
+
+    const swappedLineage = JSON.parse(JSON.stringify(envelope));
+    swappedLineage.proposal.plan_fingerprint = 'c'.repeat(64);
+    expect(() => Core.validateExternalCalendarProviderAdminPreview(swappedLineage, {
+      proposal: envelope.proposal, proposalPlanFingerprint: NEXT_TOKEN, adminReason,
+    })).toThrow('cross-proposal');
+
+    const alteredPayload = JSON.parse(JSON.stringify(envelope));
+    alteredPayload.preview.reviewed_plan.operations[0].payload.priority = 91;
+    expect(() => Core.validateExternalCalendarProviderAdminPreview(alteredPayload, {
+      proposal: envelope.proposal, proposalPlanFingerprint: NEXT_TOKEN, adminReason,
+    })).toThrow('not bound to the proposal');
+
+    const terminal = providerProposal({
+      status: 'accepted', is_fresh: false, reviewed_at: '2026-08-25T12:10:00Z',
+      reviewed_by: ADMIN_ACTOR, admin_reason: adminReason,
+    });
+    const savedControl = control({ snapshot_token: NEXT_TOKEN, provider_proposals: [terminal] });
+    Object.assign(savedControl.sources[0], envelope.preview.reviewed_plan.operations[0].payload, { version: 2 });
+    const applied = Core.validateExternalCalendarProviderAdminApply({
+      contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1', proposal: terminal,
+      replayed: false,
+      apply: {
+        contract_version: 'hotels_v2_external_calendar_apply_result_v1', hotel_id: HOTEL, partner_id: null,
+        correlation_id: CORRELATION, idempotency_key: IDEMPOTENCY, replayed: false, changed: true,
+        activity: [{
+          id: ACTIVITY, hotel_id: HOTEL, entity_type: 'calendar_source', entity_id: SOURCE,
+          action: 'update', actor_type: 'admin', source: 'hotels_v2_external_calendar_control',
+          correlation_id: CORRELATION, created_at: '2026-08-25T12:10:00Z',
+        }],
+        control: savedControl,
+      },
+    }, {
+      status: 'accepted', proposalId: PROVIDER_PROPOSAL, hotelId: HOTEL, proposal: envelope.proposal,
+      plan: reviewed.preview.reviewed_plan, adminReason, correlationId: CORRELATION,
+      idempotencyKey: IDEMPOTENCY,
+    });
+    expect(applied.apply.activity[0].actor_type).toBe('admin');
   });
 
   test('requires create and update Save controls to match every reviewed source business field', () => {
@@ -354,7 +555,98 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     expect(calls.at(-1)?.payload.p_ical_url).toBe(ICAL_URL);
   });
 
-  test('uses only the six reviewed Admin/Partner RPCs and never browser Vault/private/worker access', () => {
+  test('uses exact Partner proposal lineage with a fresh Admin-owned Preview and one-shot Accept', async () => {
+    const calls: Array<{ name: string; payload: any }> = [];
+    const adminReason = 'Admin confirms exact provider change';
+    const previewEnvelope = adminProviderPreview(adminReason);
+    const terminal = providerProposal({
+      status: 'accepted', is_fresh: false, reviewed_at: '2026-08-25T12:10:00Z',
+      reviewed_by: ADMIN_ACTOR, admin_reason: adminReason,
+    });
+    const savedControl = control({ snapshot_token: NEXT_TOKEN, provider_proposals: [terminal] });
+    Object.assign(savedControl.sources[0], previewEnvelope.preview.reviewed_plan.operations[0].payload, { version: 2 });
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        if (name === 'hotel_v2_admin_get_external_calendar_provider_reviews') return { data: {
+          contract_version: 'hotels_v2_external_calendar_provider_review_list_v1',
+          hotel_id: HOTEL, proposals: [providerProposal()],
+        }, error: null };
+        if (name === 'hotel_v2_admin_preview_external_calendar_partner_proposal') {
+          return { data: previewEnvelope, error: null };
+        }
+        if (name === 'hotel_v2_admin_apply_external_calendar_partner_proposal') return { data: {
+          contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1', proposal: terminal,
+          replayed: false,
+          apply: {
+            contract_version: 'hotels_v2_external_calendar_apply_result_v1', hotel_id: HOTEL, partner_id: null,
+            correlation_id: CORRELATION, idempotency_key: IDEMPOTENCY, replayed: false, changed: true,
+            activity: [{
+              id: ACTIVITY, hotel_id: HOTEL, entity_type: 'calendar_source', entity_id: SOURCE,
+              action: 'update', actor_type: 'admin', source: 'hotels_v2_external_calendar_control',
+              correlation_id: CORRELATION, created_at: '2026-08-25T12:10:00Z',
+            }],
+            control: savedControl,
+          },
+        }, error: null };
+        throw new Error(`unexpected ${name}`);
+      },
+    };
+    const context: Record<string, any> = {
+      console, URL: globalThis.URL, TextEncoder, crypto: crypto.webcrypto,
+      window: { getSupabase: () => client },
+    };
+    for (const relative of ['admin/hotels-v2-workspace-core.js', 'admin/hotels-v2-workspace-repository.js']) {
+      vm.runInNewContext(fs.readFileSync(path.join(process.cwd(), relative), 'utf8'), context, { filename: relative });
+    }
+    const Repository = context.HotelsV2WorkspaceRepository;
+    const reviews = await Repository.getExternalCalendarProviderReviews(HOTEL);
+    const reviewed = await Repository.previewExternalCalendarPartnerProposal(reviews.proposals[0], adminReason);
+    expect(reviewed.preview.reviewed_plan.actor_type).toBe('admin');
+    expect(calls.at(-1)?.payload).toEqual({ p_proposal_id: PROVIDER_PROPOSAL, p_admin_reason: adminReason });
+    const accepted = await Repository.applyExternalCalendarPartnerProposal(reviewed, CORRELATION, IDEMPOTENCY);
+    expect(accepted.proposal.status).toBe('accepted');
+    expect(calls.at(-1)?.payload.p_reviewed_plan.actor_type).toBe('admin');
+    await expect(Repository.applyExternalCalendarPartnerProposal(reviewed, CORRELATION, IDEMPOTENCY))
+      .rejects.toThrow('exact unchanged Admin-reviewed plan');
+  });
+
+  test('rejects one exact pending Partner proposal with bounded Admin attribution and no Apply result', async () => {
+    const calls: Array<{ name: string; payload: any }> = [];
+    const adminReason = 'Reject stale provider configuration';
+    const terminal = providerProposal({
+      status: 'rejected', is_fresh: false, reviewed_at: '2026-08-25T12:10:00Z',
+      reviewed_by: ADMIN_ACTOR, admin_reason: adminReason,
+    });
+    const client = { rpc: async (name: string, payload: any) => {
+      calls.push({ name, payload });
+      return { data: {
+        contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1',
+        proposal: terminal, apply: null, replayed: false,
+      }, error: null };
+    } };
+    const context: Record<string, any> = {
+      console, URL: globalThis.URL, TextEncoder, crypto: crypto.webcrypto,
+      window: { getSupabase: () => client },
+    };
+    for (const relative of ['admin/hotels-v2-workspace-core.js', 'admin/hotels-v2-workspace-repository.js']) {
+      vm.runInNewContext(fs.readFileSync(path.join(process.cwd(), relative), 'utf8'), context, { filename: relative });
+    }
+    const rejected = await context.HotelsV2WorkspaceRepository.rejectExternalCalendarPartnerProposal(
+      providerProposal(), adminReason, CORRELATION, IDEMPOTENCY,
+    );
+    expect(rejected.proposal.status).toBe('rejected');
+    expect(rejected.apply).toBeNull();
+    expect(calls[0]).toEqual({
+      name: 'hotel_v2_admin_reject_external_calendar_partner_proposal',
+      payload: {
+        p_proposal_id: PROVIDER_PROPOSAL, p_admin_reason: adminReason,
+        p_correlation_id: CORRELATION, p_idempotency_key: IDEMPOTENCY,
+      },
+    });
+  });
+
+  test('uses only reviewed Admin/Partner provider RPCs and never browser Vault/private/worker access', () => {
     const files = [
       'admin/hotels-v2-workspace-repository.js', 'admin/hotels-v2-workspace.js',
       'js/hotels-v2-partner-workspace-repository.js', 'js/hotels-v2-partner-workspace.js',
@@ -363,6 +655,10 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
       'hotel_v2_admin_get_external_calendar_control', 'hotel_v2_admin_preview_external_calendar_plan',
       'hotel_v2_admin_apply_external_calendar_plan', 'hotel_v2_partner_get_external_calendar_control',
       'hotel_v2_partner_preview_external_calendar_plan', 'hotel_v2_partner_apply_external_calendar_plan',
+      'hotel_v2_admin_get_external_calendar_provider_reviews',
+      'hotel_v2_admin_preview_external_calendar_partner_proposal',
+      'hotel_v2_admin_apply_external_calendar_partner_proposal',
+      'hotel_v2_admin_reject_external_calendar_partner_proposal',
     ]) expect(files).toContain(name);
     expect(files).not.toMatch(/hotel_v2_admin_set_external_calendar_ical_secret/);
     expect(files).not.toMatch(/hotels-v2-external-calendar-sync/);
@@ -383,13 +679,16 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     for (const marker of [
       'data-external-calendar-create', 'data-external-calendar-edit', 'data-external-calendar-secret',
       'data-external-calendar-lifecycle', 'data-external-calendar-sync',
+      'data-external-calendar-proposal-preview', 'data-external-calendar-proposal-reject',
     ]) expect(admin).toContain(marker);
     for (const marker of [
       'data-phw-external-create', 'data-phw-external-source-form', 'data-phw-external-secret',
       'data-phw-external-lifecycle', 'data-phw-external-sync',
     ]) expect(partner).toContain(marker);
-    expect(admin).toContain("source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'");
-    expect(partner).toContain("source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'");
+    expect(admin).toContain("source.is_enabled && capability.manual_sync_available ? '' : 'disabled'");
+    expect(partner).toContain("source.is_enabled && capability.manual_sync_available ? '' : 'disabled'");
+    expect(admin).toContain("capability.stage === 'provider_types_active'");
+    expect(partner).toContain("capability.stage === 'provider_types_active'");
     for (const sourceType of ['booking_com', 'airbnb', 'ical']) {
       expect(admin).toContain(`[\'${sourceType}\'`);
       expect(partner).toContain(`[\'${sourceType}\'`);
@@ -400,8 +699,10 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     expect(partner).toContain("source_type: String(data.get('source_type') || '')");
     expect(admin).toContain('externalCalendarProviderLabel(source.source_type)');
     expect(partner).toContain('externalCalendarProviderLabel(source.source_type)');
-    expect(admin).toContain("onClose: () => Repository.clearExternalCalendarReviewedPlan()");
-    expect(partner).toContain("if (state.pending?.domain === 'external_calendar') Repository.clearReviewedPlans()");
+    expect(admin).toContain('Repository.clearExternalCalendarReviewedPlan();');
+    expect(partner).toContain("['external_calendar', 'seven_arches_pricing'].includes(state.pending?.domain)");
+    expect(partner).toContain('Repository.submitExternalCalendarProposal');
+    expect(partner).not.toContain('Repository.applyExternalCalendarPlan(preview.reviewed_plan');
     expect(admin).not.toMatch(/ical_url[^\n]{0,120}(?:value=|textContent|innerHTML)/);
     expect(partner).not.toMatch(/ical_url[^\n]{0,120}(?:value=|textContent|innerHTML)/);
   });

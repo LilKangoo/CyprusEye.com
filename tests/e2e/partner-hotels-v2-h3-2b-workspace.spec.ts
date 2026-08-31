@@ -26,7 +26,7 @@ async function installHarness(
   page: Page,
   viewport: { width: number; height: number },
   language = 'en',
-  options: { externalCalendar?: boolean; commercialOwnerPreset?: boolean } = {},
+  options: { externalCalendar?: boolean; commercialOwnerPreset?: boolean; providerTypes?: boolean; secretConfigured?: boolean; failExternalPreview?: boolean } = {},
 ): Promise<void> {
   await page.route('**/__h3_2b_partner_workspace_harness__', async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html></html>' });
@@ -54,7 +54,7 @@ async function installHarness(
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
-  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, scheduleId, scheduleTierId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar, commercialOwnerPreset }) => {
+  await page.evaluate(({ hotelId, partnerId, assignmentId, roomId, planId, rateId, scheduleId, scheduleTierId, proposalId, reviewId, activityId, policyId, externalSourceId, token, nextToken, planFingerprint, externalCalendar, commercialOwnerPreset, providerTypes, secretConfigured, failExternalPreview }) => {
     const root = window as any;
     let uuidSequence = 1;
     Object.defineProperty(root.crypto, 'randomUUID', {
@@ -102,9 +102,11 @@ async function installHarness(
       currency: 'EUR', version: 1, updated_at: '2026-08-25T10:00:00Z', fingerprint: token, read_only: true,
     };
     const externalSource = {
-      id: externalSourceId, hotel_id: hotelId, room_type_id: roomId, code: 'airbnb-upper', source_type: 'airbnb',
+      id: externalSourceId, hotel_id: hotelId, room_type_id: roomId,
+      code: providerTypes ? 'airbnb-upper' : 'ical-upper', source_type: providerTypes ? 'airbnb' : 'ical',
       is_enabled: false, review_status: 'reviewed', priority: 100, version: 1, updated_at: '2026-08-25T10:00:00Z',
-      secret_configured: true, binding_version: 1, sync_interval_minutes: 60, units_per_event: 1,
+      secret_configured: secretConfigured, binding_version: secretConfigured ? 1 : null,
+      sync_interval_minutes: 60, units_per_event: 1,
       health: {
         status: 'never_synced', last_attempt_at: null, last_success_at: null, last_failure_at: null, next_retry_at: null,
         consecutive_failures: 0, last_event_count: 0, last_active_event_count: 0, last_block_count: 0,
@@ -112,9 +114,15 @@ async function installHarness(
       },
     };
     const externalControl = {
-      contract_version: 'hotels_v2_external_calendar_control_v1', hotel_id: hotelId,
+      contract_version: providerTypes ? 'hotels_v2_external_calendar_control_v2' : 'hotels_v2_external_calendar_control_v1', hotel_id: hotelId,
       partner_id: partnerId, assignment_id: assignmentId, permission_version: 1,
       access_snapshot_token: token, snapshot_token: token, hotel_external_sync_enabled: false,
+      ...(providerTypes ? { provider_capability: {
+        contract_version: 'hotels_v2_external_calendar_provider_capability_v1',
+        stage: 'provider_types_active', supported_providers: ['booking_com', 'airbnb', 'ical'],
+        source_review_available: true, private_url_management_available: true,
+        activation_available: false, manual_sync_available: false, worker_scheduler_ready: true,
+      }, provider_proposals: [] } : {}),
       rooms: [{ id: roomId, name_i18n: clone(room.name_i18n), status: 'active', version: room.version }],
       sources: [externalSource], public_change: false,
     };
@@ -290,24 +298,29 @@ async function installHarness(
           return { data: clone(store.workspace), error: null };
         }
         if (name === 'hotel_v2_partner_get_external_calendar_control') return { data: clone(store.externalControl), error: null };
-        if (name === 'hotel_v2_partner_preview_external_calendar_plan') return externalCalendarPreview(params.p_draft);
+        if (name === 'hotel_v2_partner_preview_external_calendar_plan') {
+          if (failExternalPreview) return { data: null, error: { message: 'Focused provider Preview rejection.' } };
+          return externalCalendarPreview(params.p_draft);
+        }
         if (name === 'hotel_v2_partner_apply_external_calendar_plan') {
           const operation = params.p_reviewed_plan.operations[0];
-          store.externalControl.sources[0] = {
-            ...store.externalControl.sources[0], ...clone(operation.payload),
-            version: operation.expected_version + 1, updated_at: '2026-08-25T12:01:00Z',
+          const source = store.externalControl.sources.find((row: any) => row.id === operation.id);
+          const summary = {
+            proposal_id: proposalId, hotel_id: hotelId, partner_id: partnerId, assignment_id: assignmentId,
+            entity: operation.entity === 'calendar_sync' ? 'sync_job' : operation.entity,
+            action: operation.action === 'trigger' ? 'enqueue' : operation.action,
+            source_id: operation.id,
+            source_type: operation.payload.source_type || source?.source_type || null,
+            room_type_id: operation.payload.room_type_id || source?.room_type_id || null,
+            reason: operation.reason, plan_fingerprint: operation.plan_fingerprint || params.p_reviewed_plan.plan_fingerprint,
+            status: 'pending_admin_review', submitted_at: '2026-08-25T12:01:00Z',
+            expires_at: '2026-08-25T12:31:00Z', is_fresh: true,
+            reviewed_at: null, reviewed_by: null, admin_reason: null,
           };
-          store.externalControl.snapshot_token = nextToken;
+          store.externalControl.provider_proposals = [summary];
           return { data: {
-            contract_version: 'hotels_v2_external_calendar_apply_result_v1', hotel_id: hotelId, partner_id: partnerId,
-            correlation_id: params.p_correlation_id, idempotency_key: params.p_idempotency_key,
-            replayed: false, changed: true,
-            activity: [{
-              id: activityId, hotel_id: hotelId, entity_type: 'calendar_source', entity_id: externalSourceId,
-              action: 'update', actor_type: 'partner', source: 'hotels_v2_external_calendar_control',
-              correlation_id: params.p_correlation_id, created_at: '2026-08-25T12:01:00Z',
-            }],
-            control: clone(store.externalControl),
+            contract_version: 'hotels_v2_external_calendar_partner_proposal_submit_v1',
+            proposal: clone(summary), replayed: false, control: clone(store.externalControl),
           }, error: null };
         }
         if (name === 'hotel_v2_partner_preview_content_plan') return contentPreview(params.p_draft);
@@ -335,7 +348,7 @@ async function installHarness(
       },
       uploadRoom: async () => [],
     };
-  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, scheduleId: SCHEDULE_ID, scheduleTierId: SCHEDULE_TIER_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true, commercialOwnerPreset: options.commercialOwnerPreset === true });
+  }, { hotelId: HOTEL_ID, partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID, scheduleId: SCHEDULE_ID, scheduleTierId: SCHEDULE_TIER_ID, proposalId: PROPOSAL_ID, reviewId: REVIEW_ID, activityId: ACTIVITY_ID, policyId: POLICY_ID, externalSourceId: EXTERNAL_SOURCE_ID, token: TOKEN, nextToken: NEXT_TOKEN, planFingerprint: PLAN_FINGERPRINT, externalCalendar: options.externalCalendar === true, commercialOwnerPreset: options.commercialOwnerPreset === true, providerTypes: options.providerTypes !== false, secretConfigured: options.secretConfigured !== false, failExternalPreview: options.failExternalPreview === true });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace.js') });
   await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
     await (window as any).HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
@@ -492,9 +505,10 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await expect(dialog).toContainText('Sprawdź dokładną zmianę hotelu');
     await expect(dialog).toContainText('URL jest wysyłany tylko dla tego sprawdzonego zapisu');
     expect(await dialog.evaluate((node) => node.outerHTML)).not.toContain(privateUrl);
-    await dialog.getByRole('button', { name: 'Zapisz sprawdzoną zmianę' }).click();
+    await dialog.locator('[data-phw-review-save]').click();
     await expect(dialog).toBeHidden();
-    await expect(workspace.locator('[data-phw-status]')).toContainText('Sprawdzona zmiana zapisana');
+    await expect(workspace.locator('[data-phw-status]')).toContainText('wysłano do Admina');
+    await expect(workspace.locator(`[data-phw-external-proposal="${PROPOSAL_ID}"]`)).toContainText('Oczekuje na Admina');
 
     const audit = await page.evaluate(() => ({
       calls: (window as any).__h32b.rpcCalls,
@@ -504,7 +518,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     const applies = audit.calls.filter((call: any) => call.name === 'hotel_v2_partner_apply_external_calendar_plan');
     expect(applies).toHaveLength(1);
     expect(applies[0].params.p_ical_url).toBeNull();
-    expect(audit.source.priority).toBe(101);
+    expect(audit.source.priority).toBe(100);
     expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain(privateUrl);
 
     await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
@@ -521,6 +535,66 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await expect(workspace.locator('[data-phw-external-calendars]')).toContainText('יומנים חיצוניים');
     await expect(workspace.locator('[data-phw-external-lifecycle="enable"]')).toBeDisabled();
     expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain(privateUrl);
+    await expectNoBrowserErrors(page);
+  });
+
+  test('pre-provider contract remains explicit read-only with no provider or secret mutation controls', async ({ page }) => {
+    await installHarness(page, { width: 1024, height: 820 }, 'en', {
+      externalCalendar: true,
+      providerTypes: false,
+    });
+    const workspace = page.locator('#partnerHotelWorkspaceView');
+    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    const calendars = workspace.locator('[data-phw-external-calendars]');
+    await expect(calendars).toHaveAttribute('data-provider-stage', 'provider_types_unavailable');
+    await expect(calendars).toContainText('Provider controls are read-only');
+    await expect(calendars.locator('[data-phw-external-create]')).toHaveCount(0);
+    await expect(calendars.locator('[data-phw-external-source-form] fieldset')).toHaveAttribute('disabled', '');
+    const secretButtons = calendars.locator('[data-phw-external-secret]');
+    await expect(secretButtons).toHaveCount(2);
+    await expect(secretButtons.nth(0)).toBeDisabled();
+    await expect(secretButtons.nth(1)).toBeDisabled();
+    await expect(calendars.locator('[data-phw-external-lifecycle="enable"]')).toBeDisabled();
+    expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain('private.example.test');
+    await expectNoBrowserErrors(page);
+  });
+
+  test('post-provider source without a private URL allows reviewed configuration but not activation', async ({ page }) => {
+    await installHarness(page, { width: 1024, height: 820 }, 'en', {
+      externalCalendar: true,
+      secretConfigured: false,
+    });
+    const workspace = page.locator('#partnerHotelWorkspaceView');
+    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    const source = workspace.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"]`);
+    await expect(workspace.locator('[data-phw-external-calendars]')).toHaveAttribute('data-provider-stage', 'provider_types_active');
+    await expect(source).toContainText('Not configured');
+    await expect(source).toContainText('A private export URL is required before activation.');
+    await expect(source.locator('[data-phw-external-source-form] fieldset')).toBeEnabled();
+    await expect(source.locator('[data-phw-external-secret="set"]')).toBeEnabled();
+    await expect(source.locator('[data-phw-external-lifecycle="enable"]')).toBeDisabled();
+    await expectNoBrowserErrors(page);
+  });
+
+  test('failed Partner private-URL Preview clears the transient field and never renders the URL', async ({ page }) => {
+    await installHarness(page, { width: 1024, height: 820 }, 'en', {
+      externalCalendar: true,
+      secretConfigured: false,
+      failExternalPreview: true,
+    });
+    const privateUrl = 'https://private.example.test/transient-partner-feed.ics';
+    const workspace = page.locator('#partnerHotelWorkspaceView');
+    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await workspace.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"] [data-phw-external-secret="set"]`).click();
+    const dialog = page.locator('#partnerHotelWorkspaceReview');
+    await dialog.locator('input[name="ical_url"]').fill(privateUrl);
+    await dialog.locator('input[name="reason"]').fill('Set exact private provider URL');
+    await dialog.locator('button[type="submit"]').click();
+    await expect(workspace.locator('[data-phw-status]')).toContainText('Focused provider Preview rejection');
+    await expect(dialog.locator('input[name="ical_url"]')).toHaveCount(0);
+    expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain(privateUrl);
+    const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
+    expect(calls.filter((call: any) => call.name === 'hotel_v2_partner_apply_external_calendar_plan')).toHaveLength(0);
     await expectNoBrowserErrors(page);
   });
 

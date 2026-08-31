@@ -40,3 +40,15 @@ Deno.test("calendar transport pins validated IPs while preserving hostname TLS v
   assert(core.includes("target = await assertSafeHttpsUrl(new URL(location, target.url).toString()"), "Every redirect must be revalidated and repinned");
   assert(!/fetchCalendar\([^)]*fetchImpl/s.test(index), "Provider traffic must not use a hostname-resolving fetch path");
 });
+
+Deno.test("accepted provider labels share one URL-redacted worker pipeline", async () => {
+  const core = await Deno.readTextFile(new URL("./core.ts", import.meta.url));
+  const index = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
+  assert(core.includes('["booking_com", "airbnb", "ical"]'));
+  assert(!/(?:source\.source_type\s*(?:===|!==|==|!=)|switch\s*\(\s*source\.source_type)/.test(index),
+    "The worker must not fork transport or parsing by provider label");
+  assert(!/(?:booking\.com|airbnb\.com|calendar\.google|ical\.example)/i.test(index),
+    "The worker must not pin provider hosts or fixture URLs");
+  assert(!/ical_url[^;]{0,500}(?:results|return json)/s.test(index),
+    "The private source URL must never enter the worker response");
+});

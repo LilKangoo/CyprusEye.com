@@ -55,7 +55,7 @@
       tierOwnedPrice: 'Price is owned by its reviewed schedule or occupancy tier', immutableCommercialRule: 'Immutable commercial rule returned by the server',
       exactStayCustomerTotal: 'Exact stay customer total', customerSellingPrice: 'Customer selling price for the reviewed price unit',
       mediaUnavailable: 'Partner Hotel media upload is unavailable.',
-      externalCalendars: 'External calendars', externalCalendarCreate: 'Add iCal source', externalCalendarEdit: 'Edit source',
+      externalCalendars: 'External calendars', externalCalendarCreate: 'Add provider source', externalCalendarEdit: 'Edit source',
       calendarProvider: 'Provider', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Generic iCal',
       calendarProviderNote: 'All provider options use an ICS export URL. Provider is saved separately from the source code.',
       configured: 'Configured (URL hidden)', notConfigured: 'Not configured', setUrl: 'Set URL', rotateUrl: 'Rotate URL', clearUrl: 'Clear URL',
@@ -65,6 +65,11 @@
       attempts: 'Last attempt', success: 'Last success', failure: 'Last failure', events: 'Events', activeEvents: 'Active events', blocks: 'Blocks',
       calendarUrl: 'Private HTTPS iCal URL', calendarUrlNeverShown: 'The URL is sent only for this reviewed Save and is never displayed again.',
       never_synced: 'Never synced', healthy: 'Healthy', degraded: 'Degraded', syncing: 'Syncing',
+      providerUnavailable: 'Provider controls are read-only until the reviewed provider stage is installed.',
+      providerWorkerUnavailable: 'Activation and manual sync remain unavailable until the reviewed worker/scheduler binding is ready.',
+      privateUrlRequired: 'A private export URL is required before activation.',
+      adminReviewRequired: 'Admin review is required before activation.',
+      providerProposalHistory: 'Provider changes awaiting Admin review', providerProposalSubmitted: 'Provider change submitted for Admin review. Live calendar state is unchanged.',
       locationUnknown: 'Location not specified', allOff: 'All capabilities OFF', assignedHotels: 'exact assigned Hotels', loadingAssignments: 'Loading exact assigned Hotels…',
       reviewedPricingIntro: 'Propose exact independent Room prices for Admin review. Live prices do not change when this proposal is submitted.',
       reviewedPricingMatrix: 'Reviewed Room pricing matrix', minimumNights: 'Minimum nights', currentPrice: 'Current price', requestedPrice: 'Requested price',
@@ -124,7 +129,7 @@
       tierOwnedPrice: 'Ceną zarządza zweryfikowany harmonogram lub próg obłożenia', immutableCommercialRule: 'Niezmienna zasada handlowa zwrócona przez serwer',
       exactStayCustomerTotal: 'Dokładna suma klienta za pobyt', customerSellingPrice: 'Cena sprzedaży dla klienta za sprawdzaną jednostkę ceny',
       mediaUnavailable: 'Wysyłanie mediów hotelowych Partnera jest niedostępne.',
-      externalCalendars: 'Kalendarze zewnętrzne', externalCalendarCreate: 'Dodaj źródło iCal', externalCalendarEdit: 'Edytuj źródło',
+      externalCalendars: 'Kalendarze zewnętrzne', externalCalendarCreate: 'Dodaj źródło dostawcy', externalCalendarEdit: 'Edytuj źródło',
       calendarProvider: 'Dostawca', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Ogólny iCal',
       calendarProviderNote: 'Wszystkie opcje dostawcy używają adresu eksportu ICS. Dostawca jest zapisywany niezależnie od kodu źródła.',
       configured: 'Skonfigurowano (URL ukryty)', notConfigured: 'Nie skonfigurowano', setUrl: 'Ustaw URL', rotateUrl: 'Obróć URL', clearUrl: 'Usuń URL',
@@ -134,6 +139,11 @@
       attempts: 'Ostatnia próba', success: 'Ostatni sukces', failure: 'Ostatni błąd', events: 'Zdarzenia', activeEvents: 'Aktywne zdarzenia', blocks: 'Blokady',
       calendarUrl: 'Prywatny adres HTTPS iCal', calendarUrlNeverShown: 'URL jest wysyłany tylko dla tego sprawdzonego zapisu i nigdy nie jest ponownie wyświetlany.',
       never_synced: 'Nigdy nie synchronizowano', healthy: 'Prawidłowy', degraded: 'Pogorszony', syncing: 'Synchronizacja',
+      providerUnavailable: 'Kontrolki dostawców są tylko do odczytu do czasu instalacji zweryfikowanego etapu dostawców.',
+      providerWorkerUnavailable: 'Aktywacja i synchronizacja ręczna pozostają niedostępne do czasu gotowości zweryfikowanego powiązania worker/harmonogram.',
+      privateUrlRequired: 'Przed aktywacją wymagany jest prywatny adres eksportu.',
+      adminReviewRequired: 'Przed aktywacją wymagana jest weryfikacja przez Admina.',
+      providerProposalHistory: 'Zmiany dostawców oczekujące na Admina', providerProposalSubmitted: 'Zmianę dostawcy wysłano do Admina. Bieżący stan kalendarza nie uległ zmianie.',
       locationUnknown: 'Nie podano lokalizacji', allOff: 'Wszystkie możliwości WYŁĄCZONE', assignedHotels: 'dokładnie przypisanych hoteli', loadingAssignments: 'Ładowanie dokładnie przypisanych hoteli…',
       reviewedPricingIntro: 'Zaproponuj dokładne ceny niezależnych pokoi do weryfikacji przez Admina. Wysłanie propozycji nie zmienia bieżących cen.',
       reviewedPricingMatrix: 'Macierz cen pokoju do weryfikacji', minimumNights: 'Minimalna liczba nocy', currentPrice: 'Bieżąca cena', requestedPrice: 'Proponowana cena',
@@ -193,7 +203,7 @@
       tierOwnedPrice: 'המחיר מנוהל בידי לוח או מדרגת תפוסה שנבדקו', immutableCommercialRule: 'כלל מסחרי בלתי ניתן לשינוי שהוחזר מהשרת',
       exactStayCustomerTotal: 'סכום הלקוח המדויק לשהייה', customerSellingPrice: 'מחיר המכירה ללקוח עבור יחידת המחיר הנבדקת',
       mediaUnavailable: 'העלאת מדיה למלון השותף אינה זמינה.',
-      externalCalendars: 'יומנים חיצוניים', externalCalendarCreate: 'הוספת מקור iCal', externalCalendarEdit: 'עריכת מקור',
+      externalCalendars: 'יומנים חיצוניים', externalCalendarCreate: 'הוספת מקור ספק', externalCalendarEdit: 'עריכת מקור',
       calendarProvider: 'ספק', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'iCal כללי',
       calendarProviderNote: 'כל אפשרויות הספק משתמשות בכתובת יצוא ICS. הספק נשמר בנפרד מקוד המקור.',
       configured: 'מוגדר (הכתובת מוסתרת)', notConfigured: 'לא מוגדר', setUrl: 'הגדרת כתובת', rotateUrl: 'החלפת כתובת', clearUrl: 'מחיקת כתובת',
@@ -203,6 +213,11 @@
       attempts: 'ניסיון אחרון', success: 'הצלחה אחרונה', failure: 'כשל אחרון', events: 'אירועים', activeEvents: 'אירועים פעילים', blocks: 'חסימות',
       calendarUrl: 'כתובת iCal פרטית ב-HTTPS', calendarUrlNeverShown: 'הכתובת נשלחת רק בשמירה שנבדקה ואינה מוצגת שוב.',
       never_synced: 'טרם סונכרן', healthy: 'תקין', degraded: 'פגום', syncing: 'בסנכרון',
+      providerUnavailable: 'בקרות הספק הן לקריאה בלבד עד להתקנת שלב הספק שנבדק.',
+      providerWorkerUnavailable: 'הפעלה וסנכרון ידני אינם זמינים עד שמוכן חיבור ה-worker/מתזמן שנבדק.',
+      privateUrlRequired: 'נדרשת כתובת יצוא פרטית לפני הפעלה.',
+      adminReviewRequired: 'נדרשת בדיקת Admin לפני הפעלה.',
+      providerProposalHistory: 'שינויי ספק הממתינים לבדיקת Admin', providerProposalSubmitted: 'שינוי הספק נשלח לבדיקת Admin. מצב היומן החי לא השתנה.',
       locationUnknown: 'לא צוין מיקום', allOff: 'כל היכולות כבויות', assignedHotels: 'מלונות משויכים מדויקים', loadingAssignments: 'טוען מלונות משויכים מדויקים…',
       reviewedPricingIntro: 'הצעת מחירים מדויקים לחדרים עצמאיים לבדיקת Admin. השליחה אינה משנה את המחירים החיים.',
       reviewedPricingMatrix: 'מטריצת תמחור חדרים לבדיקה', minimumNights: 'מינימום לילות', currentPrice: 'מחיר נוכחי', requestedPrice: 'מחיר מבוקש',
@@ -533,14 +548,30 @@
     if (state.externalCalendarError) return `<section class="partner-hotel-workspace__form"><h3>${html(text('externalCalendars'))}</h3><div class="partner-hotel-workspace__status" data-tone="error">${html(state.externalCalendarError)}</div></section>`;
     const control = state.externalCalendar;
     if (!control) return `<section class="partner-hotel-workspace__form"><h3>${html(text('externalCalendars'))}</h3><p>${html(text('loading'))}</p></section>`;
+    const capability = control.provider_capability;
+    const providerActive = capability.stage === 'provider_types_active';
     const roomOptions = control.rooms.filter((room) => room.status === 'active')
       .map((room) => `<option value="${room.id}">${html(localized(room.name_i18n, room.id))}</option>`).join('');
-    const cards = control.sources.map((source) => {
+    let cards = control.sources.map((source) => {
       const room = control.rooms.find((entry) => entry.id === source.room_type_id);
       const health = source.health;
-      return `<article class="partner-hotel-workspace__card" data-phw-external-source="${source.id}"><h4>${html(source.code)}</h4><p>${html(externalCalendarProviderLabel(source.source_type))} · ${html(localized(room?.name_i18n, source.room_type_id))} · ${html(source.secret_configured ? text('configured') : text('notConfigured'))}</p><p>${html(text('health'))}: ${html(text(health.status))}</p><dl><div><dt>${html(text('attempts'))}</dt><dd>${html(health.last_attempt_at || '—')}</dd></div><div><dt>${html(text('success'))}</dt><dd>${html(health.last_success_at || '—')}</dd></div><div><dt>${html(text('failure'))}</dt><dd>${html(health.last_error_code || health.last_error_message || '—')}</dd></div><div><dt>${html(text('events'))}</dt><dd>${health.last_event_count}</dd></div><div><dt>${html(text('activeEvents'))}</dt><dd>${health.last_active_event_count}</dd></div><div><dt>${html(text('blocks'))}</dt><dd>${health.last_block_count}</dd></div></dl><form class="partner-hotel-workspace__form" data-phw-external-source-form data-source-id="${source.id}"><h5>${html(text('externalCalendarEdit'))}</h5><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions(source.source_type)}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id">${roomOptions.replace(`value="${source.room_type_id}"`, `value="${source.room_type_id}" selected`)}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" value="${html(source.code)}" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source.sync_interval_minutes}" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="${source.units_per_event}" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="${source.priority}" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm" type="submit">${html(text('review'))}</button></form><div class="partner-hotel-workspace__actions"><button class="btn-sm" type="button" data-phw-external-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${source.id}" ${source.is_enabled ? 'disabled' : ''}>${html(text(source.secret_configured ? 'rotateUrl' : 'setUrl'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-secret="clear" data-source-id="${source.id}">${html(text('clearUrl'))}</button>` : ''}${source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-lifecycle="disable" data-source-id="${source.id}">${html(text('disableSource'))}</button>` : `<button class="btn-sm" type="button" data-phw-external-lifecycle="enable" data-source-id="${source.id}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${html(text('activationOff'))}"`}>${html(text('enableSource'))}</button>`}<button class="btn-sm" type="button" data-phw-external-sync data-source-id="${source.id}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${html(text('triggerSync'))}</button></div>${control.hotel_external_sync_enabled ? '' : `<p class="partner-hotel-workspace__panel-copy">${html(text('activationOff'))}</p>`}${diagnostics(source.id)}</article>`;
+      const canReview = providerActive && capability.source_review_available;
+      const canManageUrl = canReview && capability.private_url_management_available && !source.is_enabled;
+      const canEnable = capability.activation_available && source.secret_configured && source.review_status === 'reviewed';
+      const blocker = !source.secret_configured
+        ? 'privateUrlRequired'
+        : source.review_status !== 'reviewed'
+          ? 'adminReviewRequired'
+          : !capability.worker_scheduler_ready ? 'providerWorkerUnavailable' : 'activationOff';
+      return `<article class="partner-hotel-workspace__card" data-phw-external-source="${source.id}" data-provider-stage="${html(capability.stage)}"><h4>${html(source.code)}</h4><p>${html(externalCalendarProviderLabel(source.source_type))} · ${html(localized(room?.name_i18n, source.room_type_id))} · ${html(source.secret_configured ? text('configured') : text('notConfigured'))} · ${html(source.review_status)}</p><p>${html(text('health'))}: ${html(text(health.status))}</p><dl><div><dt>${html(text('attempts'))}</dt><dd>${html(health.last_attempt_at || '—')}</dd></div><div><dt>${html(text('success'))}</dt><dd>${html(health.last_success_at || '—')}</dd></div><div><dt>${html(text('failure'))}</dt><dd>${html(health.last_error_code || health.last_error_message || '—')}</dd></div><div><dt>${html(text('events'))}</dt><dd>${health.last_event_count}</dd></div><div><dt>${html(text('activeEvents'))}</dt><dd>${health.last_active_event_count}</dd></div><div><dt>${html(text('blocks'))}</dt><dd>${health.last_block_count}</dd></div></dl><form class="partner-hotel-workspace__form" data-phw-external-source-form data-source-id="${source.id}"><h5>${html(text('externalCalendarEdit'))}</h5><fieldset ${canReview ? '' : 'disabled'}><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions(source.source_type)}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id">${roomOptions.replace(`value="${source.room_type_id}"`, `value="${source.room_type_id}" selected`)}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" value="${html(source.code)}" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="${source.sync_interval_minutes}" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="${source.units_per_event}" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="${source.priority}" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm" type="submit">${html(text('review'))}</button></fieldset></form><div class="partner-hotel-workspace__actions"><button class="btn-sm" type="button" data-phw-external-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${source.id}" ${canManageUrl ? '' : 'disabled'}>${html(text(source.secret_configured ? 'rotateUrl' : 'setUrl'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-secret="clear" data-source-id="${source.id}" ${canManageUrl ? '' : 'disabled'}>${html(text('clearUrl'))}</button>` : ''}${source.is_enabled ? `<button class="btn-sm" type="button" data-phw-external-lifecycle="disable" data-source-id="${source.id}" ${canReview ? '' : 'disabled'}>${html(text('disableSource'))}</button>` : `<button class="btn-sm" type="button" data-phw-external-lifecycle="enable" data-source-id="${source.id}" ${canEnable ? '' : `disabled title="${html(text(blocker))}"`}>${html(text('enableSource'))}</button>`}<button class="btn-sm" type="button" data-phw-external-sync data-source-id="${source.id}" ${source.is_enabled && capability.manual_sync_available ? '' : 'disabled'}>${html(text('triggerSync'))}</button></div>${!source.is_enabled && !canEnable ? `<p class="partner-hotel-workspace__panel-copy">${html(text(blocker))}</p>` : ''}${diagnostics(source.id)}</article>`;
     }).join('');
-    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p><div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div><details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions()}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details></section>`;
+    cards += control.provider_proposals.map((proposal) => {
+      const room = control.rooms.find((entry) => entry.id === proposal.room_type_id);
+      const status = proposal.status === 'pending_admin_review'
+        ? text('pendingReview') : proposal.status === 'accepted' ? text('acceptedProposal') : text('rejectedProposal');
+      return `<article class="partner-hotel-workspace__card" data-phw-external-proposal="${proposal.proposal_id}" data-proposal-status="${proposal.status}"><h4>${html(text('providerProposalHistory'))}</h4><p><strong>${html(status)}</strong> · ${html(externalCalendarProviderLabel(proposal.source_type || 'ical'))} · ${html(localized(room?.name_i18n, proposal.room_type_id || proposal.source_id))}</p><p>${html(proposal.reason)}</p><p>${html(text('expires'))}: ${html(proposal.expires_at)}</p>${diagnostics(proposal.proposal_id)}</article>`;
+    }).join('');
+    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars data-provider-stage="${html(capability.stage)}"><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p>${providerActive ? '' : `<div class="partner-hotel-workspace__status" data-tone="warning">${html(text('providerUnavailable'))}</div>`}<div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div>${providerActive && capability.source_review_available ? `<details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions()}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details>` : ''}</section>`;
   }
 
   function renderAvailability() {
@@ -624,7 +655,7 @@
     state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
     const affectedRooms = impact.affected_room_type_ids || [];
     const affectedRates = impact.affected_room_rate_ids || [];
-    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${affectedRooms.map((id) => html(roomName(id))).join(', ')} ${affectedRates.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${domain === 'external_calendar' ? `<p>${html(text('calendarUrlNeverShown'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text('save'))}</button></footer></div>`;
+    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${affectedRooms.map((id) => html(roomName(id))).join(', ')} ${affectedRates.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${domain === 'external_calendar' ? `<p>${html(text('calendarUrlNeverShown'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text(domain === 'external_calendar' ? 'submitProposal' : 'save'))}</button></footer></div>`;
     state.dialog.showModal();
     focusables(state.dialog)[0]?.focus();
   }
@@ -644,7 +675,7 @@
             ? await Repository.submitSevenArchesPricingProposal(preview.reviewed_plan, correlation, idempotency)
           : domain === 'availability'
             ? await Repository.applyAvailabilityPlan(preview.reviewed_plan, correlation, idempotency)
-            : await Repository.applyExternalCalendarPlan(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
+            : await Repository.submitExternalCalendarProposal(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
       if (result.workspace) state.workspace = result.workspace;
       if (domain === 'external_calendar') state.externalCalendar = result.control;
       if (domain === 'content') { state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} }; }
@@ -659,7 +690,8 @@
           state.pricingControlError = error.userMessage || error.message;
         }
       }
-      closeReview(); render(); setStatus(text(domain === 'seven_arches_pricing' ? 'proposalSubmitted' : 'saved'), 'success');
+      closeReview(); render(); setStatus(text(domain === 'seven_arches_pricing'
+        ? 'proposalSubmitted' : domain === 'external_calendar' ? 'providerProposalSubmitted' : 'saved'), 'success');
     } catch (error) {
       closeReview();
       setStatus(error.userMessage || error.message, error.isStale || error.saveSucceeded ? 'warning' : 'error');
@@ -679,11 +711,15 @@
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       const payload = secret ? (action === 'clear' ? { source_id: source.id } : { source_id: source.id, ical_url: String(data.get('ical_url') || '') }) : entity === 'calendar_sync' ? { source_id: source.id } : {};
+      const transientUrl = secretInput ? payload.ical_url : null;
+      const urlInput = event.currentTarget.elements?.ical_url;
+      if (urlInput) urlInput.value = '';
       const expectedVersion = secret ? (source.binding_version || 0) : entity === 'calendar_sync' ? source.health.state_version : source.version;
       const draft = externalCalendarDraft({ entity, action, id: source.id, expected_version: expectedVersion, payload, reason: String(data.get('reason') || '').trim() });
       state.dialog.close();
       await review('external_calendar', draft, opener);
-      if (state.pending?.domain === 'external_calendar') state.pending.secretUrl = secretInput ? payload.ical_url : null;
+      if (state.pending?.domain === 'external_calendar') state.pending.secretUrl = transientUrl;
+      else { Repository.clearReviewedPlans(); if (!state.dialog.open) state.dialog.innerHTML = ''; }
     });
   }
 

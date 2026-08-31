@@ -7,6 +7,12 @@ const ROOM_ID = '22222222-2222-4222-8222-222222222222';
 const PLAN_ID = '33333333-3333-4333-8333-333333333333';
 const RATE_ID = '44444444-4444-4444-8444-444444444444';
 const DAILY_ID = 'b25d21d6-a02f-595f-8636-80b6a3e78526';
+const EXTERNAL_SOURCE_ID = '55555555-5555-4555-8555-555555555555';
+const PARTNER_ID = '66666666-6666-4666-8666-666666666666';
+const ASSIGNMENT_ID = '77777777-7777-4777-8777-777777777777';
+const PROVIDER_PROPOSAL_ACCEPT_ID = '88888888-8888-4888-8888-888888888888';
+const PROVIDER_PROPOSAL_REJECT_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const PROVIDER_REVIEW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const UPDATED_AT = '2026-08-24T12:00:00.000Z';
 const SNAPSHOT = 'a'.repeat(64);
 const PLAN_FINGERPRINT = 'c'.repeat(64);
@@ -380,11 +386,81 @@ async function installAvailabilityHarness(
       const store: any = {
         workspace,
         control,
+        externalControl: {
+          contract_version: 'hotels_v2_external_calendar_control_v2',
+          hotel_id: fixture.hotelId,
+          partner_id: null,
+          assignment_id: null,
+          permission_version: null,
+          access_snapshot_token: null,
+          snapshot_token: fixture.snapshot,
+          hotel_external_sync_enabled: false,
+          provider_capability: {
+            contract_version: 'hotels_v2_external_calendar_provider_capability_v1',
+            stage: 'provider_types_active',
+            supported_providers: ['booking_com', 'airbnb', 'ical'],
+            source_review_available: true,
+            private_url_management_available: true,
+            activation_available: false,
+            manual_sync_available: false,
+            worker_scheduler_ready: true,
+          },
+          provider_proposals: [fixture.providerProposalAcceptId, fixture.providerProposalRejectId].map((proposalId, index) => ({
+            proposal_id: proposalId,
+            hotel_id: fixture.hotelId,
+            partner_id: fixture.partnerId,
+            assignment_id: fixture.assignmentId,
+            entity: 'calendar_source',
+            action: 'update',
+            source_id: fixture.externalSourceId,
+            source_type: 'booking_com',
+            room_type_id: fixture.roomId,
+            reason: index === 0 ? 'Partner requests reviewed provider update' : 'Partner requests provider priority change',
+            plan_fingerprint: index === 0 ? 'e'.repeat(64) : 'f'.repeat(64),
+            status: 'pending_admin_review',
+            submitted_at: fixture.updatedAt,
+            expires_at: '2026-08-24T12:30:00.000Z',
+            is_fresh: true,
+            reviewed_at: null,
+            reviewed_by: null,
+            admin_reason: null,
+          })),
+          rooms: [{ id: fixture.roomId, name_i18n: clone(room.name_i18n), status: 'active', version: room.version }],
+          sources: [{
+            id: fixture.externalSourceId,
+            hotel_id: fixture.hotelId,
+            room_type_id: fixture.roomId,
+            code: 'booking-upper',
+            source_type: 'booking_com',
+            is_enabled: false,
+            review_status: 'reviewed',
+            priority: 100,
+            version: 1,
+            updated_at: fixture.updatedAt,
+            secret_configured: false,
+            binding_version: null,
+            sync_interval_minutes: 60,
+            units_per_event: 1,
+            health: {
+              status: 'never_synced', last_attempt_at: null, last_success_at: null,
+              last_failure_at: null, next_retry_at: null, consecutive_failures: 0,
+              last_event_count: 0, last_active_event_count: 0, last_block_count: 0,
+              last_error_code: null, last_error_message: null, state_version: 0,
+            },
+          }],
+          public_change: false,
+        },
         previewCalls: [],
         applyCalls: [],
         toasts: [],
         failApply: fixture.failApply,
         reviewedPlan: null,
+      };
+
+      store.providerReviews = {
+        contract_version: 'hotels_v2_external_calendar_provider_review_list_v1',
+        hotel_id: fixture.hotelId,
+        proposals: clone(store.externalControl.provider_proposals),
       };
 
       root.__adminD = store;
@@ -527,6 +603,74 @@ async function installAvailabilityHarness(
             'Stay preview is not part of this focused E2E.',
           );
         },
+
+        previewExternalCalendarPlan: async () => {
+          throw new Error('Provider Review stopped by the focused fixture.');
+        },
+
+        getExternalCalendarControl: async () => clone(store.externalControl),
+
+        getExternalCalendarProviderReviews: async () => clone(store.providerReviews),
+
+        previewExternalCalendarPartnerProposal: async (proposalValue: any, adminReason: string) => {
+          const proposal = store.providerReviews.proposals.find(
+            (row: any) => row.proposal_id === proposalValue.proposal_id,
+          );
+          if (!proposal) throw new Error('Provider proposal missing.');
+          return {
+            contract_version: 'hotels_v2_external_calendar_provider_admin_preview_v1',
+            proposal: clone(proposal),
+            preview: {
+              contract_version: 'hotels_v2_external_calendar_preview_v1',
+              hotel_id: fixture.hotelId,
+              partner_id: null,
+              changed: true,
+              blocking_reasons: [],
+              impacts: [{
+                entity: 'calendar_source', action: 'update', id: fixture.externalSourceId,
+                changed: true, fields: ['priority'], before: { priority: 100 }, after: { priority: 90 },
+                affected_room_type_ids: [fixture.roomId], from: null, to: null,
+              }],
+              reviewed_plan: {
+                contract_version: 'hotels_v2_external_calendar_plan_v1',
+                review_id: fixture.providerReviewId,
+                actor_type: 'admin', partner_id: null, hotel_id: fixture.hotelId,
+                assignment_id: null, permission_version: null, access_snapshot_token: null,
+                snapshot_token: fixture.snapshot, reviewed_at: fixture.updatedAt,
+                expires_at: '2026-08-24T12:30:00.000Z',
+                operations: [{
+                  entity: 'calendar_source', action: 'update', id: fixture.externalSourceId,
+                  expected_version: 1, expected_original: {}, payload: { priority: 90 }, reason: adminReason,
+                }],
+                plan_fingerprint: fixture.planFingerprint,
+              },
+            },
+          };
+        },
+
+        applyExternalCalendarPartnerProposal: async (preview: any) => {
+          const row = store.providerReviews.proposals.find((proposal: any) => proposal.proposal_id === preview.proposal.proposal_id);
+          Object.assign(row, {
+            status: 'accepted', is_fresh: false, reviewed_at: fixture.updatedAt,
+            reviewed_by: fixture.providerReviewId, admin_reason: 'Accept exact Partner provider proposal',
+          });
+          store.externalControl.provider_proposals = clone(store.providerReviews.proposals);
+          return { contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1', proposal: clone(row), apply: {}, replayed: false };
+        },
+
+        rejectExternalCalendarPartnerProposal: async (proposalValue: any, adminReason: string) => {
+          const row = store.providerReviews.proposals.find(
+            (proposal: any) => proposal.proposal_id === proposalValue.proposal_id,
+          );
+          Object.assign(row, {
+            status: 'rejected', is_fresh: false, reviewed_at: fixture.updatedAt,
+            reviewed_by: fixture.providerReviewId, admin_reason: adminReason,
+          });
+          store.externalControl.provider_proposals = clone(store.providerReviews.proposals);
+          return { contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1', proposal: clone(row), apply: null, replayed: false };
+        },
+
+        clearExternalCalendarReviewedPlan: () => {},
       };
     },
     {
@@ -538,6 +682,12 @@ async function installAvailabilityHarness(
       updatedAt: UPDATED_AT,
       snapshot: SNAPSHOT,
       planFingerprint: PLAN_FINGERPRINT,
+      externalSourceId: EXTERNAL_SOURCE_ID,
+      partnerId: PARTNER_ID,
+      assignmentId: ASSIGNMENT_ID,
+      providerProposalAcceptId: PROVIDER_PROPOSAL_ACCEPT_ID,
+      providerProposalRejectId: PROVIDER_PROPOSAL_REJECT_ID,
+      providerReviewId: PROVIDER_REVIEW_ID,
       failApply: Boolean(options.failApply),
     },
   );
@@ -571,6 +721,10 @@ async function installAvailabilityHarness(
       selection_end: null,
       selection_anchor: null,
       drag_active: false,
+      external_calendar: root.__adminD.externalControl,
+      external_calendar_error: null,
+      external_calendar_provider_reviews: root.__adminD.providerReviews,
+      external_calendar_provider_reviews_error: null,
     };
 
     api.init();
@@ -749,6 +903,73 @@ test(
       ),
     ).toBe(true);
 
+    await expectNoBrowserIssues(page);
+  },
+);
+
+test(
+  'ADMIN provider control uses exact capability, Room mapping and clears a failed private URL Review',
+  async ({ page }) => {
+    await installAvailabilityHarness(page);
+    const control = page.locator('[data-external-calendar-control]');
+    await expect(control).toHaveAttribute('data-provider-stage', 'provider_types_active');
+    await expect(control).toContainText('Booking.com');
+    await expect(control).toContainText('Upper Apartment');
+    await expect(control).toContainText('A private export URL is required before activation.');
+    await expect(control.locator('[data-external-calendar-secret="set"]')).toBeEnabled();
+    await expect(control.locator('[data-external-calendar-lifecycle="enable"]')).toBeDisabled();
+    await expect(control.locator('[data-external-calendar-sync]')).toBeDisabled();
+
+    await control.locator('[data-external-calendar-create]').click();
+    const create = page.locator('#externalCalendarSourceForm');
+    await expect(create.locator('select[name="source_type"] option')).toHaveText([
+      'Booking.com', 'Airbnb', 'Generic iCal',
+    ]);
+    await expect(create.locator('select[name="room_type_id"] option')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+    const transientUrl = 'https://provider-fixture.invalid/private-admin-feed.ics';
+    await control.locator('[data-external-calendar-secret="set"]').click();
+    const action = page.locator('#externalCalendarActionForm');
+    await action.locator('input[name="ical_url"]').fill(transientUrl);
+    await action.locator('input[name="reason"]').fill('Review private provider binding');
+    await page.locator('button[type="submit"][form="externalCalendarActionForm"]').click();
+    await expect(page.locator('#externalCalendarActionForm')).toHaveCount(0);
+    await expect.poll(async () => page.evaluate(() => (window as any).__adminD.toasts.length)).toBeGreaterThan(0);
+    expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain(transientUrl);
+    await expectNoBrowserIssues(page);
+  },
+);
+
+test(
+  'ADMIN previews and accepts or rejects exact redacted Partner provider proposals',
+  async ({ page }) => {
+    await installAvailabilityHarness(page);
+    const acceptCard = page.locator(`[data-external-calendar-proposal="${PROVIDER_PROPOSAL_ACCEPT_ID}"]`);
+    await expect(acceptCard).toContainText('Partner provider proposal');
+    await expect(acceptCard).toContainText('Booking.com');
+    await expect(acceptCard).toContainText('Upper Apartment');
+    await acceptCard.locator('[data-external-calendar-proposal-preview]').click();
+
+    const reviewForm = page.locator('#externalCalendarProviderReviewForm');
+    await expect(reviewForm).toBeVisible();
+    await reviewForm.locator('input[name="admin_reason"]').fill('Accept exact Partner provider proposal');
+    await page.locator('button[type="submit"][form="externalCalendarProviderReviewForm"]').click();
+    await expect(page.locator('[data-external-calendar-proposal-accept]')).toBeVisible();
+    await expect(page.locator('.hotel-workspace-modal--review')).toContainText('No private URL is exposed');
+    await page.locator('[data-external-calendar-proposal-accept]').click();
+    await expect(page.locator(`[data-external-calendar-proposal="${PROVIDER_PROPOSAL_ACCEPT_ID}"]`))
+      .toHaveAttribute('data-proposal-status', 'accepted');
+
+    const rejectCard = page.locator(`[data-external-calendar-proposal="${PROVIDER_PROPOSAL_REJECT_ID}"]`);
+    await rejectCard.locator('[data-external-calendar-proposal-reject]').click();
+    const rejectForm = page.locator('#externalCalendarProviderRejectForm');
+    await rejectForm.locator('input[name="admin_reason"]').fill('Reject exact Partner provider proposal');
+    await page.locator('button[type="submit"][form="externalCalendarProviderRejectForm"]').click();
+    await expect(page.locator(`[data-external-calendar-proposal="${PROVIDER_PROPOSAL_REJECT_ID}"]`))
+      .toHaveAttribute('data-proposal-status', 'rejected');
+
+    expect(await page.locator('[data-external-calendar-control]').textContent()).not.toMatch(/vault_secret|ical_url|https:\/\/provider/i);
     await expectNoBrowserIssues(page);
   },
 );

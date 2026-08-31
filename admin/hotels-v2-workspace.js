@@ -52,6 +52,8 @@
       drag_active: false,
       external_calendar: null,
       external_calendar_error: null,
+      external_calendar_provider_reviews: null,
+      external_calendar_provider_reviews_error: null,
     },
   };
 
@@ -2190,6 +2192,10 @@
         selection_end: null,
         selection_anchor: null,
         drag_active: false,
+        external_calendar: null,
+        external_calendar_error: null,
+        external_calendar_provider_reviews: null,
+        external_calendar_provider_reviews_error: null,
       };
       state.activeTab = options.tab || 'overview';
       renderWorkspace();
@@ -7382,13 +7388,25 @@
       const [data, externalResult] = await Promise.all([
         Repository.getAvailabilityControl(propertyId, range.start, range.end),
         Repository.getExternalCalendarControl(propertyId)
-          .then((control) => ({ control, error: null }))
-          .catch((error) => ({ control: null, error })),
+          .then(async (control) => {
+            if (control.provider_capability.stage !== 'provider_types_active') {
+              return { control, error: null, reviews: null, reviewsError: null };
+            }
+            try {
+              const reviews = await Repository.getExternalCalendarProviderReviews(propertyId);
+              return { control, error: null, reviews, reviewsError: null };
+            } catch (reviewsError) {
+              return { control, error: null, reviews: null, reviewsError };
+            }
+          })
+          .catch((error) => ({ control: null, error, reviews: null, reviewsError: null })),
       ]);
       if (!state.workspace || state.workspace.property.id !== propertyId) return;
       state.calendar.data = data;
       state.calendar.external_calendar = externalResult.control;
       state.calendar.external_calendar_error = externalResult.error;
+      state.calendar.external_calendar_provider_reviews = externalResult.reviews;
+      state.calendar.external_calendar_provider_reviews_error = externalResult.reviewsError;
       const targetIds = new Set([...data.room_types.map((room) => room.id), ...data.room_rates.map((rate) => rate.id)]);
       state.calendar.selected_product_ids = state.calendar.selected_product_ids.filter((id) => targetIds.has(id));
     } catch (error) {
@@ -8073,13 +8091,17 @@
 
   const EXTERNAL_CALENDAR_TEXT = Object.freeze({
     pl: Object.freeze({
-      'External calendars': 'Kalendarze zewnętrzne', 'Add iCal source': 'Dodaj źródło iCal', 'Edit source': 'Edytuj źródło',
+      'External calendars': 'Kalendarze zewnętrzne', 'Add provider source': 'Dodaj źródło dostawcy', 'Edit source': 'Edytuj źródło',
       'Configured (URL hidden)': 'Skonfigurowano (URL ukryty)', 'Not configured': 'Nie skonfigurowano',
       'Set URL': 'Ustaw URL', 'Rotate URL': 'Obróć URL', 'Clear URL': 'Usuń URL', 'Enable': 'Włącz', 'Disable': 'Wyłącz',
       'Run manual sync': 'Uruchom ręczną synchronizację', 'Sync health': 'Stan synchronizacji', 'Last attempt': 'Ostatnia próba',
       'Last success': 'Ostatni sukces', 'Last failure': 'Ostatni błąd', 'Events': 'Zdarzenia', 'Active events': 'Aktywne zdarzenia', 'Blocks': 'Blokady',
       'Enable is unavailable while the global external-calendar flag is OFF.': 'Włączenie jest niedostępne, gdy globalna flaga kalendarza zewnętrznego jest WYŁĄCZONA.',
       'Manual sync requires an enabled source and global activation.': 'Ręczna synchronizacja wymaga włączonego źródła i globalnej aktywacji.',
+      'Provider controls are unavailable until the reviewed provider stage is installed.': 'Kontrolki dostawców są niedostępne do czasu instalacji zweryfikowanego etapu dostawców.',
+      'Activation and manual sync require the reviewed worker/scheduler binding.': 'Aktywacja i ręczna synchronizacja wymagają zweryfikowanego powiązania worker/harmonogram.',
+      'A private export URL is required before activation.': 'Przed aktywacją wymagany jest prywatny adres eksportu.',
+      'Admin review is required before activation.': 'Przed aktywacją wymagana jest weryfikacja przez Admina.',
       'The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.': 'Prywatny adres HTTPS iCal jest używany tylko dla tego sprawdzonego zapisu i nigdy nie jest ponownie wyświetlany.',
       'Private HTTPS iCal URL': 'Prywatny adres HTTPS iCal', 'Sync interval (minutes)': 'Interwał synchronizacji (minuty)',
       'Provider': 'Dostawca', 'Generic iCal': 'Ogólny iCal', 'Code': 'Kod',
@@ -8088,13 +8110,17 @@
       'never_synced': 'Nigdy nie synchronizowano', 'healthy': 'Prawidłowy', 'degraded': 'Pogorszony', 'syncing': 'Synchronizacja',
     }),
     he: Object.freeze({
-      'External calendars': 'יומנים חיצוניים', 'Add iCal source': 'הוספת מקור iCal', 'Edit source': 'עריכת מקור',
+      'External calendars': 'יומנים חיצוניים', 'Add provider source': 'הוספת מקור ספק', 'Edit source': 'עריכת מקור',
       'Configured (URL hidden)': 'מוגדר (הכתובת מוסתרת)', 'Not configured': 'לא מוגדר',
       'Set URL': 'הגדרת כתובת', 'Rotate URL': 'החלפת כתובת', 'Clear URL': 'מחיקת כתובת', 'Enable': 'הפעלה', 'Disable': 'השבתה',
       'Run manual sync': 'הפעלת סנכרון ידני', 'Sync health': 'מצב סנכרון', 'Last attempt': 'ניסיון אחרון',
       'Last success': 'הצלחה אחרונה', 'Last failure': 'כשל אחרון', 'Events': 'אירועים', 'Active events': 'אירועים פעילים', 'Blocks': 'חסימות',
       'Enable is unavailable while the global external-calendar flag is OFF.': 'אי אפשר להפעיל כל עוד הדגל הגלובלי של יומן חיצוני כבוי.',
       'Manual sync requires an enabled source and global activation.': 'סנכרון ידני דורש מקור פעיל והפעלה גלובלית.',
+      'Provider controls are unavailable until the reviewed provider stage is installed.': 'בקרות הספק אינן זמינות עד להתקנת שלב הספק שנבדק.',
+      'Activation and manual sync require the reviewed worker/scheduler binding.': 'הפעלה וסנכרון ידני דורשים חיבור worker/מתזמן שנבדק.',
+      'A private export URL is required before activation.': 'נדרשת כתובת יצוא פרטית לפני הפעלה.',
+      'Admin review is required before activation.': 'נדרשת בדיקת Admin לפני הפעלה.',
       'The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.': 'כתובת ה-iCal הפרטית ב-HTTPS משמשת רק לשמירה שנבדקה ואינה מוצגת שוב.',
       'Private HTTPS iCal URL': 'כתובת iCal פרטית ב-HTTPS', 'Sync interval (minutes)': 'מרווח סנכרון (דקות)',
       'Provider': 'ספק', 'Generic iCal': 'iCal כללי', 'Code': 'קוד',
@@ -8105,6 +8131,7 @@
   });
 
   function externalCalendarText(value) {
+    if (value === 'Add iCal source') value = 'Add provider source';
     const language = String(document.documentElement.lang || 'en').toLowerCase();
     const key = language.startsWith('he') ? 'he' : language.startsWith('pl') ? 'pl' : 'en';
     return EXTERNAL_CALENDAR_TEXT[key]?.[value] || value;
@@ -8126,12 +8153,37 @@
     if (state.calendar.external_calendar_error) return `<section class="hotel-workspace-card"><h4>${escapeHtml(externalCalendarText('External calendars'))}</h4><p class="hotel-property-empty--error">${escapeHtml(state.calendar.external_calendar_error.userMessage || state.calendar.external_calendar_error.message)}</p></section>`;
     const control = state.calendar.external_calendar;
     if (!control) return '';
+    const capability = control.provider_capability;
+    const providerActive = capability.stage === 'provider_types_active';
     const roomName = (id) => availabilityBusinessName(control.rooms.find((room) => room.id === id), id);
-    const sources = control.sources.map((source) => `<article class="hotel-availability-row hotel-external-calendar-source"><span><strong>${escapeHtml(source.code)} · ${escapeHtml(externalCalendarProviderLabel(source.source_type))} · ${escapeHtml(roomName(source.room_type_id))}</strong><small>${escapeHtml(externalCalendarText(source.secret_configured ? 'Configured (URL hidden)' : 'Not configured'))} · ${escapeHtml(externalCalendarText(source.health.status))}</small><small>${escapeHtml(externalCalendarText('Last attempt'))}: ${escapeHtml(source.health.last_attempt_at || '—')} · ${escapeHtml(externalCalendarText('Last success'))}: ${escapeHtml(source.health.last_success_at || '—')} · ${escapeHtml(externalCalendarText('Last failure'))}: ${escapeHtml(source.health.last_error_code || source.health.last_error_message || '—')}</small><small>${escapeHtml(externalCalendarText('Events'))}: ${source.health.last_event_count} · ${escapeHtml(externalCalendarText('Active events'))}: ${source.health.last_active_event_count} · ${escapeHtml(externalCalendarText('Blocks'))}: ${source.health.last_block_count}</small></span><span><button class="btn-secondary" type="button" data-external-calendar-edit="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Edit source'))}</button><button class="btn-secondary" type="button" data-external-calendar-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${escapeAttr(source.id)}" ${source.is_enabled ? 'disabled' : ''}>${escapeHtml(externalCalendarText(source.secret_configured ? 'Rotate URL' : 'Set URL'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-secret="clear" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Clear URL'))}</button>` : ''}${source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="disable" data-source-id="${escapeAttr(source.id)}">${escapeHtml(externalCalendarText('Disable'))}</button>` : `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="enable" data-source-id="${escapeAttr(source.id)}" ${control.hotel_external_sync_enabled ? '' : `disabled title="${escapeAttr(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}"`}>${escapeHtml(externalCalendarText('Enable'))}</button>`}<button class="btn-secondary" type="button" data-external-calendar-sync="${escapeAttr(source.id)}" ${source.is_enabled && control.hotel_external_sync_enabled ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Run manual sync'))}</button></span><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(source.id)}</code><code>${escapeHtml(control.snapshot_token)}</code></details></article>`).join('');
-    return `<section class="hotel-workspace-card" data-external-calendar-control><header><h4>${escapeHtml(externalCalendarText('External calendars'))}</h4><button class="btn-primary" type="button" data-external-calendar-create>${escapeHtml(externalCalendarText('Add iCal source'))}</button></header>${control.hotel_external_sync_enabled ? '' : `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}</p>`}${sources || '<p>—</p>'}</section>`;
+    let sources = control.sources.map((source) => {
+      const canReview = providerActive && capability.source_review_available;
+      const canManageUrl = canReview && capability.private_url_management_available && !source.is_enabled;
+      const canEnable = capability.activation_available && source.secret_configured && source.review_status === 'reviewed';
+      const activationReason = !source.secret_configured
+        ? 'A private export URL is required before activation.'
+        : source.review_status !== 'reviewed'
+          ? 'Admin review is required before activation.'
+          : !capability.worker_scheduler_ready
+            ? 'Activation and manual sync require the reviewed worker/scheduler binding.'
+            : 'Enable is unavailable while the global external-calendar flag is OFF.';
+      return `<article class="hotel-availability-row hotel-external-calendar-source" data-provider-stage="${escapeAttr(capability.stage)}"><span><strong>${escapeHtml(source.code)} · ${escapeHtml(externalCalendarProviderLabel(source.source_type))} · ${escapeHtml(roomName(source.room_type_id))}</strong><small>${escapeHtml(externalCalendarText(source.secret_configured ? 'Configured (URL hidden)' : 'Not configured'))} · ${escapeHtml(source.review_status)} · ${escapeHtml(externalCalendarText(source.health.status))}</small><small>${escapeHtml(externalCalendarText('Last attempt'))}: ${escapeHtml(source.health.last_attempt_at || '—')} · ${escapeHtml(externalCalendarText('Last success'))}: ${escapeHtml(source.health.last_success_at || '—')} · ${escapeHtml(externalCalendarText('Last failure'))}: ${escapeHtml(source.health.last_error_code || source.health.last_error_message || '—')}</small><small>${escapeHtml(externalCalendarText('Events'))}: ${source.health.last_event_count} · ${escapeHtml(externalCalendarText('Active events'))}: ${source.health.last_active_event_count} · ${escapeHtml(externalCalendarText('Blocks'))}: ${source.health.last_block_count}</small></span><span><button class="btn-secondary" type="button" data-external-calendar-edit="${escapeAttr(source.id)}" ${canReview ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Edit source'))}</button><button class="btn-secondary" type="button" data-external-calendar-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${escapeAttr(source.id)}" ${canManageUrl ? '' : 'disabled'}>${escapeHtml(externalCalendarText(source.secret_configured ? 'Rotate URL' : 'Set URL'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-secret="clear" data-source-id="${escapeAttr(source.id)}" ${canManageUrl ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Clear URL'))}</button>` : ''}${source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="disable" data-source-id="${escapeAttr(source.id)}" ${canReview ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Disable'))}</button>` : `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="enable" data-source-id="${escapeAttr(source.id)}" ${canEnable ? '' : `disabled title="${escapeAttr(externalCalendarText(activationReason))}"`}>${escapeHtml(externalCalendarText('Enable'))}</button>`}<button class="btn-secondary" type="button" data-external-calendar-sync="${escapeAttr(source.id)}" ${source.is_enabled && capability.manual_sync_available ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Run manual sync'))}</button></span>${!source.is_enabled && !canEnable ? `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText(activationReason))}</p>` : ''}<details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(source.id)}</code><code>${escapeHtml(control.snapshot_token)}</code></details></article>`;
+    }).join('');
+    const reviewList = state.calendar.external_calendar_provider_reviews;
+    if (state.calendar.external_calendar_provider_reviews_error) {
+      sources += `<p class="hotel-property-empty--error">${escapeHtml(state.calendar.external_calendar_provider_reviews_error.userMessage || state.calendar.external_calendar_provider_reviews_error.message)}</p>`;
+    } else if (reviewList) {
+      sources += reviewList.proposals.map((proposal) => {
+        const pending = proposal.status === 'pending_admin_review';
+        const room = proposal.room_type_id ? roomName(proposal.room_type_id) : proposal.source_id;
+        return `<article class="hotel-availability-row hotel-external-calendar-proposal" data-external-calendar-proposal="${escapeAttr(proposal.proposal_id)}" data-proposal-status="${escapeAttr(proposal.status)}"><span><strong>${escapeHtml(externalCalendarText('Partner provider proposal'))} · ${escapeHtml(externalCalendarProviderLabel(proposal.source_type || 'ical'))} · ${escapeHtml(room)}</strong><small>${escapeHtml(proposal.reason)}</small><small>${escapeHtml(proposal.status)} · ${escapeHtml(proposal.is_fresh ? externalCalendarText('Fresh') : externalCalendarText('Stale or expired'))} · ${escapeHtml(proposal.submitted_at)}</small><small>${escapeHtml(externalCalendarText('Partner'))}: ${escapeHtml(proposal.partner_id)}</small></span>${pending ? `<span><button class="btn-primary" type="button" data-external-calendar-proposal-preview="${escapeAttr(proposal.proposal_id)}" ${proposal.is_fresh ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Preview'))}</button><button class="btn-secondary" type="button" data-external-calendar-proposal-reject="${escapeAttr(proposal.proposal_id)}">${escapeHtml(externalCalendarText('Reject'))}</button></span>` : ''}<details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(proposal.proposal_id)}</code></details></article>`;
+      }).join('');
+    }
+    return `<section class="hotel-workspace-card" data-external-calendar-control data-provider-stage="${escapeAttr(capability.stage)}"><header><h4>${escapeHtml(externalCalendarText('External calendars'))}</h4><button class="btn-primary" type="button" data-external-calendar-create ${providerActive && capability.source_review_available ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Add provider source'))}</button></header>${providerActive ? '' : `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText('Provider controls are unavailable until the reviewed provider stage is installed.'))}</p>`}${providerActive && !control.hotel_external_sync_enabled ? `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText('Enable is unavailable while the global external-calendar flag is OFF.'))}</p>` : ''}${sources || '<p>—</p>'}</section>`;
   }
 
   async function previewExternalCalendarIntent(intent, title, secretUrl = null) {
+    let transientSecretUrl = secretUrl;
     try {
       const draft = Core.buildExternalCalendarDraft(state.calendar.external_calendar, intent);
       const preview = await Repository.previewExternalCalendarPlan(draft, state.calendar.external_calendar);
@@ -8139,7 +8191,7 @@
       const canSave = !preview.blocking_reasons.length && preview.reviewed_plan;
       openModal({
         title, className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
-        onClose: () => Repository.clearExternalCalendarReviewedPlan(),
+        onClose: () => { transientSecretUrl = null; Repository.clearExternalCalendarReviewedPlan(); },
         body: `<section class="hotel-review-summary"><p>${availabilityUiHtml('The server built the only plan eligible for Save.')}</p>${preview.blocking_reasons.map((reason) => `<p class="hotel-property-empty--error">${escapeHtml(reason.replaceAll('_', ' '))}</p>`).join('')}<p>${escapeHtml(externalCalendarText('The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.'))}</p><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(preview.reviewed_plan?.plan_fingerprint || '')}</code></details></section>`,
         footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button>${canSave ? `<button class="btn-primary" type="button" data-external-calendar-confirm>${availabilityUiHtml('Save reviewed changes')}</button>` : ''}`,
         onReady(overlay) {
@@ -8147,18 +8199,25 @@
             const button = event.currentTarget; button.disabled = true; setModalSaving(overlay, true);
             const correlation = Core.newUuid(); const idempotency = Core.newUuid();
             try {
-              const result = await Repository.applyExternalCalendarPlan(preview.reviewed_plan, correlation, idempotency, secretUrl);
+              const result = await Repository.applyExternalCalendarPlan(preview.reviewed_plan, correlation, idempotency, transientSecretUrl);
+              transientSecretUrl = null;
               state.calendar.external_calendar = result.control;
               closeModal({ restoreFocus: false, skipCleanup: true, force: true }); renderActivePanel();
               toast(externalCalendarText('External calendar saved.'), 'success');
             } catch (error) {
-              setModalSaving(overlay, false); button.disabled = false;
+              transientSecretUrl = null;
+              Repository.clearExternalCalendarReviewedPlan();
+              closeModal({ restoreFocus: true, force: true });
               toast(error.userMessage || error.message, error.isAmbiguousOutcome ? 'warning' : 'error');
             }
           });
         },
       });
-    } catch (error) { toast(error.userMessage || error.message, 'error'); }
+    } catch (error) {
+      transientSecretUrl = null;
+      Repository.clearExternalCalendarReviewedPlan();
+      toast(error.userMessage || error.message, 'error');
+    }
   }
 
   function openExternalCalendarEditor(sourceId = null) {
@@ -8173,6 +8232,100 @@
     if (!source) return;
     const secretInput = entity === 'ical_secret' && action !== 'clear';
     openModal({ title: externalCalendarText(action === 'trigger' ? 'Run manual sync' : action === 'rotate' ? 'Rotate URL' : action === 'set' ? 'Set URL' : action === 'clear' ? 'Clear URL' : action === 'enable' ? 'Enable' : 'Disable'), body: `<form id="externalCalendarActionForm" class="hotel-workspace-form">${secretInput ? `<label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Private HTTPS iCal URL'))}</span><input name="ical_url" type="password" inputmode="url" autocomplete="new-password" maxlength="4096" required></label><p>${escapeHtml(externalCalendarText('The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.'))}</p>` : ''}<label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" minlength="3" maxlength="500" required></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarActionForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('#externalCalendarActionForm')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const secretUrl = secretInput ? String(fd.get('ical_url') || '') : null; const payload = entity === 'ical_secret' ? (action === 'clear' ? { source_id: source.id } : { source_id: source.id, ical_url: secretUrl }) : entity === 'calendar_sync' ? { source_id: source.id } : {}; const expectedVersion = entity === 'ical_secret' ? (source.binding_version || 0) : entity === 'calendar_sync' ? source.health.state_version : source.version; closeModal({ restoreFocus: false }); void previewExternalCalendarIntent({ entity, action, id: source.id, expected_version: expectedVersion, payload, reason: String(fd.get('reason') || '').trim() }, externalCalendarText(action === 'trigger' ? 'Run manual sync' : action), secretUrl); }); } });
+  }
+
+  async function refreshExternalCalendarProviderControl() {
+    const hotelId = state.workspace?.property?.id;
+    if (!hotelId) return;
+    const [control, reviews] = await Promise.all([
+      Repository.getExternalCalendarControl(hotelId),
+      Repository.getExternalCalendarProviderReviews(hotelId),
+    ]);
+    state.calendar.external_calendar = control;
+    state.calendar.external_calendar_error = null;
+    state.calendar.external_calendar_provider_reviews = reviews;
+    state.calendar.external_calendar_provider_reviews_error = null;
+    renderActivePanel();
+  }
+
+  function openExternalCalendarPartnerProposalReview(proposalId) {
+    const proposal = state.calendar.external_calendar_provider_reviews?.proposals
+      .find((row) => row.proposal_id === proposalId);
+    if (!proposal || proposal.status !== 'pending_admin_review' || !proposal.is_fresh) return;
+    openModal({
+      title: externalCalendarText('Review Partner provider proposal'),
+      body: `<form id="externalCalendarProviderReviewForm" class="hotel-workspace-form"><p>${escapeHtml(proposal.reason)}</p><label class="admin-form-field"><span>${availabilityUiHtml('Admin reason')}</span><input name="admin_reason" minlength="3" maxlength="500" required></label></form>`,
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarProviderReviewForm">${escapeHtml(externalCalendarText('Preview'))}</button>`,
+      onReady(overlay) {
+        overlay.querySelector('#externalCalendarProviderReviewForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const button = overlay.querySelector('button[type="submit"]'); if (button) button.disabled = true;
+          const adminReason = String(new FormData(event.currentTarget).get('admin_reason') || '').trim();
+          try {
+            const preview = await Repository.previewExternalCalendarPartnerProposal(
+              proposal, adminReason,
+            );
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            const impact = preview.preview.impacts[0];
+            openModal({
+              title: externalCalendarText('Accept Partner provider proposal'),
+              className: 'hotel-workspace-modal--review hotel-workspace-modal--wide',
+              onClose: () => Repository.clearExternalCalendarReviewedPlan(),
+              body: `<section class="hotel-review-summary"><p>${escapeHtml(proposal.reason)}</p><p><strong>${escapeHtml(externalCalendarProviderLabel(preview.proposal.source_type || 'ical'))}</strong> · ${escapeHtml(preview.proposal.room_type_id || preview.proposal.source_id)}</p><p>${escapeHtml(impact.entity)} · ${escapeHtml(impact.action)} · ${impact.fields.map((field) => escapeHtml(field)).join(', ')}</p><p>${escapeHtml(externalCalendarText('No private URL is exposed to Admin. The server applies only the exact reviewed proposal.'))}</p><details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(preview.proposal.proposal_id)}</code><code>${escapeHtml(preview.preview.reviewed_plan.plan_fingerprint)}</code></details></section>`,
+              footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="button" data-external-calendar-proposal-accept>${escapeHtml(externalCalendarText('Accept'))}</button>`,
+              onReady(reviewOverlay) {
+                reviewOverlay.querySelector('[data-external-calendar-proposal-accept]')?.addEventListener('click', async (acceptEvent) => {
+                  acceptEvent.currentTarget.disabled = true; setModalSaving(reviewOverlay, true);
+                  try {
+                    await Repository.applyExternalCalendarPartnerProposal(preview, Core.newUuid(), Core.newUuid());
+                    closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+                    await refreshExternalCalendarProviderControl();
+                    toast(externalCalendarText('Partner provider proposal accepted.'), 'success');
+                  } catch (error) {
+                    Repository.clearExternalCalendarReviewedPlan();
+                    closeModal({ restoreFocus: true, force: true });
+                    toast(error.userMessage || error.message, error.isAmbiguousOutcome ? 'warning' : 'error');
+                  }
+                });
+              },
+            });
+          } catch (error) {
+            Repository.clearExternalCalendarReviewedPlan();
+            closeModal({ restoreFocus: true, force: true });
+            toast(error.userMessage || error.message, 'error');
+          }
+        });
+      },
+    });
+  }
+
+  function openExternalCalendarPartnerProposalReject(proposalId) {
+    const proposal = state.calendar.external_calendar_provider_reviews?.proposals
+      .find((row) => row.proposal_id === proposalId);
+    if (!proposal || proposal.status !== 'pending_admin_review') return;
+    openModal({
+      title: externalCalendarText('Reject Partner provider proposal'),
+      body: `<form id="externalCalendarProviderRejectForm" class="hotel-workspace-form"><p>${escapeHtml(proposal.reason)}</p><label class="admin-form-field"><span>${availabilityUiHtml('Admin reason')}</span><input name="admin_reason" minlength="3" maxlength="500" required></label></form>`,
+      footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarProviderRejectForm">${escapeHtml(externalCalendarText('Reject'))}</button>`,
+      onReady(overlay) {
+        overlay.querySelector('#externalCalendarProviderRejectForm')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const button = overlay.querySelector('button[type="submit"]'); if (button) button.disabled = true;
+          try {
+            const reason = String(new FormData(event.currentTarget).get('admin_reason') || '').trim();
+            await Repository.rejectExternalCalendarPartnerProposal(
+              proposal, reason, Core.newUuid(), Core.newUuid(),
+            );
+            closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+            await refreshExternalCalendarProviderControl();
+            toast(externalCalendarText('Partner provider proposal rejected.'), 'success');
+          } catch (error) {
+            closeModal({ restoreFocus: true, force: true });
+            toast(error.userMessage || error.message, error.isAmbiguousOutcome ? 'warning' : 'error');
+          }
+        });
+      },
+    });
   }
 
   function renderCalendarLoaded(panel, range, control) {
@@ -8221,6 +8374,8 @@
     panel.querySelectorAll('[data-external-calendar-secret]').forEach((button) => button.addEventListener('click', () => openExternalCalendarAction(button.dataset.sourceId, 'ical_secret', button.dataset.externalCalendarSecret)));
     panel.querySelectorAll('[data-external-calendar-lifecycle]').forEach((button) => button.addEventListener('click', () => openExternalCalendarAction(button.dataset.sourceId, 'calendar_source', button.dataset.externalCalendarLifecycle)));
     panel.querySelectorAll('[data-external-calendar-sync]').forEach((button) => button.addEventListener('click', () => openExternalCalendarAction(button.dataset.externalCalendarSync, 'calendar_sync', 'trigger')));
+    panel.querySelectorAll('[data-external-calendar-proposal-preview]').forEach((button) => button.addEventListener('click', () => openExternalCalendarPartnerProposalReview(button.dataset.externalCalendarProposalPreview)));
+    panel.querySelectorAll('[data-external-calendar-proposal-reject]').forEach((button) => button.addEventListener('click', () => openExternalCalendarPartnerProposalReject(button.dataset.externalCalendarProposalReject)));
   }
 
   async function previewAvailabilityDraft(intents, title, options = {}) {
