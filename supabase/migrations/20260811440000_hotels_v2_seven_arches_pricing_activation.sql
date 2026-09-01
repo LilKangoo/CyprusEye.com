@@ -1,7 +1,128 @@
 begin;
-set transaction isolation level repeatable read;
+set transaction isolation level read committed;
 set local lock_timeout='15s';
 set local statement_timeout='180s';
+
+-- Acquire the complete protected-projection relation universe before the
+-- statement that captures the current Task2/Stage2 baseline.  READ COMMITTED
+-- gives that capture a new snapshot after every lock below has been granted;
+-- the locks then remain held through installation COMMIT.
+do $seven_arches_pricing_activation_install_locks$
+declare
+  v_relation regclass;
+begin
+  foreach v_relation in array array[
+    'public.hotels'::regclass,
+    'public.hotel_units'::regclass,
+    'public.hotel_rate_plans'::regclass,
+    'public.hotel_pricing_schedules'::regclass,
+    'public.hotel_property_pricing_defaults'::regclass,
+    'public.hotel_rate_rules'::regclass,
+    'public.hotel_room_allocation_rules'::regclass,
+    'public.hotel_room_allocation_rule_items'::regclass,
+    'public.hotel_unit_calendar_blocks'::regclass,
+    'public.hotel_inventory_holds'::regclass,
+    'public.hotel_booking_room_allocations'::regclass,
+    'public.hotel_inventory_commitments'::regclass,
+    'public.hotel_calendar_source_configs'::regclass,
+    'public.hotel_payment_policies'::regclass,
+    'public.hotel_payment_policy_terms'::regclass,
+    'public.hotel_commission_policies'::regclass,
+    'public.hotel_daily_rates'::regclass,
+    'public.hotel_pricing_promotion_reviews'::regclass,
+    'public.hotel_admin_pricing_action_receipts'::regclass,
+    'public.hotel_admin_availability_action_receipts'::regclass,
+    'public.hotel_admin_availability_plan_reviews'::regclass,
+    'public.hotel_admin_availability_foundation_receipts'::regclass,
+    'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+    'public.hotel_bookings'::regclass,
+    'public.partner_service_fulfillments'::regclass,
+    'public.partner_service_fulfillment_form_snapshots'::regclass,
+    'public.service_deposit_requests'::regclass,
+    'public.service_deposit_rules'::regclass,
+    'public.service_deposit_overrides'::regclass,
+    'public.service_coupons'::regclass,
+    'public.service_coupon_redemptions'::regclass,
+    'public.referrals'::regclass,
+    'public.affiliate_commission_events'::regclass,
+    'public.affiliate_payouts'::regclass,
+    'public.affiliate_adjustments'::regclass,
+    'public.affiliate_program_settings'::regclass,
+    'public.affiliate_referrer_overrides'::regclass,
+    'public.affiliate_cashout_requests'::regclass,
+    'public.profile_referral_code_aliases'::regclass,
+    'public.partners'::regclass,
+    'public.partner_users'::regclass,
+    'public.partner_resources'::regclass,
+    'public.partner_user_resources'::regclass,
+    'public.hotel_partner_hotel_permissions'::regclass,
+    'public.site_settings'::regclass,
+    'public.hotel_room_types'::regclass,
+    'public.hotel_room_rates'::regclass,
+    'public.hotel_pricing_schedule_occupancy_tiers'::regclass,
+    'public.hotel_room_rate_occupancy_tiers'::regclass,
+    'public.hotel_calendar_overrides'::regclass,
+    'public.hotel_daily_inventory'::regclass,
+    'public.hotel_partner_action_receipts'::regclass,
+    'public.hotel_partner_event_outbox'::regclass,
+    'public.hotel_activity_log'::regclass,
+    'public.hotel_property_operational_profiles'::regclass,
+    'public.hotel_partner_workspace_foundation_receipts'::regclass,
+    'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+    'public.hotel_partner_property_proposal_admin_reviews'::regclass,
+    'public.hotel_partner_property_drafts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_foundation_receipts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_plan_reviews'::regclass,
+    'hotels_v2_private.hotel_external_calendar_correlations'::regclass,
+    'hotels_v2_private.hotel_external_calendar_admin_receipts'::regclass
+  ] loop
+    execute format('lock table %s in share row exclusive mode',v_relation);
+    if not exists(select 1 from pg_locks lock_row
+      where lock_row.pid=pg_backend_pid()
+        and lock_row.locktype='relation'
+        and lock_row.relation=v_relation::oid
+        and lock_row.granted
+        and lock_row.mode in('ShareRowExclusiveLock','AccessExclusiveLock')) then
+      raise exception using errcode='55000',
+        message='hotels_v2_seven_arches_pricing_activation_install_lock_failed',
+        detail=v_relation::text;
+    end if;
+  end loop;
+end
+$seven_arches_pricing_activation_install_locks$;
+
+create temporary table seven_arches_pricing_activation_locked_baseline
+on commit drop as
+select
+  current_setting('TimeZone') incoming_timezone,
+  property.value property_fingerprints,
+  public.hotel_v2_h3_2b_hash(property.value) property_fingerprint,
+  stage2.value stage2_fingerprints,
+  public.hotel_v2_external_calendar_worker_hash(stage2.value) stage2_fingerprint,
+  public.hotel_v2_admin_d_current_foundation_snapshot() admin_d_state,
+  public.hotel_v2_seven_arches_property_proposal_canonical_is_attributable()
+    property_attribution_exact,
+  public.hotel_v2_partner_workspace_function_lineage_is_exact()
+    workspace_lineage_exact,
+  public.hotel_v2_external_calendar_provider_sources_are_attributable()
+    provider_attribution_exact,
+  lifecycle.value site_settings_lifecycle,
+  public.hotel_v2_external_calendar_worker_hash(lifecycle.value)
+    site_settings_lifecycle_fingerprint
+from lateral (select
+    public.hotel_v2_seven_arches_property_proposal_protected_fingerprints() value)
+  property
+cross join lateral (select
+    public.hotel_v2_external_calendar_stage2_compatible_fingerprints() value)
+  stage2
+cross join lateral (select jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false) value) lifecycle;
 
 -- Reviewed, one-Hotel activation of the already accepted H3.1P 7 Arches
 -- pricing graph. Public Hotels remain legacy-authoritative; the external
@@ -9,7 +130,45 @@ set local statement_timeout='180s';
 -- V2 flags remain OFF. No price, translation, or policy value is inferred.
 
 do $seven_arches_pricing_activation_dependencies$
+declare
+  v_locked seven_arches_pricing_activation_locked_baseline%rowtype;
+  v_property_foundation jsonb;
+  v_stage2_foundation jsonb;
+  v_property_delta_keys text[];
+  v_stage2_delta_keys text[];
+  v_expected_delta_keys constant text[]:=array[
+    'partner_service_fulfillment_form_snapshots',
+    'partner_service_fulfillments',
+    'profile_referral_code_aliases',
+    'referrals',
+    'service_deposit_requests',
+    'site_settings']::text[];
 begin
+  select * into strict v_locked
+  from seven_arches_pricing_activation_locked_baseline;
+  select receipt.protected_fingerprints into strict v_property_foundation
+  from public.hotel_partner_property_proposal_foundation_receipts receipt
+  where receipt.id=1;
+  select receipt.stage2_current_protected_fingerprints
+    into strict v_stage2_foundation
+  from public.hotel_admin_availability_foundation_evolution_receipts receipt
+  where receipt.id=1;
+  select coalesce(array_agg(coalesce(current_entry.key,foundation_entry.key)
+      order by coalesce(current_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_property_delta_keys
+  from jsonb_each(v_locked.property_fingerprints) current_entry
+  full join jsonb_each(v_property_foundation) foundation_entry
+    on foundation_entry.key=current_entry.key
+  where current_entry.value is distinct from foundation_entry.value;
+  select coalesce(array_agg(coalesce(current_entry.key,foundation_entry.key)
+      order by coalesce(current_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_stage2_delta_keys
+  from jsonb_each(v_locked.stage2_fingerprints) current_entry
+  full join jsonb_each(v_stage2_foundation) foundation_entry
+    on foundation_entry.key=current_entry.key
+  where current_entry.value is distinct from foundation_entry.value;
   if to_regprocedure('public.hotel_v2_h2a_require_admin()') is null
      or to_regprocedure('public.hotel_v2_h2a_keys_allowed(jsonb,text[])') is null
      or to_regprocedure('public.hotel_v2_admin_c_uuid_is_canonical(text)') is null
@@ -49,13 +208,11 @@ begin
      or not exists(select 1 from public.hotel_partner_property_proposal_foundation_receipts receipt
        where receipt.id=1 and receipt.protected_fingerprint=
          public.hotel_v2_h3_2b_hash(receipt.protected_fingerprints))
-     or (public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()
-          -'site_settings') is distinct from
-        ((select protected_fingerprints
-          from public.hotel_partner_property_proposal_foundation_receipts where id=1)
-          -'site_settings')
-     or public.hotel_v2_seven_arches_property_proposal_canonical_is_attributable()
-       is not true then
+     or v_locked.property_fingerprints->'site_settings' is null
+     or not (v_locked.property_fingerprints ?& v_expected_delta_keys)
+     or not (v_property_foundation ?& v_expected_delta_keys)
+     or v_property_delta_keys is distinct from v_expected_delta_keys
+     or v_locked.property_attribution_exact is not true then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_pricing_activation_task2_foundation_drift';
   end if;
@@ -73,6 +230,10 @@ begin
        from public.site_settings setting)
      or (select count(*)
        from hotels_v2_private.hotel_external_calendar_activation_receipts)<>1
+     or v_locked.stage2_fingerprints->'site_settings' is null
+     or not (v_locked.stage2_fingerprints ?& v_expected_delta_keys)
+     or not (v_stage2_foundation ?& v_expected_delta_keys)
+     or v_stage2_delta_keys is distinct from v_expected_delta_keys
      or not exists(select 1
        from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
        where receipt.id=1 and receipt.created_at is not null
@@ -237,10 +398,20 @@ begin
        or has_function_privilege('anon',procedure_row.oid,'EXECUTE')
        or has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
        or has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
-     or public.hotel_v2_partner_workspace_function_lineage_is_exact() is not true
-     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'original_receipt_intact')::boolean,false)
-     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'seven_arches_owner_preset_exact')::boolean,false)
-     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'audit_chain_exact')::boolean,false) then
+     or v_locked.stage2_fingerprints->'site_settings' is null
+     or v_locked.workspace_lineage_exact is not true
+     or v_locked.provider_attribution_exact is not true
+     or not coalesce((v_locked.admin_d_state->>'original_receipt_intact')::boolean,false)
+     or not coalesce((v_locked.admin_d_state->>'seven_arches_assignment_exact')::boolean,false)
+     or not coalesce((v_locked.admin_d_state->>'seven_arches_owner_preset_exact')::boolean,false)
+     or not coalesce((v_locked.admin_d_state->>'audit_chain_exact')::boolean,false)
+     or v_locked.site_settings_lifecycle_fingerprint is null
+     or (select count(*)<>1 or bool_or(setting.id<>1
+          or setting.hotel_rooms_v2_enabled is distinct from false
+          or setting.hotel_external_sync_enabled is null
+          or setting.hotel_instant_booking_enabled is distinct from false
+          or setting.hotel_stripe_connect_enabled is distinct from false)
+       from public.site_settings setting) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_pricing_activation_stage2_foundation_drift';
   end if;
@@ -410,6 +581,18 @@ declare
   v_raw_stage2 jsonb;
   v_task2 jsonb;
   v_stage2 jsonb;
+  v_locked_task2 jsonb;
+  v_locked_stage2 jsonb;
+  v_locked_lifecycle_fingerprint text;
+  v_task2_receipt_delta_keys text[];
+  v_stage2_receipt_delta_keys text[];
+  v_expected_receipt_delta_keys constant text[]:=array[
+    'partner_service_fulfillment_form_snapshots',
+    'partner_service_fulfillments',
+    'profile_referral_code_aliases',
+    'referrals',
+    'service_deposit_requests',
+    'site_settings']::text[];
   v_lifecycle jsonb;
   v_lifecycle_fingerprint text;
   v_owner public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
@@ -1036,14 +1219,41 @@ begin
       into v_visible_context_count,v_current_context_count
     from public.hotel_seven_arches_pricing_activation_transaction_context;
     if v_visible_context_count=0 and v_current_context_count=0 then
-      -- The ordinary pre-activation path remains the exact immutable baseline.
-      if v_task2 is distinct from jsonb_set(
-           v_task2_foundation.protected_fingerprints,'{site_settings}',
-           to_jsonb(v_lifecycle_fingerprint),false)
-         or v_stage2 is distinct from jsonb_set(
-           v_owner.stage2_current_protected_fingerprints,'{site_settings}',
-           to_jsonb(v_lifecycle_fingerprint),false) then
-        return null;
+      if v_task2_receipt_count=0 then
+        -- Installation bootstrap: the current baseline was captured only
+        -- after the complete protected relation universe was locked.  The
+        -- temporary relation is deliberately unreachable after COMMIT.
+        if to_regclass(
+             'pg_temp.seven_arches_pricing_activation_locked_baseline') is null then
+          return null;
+        end if;
+        execute $sql$
+          select property_fingerprints,stage2_fingerprints,
+            site_settings_lifecycle_fingerprint
+          from pg_temp.seven_arches_pricing_activation_locked_baseline
+        $sql$
+        into strict v_locked_task2,v_locked_stage2,v_locked_lifecycle_fingerprint;
+        if v_locked_lifecycle_fingerprint is distinct from v_lifecycle_fingerprint
+           or v_task2 is distinct from jsonb_set(
+             v_locked_task2,'{site_settings}',to_jsonb(v_lifecycle_fingerprint),false)
+           or v_stage2 is distinct from jsonb_set(
+             v_locked_stage2,'{site_settings}',to_jsonb(v_lifecycle_fingerprint),false) then
+          return null;
+        end if;
+      else
+        -- After installation the immutable compatibility receipt, rather
+        -- than the superseded historical maps, is the canonical pre-activation
+        -- baseline.  Every member remains bound; only site_settings has the
+        -- independently proved lifecycle representation.
+        select * into strict v_task2_receipt
+        from public.hotel_seven_arches_task2_stage2_compatibility_receipts
+        where id=1;
+        if v_task2 is distinct from
+             v_task2_receipt.canonical_task2_protected_fingerprints
+           or v_stage2 is distinct from
+             v_task2_receipt.canonical_stage2_protected_fingerprints then
+          return null;
+        end if;
       end if;
     elsif v_visible_context_count=1 and v_current_context_count=1
           and v_task2_receipt_count=1 then
@@ -1082,6 +1292,24 @@ begin
       select * into v_task2_receipt
       from public.hotel_seven_arches_task2_stage2_compatibility_receipts
       where id=1;
+      select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+          order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+          array[]::text[])
+        into v_task2_receipt_delta_keys
+      from jsonb_each(v_task2_receipt.canonical_task2_protected_fingerprints)
+        receipt_entry
+      full join jsonb_each(v_task2_foundation.protected_fingerprints)
+        foundation_entry on foundation_entry.key=receipt_entry.key
+      where receipt_entry.value is distinct from foundation_entry.value;
+      select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+          order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+          array[]::text[])
+        into v_stage2_receipt_delta_keys
+      from jsonb_each(v_task2_receipt.canonical_stage2_protected_fingerprints)
+        receipt_entry
+      full join jsonb_each(v_owner.stage2_current_protected_fingerprints)
+        foundation_entry on foundation_entry.key=receipt_entry.key
+      where receipt_entry.value is distinct from foundation_entry.value;
       select array_agg(activity.id order by activity.entity_type,activity.entity_id)
         into v_inflight_activity_ids
       from public.hotel_activity_log activity
@@ -1360,7 +1588,7 @@ begin
           and procedure_row.proconfig=
             array['search_path=pg_catalog, public, auth']::text[]
           and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-            'hex')='8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+            'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
           and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
           and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
           and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -1416,12 +1644,17 @@ begin
           public.hotel_v2_external_calendar_worker_hash(
             v_task2_receipt.canonical_stage2_protected_fingerprints)
         and v_task2_receipt.canonical_task2_protected_fingerprints
-          is not distinct from jsonb_set(v_task2_foundation.protected_fingerprints,
-            '{site_settings}',to_jsonb(v_lifecycle_fingerprint),false)
+          ?& v_expected_receipt_delta_keys
+        and v_task2_foundation.protected_fingerprints
+          ?& v_expected_receipt_delta_keys
+        and v_task2_receipt_delta_keys is not distinct from
+          v_expected_receipt_delta_keys
         and v_task2_receipt.canonical_stage2_protected_fingerprints
-          is not distinct from jsonb_set(
-            v_owner.stage2_current_protected_fingerprints,'{site_settings}',
-            to_jsonb(v_lifecycle_fingerprint),false)
+          ?& v_expected_receipt_delta_keys
+        and v_owner.stage2_current_protected_fingerprints
+          ?& v_expected_receipt_delta_keys
+        and v_stage2_receipt_delta_keys is not distinct from
+          v_expected_receipt_delta_keys
         and v_inflight_review.id=v_context.review_id
         and v_inflight_review.contract_version=
           'hotels_v2_seven_arches_pricing_activation_plan_v1'
@@ -1767,6 +2000,15 @@ declare
   v_activation public.hotel_seven_arches_pricing_activation_evolution_receipts%rowtype;
   v_activation_count integer;
   v_compatible jsonb;
+  v_task2_baseline_delta_keys text[];
+  v_stage2_baseline_delta_keys text[];
+  v_expected_baseline_delta_keys constant text[]:=array[
+    'partner_service_fulfillment_form_snapshots',
+    'partner_service_fulfillments',
+    'profile_referral_code_aliases',
+    'referrals',
+    'service_deposit_requests',
+    'site_settings']::text[];
   v_task2_receipt_topology_exact boolean:=false;
 begin
   if (select count(*) from public.hotel_admin_availability_foundation_evolution_receipts)<>1
@@ -1781,6 +2023,24 @@ begin
     from public.hotel_partner_property_proposal_foundation_receipts where id=1;
   select * into strict v_task2_stage2
     from public.hotel_seven_arches_task2_stage2_compatibility_receipts where id=1;
+  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_task2_baseline_delta_keys
+  from jsonb_each(v_task2_stage2.canonical_task2_protected_fingerprints)
+    receipt_entry
+  full join jsonb_each(v_task2.protected_fingerprints) foundation_entry
+    on foundation_entry.key=receipt_entry.key
+  where receipt_entry.value is distinct from foundation_entry.value;
+  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_stage2_baseline_delta_keys
+  from jsonb_each(v_task2_stage2.canonical_stage2_protected_fingerprints)
+    receipt_entry
+  full join jsonb_each(v_owner.stage2_current_protected_fingerprints)
+    foundation_entry on foundation_entry.key=receipt_entry.key
+  where receipt_entry.value is distinct from foundation_entry.value;
   v_task2_receipt_topology_exact:=coalesce(
     v_task2_stage2.contract_version=
       'hotels_v2_seven_arches_task2_stage2_compatibility_v1'
@@ -2133,12 +2393,17 @@ begin
     and v_task2_stage2.canonical_stage2_protected_fingerprint=
       public.hotel_v2_external_calendar_worker_hash(
         v_task2_stage2.canonical_stage2_protected_fingerprints)
-    and v_task2_stage2.canonical_task2_protected_fingerprints=
-      jsonb_set(v_task2.protected_fingerprints,'{site_settings}',
-        v_canonical->'site_settings_lifecycle_fingerprint',false)
-    and v_task2_stage2.canonical_stage2_protected_fingerprints=
-      jsonb_set(v_owner.stage2_current_protected_fingerprints,'{site_settings}',
-        v_canonical->'site_settings_lifecycle_fingerprint',false)
+    and v_task2_stage2.canonical_task2_protected_fingerprints
+      ?& v_expected_baseline_delta_keys
+    and v_task2.protected_fingerprints ?& v_expected_baseline_delta_keys
+    and v_task2_baseline_delta_keys is not distinct from
+      v_expected_baseline_delta_keys
+    and v_task2_stage2.canonical_stage2_protected_fingerprints
+      ?& v_expected_baseline_delta_keys
+    and v_owner.stage2_current_protected_fingerprints
+      ?& v_expected_baseline_delta_keys
+    and v_stage2_baseline_delta_keys is not distinct from
+      v_expected_baseline_delta_keys
     and v_task2_stage2.canonical_snapshot_source_hash=
       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
         'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()'::regprocedure)))
@@ -2245,7 +2510,16 @@ select 1,'hotels_v2_seven_arches_task2_stage2_compatibility_v1',
   public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
     'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()'::regprocedure)))
 from (select public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot() value) snapshot
-where snapshot.value is not null;
+cross join seven_arches_pricing_activation_locked_baseline locked
+where snapshot.value is not null
+  and snapshot.value->'task2_protected_fingerprints' is not distinct from
+    jsonb_set(locked.property_fingerprints,'{site_settings}',
+      to_jsonb(locked.site_settings_lifecycle_fingerprint),false)
+  and snapshot.value->'stage2_protected_fingerprints' is not distinct from
+    jsonb_set(locked.stage2_fingerprints,'{site_settings}',
+      to_jsonb(locked.site_settings_lifecycle_fingerprint),false)
+  and snapshot.value->'site_settings_lifecycle' is not distinct from
+    locked.site_settings_lifecycle;
 
 create trigger hotel_seven_arches_pricing_activation_evolution_immutable
 before update or delete on public.hotel_seven_arches_pricing_activation_evolution_receipts
@@ -2949,7 +3223,13 @@ declare
   v_plan_before jsonb; v_plan_after jsonb; v_schedule_before jsonb; v_schedule_after jsonb;
   v_upper_before jsonb; v_upper_after jsonb; v_ground_before jsonb; v_ground_after jsonb;
   v_activity_ids uuid[]; v_admin_receipt_id uuid; v_validator_before text; v_validator_after text;
+  v_relation regclass;
 begin
+  if current_setting('transaction_isolation') is distinct from
+       'read committed' then
+    raise exception using errcode='55000',
+      message='hotels_v2_seven_arches_pricing_activation_isolation_failed';
+  end if;
   perform public.hotel_v2_h2a_require_admin();
   if v_actor is null or p_reviewed_plan is null or jsonb_typeof(p_reviewed_plan)<>'object'
      or p_correlation_id is null
@@ -2972,6 +3252,93 @@ begin
     raise exception using errcode='22023',
       message='hotels_v2_seven_arches_pricing_activation_invalid_plan';
   end if;
+
+  -- The one-time Apply captures whole-database protected maps.  Hold the same
+  -- complete relation universe through AFTER validation and transaction
+  -- commit so no concurrent writer can be absorbed into its receipt.
+  foreach v_relation in array array[
+    'public.hotels'::regclass,
+    'public.hotel_units'::regclass,
+    'public.hotel_rate_plans'::regclass,
+    'public.hotel_pricing_schedules'::regclass,
+    'public.hotel_property_pricing_defaults'::regclass,
+    'public.hotel_rate_rules'::regclass,
+    'public.hotel_room_allocation_rules'::regclass,
+    'public.hotel_room_allocation_rule_items'::regclass,
+    'public.hotel_unit_calendar_blocks'::regclass,
+    'public.hotel_inventory_holds'::regclass,
+    'public.hotel_booking_room_allocations'::regclass,
+    'public.hotel_inventory_commitments'::regclass,
+    'public.hotel_calendar_source_configs'::regclass,
+    'public.hotel_payment_policies'::regclass,
+    'public.hotel_payment_policy_terms'::regclass,
+    'public.hotel_commission_policies'::regclass,
+    'public.hotel_daily_rates'::regclass,
+    'public.hotel_pricing_promotion_reviews'::regclass,
+    'public.hotel_admin_pricing_action_receipts'::regclass,
+    'public.hotel_admin_availability_action_receipts'::regclass,
+    'public.hotel_admin_availability_plan_reviews'::regclass,
+    'public.hotel_admin_availability_foundation_receipts'::regclass,
+    'public.hotel_admin_availability_foundation_evolution_receipts'::regclass,
+    'public.hotel_bookings'::regclass,
+    'public.partner_service_fulfillments'::regclass,
+    'public.partner_service_fulfillment_form_snapshots'::regclass,
+    'public.service_deposit_requests'::regclass,
+    'public.service_deposit_rules'::regclass,
+    'public.service_deposit_overrides'::regclass,
+    'public.service_coupons'::regclass,
+    'public.service_coupon_redemptions'::regclass,
+    'public.referrals'::regclass,
+    'public.affiliate_commission_events'::regclass,
+    'public.affiliate_payouts'::regclass,
+    'public.affiliate_adjustments'::regclass,
+    'public.affiliate_program_settings'::regclass,
+    'public.affiliate_referrer_overrides'::regclass,
+    'public.affiliate_cashout_requests'::regclass,
+    'public.profile_referral_code_aliases'::regclass,
+    'public.partners'::regclass,
+    'public.partner_users'::regclass,
+    'public.partner_resources'::regclass,
+    'public.partner_user_resources'::regclass,
+    'public.hotel_partner_hotel_permissions'::regclass,
+    'public.site_settings'::regclass,
+    'public.hotel_room_types'::regclass,
+    'public.hotel_room_rates'::regclass,
+    'public.hotel_pricing_schedule_occupancy_tiers'::regclass,
+    'public.hotel_room_rate_occupancy_tiers'::regclass,
+    'public.hotel_calendar_overrides'::regclass,
+    'public.hotel_daily_inventory'::regclass,
+    'public.hotel_partner_action_receipts'::regclass,
+    'public.hotel_partner_event_outbox'::regclass,
+    'public.hotel_activity_log'::regclass,
+    'public.hotel_property_operational_profiles'::regclass,
+    'public.hotel_partner_workspace_foundation_receipts'::regclass,
+    'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+    'public.hotel_partner_property_proposal_admin_reviews'::regclass,
+    'public.hotel_partner_property_drafts'::regclass,
+    'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass,
+    'public.hotel_seven_arches_pricing_activation_reviews'::regclass,
+    'public.hotel_seven_arches_pricing_activation_transaction_context'::regclass,
+    'public.hotel_seven_arches_pricing_activation_evolution_receipts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_foundation_receipts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+    'hotels_v2_private.hotel_external_calendar_plan_reviews'::regclass,
+    'hotels_v2_private.hotel_external_calendar_correlations'::regclass,
+    'hotels_v2_private.hotel_external_calendar_admin_receipts'::regclass
+  ] loop
+    execute format('lock table %s in share row exclusive mode',v_relation);
+    if not exists(select 1 from pg_locks lock_row
+      where lock_row.pid=pg_backend_pid()
+        and lock_row.locktype='relation'
+        and lock_row.relation=v_relation::oid
+        and lock_row.granted
+        and lock_row.mode in('ShareRowExclusiveLock','AccessExclusiveLock')) then
+      raise exception using errcode='55000',
+        message='hotels_v2_seven_arches_pricing_activation_apply_lock_failed',
+        detail=v_relation::text;
+    end if;
+  end loop;
+
   begin v_review_id:=(p_reviewed_plan->>'review_id')::uuid;
   exception when others then raise exception using errcode='22023',
     message='hotels_v2_seven_arches_pricing_activation_invalid_plan'; end;
@@ -3706,6 +4073,46 @@ begin
   end if;
 end
 $seven_arches_pricing_activation_security_postconditions$;
+
+do $seven_arches_pricing_activation_locked_baseline_postcondition$
+declare
+  v_locked seven_arches_pricing_activation_locked_baseline%rowtype;
+  v_receipt public.hotel_seven_arches_task2_stage2_compatibility_receipts%rowtype;
+  v_property jsonb;
+  v_stage2 jsonb;
+begin
+  select * into strict v_locked
+  from seven_arches_pricing_activation_locked_baseline;
+  select * into strict v_receipt
+  from public.hotel_seven_arches_task2_stage2_compatibility_receipts
+  where id=1;
+  v_property:=
+    public.hotel_v2_seven_arches_property_proposal_protected_fingerprints();
+  v_stage2:=public.hotel_v2_external_calendar_stage2_compatible_fingerprints();
+  if current_setting('TimeZone') is distinct from v_locked.incoming_timezone
+     or v_property is distinct from v_locked.property_fingerprints
+     or public.hotel_v2_h3_2b_hash(v_property)
+       is distinct from v_locked.property_fingerprint
+     or v_stage2 is distinct from v_locked.stage2_fingerprints
+     or public.hotel_v2_external_calendar_worker_hash(v_stage2)
+       is distinct from v_locked.stage2_fingerprint
+     or v_receipt.canonical_task2_protected_fingerprints is distinct from
+       jsonb_set(v_locked.property_fingerprints,'{site_settings}',
+         to_jsonb(v_locked.site_settings_lifecycle_fingerprint),false)
+     or v_receipt.canonical_stage2_protected_fingerprints is distinct from
+       jsonb_set(v_locked.stage2_fingerprints,'{site_settings}',
+         to_jsonb(v_locked.site_settings_lifecycle_fingerprint),false)
+     or v_receipt.canonical_snapshot_source_hash is distinct from
+       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+         'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()'::regprocedure)))
+     or v_receipt.validator_source_hash is distinct from
+       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+         'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()'::regprocedure))) then
+    raise exception using errcode='55000',
+      message='hotels_v2_seven_arches_pricing_activation_locked_baseline_drift';
+  end if;
+end
+$seven_arches_pricing_activation_locked_baseline_postcondition$;
 
 notify pgrst,'reload schema';
 commit;

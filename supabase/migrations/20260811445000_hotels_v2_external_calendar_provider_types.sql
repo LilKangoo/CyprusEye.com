@@ -140,7 +140,7 @@ begin
         '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559','v'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-        '59553309d903f3357975efe4e0f48b785acd37f87b56eb7858777cfd63345f57','s'::"char",
+        'd6833acb742aead7be2e8261bc1b3ff57811a4d08240ae4270908a76a8552907','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
@@ -928,11 +928,47 @@ where foundation.id=1
   and canonical.canonical_stage2_protected_fingerprint=
     public.hotel_v2_external_calendar_worker_hash(
       canonical.canonical_stage2_protected_fingerprints)
-  and canonical.canonical_task2_protected_fingerprints=jsonb_set(
-    property.protected_fingerprints,'{site_settings}',to_jsonb(site_lifecycle.value),false)
-  and canonical.canonical_stage2_protected_fingerprints=jsonb_set(
-    owner_receipt.stage2_current_protected_fingerprints,'{site_settings}',
-    to_jsonb(site_lifecycle.value),false);
+  and array(select changed.key from (
+      select jsonb_object_keys(
+        canonical.canonical_task2_protected_fingerprints) key
+      union
+      select jsonb_object_keys(jsonb_set(property.protected_fingerprints,
+        '{site_settings}',to_jsonb(site_lifecycle.value),false)) key
+    ) changed
+    where canonical.canonical_task2_protected_fingerprints->changed.key
+      is distinct from jsonb_set(property.protected_fingerprints,
+        '{site_settings}',to_jsonb(site_lifecycle.value),false)->changed.key
+    order by changed.key collate "C")=array[
+      'partner_service_fulfillment_form_snapshots',
+      'partner_service_fulfillments','profile_referral_code_aliases',
+      'referrals','service_deposit_requests']::text[]
+  and array(select changed.key from (
+      select jsonb_object_keys(
+        canonical.canonical_stage2_protected_fingerprints) key
+      union
+      select jsonb_object_keys(jsonb_set(
+        owner_receipt.stage2_current_protected_fingerprints,
+        '{site_settings}',to_jsonb(site_lifecycle.value),false)) key
+    ) changed
+    where canonical.canonical_stage2_protected_fingerprints->changed.key
+      is distinct from jsonb_set(
+        owner_receipt.stage2_current_protected_fingerprints,
+        '{site_settings}',to_jsonb(site_lifecycle.value),false)->changed.key
+    order by changed.key collate "C")=array[
+      'partner_service_fulfillment_form_snapshots',
+      'partner_service_fulfillments','profile_referral_code_aliases',
+      'referrals','service_deposit_requests']::text[]
+  and not exists(select 1 from unnest(array[
+      'partner_service_fulfillment_form_snapshots',
+      'partner_service_fulfillments','profile_referral_code_aliases',
+      'referrals','service_deposit_requests']::text[]) required(key)
+    where not property.protected_fingerprints?required.key
+       or not canonical.canonical_task2_protected_fingerprints?required.key
+       or not owner_receipt.stage2_current_protected_fingerprints?required.key
+       or not canonical.canonical_stage2_protected_fingerprints?required.key
+       or canonical.canonical_task2_protected_fingerprints->required.key
+          is distinct from
+          canonical.canonical_stage2_protected_fingerprints->required.key);
 
 create function hotels_v2_private.hotel_external_calendar_evolve_function(
   p_signature text,p_needle text,p_replacement text,p_expected_count integer
@@ -1124,12 +1160,53 @@ begin
         and canonical.canonical_stage2_protected_fingerprint=
           public.hotel_v2_external_calendar_worker_hash(
             canonical.canonical_stage2_protected_fingerprints)
-        and canonical.canonical_task2_protected_fingerprints=jsonb_set(
-          property.protected_fingerprints,'{site_settings}',
-          to_jsonb(v_receipt.canonical_site_settings_lifecycle_fingerprint),false)
-        and canonical.canonical_stage2_protected_fingerprints=jsonb_set(
-          owner_receipt.stage2_current_protected_fingerprints,'{site_settings}',
-          to_jsonb(v_receipt.canonical_site_settings_lifecycle_fingerprint),false))
+        and array(select changed.key from (
+            select jsonb_object_keys(
+              canonical.canonical_task2_protected_fingerprints) key
+            union
+            select jsonb_object_keys(jsonb_set(property.protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                v_receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+          ) changed
+          where canonical.canonical_task2_protected_fingerprints->changed.key
+            is distinct from jsonb_set(property.protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                v_receipt.canonical_site_settings_lifecycle_fingerprint),false)
+                ->changed.key
+          order by changed.key collate "C")=array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]
+        and array(select changed.key from (
+            select jsonb_object_keys(
+              canonical.canonical_stage2_protected_fingerprints) key
+            union
+            select jsonb_object_keys(jsonb_set(
+              owner_receipt.stage2_current_protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                v_receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+          ) changed
+          where canonical.canonical_stage2_protected_fingerprints->changed.key
+            is distinct from jsonb_set(
+              owner_receipt.stage2_current_protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                v_receipt.canonical_site_settings_lifecycle_fingerprint),false)
+                ->changed.key
+          order by changed.key collate "C")=array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]
+        and not exists(select 1 from unnest(array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]) required(key)
+          where not property.protected_fingerprints?required.key
+             or not canonical.canonical_task2_protected_fingerprints?required.key
+             or not owner_receipt.stage2_current_protected_fingerprints?required.key
+             or not canonical.canonical_stage2_protected_fingerprints?required.key
+             or canonical.canonical_task2_protected_fingerprints->required.key
+                is distinct from
+                canonical.canonical_stage2_protected_fingerprints->required.key))
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_h3_2b_protected_fingerprints()'=
       '7ca318d9b7b441fa67b1f67b95100d4feee5cf9e1e336a826cbe7408edac97f2'
@@ -1168,7 +1245,7 @@ begin
       '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()'=
-      '59553309d903f3357975efe4e0f48b785acd37f87b56eb7858777cfd63345f57'
+      'd6833acb742aead7be2e8261bc1b3ff57811a4d08240ae4270908a76a8552907'
     and v_receipt.prior_reviewed_pricing_catalog_fingerprint is not distinct from
       (select foundation.catalog_fingerprint
        from public.hotel_seven_arches_reviewed_pricing_foundation_receipts foundation
@@ -2304,6 +2381,8 @@ begin
     if v_result is null
        or (select count(*)
          from public.hotel_admin_availability_foundation_evolution_receipts)<>1
+       or (select count(*)
+         from public.hotel_seven_arches_task2_stage2_compatibility_receipts)<>1
        or v_activation.contract_version<>
          'hotels_v2_seven_arches_pricing_activation_evolution_v1'
        or v_provider.historical_stage2_site_settings_raw_fingerprint
@@ -2320,10 +2399,9 @@ begin
        or v_provider.canonical_site_settings_lifecycle_fingerprint
          is distinct from v_site_settings_fingerprint
        or v_activation.before_stage2_protected_fingerprints is distinct from
-         (select jsonb_set(owner_receipt.stage2_current_protected_fingerprints,
-            '{site_settings}',to_jsonb(v_site_settings_fingerprint),false)
-          from public.hotel_admin_availability_foundation_evolution_receipts owner_receipt
-          where owner_receipt.id=1)
+         (select canonical.canonical_stage2_protected_fingerprints
+          from public.hotel_seven_arches_task2_stage2_compatibility_receipts canonical
+          where canonical.id=1)
        or not public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
        or not public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()
        or not public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()
@@ -2471,12 +2549,51 @@ select coalesce((select
     and canonical.canonical_stage2_protected_fingerprint=
       public.hotel_v2_external_calendar_worker_hash(
         canonical.canonical_stage2_protected_fingerprints)
-    and canonical.canonical_task2_protected_fingerprints=jsonb_set(
-      property.protected_fingerprints,'{site_settings}',
-      to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
-    and canonical.canonical_stage2_protected_fingerprints=jsonb_set(
-      owner_receipt.stage2_current_protected_fingerprints,'{site_settings}',
-      to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
+    and array(select changed.key from (
+        select jsonb_object_keys(
+          canonical.canonical_task2_protected_fingerprints) key
+        union
+        select jsonb_object_keys(jsonb_set(property.protected_fingerprints,
+          '{site_settings}',to_jsonb(
+            receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+      ) changed
+      where canonical.canonical_task2_protected_fingerprints->changed.key
+        is distinct from jsonb_set(property.protected_fingerprints,
+          '{site_settings}',to_jsonb(
+            receipt.canonical_site_settings_lifecycle_fingerprint),false)->changed.key
+      order by changed.key collate "C")=array[
+        'partner_service_fulfillment_form_snapshots',
+        'partner_service_fulfillments','profile_referral_code_aliases',
+        'referrals','service_deposit_requests']::text[]
+    and array(select changed.key from (
+        select jsonb_object_keys(
+          canonical.canonical_stage2_protected_fingerprints) key
+        union
+        select jsonb_object_keys(jsonb_set(
+          owner_receipt.stage2_current_protected_fingerprints,
+          '{site_settings}',to_jsonb(
+            receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+      ) changed
+      where canonical.canonical_stage2_protected_fingerprints->changed.key
+        is distinct from jsonb_set(
+          owner_receipt.stage2_current_protected_fingerprints,
+          '{site_settings}',to_jsonb(
+            receipt.canonical_site_settings_lifecycle_fingerprint),false)->changed.key
+      order by changed.key collate "C")=array[
+        'partner_service_fulfillment_form_snapshots',
+        'partner_service_fulfillments','profile_referral_code_aliases',
+        'referrals','service_deposit_requests']::text[]
+    and not exists(select 1 from unnest(array[
+        'partner_service_fulfillment_form_snapshots',
+        'partner_service_fulfillments','profile_referral_code_aliases',
+        'referrals','service_deposit_requests']::text[]) required(key)
+      where not property.protected_fingerprints?required.key
+         or not canonical.canonical_task2_protected_fingerprints?required.key
+         or not owner_receipt.stage2_current_protected_fingerprints?required.key
+         or not canonical.canonical_stage2_protected_fingerprints?required.key
+         or canonical.canonical_task2_protected_fingerprints->required.key
+            is distinct from
+            canonical.canonical_stage2_protected_fingerprints->required.key)
     and receipt.prior_compatible_fingerprints->'site_settings'=
       to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint)
     and receipt.canonical_site_settings_helper_source_hash=
@@ -2735,7 +2852,7 @@ begin
         'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          '705e4d226dd071986a60954de6b5c970476c3e48098c7c9c7463545fbf05e8bf')
+          'a01ef78ed0301c87df0b8f76c9547e8cbf6c5d1d2238c455db41e7a7da7b9423')
       or has_function_privilege(0::oid,procedure.oid,'EXECUTE')
       or has_function_privilege('anon',procedure.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure.oid,'EXECUTE')

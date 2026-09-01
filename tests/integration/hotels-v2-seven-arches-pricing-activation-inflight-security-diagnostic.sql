@@ -963,7 +963,7 @@ begin
       '352e7e040c99044f0fb01b03656a9f3193694039afd0079567c25fb3967bbbd0',
       array['search_path=pg_catalog, public']::text[],false,'1332-1356'),
     (5,'APPLY',v_apply,
-      '8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407',
+      'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e',
       array['search_path=pg_catalog, public, auth']::text[],true,'1357-1367')
   ) item(function_order,function_name,function_oid,source_hash,path,
     authenticated_execute_expected,source_lines)), actual as (
@@ -1807,7 +1807,7 @@ begin
       and proowner='postgres'::regrole and prosecdef and provolatile='v'
       and proconfig=array['search_path=pg_catalog, public, auth']::text[]
       and encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')=
-        '8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+        'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
       and not has_function_privilege(0::oid,oid,'EXECUTE')
       and not has_function_privilege('anon',oid,'EXECUTE')
       and has_function_privilege('authenticated',oid,'EXECUTE')
@@ -2464,7 +2464,7 @@ begin
        and procedure_row.proconfig=
          array['search_path=pg_catalog, public, auth']::text[]
        and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-         'hex')='8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+         'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
        and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
        and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')

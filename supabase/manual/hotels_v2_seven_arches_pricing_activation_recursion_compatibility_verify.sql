@@ -9,7 +9,7 @@ declare
   c_admin_d_hash constant text:=
     '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a';
   c_receipt_hash constant text:=
-    '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32';
+    'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc';
   c_inert_hash constant text:=
     '190b30e05c95e7220f800284b6408659f21172dba48161163e2a364c40aa95a5';
   v_admin_d_oid oid:=to_regprocedure(
@@ -99,10 +99,10 @@ begin
   end if;
   if (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid) is distinct from
-         '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88'
+         '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid) is distinct from
-         'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9'
+         'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_activation_immutable_oid) is distinct from
          '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87'
@@ -118,7 +118,7 @@ begin
        and procedure_row.proconfig=
          array['search_path=pg_catalog, public, auth']::text[]
        and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-         'hex')='8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+         'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
        and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
        and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -139,6 +139,18 @@ begin
   if (length(v_source)-length(replace(v_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
        /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
+     or position('v_expected_baseline_delta_keys constant text[]:=array['
+       in v_source)=0
+     or position('v_task2_baseline_delta_keys is distinct from'
+       in v_source)=0
+     or position('v_stage2_baseline_delta_keys is distinct from'
+       in v_source)=0
+     or position(
+       'v_task2_stage2.canonical_task2_protected_fingerprints is distinct from'
+       in v_source)<>0
+     or position(
+       'v_task2_stage2.canonical_stage2_protected_fingerprints is distinct from'
+       in v_source)<>0
      or exists(select 1 from unnest(array[
        'hotel_v2_admin_d_current_foundation_snapshot',
        'hotel_v2_seven_arches_task2_stage2_compatibility_is_exact',

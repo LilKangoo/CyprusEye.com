@@ -218,11 +218,11 @@ begin
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()'))<>
-       'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9'
+       'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()'))<>
-       '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88'
+       '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()'))<>

@@ -175,4 +175,9 @@ update public.site_settings set hotel_external_sync_enabled=true where id=1;
 \ir ../../supabase/manual/hotels_v2_seven_arches_partner_property_proposal_review_preflight.sql
 \ir ../../supabase/migrations/20260811437000_hotels_v2_seven_arches_partner_property_proposal_review.sql
 \endif
+\if :{?seven_arches_pricing_activation_exact_six_fixture}
+\if :seven_arches_pricing_activation_exact_six_fixture
+\ir hotels-v2-seven-arches-pricing-activation-exact-six-drift-fixture.sql
+\endif
+\endif
 notify pgrst,'reload schema';

@@ -216,16 +216,16 @@ begin
   select expected.signature into v_bad_function
   from (values
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
-      '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32',
+      'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_admin_d_current_foundation_snapshot()',
       '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
-      'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9',
+      'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()',
-      '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88',
+      '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_seven_arches_pricing_activation_current_is_safe()',
       '57cabf1992e9f03f5411715b59c29aea51501aa3a91b403d36e61264c394e420',
@@ -266,7 +266,7 @@ begin
   end if;
   if exists(select 1 from (values
       ('public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)',
-        '8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407',
+        'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e',
         'v'::"char"),
       ('public.hotel_v2_admin_get_seven_arches_pricing_activation()',
         'ad55a2b1a29fb2e81f2e3f42b445f280a47f5b497590ca92c1cf110dd6b23b0d',
@@ -570,7 +570,7 @@ begin
         on procedure_row.oid=to_regprocedure(expected.signature)),
     'lower_function_sources',jsonb_build_object(
       'accepted_activation_receipt_validator',
-        '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32',
+        'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc',
       'admin_d',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_admin_d_current_foundation_snapshot()'::regprocedure),'UTF8'),'sha256'),'hex'),
       'canonical_projector',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
@@ -2200,7 +2200,7 @@ begin
          v_site_settings_lifecycle)
      or v_receipt.historical_activation_lineage#>>
        '{lower_function_sources,accepted_activation_receipt_validator}' is distinct from
-       '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32'
+       'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc'
      or v_receipt.historical_activation_lineage_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(v_receipt.historical_activation_lineage)
      or v_receipt.historical_activation_lineage is distinct from
@@ -2260,10 +2260,10 @@ begin
         '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a',
         's'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
-        'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9',
+        'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838',
         's'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()',
-        '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88',
+        '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0',
         's'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_pricing_activation_current_is_safe()',
         '57cabf1992e9f03f5411715b59c29aea51501aa3a91b403d36e61264c394e420',
@@ -2281,7 +2281,7 @@ begin
         'ddd7d1995810b1006d5fdbaca64560703ad98f5b4cfae1174b0595b8f41d7ad0',
         'v'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)',
-        '8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407',
+        'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e',
         'v'::"char",array['search_path=pg_catalog, public, auth']::text[],true),
       ('public.hotel_v2_seven_arches_pricing_activation_immutable()',
         '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87',

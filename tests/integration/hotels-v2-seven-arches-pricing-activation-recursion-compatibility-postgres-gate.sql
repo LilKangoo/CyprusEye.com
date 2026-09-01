@@ -124,10 +124,10 @@ begin
        from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_admin_d_current_foundation_snapshot()'))<>
        '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a'
-     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
-       from pg_proc where oid=to_regprocedure(
+    or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+      from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()'))<>
-       '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32' then
+       'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc' then
     raise exception 'pricing_activation_recursion_pre_activation_state_invalid';
   end if;
 end

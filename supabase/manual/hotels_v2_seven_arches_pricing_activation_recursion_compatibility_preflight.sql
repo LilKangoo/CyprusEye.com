@@ -87,13 +87,13 @@ begin
          'a794d528a3843009b65ba0927c508c8bf2b9f5ffdfce97f593ac81d6769526c6'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid)<>
-         '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88'
+         '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid)<>
-         'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9'
+         'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_apply_oid)<>
-         '8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+         'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_activation_immutable_oid)<>
          '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87'

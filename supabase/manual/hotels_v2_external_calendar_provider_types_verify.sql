@@ -114,7 +114,7 @@ begin
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
         and receipt.provider_bridge_source_hash=
-          '705e4d226dd071986a60954de6b5c970476c3e48098c7c9c7463545fbf05e8bf'
+          'a01ef78ed0301c87df0b8f76c9547e8cbf6c5d1d2238c455db41e7a7da7b9423'
         and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
         and receipt.historical_property_site_settings_raw_fingerprint=
@@ -141,12 +141,53 @@ begin
           (select encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
             'sha256'),'hex') from pg_proc procedure_row where procedure_row.oid=
               'public.hotel_v2_external_calendar_site_settings_fingerprint()'::regprocedure)
-        and canonical.canonical_task2_protected_fingerprints=jsonb_set(
-          property.protected_fingerprints,'{site_settings}',
-          to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
-        and canonical.canonical_stage2_protected_fingerprints=jsonb_set(
-          owner_receipt.stage2_current_protected_fingerprints,'{site_settings}',
-          to_jsonb(receipt.canonical_site_settings_lifecycle_fingerprint),false)
+        and array(select changed.key from (
+            select jsonb_object_keys(
+              canonical.canonical_task2_protected_fingerprints) key
+            union
+            select jsonb_object_keys(jsonb_set(property.protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+          ) changed
+          where canonical.canonical_task2_protected_fingerprints->changed.key
+            is distinct from jsonb_set(property.protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                receipt.canonical_site_settings_lifecycle_fingerprint),false)
+                ->changed.key
+          order by changed.key collate "C")=array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]
+        and array(select changed.key from (
+            select jsonb_object_keys(
+              canonical.canonical_stage2_protected_fingerprints) key
+            union
+            select jsonb_object_keys(jsonb_set(
+              owner_receipt.stage2_current_protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                receipt.canonical_site_settings_lifecycle_fingerprint),false)) key
+          ) changed
+          where canonical.canonical_stage2_protected_fingerprints->changed.key
+            is distinct from jsonb_set(
+              owner_receipt.stage2_current_protected_fingerprints,
+              '{site_settings}',to_jsonb(
+                receipt.canonical_site_settings_lifecycle_fingerprint),false)
+                ->changed.key
+          order by changed.key collate "C")=array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]
+        and not exists(select 1 from unnest(array[
+            'partner_service_fulfillment_form_snapshots',
+            'partner_service_fulfillments','profile_referral_code_aliases',
+            'referrals','service_deposit_requests']::text[]) required(key)
+          where not property.protected_fingerprints?required.key
+             or not canonical.canonical_task2_protected_fingerprints?required.key
+             or not owner_receipt.stage2_current_protected_fingerprints?required.key
+             or not canonical.canonical_stage2_protected_fingerprints?required.key
+             or canonical.canonical_task2_protected_fingerprints->required.key
+                is distinct from
+                canonical.canonical_stage2_protected_fingerprints->required.key)
         and receipt.site_settings_activation_receipt_fingerprint=
           public.hotel_v2_external_calendar_worker_hash(jsonb_set(
             to_jsonb(site_activation),'{created_at}',to_jsonb(

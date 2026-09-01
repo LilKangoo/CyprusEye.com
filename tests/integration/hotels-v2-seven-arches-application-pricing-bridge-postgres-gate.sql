@@ -53,28 +53,36 @@ begin
       language sql stable security definer set search_path=pg_catalog
       as $fixture$
         select p_coupon_code='UTC_BOUNDARY'
-            and (p_service_at at time zone 'UTC')::date=current_date+45,
+            and (p_service_at at time zone 'UTC')::date=
+              (transaction_timestamp() at time zone 'UTC')::date+45,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then 'Coupon applied' else 'Coupon not found' end,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then '42000000-0000-4000-8000-000000000001'::uuid else null::uuid end,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then p_coupon_code else null::text end,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then 'fixed' else null::text end,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then 5::numeric else null::numeric end,
           round(greatest(coalesce(p_base_total,0),0),2),
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then 5::numeric else 0::numeric end,
           case when p_coupon_code='UTC_BOUNDARY'
-              and (p_service_at at time zone 'UTC')::date=current_date+45
+              and (p_service_at at time zone 'UTC')::date=
+                (transaction_timestamp() at time zone 'UTC')::date+45
             then round(greatest(coalesce(p_base_total,0)-5,0),2)
             else round(greatest(coalesce(p_base_total,0),0),2) end,
           'EUR',null::uuid,null::integer
@@ -312,7 +320,8 @@ begin
   v_request:=jsonb_build_object(
     'contract_version','hotels_v2_seven_arches_public_quote_request_v1',
     'hotel_id',c_hotel,'room_type_id',c_upper_room,'room_rate_id',c_upper_rate,
-    'arrival_date',current_date+45,'departure_date',current_date+47,
+    'arrival_date',(transaction_timestamp() at time zone 'UTC')::date+45,
+    'departure_date',(transaction_timestamp() at time zone 'UTC')::date+47,
     'guest_count',2,'selected_extra_ids','[]'::jsonb);
   set local role anon;
   perform set_config('request.jwt.claims','{"role":"anon"}',true);

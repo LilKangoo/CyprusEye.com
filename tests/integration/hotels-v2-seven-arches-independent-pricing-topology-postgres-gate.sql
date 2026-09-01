@@ -1,8 +1,22 @@
 \set ON_ERROR_STOP on
+\set seven_arches_run_task2_accept true
+\if :{?seven_arches_pricing_activation_exact_six_fixture}
+\if :seven_arches_pricing_activation_exact_six_fixture
+\set seven_arches_run_task2_accept false
+\else
 \unset seven_arches_owner_live_drift_fixture
+\endif
+\else
+\unset seven_arches_owner_live_drift_fixture
+\endif
 \ir hotels-v2-seven-arches-pricing-activation-postgres-base.sql
 
 -- Production order: the accepted Task2 property proposal precedes 114400.
+-- The exact-six production-boundary fixture deliberately preserves the
+-- already-installed 114370 foundation without creating an additional local
+-- Property mutation, so its protected delta remains exactly the six proven
+-- production keys.
+\if :seven_arches_run_task2_accept
 begin;
 do $task2_accept_before_independent_pricing$
 declare
@@ -46,6 +60,7 @@ begin
 end
 $task2_accept_before_independent_pricing$;
 commit;
+\endif
 
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_preflight.sql
 \ir ../../supabase/migrations/20260811440000_hotels_v2_seven_arches_pricing_activation.sql
@@ -394,7 +409,7 @@ begin
   end if;
   for v_expected in select * from (values
     ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-      '59553309d903f3357975efe4e0f48b785acd37f87b56eb7858777cfd63345f57'),
+      'd6833acb742aead7be2e8261bc1b3ff57811a4d08240ae4270908a76a8552907'),
     ('public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint()',
       '3fa267946795c33b5c23d987d03926c1e36c0e69e10129bd4d31430c4d3139f5'),
     ('public.hotel_v2_h3_1p_allocation_preview(uuid)',
@@ -410,7 +425,7 @@ begin
     ('public.hotel_v2_admin_c_validate_pricing_graph(uuid)',
       '03f787a5e00fbbe65bdcaf1a96529512f60775074a1fdf4dcdd04104c7c7d335'),
     ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-      '5b1a7cfb9be59cffd64c9e09533ff8fe0f991cb5df4d1acf22cac98df26e7be4'),
+      '63165b5cfa3eb9d6ea1043c400b5f1db7f5a650d35716fe7eb175a10c95b51cb'),
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'),
     ('public.hotel_v2_seven_arches_pricing_activation_snapshot()',
@@ -1147,8 +1162,13 @@ begin
           execute 'alter table public.site_settings add column '
             'car_threshold_daily_rates_enabled boolean not null default false';
         end if;
-        execute 'update public.site_settings set car_multi_city_mapped_enabled=true,'
-          'car_threshold_daily_rates_enabled=true where id=1';
+        -- Toggle the unrelated flags so this probe changes the raw row both
+        -- from the legacy all-false fixture and from the production-shaped
+        -- owner-drift fixture where they are already true.
+        execute 'update public.site_settings set '
+          'car_multi_city_mapped_enabled=not car_multi_city_mapped_enabled,'
+          'car_threshold_daily_rates_enabled=not car_threshold_daily_rates_enabled '
+          'where id=1';
       else
         raise exception using errcode='22023',
           message='independent_pricing_site_settings_case_invalid';

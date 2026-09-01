@@ -109,7 +109,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88'
+           'hex')='2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -121,7 +121,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9'
+           'hex')='f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -133,7 +133,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public, auth']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+           'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -408,6 +408,15 @@ declare
   v_permission_exact boolean:=false;
   v_audit_exact boolean:=false;
   v_task2_receipt_topology_exact boolean:=false;
+  v_task2_baseline_delta_keys text[];
+  v_stage2_baseline_delta_keys text[];
+  v_expected_baseline_delta_keys constant text[]:=array[
+    'partner_service_fulfillment_form_snapshots',
+    'partner_service_fulfillments',
+    'profile_referral_code_aliases',
+    'referrals',
+    'service_deposit_requests',
+    'site_settings']::text[];
   v_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()');
   v_admin_d_oid oid:=to_regprocedure(
@@ -472,6 +481,24 @@ begin
   v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
   v_current:=v_canonical->'task2_protected_fingerprints';
   v_current_stage2:=v_canonical->'stage2_protected_fingerprints';
+  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_task2_baseline_delta_keys
+  from jsonb_each(v_task2_stage2.canonical_task2_protected_fingerprints)
+    receipt_entry
+  full join jsonb_each(v_task2.protected_fingerprints) foundation_entry
+    on foundation_entry.key=receipt_entry.key
+  where receipt_entry.value is distinct from foundation_entry.value;
+  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
+      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
+      array[]::text[])
+    into v_stage2_baseline_delta_keys
+  from jsonb_each(v_task2_stage2.canonical_stage2_protected_fingerprints)
+    receipt_entry
+  full join jsonb_each(v_owner.stage2_current_protected_fingerprints)
+    foundation_entry on foundation_entry.key=receipt_entry.key
+  where receipt_entry.value is distinct from foundation_entry.value;
 
   v_task2_receipt_topology_exact:=coalesce(
     v_task2_stage2.id=1
@@ -639,7 +666,7 @@ begin
      or has_function_privilege('service_role',v_task2_validator_oid,'EXECUTE')
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid)<>
-       '1a14ec7b271861cc5bfc9a683d26e3ef2f2d8a88a86771915a34f503d8a2ff88'
+       '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
      or (select proowner from pg_proc where oid=v_projector_oid)
        <>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_projector_oid)
@@ -652,7 +679,7 @@ begin
      or has_function_privilege('service_role',v_projector_oid,'EXECUTE')
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid)<>
-       'c4860bf5c3eb4219a7fb19e386138fcae8b05292dd728d281c02c41eb9b7b8b9'
+       'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
      or not exists(select 1 from pg_proc procedure_row
        where procedure_row.oid=v_apply_oid
          and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -660,7 +687,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public, auth']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='8c304f78fe93ca8a944443d668ccd82879374379d9520a69b160a2afde0d3407'
+           'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -718,12 +745,21 @@ begin
      or v_task2_stage2.validator_source_hash is distinct from
        public.hotel_v2_h3_2b_hash(to_jsonb(
          pg_get_functiondef(v_task2_validator_oid)))
-     or v_task2_stage2.canonical_task2_protected_fingerprints is distinct from
-       jsonb_set(v_task2.protected_fingerprints,'{site_settings}',
-         v_canonical->'site_settings_lifecycle_fingerprint',false)
-     or v_task2_stage2.canonical_stage2_protected_fingerprints is distinct from
-       jsonb_set(v_owner.stage2_current_protected_fingerprints,'{site_settings}',
-         v_canonical->'site_settings_lifecycle_fingerprint',false)
+     or not (v_task2_stage2.canonical_task2_protected_fingerprints
+       ?& v_expected_baseline_delta_keys)
+     or not (v_task2.protected_fingerprints ?& v_expected_baseline_delta_keys)
+     or v_task2_baseline_delta_keys is distinct from
+       v_expected_baseline_delta_keys
+     or not (v_task2_stage2.canonical_stage2_protected_fingerprints
+       ?& v_expected_baseline_delta_keys)
+     or not (v_owner.stage2_current_protected_fingerprints
+       ?& v_expected_baseline_delta_keys)
+     or v_stage2_baseline_delta_keys is distinct from
+       v_expected_baseline_delta_keys
+     or v_task2_stage2.canonical_task2_protected_fingerprints->>'site_settings'
+       is distinct from v_canonical->>'site_settings_lifecycle_fingerprint'
+     or v_task2_stage2.canonical_stage2_protected_fingerprints->>'site_settings'
+       is distinct from v_canonical->>'site_settings_lifecycle_fingerprint'
      or not exists(select 1 from pg_class relation
        where relation.oid=
          'public.hotel_seven_arches_pricing_activation_evolution_receipts'::regclass
@@ -1379,7 +1415,7 @@ begin
          '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         '305f00d9c47c0366e79afe107eb4c1b41850bfb61b3c55a0c4461ca2481e8f32'
+         'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc'
      or (select proowner from pg_proc where oid=v_admin_d_oid)<>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_admin_d_oid)
      or (select provolatile from pg_proc where oid=v_admin_d_oid)<>'s'
@@ -1416,6 +1452,18 @@ begin
   if (length(v_source)-length(replace(v_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
        /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
+     or position('v_expected_baseline_delta_keys constant text[]:=array['
+       in v_source)=0
+     or position('v_task2_baseline_delta_keys is distinct from'
+       in v_source)=0
+     or position('v_stage2_baseline_delta_keys is distinct from'
+       in v_source)=0
+     or position(
+       'v_task2_stage2.canonical_task2_protected_fingerprints is distinct from'
+       in v_source)<>0
+     or position(
+       'v_task2_stage2.canonical_stage2_protected_fingerprints is distinct from'
+       in v_source)<>0
      or exists(select 1 from unnest(array[
        'hotel_v2_admin_d_current_foundation_snapshot',
        'hotel_v2_seven_arches_task2_stage2_compatibility_is_exact',
