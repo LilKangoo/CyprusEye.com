@@ -951,7 +951,7 @@ begin
 
   with expected as (select * from (values
     (1,'CONTEXT_GUARD'::text,v_context_guard,
-      '3fa5370b56cc862c72b376e0dcd8aad51ca00e982d23c2676d7a796775184f9f'::text,
+      '6e9893cd347504be63ab5699e02a592f6e81355c5b31da31ccaca2dd6ee9c5f0'::text,
       array['search_path=pg_catalog, public, auth']::text[],false,'1332-1356'::text),
     (2,'REVIEW_GUARD',v_review_guard,
       '23ff92a30533948004130655e1e81b79386f1416afdd413c38816b0573220758',
@@ -1784,7 +1784,7 @@ begin
       and tgfoid=v_admin_guard_oid and tgtype=27 and tgenabled='O'
       and not tgisinternal)
     and not exists(select 1 from (values
-      (v_context_guard_oid,'3fa5370b56cc862c72b376e0dcd8aad51ca00e982d23c2676d7a796775184f9f',
+      (v_context_guard_oid,'6e9893cd347504be63ab5699e02a592f6e81355c5b31da31ccaca2dd6ee9c5f0',
         array['search_path=pg_catalog, public, auth']::text[]),
       (v_review_guard_oid,'23ff92a30533948004130655e1e81b79386f1416afdd413c38816b0573220758',
         array['search_path=pg_catalog, public, auth']::text[]),

@@ -120,6 +120,8 @@ begin
       from public.hotel_seven_arches_pricing_activation_evolution_receipts)<>0
      or public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
        is not true
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage()->>'contract_version'
+       is distinct from 'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_admin_d_current_foundation_snapshot()'))<>
@@ -127,7 +129,7 @@ begin
     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
       from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()'))<>
-       'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc' then
+       '130511313d4df1770f0687e94825d04fff5f095790c1b79fd8c2423a89b4bee8' then
     raise exception 'pricing_activation_recursion_pre_activation_state_invalid';
   end if;
 end
@@ -301,7 +303,7 @@ declare
   v_passed_probe_labels text[]:='{}'::text[];
   v_required_probe_labels constant text[]:=array[
     'activation_receipt_missing','activation_receipt_duplicate',
-    'before_after_boundary','task2_validator_source','apply_source',
+    'before_after_boundary','task2_validator_source','scoped_lineage_source','apply_source',
     'function_owner','function_security_definer','function_search_path','function_acl',
     'admin_d_mapping','parity_binding','hotel_binding','partner_binding',
     'assignment_binding','review_correlation_binding','failed_activation_rollback'
@@ -484,6 +486,30 @@ begin
     raise exception 'pricing_activation_recursion_task2_validator_pin_probe_failed:%',v_message;
   end if;
   v_passed_probe_labels:=array_append(v_passed_probe_labels,'task2_validator_source');
+
+  -- The immutable Task2 receipt independently pins the long-lived scoped
+  -- Hotels lineage projector.  Broad operational maps remain receipt history,
+  -- never a permanent current-state equality requirement.
+  v_failed:=false;
+  begin
+    alter table public.hotel_seven_arches_task2_stage2_compatibility_receipts
+      disable trigger hotel_seven_arches_task2_stage2_compatibility_receipt_immutable;
+    update public.hotel_seven_arches_task2_stage2_compatibility_receipts
+      set scoped_lineage_source_hash=repeat('0',64) where id=1;
+    if public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() then
+      raise exception 'pricing_activation_recursion_scoped_lineage_pin_drift_accepted';
+    end if;
+    raise exception 'pricing_activation_recursion_scoped_lineage_pin_probe_rollback';
+  exception when raise_exception then
+    get stacked diagnostics v_message=message_text;
+    v_failed:=v_message='pricing_activation_recursion_scoped_lineage_pin_probe_rollback';
+  end;
+  if not v_failed
+     or public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() is not true then
+    raise exception 'pricing_activation_recursion_scoped_lineage_pin_probe_failed:%',
+      v_message;
+  end if;
+  v_passed_probe_labels:=array_append(v_passed_probe_labels,'scoped_lineage_source');
 
   -- A body-only Apply source drift is rejected even when signature/security
   -- remain unchanged.
@@ -690,6 +716,9 @@ begin
   for v_probe in select * from (values
     ('projector','public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()'),
     ('task2_validator','public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()'),
+    ('scoped_lineage','public.hotel_v2_seven_arches_pricing_scoped_lineage()'),
+    ('transaction_preservation',
+      'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'),
     ('immutable','public.hotel_v2_seven_arches_pricing_activation_immutable()'),
     ('insert_guard','public.hotel_v2_seven_arches_pricing_activation_evolution_insert_guard()'),
     ('review_guard','public.hotel_v2_seven_arches_pricing_activation_review_guard()')
@@ -735,7 +764,19 @@ begin
     ('task2_validator_secdef',
       'alter function public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact() security invoker'),
     ('task2_validator_acl',
-      'grant execute on function public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact() to authenticated')
+      'grant execute on function public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact() to authenticated'),
+    ('scoped_lineage_owner',
+      'alter function public.hotel_v2_seven_arches_pricing_scoped_lineage() owner to authenticated'),
+    ('scoped_lineage_secdef',
+      'alter function public.hotel_v2_seven_arches_pricing_scoped_lineage() security invoker'),
+    ('scoped_lineage_acl',
+      'grant execute on function public.hotel_v2_seven_arches_pricing_scoped_lineage() to authenticated'),
+    ('transaction_preservation_owner',
+      'alter function public.hotel_v2_7a_pricing_activation_transaction_is_preserved() owner to authenticated'),
+    ('transaction_preservation_secdef',
+      'alter function public.hotel_v2_7a_pricing_activation_transaction_is_preserved() security invoker'),
+    ('transaction_preservation_acl',
+      'grant execute on function public.hotel_v2_7a_pricing_activation_transaction_is_preserved() to authenticated')
   ) probe(label,mutation) loop
     v_failed:=false;
     begin
@@ -795,6 +836,34 @@ begin
      or public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() is not true then
     raise exception 'pricing_activation_recursion_task2_validator_path_probe_failed:%',v_message;
   end if;
+
+  for v_probe in select * from (values
+    ('scoped_lineage',
+      'alter function public.hotel_v2_seven_arches_pricing_scoped_lineage() set search_path=public'),
+    ('transaction_preservation',
+      'alter function public.hotel_v2_7a_pricing_activation_transaction_is_preserved() set search_path=public')
+  ) probe(label,mutation) loop
+    v_failed:=false;
+    begin
+      execute v_probe.mutation;
+      if public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() then
+        raise exception 'pricing_activation_recursion_scoped_path_drift_accepted:%',
+          v_probe.label;
+      end if;
+      raise exception 'pricing_activation_recursion_scoped_path_probe_rollback:%',
+        v_probe.label;
+    exception when raise_exception then
+      get stacked diagnostics v_message=message_text;
+      v_failed:=v_message='pricing_activation_recursion_scoped_path_probe_rollback:'||
+        v_probe.label;
+    end;
+    if not v_failed
+       or public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()
+         is not true then
+      raise exception 'pricing_activation_recursion_scoped_path_probe_failed:%:%',
+        v_probe.label,v_message;
+    end if;
+  end loop;
 
   -- All three functions protecting the trusted review/receipt rows are pinned.
   for v_probe in select * from (values
@@ -1169,20 +1238,13 @@ begin
     if v_value->>'status'<>'active' then
       raise exception 'pricing_activation_recursion_repeated_snapshot_failed:%',v_index;
     end if;
-    v_value:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
-    if v_value->'task2_protected_fingerprints' is distinct from
-         (select after_protected_fingerprints
-          from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1)
-       or v_value->>'task2_protected_fingerprint' is distinct from
-         (select after_protected_fingerprint
-          from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1)
-       or v_value->'stage2_protected_fingerprints' is distinct from
-         (select after_stage2_protected_fingerprints
-          from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1)
-       or v_value->>'stage2_protected_fingerprint' is distinct from
-         (select after_stage2_protected_fingerprint
-          from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1) then
-      raise exception 'pricing_activation_recursion_repeated_canonical_failed:%',v_index;
+    v_value:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
+    if v_value->>'contract_version' is distinct from
+         'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+       or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+         is not true then
+      raise exception 'pricing_activation_recursion_repeated_scoped_lineage_failed:%',
+        v_index;
     end if;
     v_value:=public.hotel_v2_admin_d_current_foundation_snapshot();
     if v_value->>'contract_version'<>'hotels_v2_admin_d_current_foundation_v1' then

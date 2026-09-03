@@ -6,7 +6,8 @@ set transaction read only;
 set local statement_timeout='180s';
 
 do $preflight$
-declare c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+declare
+  c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
 begin
   if to_regclass('hotels_v2_private.hotel_external_calendar_foundation_receipts') is null
      or to_regclass('public.hotel_seven_arches_pricing_activation_evolution_receipts') is null
@@ -23,6 +24,10 @@ begin
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_activation_current_is_safe()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()') is null
+     or to_regprocedure('public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
+     or to_regprocedure(
+       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
+       is null
      or to_regprocedure(
        'public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()') is null
      or to_regprocedure('public.hotel_v2_public_quote_seven_arches_core(jsonb)') is null
@@ -41,6 +46,13 @@ begin
      or not public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
      or not public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
      or not public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage() is null
+     or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage()->>'contract_version'
+       is distinct from 'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage()->>
+       'site_settings_lifecycle_fingerprint'
+       is distinct from public.hotel_v2_external_calendar_site_settings_fingerprint()
      or not public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()
      or not public.hotel_v2_external_calendar_provider_sources_are_attributable()
      or public.hotel_v2_external_calendar_site_settings_fingerprint() is null
@@ -83,7 +95,19 @@ begin
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-        '855541beed72776c3cb928bb125ee9ee2505db5d774bb73dbf1db44cc95c3927','s'::"char",
+        '61556afaeb2359b1850dd517c655cc6d05aa1babdaf63bf31b0ad53de18aff7b','s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',
+        '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0','s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
+        'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3','s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()',
+        '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95','s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',
+        '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()',
         'c0e257ae4a8bbf8fae16270025dbbd34490ff39ebeda1733e26de1215b372e0e','s'::"char",
@@ -105,6 +129,38 @@ begin
         is distinct from expected.source_hash) then
     raise exception using errcode='55000',
       message='hotels_v2_external_calendar_provider_preflight_source_drift';
+  end if;
+
+  if not exists(select 1 from pg_proc procedure_row
+      where procedure_row.oid=
+          'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure
+        and procedure_row.proowner='postgres'::regrole
+        and procedure_row.prosecdef
+        and procedure_row.provolatile='s'
+        and procedure_row.proconfig=
+          array['search_path=pg_catalog, public']::text[]
+        and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_preflight_scoped_lineage_security_drift';
+  end if;
+
+  if not exists(select 1 from pg_proc procedure_row
+      where procedure_row.oid=
+          'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure
+        and procedure_row.proowner='postgres'::regrole
+        and procedure_row.prosecdef
+        and procedure_row.provolatile='s'
+        and procedure_row.proconfig=
+          array['search_path=pg_catalog, public']::text[]
+        and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+        and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
+    raise exception using errcode='55000',
+      message='hotels_v2_external_calendar_provider_preflight_transaction_preservation_security_drift';
   end if;
 
   if not exists(select 1 from hotels_v2_private.hotel_external_calendar_foundation_receipts receipt
@@ -134,11 +190,12 @@ begin
 end
 $preflight$;
 
-select 'hotels_v2_external_calendar_provider_types_preflight_v2' contract_version,
+select 'hotels_v2_external_calendar_provider_types_preflight_v3' contract_version,
   1 activation_receipt_count,1 topology_receipt_count,
   (select count(*)::integer from public.hotel_seven_arches_reviewed_pricing_evolution_receipts)
     reviewed_pricing_receipt_count,
   2 seven_arches_room_count,0 configured_provider_source_count,
-  true site_settings_representation_bridge_exact,
+  true site_settings_representation_bridge_exact,true pricing_scoped_lineage_exact,
+  true pricing_transaction_preservation_exact,
   true accepted_pricing_lineage_exact,true ready;
 commit;

@@ -779,4 +779,8 @@ select 'HOTELS_V2_7A_REVIEWED_PRICING_EVOLUTION_POSTGRES_GATE_OK' sentinel,
     guest_one_mismatches,
   public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
     receipt_chain_exact,
+  encode(extensions.digest(convert_to((select procedure_row.prosrc
+    from pg_proc procedure_row where procedure_row.oid=
+      'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure),
+    'UTF8'),'sha256'),'hex') topology_prosrc_sha256,
   30 negative_probes;

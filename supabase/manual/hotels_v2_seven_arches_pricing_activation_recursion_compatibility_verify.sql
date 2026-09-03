@@ -9,7 +9,7 @@ declare
   c_admin_d_hash constant text:=
     '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a';
   c_receipt_hash constant text:=
-    'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc';
+    '4348650219c9355a2ff4259520b2d2582902cb9be7c0cb6fc88131938c18939b';
   c_inert_hash constant text:=
     '190b30e05c95e7220f800284b6408659f21172dba48161163e2a364c40aa95a5';
   v_admin_d_oid oid:=to_regprocedure(
@@ -22,6 +22,10 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()');
   v_projector_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
+  v_scoped_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_transaction_preservation_oid oid:=to_regprocedure(
+    'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
     'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)');
   v_activation_immutable_oid oid:=to_regprocedure(
@@ -33,6 +37,7 @@ declare
   v_admin_d jsonb;
   v_activation jsonb;
   v_canonical jsonb;
+  v_scoped_lineage jsonb;
   v_promotion jsonb;
   v_source text;
   v_pricing_receipt
@@ -42,6 +47,7 @@ declare
 begin
   if v_admin_d_oid is null or v_receipt_oid is null or v_inert_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
+     or v_scoped_lineage_oid is null or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
      or v_activation_insert_guard_oid is null or v_review_guard_oid is null
@@ -76,6 +82,10 @@ begin
         array['search_path=pg_catalog, public']::text[]),
       (v_projector_oid,true,'s'::"char",
         array['search_path=pg_catalog, public']::text[]),
+      (v_scoped_lineage_oid,true,'s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      (v_transaction_preservation_oid,true,'s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
       (v_activation_immutable_oid,true,'v'::"char",
         array['search_path=pg_catalog']::text[]),
       (v_activation_insert_guard_oid,true,'v'::"char",
@@ -99,10 +109,16 @@ begin
   end if;
   if (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid) is distinct from
-         '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
+         '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid) is distinct from
-         'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
+         'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3'
+     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+       from pg_proc where oid=v_scoped_lineage_oid) is distinct from
+         '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0'
+     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+       from pg_proc where oid=v_transaction_preservation_oid) is distinct from
+         '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_activation_immutable_oid) is distinct from
          '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87'
@@ -118,7 +134,7 @@ begin
        and procedure_row.proconfig=
          array['search_path=pg_catalog, public, auth']::text[]
        and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-         'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
+         'hex')='b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6'
        and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
        and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -139,12 +155,12 @@ begin
   if (length(v_source)-length(replace(v_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
        /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
-     or position('v_expected_baseline_delta_keys constant text[]:=array['
-       in v_source)=0
-     or position('v_task2_baseline_delta_keys is distinct from'
-       in v_source)=0
-     or position('v_stage2_baseline_delta_keys is distinct from'
-       in v_source)=0
+     or (length(v_source)-length(replace(v_source,
+       'v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();','')))
+       /length('v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();')<>1
+     or position('v_expected_baseline_delta_keys' in v_source)<>0
+     or position('v_task2_baseline_delta_keys' in v_source)<>0
+     or position('v_stage2_baseline_delta_keys' in v_source)<>0
      or position(
        'v_task2_stage2.canonical_task2_protected_fingerprints is distinct from'
        in v_source)<>0
@@ -168,7 +184,13 @@ begin
       message='hotels_v2_seven_arches_pricing_activation_recursion_verify_receipt_edge_mismatch';
   end if;
   if (select count(*)
-      from public.hotel_seven_arches_task2_stage2_compatibility_receipts)<>1 then
+      from public.hotel_seven_arches_task2_stage2_compatibility_receipts)<>1
+     or (select count(*) from pg_attribute attribute where attribute.attrelid=
+       'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
+       and attribute.attnum>0 and not attribute.attisdropped)<>10
+     or (select count(*) from pg_constraint constraint_row where
+       constraint_row.conrelid=
+         'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass)<>10 then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_pricing_activation_recursion_verify_task2_receipt_count_mismatch';
   end if;
@@ -191,17 +213,23 @@ begin
   if public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() is not true
      or public.hotel_v2_seven_arches_pricing_activation_current_is_safe() is not true
      or public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()
+       is not true
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
        is not true then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_pricing_activation_recursion_verify_receipt_invalid';
   end if;
   v_activation:=public.hotel_v2_seven_arches_pricing_activation_snapshot();
   v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
   v_admin_d:=public.hotel_v2_admin_d_current_foundation_snapshot();
   v_promotion:=public.hotel_v2_h3_1p_pricing_promotion_snapshot(c_hotel);
   if v_activation->>'status' is distinct from 'active'
      or jsonb_array_length(v_activation->'blocking_reasons')<>0
      or jsonb_typeof(v_canonical) is distinct from 'object'
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
      or (select count(*) from jsonb_object_keys(v_canonical))<>7
      or (v_canonical ?& array['contract_version','site_settings_lifecycle',
        'site_settings_lifecycle_fingerprint','task2_protected_fingerprints',
@@ -230,28 +258,32 @@ begin
      or v_task2_stage2.contract_version is distinct from
        'hotels_v2_seven_arches_task2_stage2_compatibility_v1'
      or v_task2_stage2.created_at is null or not isfinite(v_task2_stage2.created_at)
-     or v_canonical->'task2_protected_fingerprints' is distinct from
-       v_pricing_receipt.after_protected_fingerprints
-     or v_canonical->>'task2_protected_fingerprint' is distinct from
-       v_pricing_receipt.after_protected_fingerprint
-     or v_canonical->'stage2_protected_fingerprints' is distinct from
-       v_pricing_receipt.after_stage2_protected_fingerprints
-     or v_canonical->>'stage2_protected_fingerprint' is distinct from
-       v_pricing_receipt.after_stage2_protected_fingerprint
-     or v_pricing_receipt.before_protected_fingerprints is distinct from
-       v_task2_stage2.canonical_task2_protected_fingerprints
      or v_pricing_receipt.before_protected_fingerprint is distinct from
-       v_task2_stage2.canonical_task2_protected_fingerprint
-     or v_pricing_receipt.before_stage2_protected_fingerprints is distinct from
-       v_task2_stage2.canonical_stage2_protected_fingerprints
+       public.hotel_v2_h3_2b_hash(v_pricing_receipt.before_protected_fingerprints)
+     or v_pricing_receipt.after_protected_fingerprint is distinct from
+       public.hotel_v2_h3_2b_hash(v_pricing_receipt.after_protected_fingerprints)
+     or (v_pricing_receipt.after_protected_fingerprints-
+         v_pricing_receipt.allowed_fingerprint_keys) is distinct from
+       (v_pricing_receipt.before_protected_fingerprints-
+         v_pricing_receipt.allowed_fingerprint_keys)
      or v_pricing_receipt.before_stage2_protected_fingerprint is distinct from
-       v_task2_stage2.canonical_stage2_protected_fingerprint
+       public.hotel_v2_external_calendar_worker_hash(
+         v_pricing_receipt.before_stage2_protected_fingerprints)
+     or v_pricing_receipt.after_stage2_protected_fingerprint is distinct from
+       public.hotel_v2_external_calendar_worker_hash(
+         v_pricing_receipt.after_stage2_protected_fingerprints)
+     or (v_pricing_receipt.after_stage2_protected_fingerprints-
+         v_pricing_receipt.stage2_allowed_fingerprint_keys) is distinct from
+       (v_pricing_receipt.before_stage2_protected_fingerprints-
+         v_pricing_receipt.stage2_allowed_fingerprint_keys)
      or v_task2_stage2.canonical_task2_protected_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(
          v_task2_stage2.canonical_task2_protected_fingerprints)
      or v_task2_stage2.canonical_stage2_protected_fingerprint is distinct from
        public.hotel_v2_external_calendar_worker_hash(
          v_task2_stage2.canonical_stage2_protected_fingerprints)
+     or v_task2_stage2.scoped_lineage_source_hash is distinct from
+       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_scoped_lineage_oid)))
      or v_task2_stage2.canonical_snapshot_source_hash is distinct from
        public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_projector_oid)))
      or v_task2_stage2.validator_source_hash is distinct from

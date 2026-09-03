@@ -65,7 +65,9 @@ do $site_settings_on$
 begin
   if not (select hotel_external_sync_enabled from public.site_settings where id=1)
      or public.hotel_v2_external_calendar_site_settings_fingerprint() is null
-     or not public.hotel_v2_partner_workspace_function_lineage_is_exact() then
+     or not public.hotel_v2_partner_workspace_function_lineage_is_exact()
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage() is null
+     or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved() then
     raise exception 'seven_arches_provider_on_site_settings_seam_failed';
   end if;
 end
@@ -75,7 +77,9 @@ do $site_settings_off$
 begin
   if (select hotel_external_sync_enabled from public.site_settings where id=1)
      or public.hotel_v2_external_calendar_site_settings_fingerprint() is null
-     or not public.hotel_v2_partner_workspace_function_lineage_is_exact() then
+     or not public.hotel_v2_partner_workspace_function_lineage_is_exact()
+     or public.hotel_v2_seven_arches_pricing_scoped_lineage() is null
+     or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved() then
     raise exception 'seven_arches_provider_off_site_settings_seam_failed';
   end if;
 end
@@ -112,6 +116,55 @@ begin
 end
 $provider_worker_secret_immutability$;
 
+do $provider_pricing_scoped_lineage$
+declare
+  v_lineage jsonb:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
+begin
+  if jsonb_typeof(v_lineage)<>'object'
+     or v_lineage->>'contract_version'<>
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+     or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+     or not exists(select 1
+       from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
+       join pg_proc procedure_row on procedure_row.oid=
+         'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure
+       join pg_proc preservation_row on preservation_row.oid=
+         'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure
+       where receipt.id=1
+         and receipt.pricing_scoped_lineage_at_install_fingerprint=
+           public.hotel_v2_external_calendar_worker_hash(
+             receipt.pricing_scoped_lineage_at_install)
+         and receipt.pricing_scoped_lineage_helper_source_hash=
+           encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+             'sha256'),'hex')
+         and receipt.pricing_scoped_lineage_helper_source_hash=
+           '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0'
+         and receipt.pricing_transaction_preservation_source_hash=
+           encode(extensions.digest(convert_to(preservation_row.prosrc,'UTF8'),
+             'sha256'),'hex')
+         and receipt.pricing_transaction_preservation_source_hash=
+           '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')
+         and preservation_row.proowner='postgres'::regrole
+         and preservation_row.prosecdef and preservation_row.provolatile='s'
+         and preservation_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,preservation_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',preservation_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',preservation_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',preservation_row.oid,'EXECUTE')) then
+    raise exception 'seven_arches_provider_pricing_scoped_lineage_failed';
+  end if;
+end
+$provider_pricing_scoped_lineage$;
+
 do $provider_timezone_stability$
 declare
   v_incoming text:=current_setting('TimeZone');
@@ -126,6 +179,12 @@ begin
       receipt.historical_stage2_site_settings_raw_fingerprint,
     'canonical_lifecycle',receipt.canonical_site_settings_lifecycle_fingerprint,
     'canonical_helper_source',receipt.canonical_site_settings_helper_source_hash,
+    'pricing_scoped_lineage_at_install',
+      receipt.pricing_scoped_lineage_at_install_fingerprint,
+    'pricing_scoped_lineage_helper_source',
+      receipt.pricing_scoped_lineage_helper_source_hash,
+    'pricing_transaction_preservation_source',
+      receipt.pricing_transaction_preservation_source_hash,
     'activation_receipt',receipt.site_settings_activation_receipt_fingerprint,
     'receipt_hash',receipt.receipt_hash,
     'activation_receipt_exact',receipt.site_settings_activation_receipt_fingerprint=
@@ -157,6 +216,12 @@ begin
       receipt.historical_stage2_site_settings_raw_fingerprint,
     'canonical_lifecycle',receipt.canonical_site_settings_lifecycle_fingerprint,
     'canonical_helper_source',receipt.canonical_site_settings_helper_source_hash,
+    'pricing_scoped_lineage_at_install',
+      receipt.pricing_scoped_lineage_at_install_fingerprint,
+    'pricing_scoped_lineage_helper_source',
+      receipt.pricing_scoped_lineage_helper_source_hash,
+    'pricing_transaction_preservation_source',
+      receipt.pricing_transaction_preservation_source_hash,
     'activation_receipt',receipt.site_settings_activation_receipt_fingerprint,
     'receipt_hash',receipt.receipt_hash,
     'activation_receipt_exact',receipt.site_settings_activation_receipt_fingerprint=
@@ -631,7 +696,8 @@ begin
     'historical_raw','historical_map','canonical_lifecycle',
     'canonical_helper','activation_receipt','helper_source_map','receipt_hash',
     'contract_version','provider_bridge_source','topology_before','topology_after',
-    'changed_signatures','incomplete_transition'] loop
+    'changed_signatures','scoped_lineage_snapshot','scoped_lineage_source',
+    'transaction_preservation_source','incomplete_transition'] loop
     begin
       alter table hotels_v2_private.hotel_external_calendar_provider_evolution_receipts
         disable trigger hotel_external_calendar_provider_evolution_receipt_immutable;
@@ -697,6 +763,18 @@ begin
           set changed_function_signatures=array_remove(changed_function_signatures,
             'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()')
           where id=1;
+        when 'scoped_lineage_snapshot' then
+          update hotels_v2_private.hotel_external_calendar_provider_evolution_receipts
+          set pricing_scoped_lineage_at_install_fingerprint=repeat('4',64)
+          where id=1;
+        when 'scoped_lineage_source' then
+          update hotels_v2_private.hotel_external_calendar_provider_evolution_receipts
+          set pricing_scoped_lineage_helper_source_hash=repeat('5',64)
+          where id=1;
+        when 'transaction_preservation_source' then
+          update hotels_v2_private.hotel_external_calendar_provider_evolution_receipts
+          set pricing_transaction_preservation_source_hash=repeat('6',64)
+          where id=1;
         when 'incomplete_transition' then
           alter table hotels_v2_private.hotel_external_calendar_provider_evolution_receipts
             alter column evolved_protected_fingerprints drop not null;
@@ -746,7 +824,7 @@ begin
     v_passed:=v_passed+1;
   end;
 
-  if v_passed<>14
+  if v_passed<>17
      or not public.hotel_v2_external_calendar_provider_evolution_is_safe() then
     raise exception 'seven_arches_provider_bridge_receipt_negative_count_failed:%',v_passed;
   end if;
@@ -783,14 +861,7 @@ begin
        from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
        where receipt.id=1)
        is distinct from public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_oid)))
-     or exists(select 1
-       from public.hotel_seven_arches_pricing_activation_evolution_receipts activation
-       join hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt
-         on receipt.id=activation.id
-       where exists(select 1
-         from unnest(activation.stage2_allowed_fingerprint_keys) changed(changed_key)
-         where receipt.prior_compatible_fingerprints->(changed.changed_key)
-           is distinct from activation.before_stage2_protected_fingerprints->(changed.changed_key)))
+     or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
      or not public.hotel_v2_external_calendar_provider_sources_are_attributable()
      or not public.hotel_v2_external_calendar_provider_evolution_is_safe() then
     raise exception 'seven_arches_provider_attribution_static_confidence_failed';
@@ -808,15 +879,7 @@ declare v_activation public.hotel_seven_arches_pricing_activation_evolution_rece
 begin
   select count(*) into v_activation_count
   from public.hotel_seven_arches_pricing_activation_evolution_receipts;
-  if v_activation_count=0 then
-    if (select receipt.prior_compatible_fingerprints
-        from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts receipt where receipt.id=1)
-       is distinct from jsonb_set(public.hotel_v2_external_calendar_stage2_compatible_fingerprints(),
-         '{site_settings}',to_jsonb(public.hotel_v2_external_calendar_site_settings_fingerprint()),false) then
-      raise exception 'seven_arches_provider_no_task3_identity_failed';
-    end if;
-    return;
-  elsif v_activation_count<>1 then
+  if v_activation_count<>1 then
     raise exception 'seven_arches_provider_task3_receipt_cardinality_failed';
   end if;
   select * into strict v_activation
@@ -868,7 +931,8 @@ begin
   end;
   if not v_rolled_back then raise exception 'seven_arches_provider_task3_after_hash_negative_failed'; end if;
 
-  -- D: the exact five-key allowlist cannot be broadened or narrowed.
+  -- D: the exact transaction-controlled activation keys cannot be broadened
+  -- or narrowed.
   select constraint_row.conname into strict v_constraint
   from pg_constraint constraint_row
   where constraint_row.conrelid=
@@ -2217,6 +2281,218 @@ begin
 end
 $provider_rollback_containment$;
 
+-- Earlier rollback-contained identity probes may remove the two unrelated
+-- synthetic affiliate actors from the long-running full-chain fixture.  Keep
+-- the post-provider durability probe self-contained without changing any
+-- target-Hotel identity.
+alter table public.site_settings
+  add column if not exists car_multi_city_mapped_enabled
+    boolean not null default false,
+  add column if not exists car_threshold_daily_rates_enabled
+    boolean not null default false,
+  add column if not exists force_refresh_version bigint not null default 0,
+  add column if not exists updated_at timestamptz,
+  add column if not exists updated_by uuid;
+insert into public.profiles(id,email,is_admin) values
+  ('36000000-0000-4000-8000-000000000101',
+    'post-provider-referrer@example.test',false),
+  ('36000000-0000-4000-8000-000000000102',
+    'post-provider-referred@example.test',false)
+on conflict(id) do nothing;
+insert into auth.users(id,email) values
+  ('36000000-0000-4000-8000-000000000101',
+    'post-provider-referrer@example.test'),
+  ('36000000-0000-4000-8000-000000000102',
+    'post-provider-referred@example.test')
+on conflict(id) do nothing;
+
+create temporary table seven_arches_post_provider_live_evolution_before
+on commit preserve rows as
+select
+  public.hotel_v2_h3_2b_protected_fingerprints() task2_protected_fingerprints,
+  public.hotel_v2_external_calendar_stage2_compatible_fingerprints()
+    stage2_protected_fingerprints,
+  public.hotel_v2_seven_arches_pricing_scoped_lineage() scoped_lineage,
+  (select jsonb_agg(to_jsonb(policy) order by policy.id)
+   from public.hotel_commission_policies policy
+   where policy.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid)
+    commission_policies,
+  jsonb_build_object(
+    'policies',(select jsonb_agg(to_jsonb(policy) order by policy.id)
+      from public.hotel_payment_policies policy
+      where policy.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid),
+    'terms',(select jsonb_agg(to_jsonb(term) order by term.id)
+      from public.hotel_payment_policy_terms term
+      where term.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid))
+    payment_policy,
+  jsonb_build_object(
+    'activation',(select count(*)
+      from public.hotel_seven_arches_pricing_activation_evolution_receipts),
+    'independent',(select count(*)
+      from public.hotel_seven_arches_independent_pricing_evolution_receipts),
+    'reviewed_foundation',(select count(*)
+      from public.hotel_seven_arches_reviewed_pricing_foundation_receipts),
+    'reviewed_evolution',(select count(*)
+      from public.hotel_seven_arches_reviewed_pricing_evolution_receipts),
+    'public_booking',(select count(*)
+      from public.hotel_seven_arches_public_booking_receipts),
+    'provider',(select count(*) from
+      hotels_v2_private.hotel_external_calendar_provider_evolution_receipts))
+    receipt_counts,
+  public.hotel_v2_external_calendar_site_settings_fingerprint()
+    lifecycle_fingerprint;
+
+begin;
+update public.partner_service_fulfillment_form_snapshots
+set snapshot=snapshot||'{"post_provider_live_evolution":true}'::jsonb
+where id='36000000-0000-4000-8000-000000000106'::uuid;
+
+insert into public.partner_service_fulfillments(
+  id,resource_type,booking_id,resource_id,partner_id,status
+) values(
+  '36000000-0000-4000-8000-000000000119','hotels',
+  '36000000-0000-4000-8000-000000000121',
+  'c1000000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000002','accepted');
+
+insert into public.partner_service_fulfillment_form_snapshots(
+  id,fulfillment_id,snapshot,created_at
+) values(
+  '36000000-0000-4000-8000-000000000120',
+  '36000000-0000-4000-8000-000000000119',
+  '{"fixture":"post_provider_live_evolution"}'::jsonb,
+  '2026-08-31T18:03:00Z');
+
+insert into public.service_deposit_requests(id,resource_type,resource_id,created_at)
+values('36000000-0000-4000-8000-000000000116','hotels',
+  'c1000000-0000-4000-8000-000000000001','2026-08-31T18:03:00Z');
+
+insert into public.affiliate_commission_events(
+  id,partner_id,deposit_request_id,level,referrer_user_id,referred_user_id,
+  resource_type,booking_id,fulfillment_id,deposit_paid_at,deposit_amount,
+  commission_bps,commission_amount,currency,created_at
+) values(
+  '36000000-0000-4000-8000-000000000117',
+  '20000000-0000-4000-8000-000000000002',
+  '36000000-0000-4000-8000-000000000116',1,
+  '36000000-0000-4000-8000-000000000101',
+  '36000000-0000-4000-8000-000000000102','hotels',
+  '36000000-0000-4000-8000-000000000121',
+  '36000000-0000-4000-8000-000000000119','2026-08-31T18:03:00Z',
+  140,550,7.70,'EUR','2026-08-31T18:03:00Z');
+
+insert into public.referrals(id,referrer_id,referred_id,status,created_at)
+values('36000000-0000-4000-8000-000000000122',
+  '10000000-0000-4000-8000-000000000010',
+  '10000000-0000-4000-8000-000000000011','confirmed',
+  '2026-08-31T18:04:00Z');
+
+insert into public.profile_referral_code_aliases(
+  id,user_id,referral_code,referral_code_normalized,created_at,created_by,reason
+) values(
+  '36000000-0000-4000-8000-000000000118',
+  '36000000-0000-4000-8000-000000000101','LIVEDRIFT3','livedrift3',
+  '2026-08-31T18:04:00Z','36000000-0000-4000-8000-000000000101',
+  'Disposable post-provider live evolution');
+
+update public.site_settings
+set car_multi_city_mapped_enabled=not car_multi_city_mapped_enabled,
+  car_threshold_daily_rates_enabled=not car_threshold_daily_rates_enabled,
+  force_refresh_version=force_refresh_version+1,
+  updated_at='2026-08-31T18:04:00Z'::timestamptz,
+  updated_by='36000000-0000-4000-8000-000000000102'::uuid
+where id=1;
+commit;
+
+create temporary table seven_arches_post_provider_live_evolution_after
+on commit preserve rows as
+select
+  public.hotel_v2_h3_2b_protected_fingerprints() task2_protected_fingerprints,
+  public.hotel_v2_external_calendar_stage2_compatible_fingerprints()
+    stage2_protected_fingerprints,
+  public.hotel_v2_seven_arches_pricing_scoped_lineage() scoped_lineage,
+  (select jsonb_agg(to_jsonb(policy) order by policy.id)
+   from public.hotel_commission_policies policy
+   where policy.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid)
+    commission_policies,
+  jsonb_build_object(
+    'policies',(select jsonb_agg(to_jsonb(policy) order by policy.id)
+      from public.hotel_payment_policies policy
+      where policy.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid),
+    'terms',(select jsonb_agg(to_jsonb(term) order by term.id)
+      from public.hotel_payment_policy_terms term
+      where term.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid))
+    payment_policy,
+  jsonb_build_object(
+    'activation',(select count(*)
+      from public.hotel_seven_arches_pricing_activation_evolution_receipts),
+    'independent',(select count(*)
+      from public.hotel_seven_arches_independent_pricing_evolution_receipts),
+    'reviewed_foundation',(select count(*)
+      from public.hotel_seven_arches_reviewed_pricing_foundation_receipts),
+    'reviewed_evolution',(select count(*)
+      from public.hotel_seven_arches_reviewed_pricing_evolution_receipts),
+    'public_booking',(select count(*)
+      from public.hotel_seven_arches_public_booking_receipts),
+    'provider',(select count(*) from
+      hotels_v2_private.hotel_external_calendar_provider_evolution_receipts))
+    receipt_counts,
+  public.hotel_v2_external_calendar_site_settings_fingerprint()
+    lifecycle_fingerprint,
+  public.hotel_v2_seven_arches_reviewed_pricing_oracle() oracle;
+
+do $post_provider_live_evolution$
+declare
+  v_before seven_arches_post_provider_live_evolution_before%rowtype;
+  v_after seven_arches_post_provider_live_evolution_after%rowtype;
+begin
+  select * into strict v_before from seven_arches_post_provider_live_evolution_before;
+  select * into strict v_after from seven_arches_post_provider_live_evolution_after;
+  if v_before.task2_protected_fingerprints is not distinct from
+       v_after.task2_protected_fingerprints
+     or v_before.stage2_protected_fingerprints is not distinct from
+       v_after.stage2_protected_fingerprints
+     or v_after.scoped_lineage is distinct from v_before.scoped_lineage
+     or v_after.commission_policies is distinct from v_before.commission_policies
+     or v_after.payment_policy is distinct from v_before.payment_policy
+     or v_after.receipt_counts is distinct from v_before.receipt_counts
+     or v_after.lifecycle_fingerprint is distinct from v_before.lifecycle_fingerprint
+     or v_after.lifecycle_fingerprint is distinct from
+       '9d385718586ec03664878d35552e73373bd2e4dca170dc497025fc6780c79bf5'
+     or public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
+       is not true
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not true
+     or public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()
+       is not true
+     or public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
+       is not true
+     or public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
+       is not true
+     or public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()
+       is not true
+     or public.hotel_v2_external_calendar_provider_evolution_is_safe()
+       is not true
+     or public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()
+       is not true
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'safe')::boolean,false)
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'original_receipt_intact')::boolean,false)
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'seven_arches_owner_preset_exact')::boolean,false)
+     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>
+       'audit_chain_exact')::boolean,false)
+     or (v_after.oracle->>'core_case_count')::integer<>100
+     or (v_after.oracle->>'core_mismatch_count')::integer<>0
+     or (v_after.oracle->>'guest_one_case_count')::integer<>20
+     or (v_after.oracle->>'guest_one_mismatch_count')::integer<>0 then
+    raise exception using errcode='55000',
+      message='seven_arches_post_provider_live_evolution_durability_failed';
+  end if;
+end
+$post_provider_live_evolution$;
+
 \if :provider_install_external_enabled
 do $active_install_postcondition$
 begin
@@ -2238,7 +2514,12 @@ select 'HOTELS_V2_7A_EXTERNAL_CALENDAR_PROVIDER_READINESS_POSTGRES_GATE_OK' sent
   1 staged_secret_promoted,1 staged_secret_rejection_cleaned,
   1 reviewed_pricing_change_after_provider_install,
   2 synced_upper_day_blocks,3 room_aware_quote_assertions,
-  3 site_settings_representation_positive_probes,
+  4 site_settings_representation_positive_probes,
   11 site_settings_representation_negative_probes,
-  14 site_settings_receipt_negative_probes,
+  17 site_settings_receipt_negative_probes,
+  7 post_provider_live_evolution_domains,
+  encode(extensions.digest(convert_to((select procedure_row.prosrc
+    from pg_proc procedure_row where procedure_row.oid=
+      'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure),
+    'UTF8'),'sha256'),'hex') topology_prosrc_sha256,
   true private_url_redacted,true timezone_stable,true rollback_contained;

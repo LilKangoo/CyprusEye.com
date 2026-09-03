@@ -7,18 +7,14 @@ declare
   c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
   v_parity jsonb;
   v_property jsonb;
-  v_property_foundation jsonb;
   v_stage2 jsonb;
-  v_stage2_foundation jsonb;
-  v_property_delta_keys text[];
-  v_stage2_delta_keys text[];
-  v_expected_delta_keys constant text[]:=array[
-    'partner_service_fulfillment_form_snapshots',
-    'partner_service_fulfillments',
-    'profile_referral_code_aliases',
-    'referrals',
-    'service_deposit_requests',
-    'site_settings']::text[];
+  v_owner public.hotel_admin_availability_foundation_evolution_receipts%rowtype;
+  v_property_receipt
+    public.hotel_partner_property_proposal_foundation_receipts%rowtype;
+  v_expected_property jsonb;
+  v_authorized_property jsonb;
+  v_actual_property jsonb;
+  v_owner_user_ids uuid[];
   v_owner_state jsonb;
   v_lifecycle jsonb:=jsonb_build_object(
     'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
@@ -55,39 +51,116 @@ begin
     public.hotel_v2_external_calendar_worker_hash(v_lifecycle);
   v_property:=
     public.hotel_v2_seven_arches_property_proposal_protected_fingerprints();
-  v_stage2:=public.hotel_v2_external_calendar_stage2_compatible_fingerprints();
+  v_stage2:=public.hotel_v2_external_calendar_protected_fingerprints();
   v_owner_state:=public.hotel_v2_admin_d_current_foundation_snapshot();
-  select receipt.protected_fingerprints into strict v_property_foundation
-  from public.hotel_partner_property_proposal_foundation_receipts receipt
-  where receipt.id=1;
-  select receipt.stage2_current_protected_fingerprints
-    into strict v_stage2_foundation
-  from public.hotel_admin_availability_foundation_evolution_receipts receipt
-  where receipt.id=1;
-  select coalesce(array_agg(coalesce(current_entry.key,foundation_entry.key)
-      order by coalesce(current_entry.key,foundation_entry.key) collate "C"),
-      array[]::text[])
-    into v_property_delta_keys
-  from jsonb_each(v_property) current_entry
-  full join jsonb_each(v_property_foundation) foundation_entry
-    on foundation_entry.key=current_entry.key
-  where current_entry.value is distinct from foundation_entry.value;
-  select coalesce(array_agg(coalesce(current_entry.key,foundation_entry.key)
-      order by coalesce(current_entry.key,foundation_entry.key) collate "C"),
-      array[]::text[])
-    into v_stage2_delta_keys
-  from jsonb_each(v_stage2) current_entry
-  full join jsonb_each(v_stage2_foundation) foundation_entry
-    on foundation_entry.key=current_entry.key
-  where current_entry.value is distinct from foundation_entry.value;
+  select * into strict v_owner
+  from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
+  select * into strict v_property_receipt
+  from public.hotel_partner_property_proposal_foundation_receipts where id=1;
+  select array_agg(member.user_id order by member.user_id) into v_owner_user_ids
+  from public.partner_users member
+  where member.partner_id=v_owner.partner_id and member.role='owner';
+  v_expected_property:=v_property_receipt.proposal_fields_baseline-'updated_at';
+  select activity.after_state->'property' into v_authorized_property
+  from public.hotel_activity_log activity
+  where activity.hotel_id=c_hotel and activity.entity_type='property'
+    and activity.source='hotels_v2_admin_b_property_control'
+    and activity.created_at>=v_property_receipt.created_at
+  order by activity.created_at desc,activity.id desc limit 1;
+  if v_authorized_property is not null then
+    v_expected_property:=jsonb_build_object(
+      'title',v_authorized_property->'title','title_i18n',v_authorized_property->'title_i18n',
+      'description',v_authorized_property->'description',
+      'description_i18n',v_authorized_property->'description_i18n',
+      'city',v_authorized_property->'city','address_line',v_authorized_property->'address_line',
+      'district',v_authorized_property->'district','postal_code',v_authorized_property->'postal_code',
+      'country',v_authorized_property->'country','latitude',v_authorized_property->'latitude',
+      'longitude',v_authorized_property->'longitude',
+      'google_maps_url',v_authorized_property->'google_maps_url',
+      'amenities',v_authorized_property->'amenities',
+      'check_in_from',v_authorized_property->'check_in_from',
+      'check_out_until',v_authorized_property->'check_out_until',
+      'cover_image_url',v_authorized_property->'cover_image_url',
+      'photos',v_authorized_property->'photos');
+  end if;
+  select jsonb_build_object(
+    'title',hotel.title,'title_i18n',hotel.title_i18n,
+    'description',hotel.description,'description_i18n',hotel.description_i18n,
+    'city',hotel.city,'address_line',hotel.address_line,'district',hotel.district,
+    'postal_code',hotel.postal_code,'country',hotel.country,
+    'latitude',hotel.latitude,'longitude',hotel.longitude,
+    'google_maps_url',hotel.google_maps_url,'amenities',hotel.amenities,
+    'check_in_from',hotel.check_in_from,'check_out_until',hotel.check_out_until,
+    'cover_image_url',hotel.cover_image_url,'photos',hotel.photos)
+    into v_actual_property from public.hotels hotel where hotel.id=c_hotel;
   if (select count(*) from public.hotel_partner_property_proposal_foundation_receipts)<>1
      or v_lifecycle_fingerprint is null
+     or v_property is null or v_stage2 is null
      or v_property->'site_settings' is null
-     or v_property_foundation->'site_settings' is null
-     or not (v_property ?& v_expected_delta_keys)
-     or not (v_property_foundation ?& v_expected_delta_keys)
-     or v_property_delta_keys is distinct from v_expected_delta_keys
-     or not public.hotel_v2_seven_arches_property_proposal_canonical_is_attributable() then
+     or v_stage2->'site_settings' is null
+     or v_owner.contract_version<>'hotels_v2_admin_d_foundation_evolution_v2'
+     or v_owner.before_current_protected_fingerprint<>
+       public.hotel_v2_h3_2b_hash(v_owner.before_current_protected_fingerprints)
+     or v_owner.current_protected_fingerprint<>
+       public.hotel_v2_h3_2b_hash(v_owner.current_protected_fingerprints)
+     or v_owner.stage2_before_current_protected_fingerprint<>
+       public.hotel_v2_external_calendar_worker_hash(
+         v_owner.stage2_before_current_protected_fingerprints)
+     or v_owner.stage2_current_protected_fingerprint<>
+       public.hotel_v2_external_calendar_worker_hash(
+         v_owner.stage2_current_protected_fingerprints)
+     or v_property_receipt.protected_fingerprint<>
+       public.hotel_v2_h3_2b_hash(v_property_receipt.protected_fingerprints)
+     or v_property_receipt.owner_evolution_receipt_id<>v_owner.id
+     or v_property_receipt.owner_evolution_receipt_fingerprint<>
+       public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
+         to_jsonb(extract(epoch from v_owner.created_at)),false))
+     or not exists(select 1 from pg_class relation where relation.oid=
+       'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+       and relation.relowner='postgres'::regrole and relation.relrowsecurity)
+     or not exists(select 1 from pg_trigger trigger_row where trigger_row.tgrelid=
+       'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+       and trigger_row.tgname='hotel_admin_availability_foundation_evolution_immutable'
+       and trigger_row.tgfoid=to_regprocedure('public.hotel_v2_admin_d_immutable_row()')
+       and trigger_row.tgtype=27 and trigger_row.tgenabled='O'
+       and not trigger_row.tgisinternal)
+     or not exists(select 1 from pg_class relation where relation.oid=
+       'public.hotel_partner_property_proposal_foundation_receipts'::regclass
+       and relation.relowner='postgres'::regrole and relation.relrowsecurity)
+     or not exists(select 1 from pg_trigger trigger_row where trigger_row.tgrelid=
+       'public.hotel_partner_property_proposal_foundation_receipts'::regclass
+       and trigger_row.tgname='hotel_partner_property_proposal_foundation_receipts_immutable'
+       and trigger_row.tgfoid=to_regprocedure('public.hotel_v2_h3_2b_immutable_row()')
+       and trigger_row.tgtype=27 and trigger_row.tgenabled='O'
+       and not trigger_row.tgisinternal)
+     or exists(select 1 from unnest(array[
+       'SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'
+     ]) privilege(name) where has_table_privilege(0::oid,
+         'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+         privilege.name)
+       or has_table_privilege('anon',
+         'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+         privilege.name)
+       or has_table_privilege('authenticated',
+         'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+         privilege.name)
+       or has_table_privilege('service_role',
+         'public.hotel_partner_property_proposal_foundation_receipts'::regclass,
+         privilege.name))
+     or v_owner.hotel_id<>c_hotel
+     or v_owner.owner_user_ids is distinct from v_owner_user_ids
+     or v_actual_property is null or v_actual_property is distinct from v_expected_property
+     or not exists(select 1 from public.partner_resources assignment
+       where assignment.id=v_owner.assignment_id and assignment.partner_id=v_owner.partner_id
+         and assignment.resource_type='hotels' and assignment.resource_id=c_hotel)
+     or (select count(*) from public.partner_resources assignment
+       where assignment.resource_type='hotels' and assignment.resource_id=c_hotel)<>1
+     or not exists(select 1 from public.hotel_partner_hotel_permissions permission
+       where permission.assignment_id=v_owner.assignment_id
+         and permission.partner_id=v_owner.partner_id and permission.hotel_id=c_hotel
+         and permission.version=1 and permission.has_mutation_capability
+         and public.hotel_v2_h3_2a_permissions_snapshot(permission.assignment_id)
+           is not distinct from v_owner.after_permission) then
     raise exception 'HOTELS_V2_7A_PRICING_ACTIVATION_PREFLIGHT_FAIL: Task2 protected state drift';
   end if;
   if (select count(*) from hotels_v2_private.hotel_external_calendar_foundation_receipts)<>1
@@ -96,11 +169,6 @@ begin
        where receipt.id=1 and receipt.protected_fingerprint=
          public.hotel_v2_external_calendar_worker_hash(receipt.protected_fingerprints)
          and receipt.protected_fingerprints is not null)
-     or v_stage2->'site_settings' is null
-     or v_stage2_foundation->'site_settings' is null
-     or not (v_stage2 ?& v_expected_delta_keys)
-     or not (v_stage2_foundation ?& v_expected_delta_keys)
-     or v_stage2_delta_keys is distinct from v_expected_delta_keys
      or not public.hotel_v2_partner_workspace_function_lineage_is_exact()
      or not coalesce((v_owner_state->>'original_receipt_intact')::boolean,false)
      or not coalesce((v_owner_state->>'seven_arches_assignment_exact')::boolean,false)

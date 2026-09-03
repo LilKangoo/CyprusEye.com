@@ -14,6 +14,10 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()');
   v_projector_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
+  v_scoped_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_transaction_preservation_oid oid:=to_regprocedure(
+    'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
     'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)');
   v_activation_immutable_oid oid:=to_regprocedure(
@@ -31,11 +35,13 @@ declare
   v_admin_d_source text;
   v_receipt_source text;
   v_canonical jsonb;
+  v_scoped_lineage jsonb;
   v_task2_stage2
     public.hotel_seven_arches_task2_stage2_compatibility_receipts%rowtype;
 begin
   if v_admin_d_oid is null or v_receipt_oid is null or v_inert_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
+     or v_scoped_lineage_oid is null or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
      or v_activation_insert_guard_oid is null or v_review_guard_oid is null
@@ -84,16 +90,22 @@ begin
          '686ef8d305ba401d52c2e2f5ed9f41036a6418beb785144da52a857c4640c32a'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         'a794d528a3843009b65ba0927c508c8bf2b9f5ffdfce97f593ac81d6769526c6'
+         '3cc4d17d0703e29b12df8e6f3e7f24263c1af32bbe09df8928283db100b67b9e'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid)<>
-         '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
+         '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid)<>
-         'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
+         'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3'
+     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+       from pg_proc where oid=v_scoped_lineage_oid)<>
+         '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0'
+     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+       from pg_proc where oid=v_transaction_preservation_oid)<>
+         '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_apply_oid)<>
-         'c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
+         'b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_activation_immutable_oid)<>
          '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87'
@@ -121,6 +133,10 @@ begin
       (v_task2_validator_oid,true,'s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       (v_projector_oid,true,'s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      (v_scoped_lineage_oid,true,'s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      (v_transaction_preservation_oid,true,'s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       (v_activation_immutable_oid,true,'v'::"char",
         array['search_path=pg_catalog']::text[]),
@@ -258,7 +274,7 @@ begin
       and relation.relowner='postgres'::regrole and relation.relrowsecurity)
     and (select count(*) from pg_attribute attribute where attribute.attrelid=
       'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
-      and attribute.attnum>0 and not attribute.attisdropped)=9
+      and attribute.attnum>0 and not attribute.attisdropped)=10
     and not exists(select 1 from (values
       (1::smallint,'id','smallint',true,null::text),
       (2::smallint,'contract_version','text',true,null::text),
@@ -266,9 +282,10 @@ begin
       (4::smallint,'canonical_task2_protected_fingerprint','text',true,null::text),
       (5::smallint,'canonical_stage2_protected_fingerprints','jsonb',true,null::text),
       (6::smallint,'canonical_stage2_protected_fingerprint','text',true,null::text),
-      (7::smallint,'canonical_snapshot_source_hash','text',true,null::text),
-      (8::smallint,'validator_source_hash','text',true,null::text),
-      (9::smallint,'created_at','timestamp with time zone',true,'clock_timestamp()')
+      (7::smallint,'scoped_lineage_source_hash','text',true,null::text),
+      (8::smallint,'canonical_snapshot_source_hash','text',true,null::text),
+      (9::smallint,'validator_source_hash','text',true,null::text),
+      (10::smallint,'created_at','timestamp with time zone',true,'clock_timestamp()')
     ) expected(attnum,attname,type_name,not_null,default_expression)
     left join pg_attribute attribute on attribute.attrelid=
       'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
@@ -286,7 +303,7 @@ begin
         is distinct from expected.default_expression)
     and (select count(*) from pg_constraint constraint_row where
       constraint_row.conrelid=
-        'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass)=9
+        'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass)=10
     and (select count(*) from pg_constraint constraint_row
       join pg_index index_row on index_row.indexrelid=constraint_row.conindid
       where constraint_row.conrelid=
@@ -334,8 +351,9 @@ begin
     and not exists(select 1 from (values
       (4::smallint,'canonical_task2_protected_fingerprint'),
       (6::smallint,'canonical_stage2_protected_fingerprint'),
-      (7::smallint,'canonical_snapshot_source_hash'),
-      (8::smallint,'validator_source_hash')
+      (7::smallint,'scoped_lineage_source_hash'),
+      (8::smallint,'canonical_snapshot_source_hash'),
+      (9::smallint,'validator_source_hash')
     ) expected(attnum,column_name) where (select count(*)
       from pg_constraint constraint_row where constraint_row.conrelid=
         'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
@@ -363,6 +381,7 @@ begin
   select * into strict v_task2_stage2
   from public.hotel_seven_arches_task2_stage2_compatibility_receipts where id=1;
   v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
   v_admin_d_source:=pg_get_functiondef(v_admin_d_oid);
   v_receipt_source:=pg_get_functiondef(v_receipt_oid);
   if (length(v_admin_d_source)-length(replace(v_admin_d_source,
@@ -373,7 +392,19 @@ begin
        in v_admin_d_source)<>0
      or (length(v_receipt_source)-length(replace(v_receipt_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
-       /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
+       /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>0
+     or (length(v_receipt_source)-length(replace(v_receipt_source,
+       'v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();','')))
+       /length('v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();')<>1
+     or position('v_expected_baseline_delta_keys' in v_receipt_source)<>0
+     or position('v_task2_baseline_delta_keys' in v_receipt_source)<>0
+     or position('v_stage2_baseline_delta_keys' in v_receipt_source)<>0
+     or position(
+       'v_task2_stage2.canonical_task2_protected_fingerprints is distinct from'
+       in v_receipt_source)<>0
+     or position(
+       'v_task2_stage2.canonical_stage2_protected_fingerprints is distinct from'
+       in v_receipt_source)<>0
      or position(
        'v_current_stage2:=public.hotel_v2_external_calendar_stage2_compatible_fingerprints();'
        in v_receipt_source)<>0
@@ -385,6 +416,9 @@ begin
   end if;
   if public.hotel_v2_seven_arches_pricing_activation_current_is_safe() is not true
      or public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact() is not true
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
      or jsonb_typeof(v_canonical) is distinct from 'object'
      or (select count(*) from jsonb_object_keys(v_canonical))<>7
      or (v_canonical ?& array['contract_version','site_settings_lifecycle',
@@ -410,18 +444,12 @@ begin
      or v_task2_stage2.canonical_stage2_protected_fingerprint is distinct from
        public.hotel_v2_external_calendar_worker_hash(
          v_task2_stage2.canonical_stage2_protected_fingerprints)
+     or v_task2_stage2.scoped_lineage_source_hash is distinct from
+       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_scoped_lineage_oid)))
      or v_task2_stage2.canonical_snapshot_source_hash is distinct from
        public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_projector_oid)))
      or v_task2_stage2.validator_source_hash is distinct from
-       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_task2_validator_oid)))
-     or v_canonical->'task2_protected_fingerprints' is distinct from
-       v_task2_stage2.canonical_task2_protected_fingerprints
-     or v_canonical->>'task2_protected_fingerprint' is distinct from
-       v_task2_stage2.canonical_task2_protected_fingerprint
-     or v_canonical->'stage2_protected_fingerprints' is distinct from
-       v_task2_stage2.canonical_stage2_protected_fingerprints
-     or v_canonical->>'stage2_protected_fingerprint' is distinct from
-       v_task2_stage2.canonical_stage2_protected_fingerprint then
+       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_task2_validator_oid))) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_pricing_activation_recursion_preflight_baseline_drift';
   end if;

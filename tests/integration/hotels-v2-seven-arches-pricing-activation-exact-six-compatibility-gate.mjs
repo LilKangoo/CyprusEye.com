@@ -17,8 +17,7 @@ assert.equal(process.env[DISPOSABLE_ACK_ENV], '1',
 const fixtureUrl = new URL(fixtureUrlText);
 assert.ok(['postgres:', 'postgresql:'].includes(fixtureUrl.protocol));
 assert.ok(LOOPBACK_HOSTS.has(fixtureUrl.hostname),
-  'Task3 compatibility fixture must be loopback-only');
-
+  'Task3 live-baseline compatibility fixture must be loopback-only');
 const templateDatabase = decodeURIComponent(fixtureUrl.pathname.replace(/^\//, ''));
 assert.ok(templateDatabase && !['postgres', 'template0', 'template1'].includes(templateDatabase));
 
@@ -30,21 +29,37 @@ const migrationSql = await readFile(resolve(repoRoot, 'supabase', 'migrations',
 const preflightSql = await readFile(resolve(repoRoot, 'supabase', 'manual',
   'hotels_v2_seven_arches_pricing_activation_preflight.sql'), 'utf8');
 
-const EXPECTED_KEYS = [
-  'partner_service_fulfillment_form_snapshots',
-  'partner_service_fulfillments',
-  'profile_referral_code_aliases',
-  'referrals',
-  'service_deposit_requests',
-  'site_settings',
-];
+const SCOPED_CONTRACT = 'hotels_v2_seven_arches_pricing_scoped_lineage_v1';
+const SCOPED_KEYS = [
+  'allocation_contract_exact',
+  'commission_policy_fingerprint',
+  'contract_version',
+  'hotel_id',
+  'lower_function_security_fingerprint',
+  'owner_capability_receipt_fingerprint',
+  'owner_membership_fingerprint',
+  'owner_user_ids',
+  'parity_case_count',
+  'parity_fingerprint',
+  'parity_mismatch_count',
+  'partner_id',
+  'payment_policy_fingerprint',
+  'permission_preset_fingerprint',
+  'pricing_identity_fingerprint',
+  'property_business_fingerprint',
+  'property_foundation_receipt_fingerprint',
+  'room_identity_fingerprint',
+  'site_settings_lifecycle',
+  'site_settings_lifecycle_fingerprint',
+  'assignment_id',
+].sort();
 const runSuffix = `${process.pid}_${randomBytes(4).toString('hex')}`;
 const caseNames = [
-  'positive', 'seventh', 'unsupported', 'historical', 'missing_114370',
-  'missing_114360', 'source_pin',
+  'positive', 'repeated_live', 'critical_property', 'unsupported', 'historical',
+  'missing_114370', 'missing_114360', 'source_pin',
 ];
 const caseDatabases = new Map(caseNames.map((name) =>
-  [name, `hotels_v2_114400_exact_six_${runSuffix}_${name}`]));
+  [name, `hotels_v2_114400_live_baseline_${runSuffix}_${name}`]));
 const adminUrl = withDatabase(fixtureUrl, 'postgres');
 const createdDatabases = [];
 
@@ -133,75 +148,133 @@ async function jsonValue(databaseUrl, sql, applicationName) {
   return JSON.parse(await scalar(databaseUrl, sql, applicationName));
 }
 
-function exactSixSql(excludedKey = null) {
-  const statements = new Map([
-    ['partner_service_fulfillment_form_snapshots', `
-      update public.partner_service_fulfillment_form_snapshots
-      set snapshot=snapshot||'{"task3_exact_six":true}'::jsonb
-      where id='36000000-0000-4000-8000-000000000106'::uuid;`],
-    ['partner_service_fulfillments', `
-      update public.partner_service_fulfillments
-      set status='accepted'
-      where id='36000000-0000-4000-8000-000000000104'::uuid;`],
-    ['profile_referral_code_aliases', `
-      update public.profile_referral_code_aliases
-      set reason='Task3 exact-six compatibility drift'
-      where id='36000000-0000-4000-8000-000000000108'::uuid;`],
-    ['referrals', `
-      do $exact_six_referral_transition$ begin
-        if exists(select 1 from information_schema.columns
-          where table_schema='public' and table_name='referrals'
-            and column_name='confirmed_at') then
-          execute $sql$update public.referrals
-            set status='confirmed',confirmed_at='2026-08-31T18:00:00Z'::timestamptz
-            where id='36000000-0000-4000-8000-000000000107'$sql$;
-        else
-          update public.referrals set status='confirmed'
-          where id='36000000-0000-4000-8000-000000000107'::uuid;
-        end if;
-      end $exact_six_referral_transition$;`],
-    ['service_deposit_requests', `
-      update public.service_deposit_requests
-      set resource_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
-      where id='36000000-0000-4000-8000-000000000109'::uuid;`],
-    ['site_settings', `
-      update public.site_settings set force_refresh_version=80,
-        updated_at='2026-08-31T18:00:00Z'::timestamptz,
-        updated_by='36000000-0000-4000-8000-000000000101'::uuid where id=1;`],
-  ]);
-  return [...statements].filter(([key]) => key !== excludedKey)
-    .map(([, sql]) => sql).join('\n');
+function liveEvolutionSql(phase) {
+  assert.ok([1, 2].includes(phase));
+  if (phase === 1) return `
+    update public.partner_service_fulfillment_form_snapshots
+    set snapshot=snapshot||'{"task3_live_baseline_phase":1}'::jsonb
+    where id='36000000-0000-4000-8000-000000000106'::uuid;
+    update public.partner_service_fulfillments set status='accepted'
+    where id='36000000-0000-4000-8000-000000000104'::uuid;
+    update public.profile_referral_code_aliases
+    set reason='Task3 live-baseline compatibility'
+    where id='36000000-0000-4000-8000-000000000108'::uuid;
+    update public.referrals set status='confirmed'
+    where id='36000000-0000-4000-8000-000000000107'::uuid;
+    update public.service_deposit_requests
+    set resource_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
+    where id='36000000-0000-4000-8000-000000000109'::uuid;
+    insert into public.service_deposit_requests(id,resource_type,resource_id,created_at)
+    values('36000000-0000-4000-8000-000000000113','hotels',
+      'c1000000-0000-4000-8000-000000000001','2026-08-31T18:01:00Z');
+    insert into public.affiliate_commission_events(
+      id,partner_id,deposit_request_id,level,referrer_user_id,referred_user_id,
+      resource_type,booking_id,fulfillment_id,deposit_paid_at,deposit_amount,
+      commission_bps,commission_amount,currency,created_at
+    ) values(
+      '36000000-0000-4000-8000-000000000114',
+      '20000000-0000-4000-8000-000000000002',
+      '36000000-0000-4000-8000-000000000113',1,
+      '36000000-0000-4000-8000-000000000101',
+      '36000000-0000-4000-8000-000000000102','hotels',
+      '36000000-0000-4000-8000-000000000105',
+      '36000000-0000-4000-8000-000000000104','2026-08-31T18:01:00Z',
+      120,550,6.60,'EUR','2026-08-31T18:01:00Z');
+    insert into public.profile_referral_code_aliases(
+      id,user_id,referral_code,referral_code_normalized,created_at,created_by,reason
+    ) values(
+      '36000000-0000-4000-8000-000000000115',
+      '36000000-0000-4000-8000-000000000101','LIVEDRIFT2','livedrift2',
+      '2026-08-31T18:02:00Z','36000000-0000-4000-8000-000000000101',
+      'Disposable live-baseline fixture');
+    update public.site_settings set
+      car_multi_city_mapped_enabled=not car_multi_city_mapped_enabled,
+      car_threshold_daily_rates_enabled=not car_threshold_daily_rates_enabled,
+      force_refresh_version=81,updated_at='2026-08-31T18:02:00Z'::timestamptz,
+      updated_by='36000000-0000-4000-8000-000000000101'::uuid where id=1;
+  `;
+  return `
+    update public.partner_service_fulfillment_form_snapshots
+    set snapshot=snapshot||'{"task3_live_baseline_phase":2}'::jsonb
+    where id='36000000-0000-4000-8000-000000000106'::uuid;
+    insert into public.partner_service_fulfillments(
+      id,resource_type,booking_id,resource_id,partner_id,status
+    ) values(
+      '36000000-0000-4000-8000-000000000119','hotels',
+      '36000000-0000-4000-8000-000000000121',
+      'c1000000-0000-4000-8000-000000000001',
+      '20000000-0000-4000-8000-000000000002','accepted');
+    insert into public.partner_service_fulfillment_form_snapshots(
+      id,fulfillment_id,snapshot,created_at
+    ) values(
+      '36000000-0000-4000-8000-000000000120',
+      '36000000-0000-4000-8000-000000000119',
+      '{"fixture":"subsequent_live_evolution"}'::jsonb,
+      '2026-08-31T18:03:00Z');
+    insert into public.service_deposit_requests(id,resource_type,resource_id,created_at)
+    values('36000000-0000-4000-8000-000000000116','hotels',
+      'c1000000-0000-4000-8000-000000000001','2026-08-31T18:03:00Z');
+    insert into public.affiliate_commission_events(
+      id,partner_id,deposit_request_id,level,referrer_user_id,referred_user_id,
+      resource_type,booking_id,fulfillment_id,deposit_paid_at,deposit_amount,
+      commission_bps,commission_amount,currency,created_at
+    ) values(
+      '36000000-0000-4000-8000-000000000117',
+      '20000000-0000-4000-8000-000000000002',
+      '36000000-0000-4000-8000-000000000116',1,
+      '36000000-0000-4000-8000-000000000101',
+      '36000000-0000-4000-8000-000000000102','hotels',
+      '36000000-0000-4000-8000-000000000121',
+      '36000000-0000-4000-8000-000000000119','2026-08-31T18:03:00Z',
+      140,550,7.70,'EUR','2026-08-31T18:03:00Z');
+    insert into public.profile_referral_code_aliases(
+      id,user_id,referral_code,referral_code_normalized,created_at,created_by,reason
+    ) values(
+      '36000000-0000-4000-8000-000000000118',
+      '36000000-0000-4000-8000-000000000101','LIVEDRIFT3','livedrift3',
+      '2026-08-31T18:04:00Z','36000000-0000-4000-8000-000000000101',
+      'Disposable subsequent live evolution');
+    update public.site_settings set force_refresh_version=force_refresh_version+1,
+      updated_at='2026-08-31T18:04:00Z'::timestamptz,
+      updated_by='36000000-0000-4000-8000-000000000102'::uuid where id=1;
+  `;
 }
 
-async function changedKeys(databaseUrl, applicationName) {
+async function broadState(databaseUrl, applicationName) {
   return jsonValue(databaseUrl, `
-    with states as(
-      select foundation.protected_fingerprints before_task2,
-        public.hotel_v2_seven_arches_property_proposal_protected_fingerprints() after_task2,
-        owner.stage2_current_protected_fingerprints before_stage2,
-        public.hotel_v2_external_calendar_stage2_compatible_fingerprints() after_stage2
-      from public.hotel_partner_property_proposal_foundation_receipts foundation
-      cross join public.hotel_admin_availability_foundation_evolution_receipts owner
-      where foundation.id=1 and owner.id=1
-    ), task2_keys as(
-      select coalesce(jsonb_agg(key order by key collate "C"),'[]'::jsonb) value from states
-      cross join lateral jsonb_object_keys(before_task2||after_task2) key
-      where before_task2->key is distinct from after_task2->key
-    ), stage2_keys as(
-      select coalesce(jsonb_agg(key order by key collate "C"),'[]'::jsonb) value from states
-      cross join lateral jsonb_object_keys(before_stage2||after_stage2) key
-      where before_stage2->key is distinct from after_stage2->key
-    )
-    select jsonb_build_object('task2',(select value from task2_keys),
-      'stage2',(select value from stage2_keys))::text;
+    select jsonb_build_object(
+      'task2',public.hotel_v2_seven_arches_property_proposal_protected_fingerprints(),
+      'stage2',public.hotel_v2_external_calendar_stage2_compatible_fingerprints(),
+      'affiliate_count',(select count(*) from public.affiliate_commission_events)
+    )::text;
   `, applicationName);
 }
 
-async function installExactSix(databaseUrl, applicationName) {
-  await runPsql(databaseUrl, exactSixSql(), `${applicationName}_drift`);
-  const keys = await changedKeys(databaseUrl, `${applicationName}_keys`);
-  assert.deepEqual(keys, { task2: EXPECTED_KEYS, stage2: EXPECTED_KEYS });
-  return keys;
+async function scopedLineage(databaseUrl, applicationName) {
+  const value = await jsonValue(databaseUrl, `
+    select public.hotel_v2_seven_arches_pricing_scoped_lineage()::text;
+  `, applicationName);
+  assert.equal(value.contract_version, SCOPED_CONTRACT);
+  assert.deepEqual(Object.keys(value).sort(), SCOPED_KEYS);
+  assert.equal(value.hotel_id, '9b6d99a0-923a-4fbc-be54-c066e856e6ca');
+  assert.equal(value.parity_case_count, 70);
+  assert.equal(value.parity_mismatch_count, 0);
+  assert.equal(value.allocation_contract_exact, true);
+  return value;
+}
+
+async function installLiveEvolution(databaseUrl, applicationName) {
+  const before = await broadState(databaseUrl, `${applicationName}_before`);
+  await runPsql(databaseUrl, liveEvolutionSql(1), `${applicationName}_activity`);
+  const after = await broadState(databaseUrl, `${applicationName}_after`);
+  assert.notDeepEqual(after.task2, before.task2);
+  assert.notDeepEqual(after.stage2, before.stage2);
+  assert.notEqual(after.task2.affiliate_commission_events,
+    before.task2.affiliate_commission_events);
+  assert.notEqual(after.stage2.affiliate_commission_events,
+    before.stage2.affiliate_commission_events);
+  assert.equal(after.affiliate_count, before.affiliate_count + 1);
+  return { beforeAffiliateCount: before.affiliate_count, afterAffiliateCount: after.affiliate_count };
 }
 
 async function assertFailedInstallClean(databaseUrl, applicationName) {
@@ -232,54 +305,84 @@ async function expectRejected(databaseUrl, caseName, preflightMessage, migration
 
 async function positiveCase() {
   const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('positive'));
-  const keys = await installExactSix(databaseUrl, 'hotels_v2_114400_exact_six_positive');
-  await runPsql(databaseUrl, preflightSql, 'hotels_v2_114400_exact_six_preflight');
-  await runPsql(databaseUrl, migrationSql, 'hotels_v2_114400_exact_six_migration');
+  const activity = await installLiveEvolution(databaseUrl, 'hotels_v2_114400_live_positive');
+  await runPsql(databaseUrl, preflightSql, 'hotels_v2_114400_live_preflight');
+  await runPsql(databaseUrl, migrationSql, 'hotels_v2_114400_live_migration');
+  const lineage = await scopedLineage(databaseUrl, 'hotels_v2_114400_live_lineage');
   const proof = await jsonValue(databaseUrl, `
     select jsonb_build_object(
       'compatibility_receipt_count',(select count(*)
         from public.hotel_seven_arches_task2_stage2_compatibility_receipts),
       'compatibility_exact',public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact(),
+      'current_safe',public.hotel_v2_seven_arches_pricing_activation_current_is_safe(),
       'activation_receipt_count',(select count(*)
         from public.hotel_seven_arches_pricing_activation_evolution_receipts),
       'transaction_context_count',(select count(*)
         from public.hotel_seven_arches_pricing_activation_transaction_context)
     )::text;
-  `, 'hotels_v2_114400_exact_six_proof');
+  `, 'hotels_v2_114400_live_proof');
   assert.deepEqual(proof, {
     compatibility_receipt_count: 1,
     compatibility_exact: true,
+    current_safe: true,
     activation_receipt_count: 0,
     transaction_context_count: 0,
   });
-  return { changedKeys: keys, ...proof };
+  return { activity, scopedContract: lineage.contract_version, ...proof };
 }
 
-async function seventhKeyCase() {
-  const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('seventh'));
-  await installExactSix(databaseUrl, 'hotels_v2_114400_seventh');
-  await runPsql(databaseUrl, `update public.partners set name=name||' unexplained seventh drift'
-    where id='20000000-0000-4000-8000-000000000002'::uuid;`,
-  'hotels_v2_114400_seventh_mutation');
-  return expectRejected(databaseUrl, 'hotels_v2_114400_seventh',
-    /PREFLIGHT_FAIL: Task2 protected state drift/,
-    /hotels_v2_seven_arches_pricing_activation_task2_foundation_drift/);
+async function repeatedLiveEvolutionCase() {
+  const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('repeated_live'));
+  await installLiveEvolution(databaseUrl, 'hotels_v2_114400_repeated_live');
+  await runPsql(databaseUrl, preflightSql, 'hotels_v2_114400_repeated_preflight');
+  await runPsql(databaseUrl, migrationSql, 'hotels_v2_114400_repeated_migration');
+  const lineageBefore = await scopedLineage(databaseUrl,
+    'hotels_v2_114400_repeated_lineage_before');
+  const broadBefore = await broadState(databaseUrl, 'hotels_v2_114400_repeated_broad_before');
+  await runPsql(databaseUrl, liveEvolutionSql(2), 'hotels_v2_114400_repeated_activity');
+  const broadAfter = await broadState(databaseUrl, 'hotels_v2_114400_repeated_broad_after');
+  const lineageAfter = await scopedLineage(databaseUrl,
+    'hotels_v2_114400_repeated_lineage_after');
+  assert.notDeepEqual(broadAfter.task2, broadBefore.task2);
+  assert.notDeepEqual(broadAfter.stage2, broadBefore.stage2);
+  assert.equal(broadAfter.affiliate_count, broadBefore.affiliate_count + 1);
+  assert.deepEqual(lineageAfter, lineageBefore);
+  const safe = await jsonValue(databaseUrl, `
+    select jsonb_build_object(
+      'compatibility_exact',public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact(),
+      'current_safe',public.hotel_v2_seven_arches_pricing_activation_current_is_safe())::text;
+  `, 'hotels_v2_114400_repeated_safe');
+  assert.deepEqual(safe, { compatibility_exact: true, current_safe: true });
+  return { broadMapsAdvanced: true, scopedLineageStable: true, ...safe };
+}
+
+async function criticalPropertyCase() {
+  const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('critical_property'));
+  await installLiveEvolution(databaseUrl, 'hotels_v2_114400_critical_property');
+  await runPsql(databaseUrl, `
+    update public.hotels
+    set description_i18n='{"en":"Unreviewed critical mutation"}'::jsonb
+    where id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid;
+  `, 'hotels_v2_114400_critical_property_mutation');
+  return expectRejected(databaseUrl, 'hotels_v2_114400_critical_property',
+    /PREFLIGHT_FAIL:.*(?:Property|scoped|lineage|protected state)/i,
+    /hotels_v2_seven_arches_pricing_activation_.*(?:drift|lineage|foundation)/i);
 }
 
 async function unsupportedFlagCase() {
   const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('unsupported'));
-  await installExactSix(databaseUrl, 'hotels_v2_114400_unsupported');
+  await installLiveEvolution(databaseUrl, 'hotels_v2_114400_unsupported');
   await runPsql(databaseUrl,
     'update public.site_settings set hotel_rooms_v2_enabled=true where id=1;',
     'hotels_v2_114400_unsupported_mutation');
   return expectRejected(databaseUrl, 'hotels_v2_114400_unsupported',
-    /PREFLIGHT_FAIL: flags\/legacy authority drift/,
-    /hotels_v2_seven_arches_pricing_activation_stage2_foundation_drift/);
+    /PREFLIGHT_FAIL:.*(?:flags|scoped|lineage)/i,
+    /hotels_v2_seven_arches_pricing_activation_.*(?:drift|lineage|foundation)/i);
 }
 
 async function historicalReceiptCase() {
   const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('historical'));
-  await installExactSix(databaseUrl, 'hotels_v2_114400_historical');
+  await installLiveEvolution(databaseUrl, 'hotels_v2_114400_historical');
   await runPsql(databaseUrl, `
     alter table public.hotel_partner_workspace_foundation_receipts
       disable trigger hotel_partner_workspace_foundation_receipts_immutable;
@@ -287,13 +390,13 @@ async function historicalReceiptCase() {
     set protected_fingerprint=repeat('0',64) where id=1;
   `, 'hotels_v2_114400_historical_corruption');
   return expectRejected(databaseUrl, 'hotels_v2_114400_historical',
-    /PREFLIGHT_FAIL: Stage2 protected state drift/,
-    /hotels_v2_seven_arches_pricing_activation_stage2_foundation_drift/);
+    /PREFLIGHT_FAIL:.*(?:receipt|Stage2|lineage|protected state)/i,
+    /hotels_v2_seven_arches_pricing_activation_.*(?:drift|lineage|foundation)/i);
 }
 
 async function missingReceiptCase(caseName, receiptStage) {
   const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get(caseName));
-  await installExactSix(databaseUrl, `hotels_v2_114400_${caseName}`);
+  await installLiveEvolution(databaseUrl, `hotels_v2_114400_${caseName}`);
   if (receiptStage === '114370') await runPsql(databaseUrl, `
     alter table public.hotel_partner_property_proposal_foundation_receipts
       disable trigger hotel_partner_property_proposal_foundation_receipts_immutable;
@@ -305,21 +408,21 @@ async function missingReceiptCase(caseName, receiptStage) {
     delete from public.hotel_admin_availability_foundation_evolution_receipts where id=1;
   `, `hotels_v2_114400_${caseName}_mutation`);
   return expectRejected(databaseUrl, `hotels_v2_114400_${caseName}`,
-    /query returned no rows|PREFLIGHT_FAIL: Task2\/H3\.1P dependency missing/,
-    /query returned no rows|hotels_v2_seven_arches_pricing_activation_dependency_missing/);
+    /query returned no rows|PREFLIGHT_FAIL:.*(?:dependency|receipt|lineage)/i,
+    /query returned no rows|hotels_v2_seven_arches_pricing_activation_.*(?:dependency|lineage|foundation)/i);
 }
 
 async function sourcePinCase() {
   const databaseUrl = withDatabase(fixtureUrl, caseDatabases.get('source_pin'));
-  await installExactSix(databaseUrl, 'hotels_v2_114400_source_pin');
+  await installLiveEvolution(databaseUrl, 'hotels_v2_114400_source_pin');
   await runPsql(databaseUrl, `
     create or replace function public.hotel_v2_partner_workspace_function_lineage_is_exact()
     returns boolean language sql stable security definer
     set search_path=pg_catalog,public as $function$ select false $function$;
   `, 'hotels_v2_114400_source_pin_mutation');
   return expectRejected(databaseUrl, 'hotels_v2_114400_source_pin',
-    /PREFLIGHT_FAIL: Stage2 protected state drift/,
-    /hotels_v2_seven_arches_pricing_activation_stage2_foundation_drift/);
+    /PREFLIGHT_FAIL:.*(?:source|Stage2|lineage|protected state)/i,
+    /hotels_v2_seven_arches_pricing_activation_.*(?:drift|lineage|foundation)/i);
 }
 
 async function assertFixtureReady() {
@@ -341,21 +444,28 @@ async function assertFixtureReady() {
         (select count(*) from public.referrals
           where id='36000000-0000-4000-8000-000000000107'::uuid)+
         (select count(*) from public.service_deposit_requests
-          where id='36000000-0000-4000-8000-000000000109'::uuid)
+          where id='36000000-0000-4000-8000-000000000109'::uuid)+
+        (select count(*) from public.affiliate_commission_events
+          where id='36000000-0000-4000-8000-000000000110'::uuid),
+      'new_rows_absent',not exists(select 1 from public.affiliate_commission_events
+        where id in('36000000-0000-4000-8000-000000000114'::uuid,
+          '36000000-0000-4000-8000-000000000117'::uuid))
     )::text;
-  `, 'hotels_v2_114400_exact_six_fixture_guard');
+  `, 'hotels_v2_114400_live_fixture_guard');
   assert.deepEqual(ready, {
     task2_receipt_count: 1,
     owner_receipt_count: 1,
     activation_absent: true,
-    fixture_rows: 5,
+    fixture_rows: 6,
+    new_rows_absent: true,
   });
 }
 
 async function cloneCaseDatabases() {
   for (const databaseName of caseDatabases.values()) {
     await runPsql(adminUrl, `create database ${quoteIdentifier(databaseName)}
-      with template ${quoteIdentifier(templateDatabase)};`, 'hotels_v2_114400_exact_six_clone');
+      with template ${quoteIdentifier(templateDatabase)};`,
+    'hotels_v2_114400_live_baseline_clone');
     createdDatabases.push(databaseName);
   }
 }
@@ -364,7 +474,7 @@ async function cleanup() {
   for (const databaseName of [...createdDatabases].reverse()) {
     try {
       await runPsql(adminUrl, `drop database if exists ${quoteIdentifier(databaseName)}
-        with (force);`, 'hotels_v2_114400_exact_six_cleanup');
+        with (force);`, 'hotels_v2_114400_live_baseline_cleanup');
     } catch (error) {
       process.stderr.write(`cleanup warning for ${databaseName}: ${error.message}\n`);
     }
@@ -376,8 +486,9 @@ try {
   await assertFixtureReady();
   await cloneCaseDatabases();
   results = {
-    exactSixPositive: await positiveCase(),
-    unexplainedSeventhKey: await seventhKeyCase(),
+    liveBaselinePositive: await positiveCase(),
+    repeatedUnrelatedLiveEvolution: await repeatedLiveEvolutionCase(),
+    criticalPropertyDrift: await criticalPropertyCase(),
     unsupportedHotelsFlag: await unsupportedFlagCase(),
     historicalReceiptCorruption: await historicalReceiptCase(),
     missing114370Receipt: await missingReceiptCase('missing_114370', '114370'),
@@ -389,7 +500,7 @@ try {
 }
 
 console.log(JSON.stringify({
-  sentinel: 'HOTELS_V2_7A_PRICING_ACTIVATION_EXACT_SIX_COMPATIBILITY_GATE_PASS',
-  expectedChangedKeys: EXPECTED_KEYS,
+  sentinel: 'HOTELS_V2_7A_PRICING_ACTIVATION_SCOPED_COMPATIBILITY_GATE_PASS',
+  scopedContract: SCOPED_CONTRACT,
   results,
 }));

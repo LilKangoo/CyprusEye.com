@@ -17,6 +17,10 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()');
   v_projector_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
+  v_scoped_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_transaction_preservation_oid oid:=to_regprocedure(
+    'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
     'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)');
   v_activation_immutable_oid oid:=to_regprocedure(
@@ -30,6 +34,8 @@ declare
 begin
   if v_admin_d_oid is null or v_receipt_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
+     or v_scoped_lineage_oid is null
+     or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
      or v_activation_insert_guard_oid is null or v_review_guard_oid is null
@@ -93,7 +99,7 @@ begin
        is distinct from array['search_path=pg_catalog, public']::text[]
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         'a794d528a3843009b65ba0927c508c8bf2b9f5ffdfce97f593ac81d6769526c6'
+         '3cc4d17d0703e29b12df8e6f3e7f24263c1af32bbe09df8928283db100b67b9e'
      or has_function_privilege(0::oid,v_admin_d_oid,'EXECUTE')
      or has_function_privilege('anon',v_admin_d_oid,'EXECUTE')
      or has_function_privilege('authenticated',v_admin_d_oid,'EXECUTE')
@@ -109,7 +115,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
+           'hex')='0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -121,7 +127,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
+           'hex')='e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -133,10 +139,30 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public, auth']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
+           'hex')='b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=v_scoped_lineage_oid
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=v_transaction_preservation_oid
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
      or exists(select 1 from (values
        (v_activation_immutable_oid,array['search_path=pg_catalog']::text[],
@@ -322,7 +348,7 @@ begin
        /length('v_h3:=public.hotel_v2_h3_1p_pricing_promotion_snapshot(c_hotel);')<>1
      or (length(v_receipt_source)-length(replace(v_receipt_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
-       /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
+       /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>0
      or position(
        'v_current_stage2:=public.hotel_v2_external_calendar_stage2_compatible_fingerprints();'
        in v_receipt_source)<>0
@@ -397,8 +423,7 @@ declare
     public.hotel_seven_arches_task2_stage2_compatibility_receipts%rowtype;
   v_stage2f hotels_v2_private.hotel_external_calendar_activation_receipts%rowtype;
   v_canonical jsonb;
-  v_current jsonb;
-  v_current_stage2 jsonb;
+  v_scoped_lineage jsonb;
   v_payload jsonb;
   v_parity jsonb;
   v_current_owner_user_ids uuid[];
@@ -408,15 +433,6 @@ declare
   v_permission_exact boolean:=false;
   v_audit_exact boolean:=false;
   v_task2_receipt_topology_exact boolean:=false;
-  v_task2_baseline_delta_keys text[];
-  v_stage2_baseline_delta_keys text[];
-  v_expected_baseline_delta_keys constant text[]:=array[
-    'partner_service_fulfillment_form_snapshots',
-    'partner_service_fulfillments',
-    'profile_referral_code_aliases',
-    'referrals',
-    'service_deposit_requests',
-    'site_settings']::text[];
   v_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()');
   v_admin_d_oid oid:=to_regprocedure(
@@ -427,6 +443,10 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()');
   v_projector_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
+  v_scoped_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_transaction_preservation_oid oid:=to_regprocedure(
+    'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
     'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)');
   v_activation_immutable_oid oid:=to_regprocedure(
@@ -456,6 +476,8 @@ begin
       from public.hotel_seven_arches_task2_stage2_compatibility_receipts)<>1
      or v_oid is null or v_admin_d_oid is null or v_inert_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
+     or v_scoped_lineage_oid is null
+     or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
      or v_activation_insert_guard_oid is null or v_review_guard_oid is null
@@ -479,26 +501,7 @@ begin
   select * into strict v_stage2f
     from hotels_v2_private.hotel_external_calendar_activation_receipts where id=1;
   v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
-  v_current:=v_canonical->'task2_protected_fingerprints';
-  v_current_stage2:=v_canonical->'stage2_protected_fingerprints';
-  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
-      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
-      array[]::text[])
-    into v_task2_baseline_delta_keys
-  from jsonb_each(v_task2_stage2.canonical_task2_protected_fingerprints)
-    receipt_entry
-  full join jsonb_each(v_task2.protected_fingerprints) foundation_entry
-    on foundation_entry.key=receipt_entry.key
-  where receipt_entry.value is distinct from foundation_entry.value;
-  select coalesce(array_agg(coalesce(receipt_entry.key,foundation_entry.key)
-      order by coalesce(receipt_entry.key,foundation_entry.key) collate "C"),
-      array[]::text[])
-    into v_stage2_baseline_delta_keys
-  from jsonb_each(v_task2_stage2.canonical_stage2_protected_fingerprints)
-    receipt_entry
-  full join jsonb_each(v_owner.stage2_current_protected_fingerprints)
-    foundation_entry on foundation_entry.key=receipt_entry.key
-  where receipt_entry.value is distinct from foundation_entry.value;
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
 
   v_task2_receipt_topology_exact:=coalesce(
     v_task2_stage2.id=1
@@ -511,7 +514,7 @@ begin
       and relation.relowner='postgres'::regrole and relation.relrowsecurity)
     and (select count(*) from pg_attribute attribute where attribute.attrelid=
       'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
-      and attribute.attnum>0 and not attribute.attisdropped)=9
+      and attribute.attnum>0 and not attribute.attisdropped)=10
     and not exists(select 1 from (values
       (1::smallint,'id','smallint',true,null::text),
       (2::smallint,'contract_version','text',true,null::text),
@@ -519,9 +522,10 @@ begin
       (4::smallint,'canonical_task2_protected_fingerprint','text',true,null::text),
       (5::smallint,'canonical_stage2_protected_fingerprints','jsonb',true,null::text),
       (6::smallint,'canonical_stage2_protected_fingerprint','text',true,null::text),
-      (7::smallint,'canonical_snapshot_source_hash','text',true,null::text),
-      (8::smallint,'validator_source_hash','text',true,null::text),
-      (9::smallint,'created_at','timestamp with time zone',true,'clock_timestamp()')
+      (7::smallint,'scoped_lineage_source_hash','text',true,null::text),
+      (8::smallint,'canonical_snapshot_source_hash','text',true,null::text),
+      (9::smallint,'validator_source_hash','text',true,null::text),
+      (10::smallint,'created_at','timestamp with time zone',true,'clock_timestamp()')
     ) expected(attnum,attname,type_name,not_null,default_expression)
     left join pg_attribute attribute on attribute.attrelid=
       'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
@@ -539,7 +543,7 @@ begin
         is distinct from expected.default_expression)
     and (select count(*) from pg_constraint constraint_row where
       constraint_row.conrelid=
-        'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass)=9
+          'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass)=10
     and (select count(*) from pg_constraint constraint_row
       join pg_index index_row on index_row.indexrelid=constraint_row.conindid
       where constraint_row.conrelid=
@@ -587,8 +591,9 @@ begin
     and not exists(select 1 from (values
       (4::smallint,'canonical_task2_protected_fingerprint'),
       (6::smallint,'canonical_stage2_protected_fingerprint'),
-      (7::smallint,'canonical_snapshot_source_hash'),
-      (8::smallint,'validator_source_hash')
+      (7::smallint,'scoped_lineage_source_hash'),
+      (8::smallint,'canonical_snapshot_source_hash'),
+      (9::smallint,'validator_source_hash')
     ) expected(attnum,column_name) where (select count(*)
       from pg_constraint constraint_row where constraint_row.conrelid=
         'public.hotel_seven_arches_task2_stage2_compatibility_receipts'::regclass
@@ -666,7 +671,7 @@ begin
      or has_function_privilege('service_role',v_task2_validator_oid,'EXECUTE')
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_task2_validator_oid)<>
-       '2088460a8ab0f9c7a8af6c3914712285cadcb7e920634414379fc895342584c0'
+       '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95'
      or (select proowner from pg_proc where oid=v_projector_oid)
        <>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_projector_oid)
@@ -679,7 +684,27 @@ begin
      or has_function_privilege('service_role',v_projector_oid,'EXECUTE')
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_projector_oid)<>
-       'f1005ebf679708d3ad794f40e3a8bc7f3e708e8307545d48e3123cb6448de838'
+       'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3'
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=v_scoped_lineage_oid
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=v_transaction_preservation_oid
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
      or not exists(select 1 from pg_proc procedure_row
        where procedure_row.oid=v_apply_oid
          and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -687,7 +712,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public, auth']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='c8a5b56ea5097524f0843c699dd83a484a166379324b891162b39e9ef6c51f6e'
+           'hex')='b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -728,34 +753,29 @@ begin
      or v_canonical->>'site_settings_lifecycle_fingerprint' is distinct from
        public.hotel_v2_external_calendar_worker_hash(
          v_canonical->'site_settings_lifecycle')
-     or jsonb_typeof(v_current) is distinct from 'object'
-     or jsonb_typeof(v_current_stage2) is distinct from 'object'
+     or jsonb_typeof(v_canonical->'task2_protected_fingerprints')
+       is distinct from 'object'
+     or jsonb_typeof(v_canonical->'stage2_protected_fingerprints')
+       is distinct from 'object'
      or v_canonical->>'task2_protected_fingerprint' is distinct from
-       public.hotel_v2_h3_2b_hash(v_current)
+       public.hotel_v2_h3_2b_hash(v_canonical->'task2_protected_fingerprints')
      or v_canonical->>'stage2_protected_fingerprint' is distinct from
-       public.hotel_v2_external_calendar_worker_hash(v_current_stage2)
+       public.hotel_v2_external_calendar_worker_hash(
+         v_canonical->'stage2_protected_fingerprints')
      or v_task2_stage2.canonical_task2_protected_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(
          v_task2_stage2.canonical_task2_protected_fingerprints)
      or v_task2_stage2.canonical_stage2_protected_fingerprint is distinct from
        public.hotel_v2_external_calendar_worker_hash(
          v_task2_stage2.canonical_stage2_protected_fingerprints)
+     or v_task2_stage2.scoped_lineage_source_hash is distinct from
+       public.hotel_v2_h3_2b_hash(to_jsonb(
+         pg_get_functiondef(v_scoped_lineage_oid)))
      or v_task2_stage2.canonical_snapshot_source_hash is distinct from
        public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(v_projector_oid)))
      or v_task2_stage2.validator_source_hash is distinct from
        public.hotel_v2_h3_2b_hash(to_jsonb(
          pg_get_functiondef(v_task2_validator_oid)))
-     or not (v_task2_stage2.canonical_task2_protected_fingerprints
-       ?& v_expected_baseline_delta_keys)
-     or not (v_task2.protected_fingerprints ?& v_expected_baseline_delta_keys)
-     or v_task2_baseline_delta_keys is distinct from
-       v_expected_baseline_delta_keys
-     or not (v_task2_stage2.canonical_stage2_protected_fingerprints
-       ?& v_expected_baseline_delta_keys)
-     or not (v_owner.stage2_current_protected_fingerprints
-       ?& v_expected_baseline_delta_keys)
-     or v_stage2_baseline_delta_keys is distinct from
-       v_expected_baseline_delta_keys
      or v_task2_stage2.canonical_task2_protected_fingerprints->>'site_settings'
        is distinct from v_canonical->>'site_settings_lifecycle_fingerprint'
      or v_task2_stage2.canonical_stage2_protected_fingerprints->>'site_settings'
@@ -1065,7 +1085,10 @@ begin
      or public.hotel_v2_external_calendar_provider_sources_are_attributable()
        is not true
      or public.hotel_v2_partner_workspace_function_lineage_is_exact() is not true
-     or public.hotel_v2_seven_arches_property_proposal_canonical_is_attributable()
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
        is not true
      or (select count(*)<>1 or bool_or(id<>1 or hotel_rooms_v2_enabled
           or hotel_external_sync_enabled is null
@@ -1218,15 +1241,8 @@ begin
     and v_receipt.hotel_id=c_hotel and v_receipt.id=1
     and v_receipt.before_protected_fingerprint=
       public.hotel_v2_h3_2b_hash(v_receipt.before_protected_fingerprints)
-    and v_receipt.before_protected_fingerprints is not distinct from
-      v_task2_stage2.canonical_task2_protected_fingerprints
-    and v_receipt.before_protected_fingerprint is not distinct from
-      v_task2_stage2.canonical_task2_protected_fingerprint
     and v_receipt.after_protected_fingerprint=
       public.hotel_v2_h3_2b_hash(v_receipt.after_protected_fingerprints)
-    and v_receipt.after_protected_fingerprints is not distinct from v_current
-    and v_receipt.after_protected_fingerprint is not distinct from
-      v_canonical->>'task2_protected_fingerprint'
     and v_receipt.allowed_fingerprint_keys=array[
       'hotel_rate_plans','hotel_room_rates_protected','hotel_pricing_schedules',
       'hotel_admin_pricing_action_receipts','non_h3_2b_activity']::text[]
@@ -1241,17 +1257,9 @@ begin
     and v_receipt.before_stage2_protected_fingerprint=
       public.hotel_v2_external_calendar_worker_hash(
         v_receipt.before_stage2_protected_fingerprints)
-    and v_receipt.before_stage2_protected_fingerprint=
-      v_task2_stage2.canonical_stage2_protected_fingerprint
-    and v_receipt.before_stage2_protected_fingerprints is not distinct from
-      v_task2_stage2.canonical_stage2_protected_fingerprints
     and v_receipt.after_stage2_protected_fingerprint=
       public.hotel_v2_external_calendar_worker_hash(
         v_receipt.after_stage2_protected_fingerprints)
-    and v_receipt.after_stage2_protected_fingerprints is not distinct from
-      v_current_stage2
-    and v_receipt.after_stage2_protected_fingerprint is not distinct from
-      v_canonical->>'stage2_protected_fingerprint'
     and v_receipt.stage2_allowed_fingerprint_keys=array[
       'hotel_rate_plans','hotel_room_rates_protected','hotel_pricing_schedules',
       'hotel_admin_pricing_action_receipts','non_external_calendar_activity']::text[]
@@ -1415,7 +1423,7 @@ begin
          '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         'b4ceffd1f0cc0551c9962ac2a34f8eb6aad6cff45bfac4509b5f39bd1212d2bc'
+         '4348650219c9355a2ff4259520b2d2582902cb9be7c0cb6fc88131938c18939b'
      or (select proowner from pg_proc where oid=v_admin_d_oid)<>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_admin_d_oid)
      or (select provolatile from pg_proc where oid=v_admin_d_oid)<>'s'
@@ -1452,12 +1460,12 @@ begin
   if (length(v_source)-length(replace(v_source,
        'v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();','')))
        /length('v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();')<>1
-     or position('v_expected_baseline_delta_keys constant text[]:=array['
-       in v_source)=0
-     or position('v_task2_baseline_delta_keys is distinct from'
-       in v_source)=0
-     or position('v_stage2_baseline_delta_keys is distinct from'
-       in v_source)=0
+     or (length(v_source)-length(replace(v_source,
+       'v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();','')))
+       /length('v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();')<>1
+     or position('v_expected_baseline_delta_keys' in v_source)<>0
+     or position('v_task2_baseline_delta_keys' in v_source)<>0
+     or position('v_stage2_baseline_delta_keys' in v_source)<>0
      or position(
        'v_task2_stage2.canonical_task2_protected_fingerprints is distinct from'
        in v_source)<>0

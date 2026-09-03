@@ -695,4 +695,8 @@ select 'HOTELS_V2_7A_APPLICATION_PRICING_BRIDGE_POSTGRES_GATE_OK' sentinel,
   1 exact_replay,
   2 coupon_timezone_restoration_checks,
   54 partner_control_rows,
+  encode(extensions.digest(convert_to((select procedure_row.prosrc
+    from pg_proc procedure_row where procedure_row.oid=
+      'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure),
+    'UTF8'),'sha256'),'hex') topology_prosrc_sha256,
   12 negative_probes;

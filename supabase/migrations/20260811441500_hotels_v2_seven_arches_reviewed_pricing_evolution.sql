@@ -8,13 +8,28 @@ set local statement_timeout='120s';
 do $seven_arches_reviewed_pricing_dependencies$
 declare
   c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  v_scoped_lineage jsonb;
 begin
+  if to_regprocedure(
+       'public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
+     or to_regprocedure(
+       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
+       is null then
+    raise exception using errcode='55000',
+      message='hotels_v2_seven_arches_reviewed_pricing_lineage_dependency_missing';
+  end if;
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
   if to_regclass('public.hotel_seven_arches_independent_pricing_authority') is null
      or to_regclass('public.hotel_seven_arches_independent_pricing_evolution_receipts') is null
      or to_regprocedure(
        'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()') is null
      or public.hotel_v2_seven_arches_independent_pricing_topology_is_exact() is not true
      or public.hotel_v2_seven_arches_pricing_activation_current_is_safe() is not true
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not true
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
      or (select count(*) from
        public.hotel_seven_arches_pricing_activation_evolution_receipts)<>1
      or (select count(*) from
@@ -77,7 +92,7 @@ begin
        'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure
        and encode(extensions.digest(convert_to(
          procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-         '63165b5cfa3eb9d6ea1043c400b5f1db7f5a650d35716fe7eb175a10c95b51cb')
+         'b40320549006a442149f208f05a3d071cd17349a6ecc763313c3bd3c08c67c0a')
      or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
        'public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()'::regprocedure
        and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -106,7 +121,33 @@ begin
        'public.hotel_v2_external_calendar_protected_fingerprints()'::regprocedure
        and encode(extensions.digest(convert_to(
          procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-         'e9df9093d67ff5039855a0435174416c2eaca71b67700d4806eb56466e9c4af5') then
+         'e9df9093d67ff5039855a0435174416c2eaca71b67700d4806eb56466e9c4af5')
+     or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
+       'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure
+       and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
+       and procedure_row.provolatile='s'
+       and procedure_row.proconfig=array['search_path=pg_catalog, public']::text[]
+       and public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(procedure_row.oid)))=
+         (select receipt.scoped_lineage_source_hash
+          from public.hotel_seven_arches_task2_stage2_compatibility_receipts receipt
+          where receipt.id=1)
+       and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
+       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure
+       and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
+       and procedure_row.provolatile='s'
+       and procedure_row.proconfig=array['search_path=pg_catalog, public']::text[]
+       and public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(procedure_row.oid)))=
+         (select receipt.transaction_preservation_source_hash
+          from public.hotel_seven_arches_pricing_activation_evolution_receipts receipt
+          where receipt.id=1)
+       and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_reviewed_pricing_dependency_source_drift';
   end if;
@@ -824,6 +865,8 @@ select public.hotel_v2_h3_2b_hash(jsonb_build_object(
       to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_current_state()'),
       to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_build_plan(jsonb,text)'),
       to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()'),
+      'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure,
+      'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure,
       'public.hotel_v2_partner_preview_pricing_plan(jsonb)'::regprocedure,
       'public.hotel_v2_partner_apply_pricing_plan(jsonb,uuid,uuid)'::regprocedure,
       to_regprocedure('public.hotel_v2_partner_preview_pricing_plan_legacy_core(jsonb)'),
@@ -844,11 +887,54 @@ declare c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
   v_foundation public.hotel_seven_arches_reviewed_pricing_foundation_receipts%rowtype;
   v_receipt public.hotel_seven_arches_reviewed_pricing_evolution_receipts%rowtype;
   v_state jsonb; v_previous text; v_expected_sequence bigint:=1;
-  v_receipt_count integer; v_phase1 record;
+  v_receipt_count integer; v_phase1 record; v_scoped_lineage jsonb;
 begin
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
   if (select count(*) from public.hotel_seven_arches_reviewed_pricing_foundation_receipts)<>1
      or exists(select 1
        from public.hotel_seven_arches_reviewed_pricing_transaction_context)
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not true
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+     or (select count(*) from jsonb_object_keys(v_scoped_lineage))<>21
+     or (v_scoped_lineage ?& array[
+       'contract_version','hotel_id','partner_id','assignment_id','owner_user_ids',
+       'owner_membership_fingerprint','permission_preset_fingerprint',
+       'property_business_fingerprint','room_identity_fingerprint',
+       'pricing_identity_fingerprint','allocation_contract_exact','parity_case_count',
+       'parity_mismatch_count','parity_fingerprint','commission_policy_fingerprint',
+       'payment_policy_fingerprint','site_settings_lifecycle',
+       'site_settings_lifecycle_fingerprint','owner_capability_receipt_fingerprint',
+       'property_foundation_receipt_fingerprint','lower_function_security_fingerprint'
+     ]::text[]) is not true
+     or v_scoped_lineage->>'hotel_id' is distinct from c_hotel::text
+     or v_scoped_lineage->>'allocation_contract_exact' is distinct from 'true'
+     or (v_scoped_lineage->>'parity_case_count')::integer<>100
+     or (v_scoped_lineage->>'parity_mismatch_count')::integer<>0
+     or exists(select 1 from jsonb_each_text(v_scoped_lineage) entry
+       where entry.key in('owner_membership_fingerprint',
+         'permission_preset_fingerprint','property_business_fingerprint',
+         'room_identity_fingerprint','pricing_identity_fingerprint',
+         'commission_policy_fingerprint',
+         'payment_policy_fingerprint','site_settings_lifecycle_fingerprint',
+         'owner_capability_receipt_fingerprint',
+         'property_foundation_receipt_fingerprint',
+         'lower_function_security_fingerprint')
+       and entry.value!~'^[0-9a-f]{64}$')
+     or (v_scoped_lineage->>'parity_fingerprint'~'^[0-9a-f]{32}$')
+       is distinct from true
+     or public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+       'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure)))
+       is distinct from (select receipt.scoped_lineage_source_hash
+         from public.hotel_seven_arches_task2_stage2_compatibility_receipts receipt
+         where receipt.id=1)
+     or public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure)))
+       is distinct from (select receipt.transaction_preservation_source_hash
+         from public.hotel_seven_arches_pricing_activation_evolution_receipts receipt
+         where receipt.id=1)
      or (select count(*) from public.hotel_seven_arches_independent_pricing_authority)<>54
      or (select count(*) from public.hotel_pricing_schedule_occupancy_tiers tier
        where tier.schedule_id='aec20731-7a56-35f0-334e-92b363351f02'::uuid)<>27
@@ -3132,33 +3218,11 @@ $seven_arches_reviewed_pricing_foundation$;
 
 do $seven_arches_reviewed_pricing_postconditions$
 declare v_before seven_arches_reviewed_pricing_before%rowtype;
-  v_oracle jsonb; v_evolved integer; v_canonical jsonb;
-  v_task2_diff jsonb; v_stage2_diff jsonb;
-  v_activation public.hotel_seven_arches_pricing_activation_evolution_receipts%rowtype;
+  v_oracle jsonb; v_evolved integer; v_scoped_lineage jsonb;
 begin
   select * into strict v_before from seven_arches_reviewed_pricing_before;
   v_oracle:=public.hotel_v2_seven_arches_reviewed_pricing_oracle();
-  v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
-  select * into strict v_activation
-  from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1;
-  select coalesce(jsonb_agg(diff.key order by diff.key),'[]'::jsonb)
-    into v_task2_diff
-  from (
-    select coalesce(current_entry.key,expected_entry.key) key
-    from jsonb_each(v_canonical->'task2_protected_fingerprints') current_entry
-    full join jsonb_each(v_activation.after_protected_fingerprints) expected_entry
-      on expected_entry.key=current_entry.key
-    where current_entry.value is distinct from expected_entry.value
-  ) diff;
-  select coalesce(jsonb_agg(diff.key order by diff.key),'[]'::jsonb)
-    into v_stage2_diff
-  from (
-    select coalesce(current_entry.key,expected_entry.key) key
-    from jsonb_each(v_canonical->'stage2_protected_fingerprints') current_entry
-    full join jsonb_each(v_activation.after_stage2_protected_fingerprints) expected_entry
-      on expected_entry.key=current_entry.key
-    where current_entry.value is distinct from expected_entry.value
-  ) diff;
+  v_scoped_lineage:=public.hotel_v2_seven_arches_pricing_scoped_lineage();
   select count(*) into v_evolved from (values
     ('public.hotel_v2_partner_preview_pricing_plan(jsonb)'::regprocedure,
       v_before.partner_preview_source_hash),
@@ -3193,10 +3257,37 @@ begin
        is not true
      or public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
        is not true
-     or v_task2_diff is distinct from
-       '["hotel_pricing_schedules","hotel_room_rates_protected","hotel_schedule_tiers_protected"]'::jsonb
-     or v_stage2_diff is distinct from
-       '["hotel_pricing_schedules","hotel_room_rates_protected","hotel_schedule_tiers_protected"]'::jsonb
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not true
+     or jsonb_typeof(v_scoped_lineage) is distinct from 'object'
+     or v_scoped_lineage->>'contract_version' is distinct from
+       'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
+     or (select count(*) from jsonb_object_keys(v_scoped_lineage))<>21
+     or (v_scoped_lineage ?& array[
+       'contract_version','hotel_id','partner_id','assignment_id','owner_user_ids',
+       'owner_membership_fingerprint','permission_preset_fingerprint',
+       'property_business_fingerprint','room_identity_fingerprint',
+       'pricing_identity_fingerprint','allocation_contract_exact','parity_case_count',
+       'parity_mismatch_count','parity_fingerprint','commission_policy_fingerprint',
+       'payment_policy_fingerprint','site_settings_lifecycle',
+       'site_settings_lifecycle_fingerprint','owner_capability_receipt_fingerprint',
+       'property_foundation_receipt_fingerprint','lower_function_security_fingerprint'
+     ]::text[]) is not true
+     or v_scoped_lineage->>'hotel_id' is distinct from
+       '9b6d99a0-923a-4fbc-be54-c066e856e6ca'
+     or v_scoped_lineage->>'allocation_contract_exact' is distinct from 'true'
+     or (v_scoped_lineage->>'parity_case_count')::integer<>100
+     or (v_scoped_lineage->>'parity_mismatch_count')::integer<>0
+     or public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+       'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure)))
+       is distinct from (select receipt.scoped_lineage_source_hash
+         from public.hotel_seven_arches_task2_stage2_compatibility_receipts receipt
+         where receipt.id=1)
+     or public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(
+       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure)))
+       is distinct from (select receipt.transaction_preservation_source_hash
+         from public.hotel_seven_arches_pricing_activation_evolution_receipts receipt
+         where receipt.id=1)
      or encode(extensions.digest(convert_to((select procedure_row.prosrc
        from pg_proc procedure_row where procedure_row.oid=
          'public.hotel_v2_external_calendar_protected_fingerprints()'::regprocedure),
@@ -3239,9 +3330,9 @@ begin
         'property_attributable',
           public.hotel_v2_seven_arches_property_proposal_canonical_is_attributable(),
         'workspace_lineage',public.hotel_v2_partner_workspace_function_lineage_is_exact(),
-        'canonical_null',public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot() is null,
-        'task2_diff',v_task2_diff,
-        'stage2_diff',v_stage2_diff,
+        'scoped_lineage',v_scoped_lineage,
+        'transaction_preservation',
+          public.hotel_v2_7a_pricing_activation_transaction_is_preserved(),
         'external_hash',encode(extensions.digest(convert_to((select procedure_row.prosrc
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_protected_fingerprints()'::regprocedure),
