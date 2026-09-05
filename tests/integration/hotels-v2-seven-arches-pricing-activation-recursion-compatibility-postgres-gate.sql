@@ -113,6 +113,7 @@ $recursion_compatibility_prior_call_shape_gate$;
 
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
 \ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
+\ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
 
 do $recursion_compatibility_pre_activation_gate$
 begin
@@ -129,7 +130,7 @@ begin
     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
       from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()'))<>
-       '130511313d4df1770f0687e94825d04fff5f095790c1b79fd8c2423a89b4bee8' then
+       '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee' then
     raise exception 'pricing_activation_recursion_pre_activation_state_invalid';
   end if;
 end
@@ -143,30 +144,13 @@ returns trigger language plpgsql set search_path=pg_catalog,public
 as $test_function$
 declare
   v_canonical jsonb;
-  v_task2 public.hotel_seven_arches_task2_stage2_compatibility_receipts%rowtype;
 begin
-  select * into strict v_task2
-  from public.hotel_seven_arches_task2_stage2_compatibility_receipts where id=1;
   v_canonical:=public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot();
   if (select count(*)
       from public.hotel_seven_arches_pricing_activation_evolution_receipts)<>1
      or v_canonical is null
-     or new.before_protected_fingerprints is distinct from
-       v_task2.canonical_task2_protected_fingerprints
-     or new.before_protected_fingerprint is distinct from
-       v_task2.canonical_task2_protected_fingerprint
-     or new.before_stage2_protected_fingerprints is distinct from
-       v_task2.canonical_stage2_protected_fingerprints
-     or new.before_stage2_protected_fingerprint is distinct from
-       v_task2.canonical_stage2_protected_fingerprint
-     or new.after_protected_fingerprints is distinct from
-       v_canonical->'task2_protected_fingerprints'
-     or new.after_protected_fingerprint is distinct from
-       v_canonical->>'task2_protected_fingerprint'
-     or new.after_stage2_protected_fingerprints is distinct from
-       v_canonical->'stage2_protected_fingerprints'
-     or new.after_stage2_protected_fingerprint is distinct from
-       v_canonical->>'stage2_protected_fingerprint' then
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not true then
     raise exception 'pricing_activation_recursion_failed_apply_boundary_invalid';
   end if;
   raise exception 'pricing_activation_recursion_failed_apply_rollback_sentinel';
@@ -237,7 +221,7 @@ drop trigger hotel_v2_114405_test_stop_after_activation_receipt
   on public.hotel_seven_arches_pricing_activation_evolution_receipts;
 drop function public.hotel_v2_114405_test_stop_after_activation_receipt();
 
--- The unchanged 114400 Admin workflow must now cross the first-receipt
+-- The 114406 transport-stable Admin workflow must now cross the first-receipt
 -- boundary and pin the evolved validator source.
 begin;
 do $activate_after_recursion_compatibility$

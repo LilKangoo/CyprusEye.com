@@ -131,6 +131,12 @@ begin
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_activation_current_is_safe()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()') is null
      or to_regprocedure(
+       'public.hotel_v2_seven_arches_pricing_activation_canonical_json(jsonb)') is null
+     or to_regprocedure(
+       'public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)') is null
+     or to_regprocedure(
+       'public.hotel_v2_admin_preview_seven_arches_pricing_activation(jsonb)') is null
+     or to_regprocedure(
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()') is null
      or to_regprocedure(
        'public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
@@ -247,7 +253,7 @@ begin
   select expected.signature into v_bad_function
   from (values
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
-      '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0',
+      '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_admin_d_current_foundation_snapshot()',
       '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a',
@@ -275,7 +281,13 @@ begin
       'v'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_admin_c_pricing_graph_constraint_trigger()',
       'ddd7d1995810b1006d5fdbaca64560703ad98f5b4cfae1174b0595b8f41d7ad0',
-      'v'::"char",array['search_path=pg_catalog, public']::text[])
+      'v'::"char",array['search_path=pg_catalog, public']::text[]),
+    ('public.hotel_v2_seven_arches_pricing_activation_canonical_json(jsonb)',
+      '34a597ce33e7340b4c3779ecf60286abc51aa67661954a9b616a9f2af2eb0e06',
+      'i'::"char",array['search_path=pg_catalog, public']::text[]),
+    ('public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)',
+      '17f80cd334cfd5aeeef64b620dcf4785a5a662e1a1a0e64696516f86c778ffe0',
+      'i'::"char",array['search_path=pg_catalog, public']::text[])
   ) expected(signature,source_hash,volatility,search_path)
   left join pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
   where procedure_row.oid is null
@@ -296,8 +308,11 @@ begin
       detail=v_bad_function;
   end if;
   if exists(select 1 from (values
+      ('public.hotel_v2_admin_preview_seven_arches_pricing_activation(jsonb)',
+        'c75f83699e6d8c1c8234dbd6fec8a81dd2a337e9e193289df39f7a730b9014fd',
+        'v'::"char"),
       ('public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)',
-        'b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6',
+        '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef',
         'v'::"char"),
       ('public.hotel_v2_admin_get_seven_arches_pricing_activation()',
         'ad55a2b1a29fb2e81f2e3f42b445f280a47f5b497590ca92c1cf110dd6b23b0d',
@@ -601,6 +616,9 @@ begin
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()'),
       ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'),
       ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'),
+      ('public.hotel_v2_seven_arches_pricing_activation_canonical_json(jsonb)'),
+      ('public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)'),
+      ('public.hotel_v2_admin_preview_seven_arches_pricing_activation(jsonb)'),
       ('public.hotel_v2_external_calendar_worker_hash(jsonb)'),
       ('public.hotel_v2_external_calendar_activation_function_fingerprints()'),
       ('public.hotel_v2_h3_2a_reject_immutable_change()'),
@@ -625,7 +643,7 @@ begin
         on procedure_row.oid=to_regprocedure(expected.signature)),
     'lower_function_sources',jsonb_build_object(
       'accepted_activation_receipt_validator',
-        '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0',
+        '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee',
       'admin_d',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_admin_d_current_foundation_snapshot()'::regprocedure),'UTF8'),'sha256'),'hex'),
       'canonical_projector',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
@@ -636,6 +654,15 @@ begin
         'UTF8'),'sha256'),'hex'),
       'activation_apply',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'::regprocedure),
+        'UTF8'),'sha256'),'hex'),
+      'activation_preview',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
+        'public.hotel_v2_admin_preview_seven_arches_pricing_activation(jsonb)'::regprocedure),
+        'UTF8'),'sha256'),'hex'),
+      'activation_canonical_json',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
+        'public.hotel_v2_seven_arches_pricing_activation_canonical_json(jsonb)'::regprocedure),
+        'UTF8'),'sha256'),'hex'),
+      'activation_plan_fingerprint',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
+        'public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)'::regprocedure),
         'UTF8'),'sha256'),'hex'),
       'immutable_guard',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_seven_arches_pricing_activation_immutable()'::regprocedure),
@@ -2312,7 +2339,7 @@ begin
          v_site_settings_lifecycle)
      or v_receipt.historical_activation_lineage#>>
        '{lower_function_sources,accepted_activation_receipt_validator}' is distinct from
-       '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0'
+       '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee'
      or v_receipt.historical_activation_lineage_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(v_receipt.historical_activation_lineage)
      or v_receipt.historical_activation_lineage_source_hash is distinct from
@@ -2388,7 +2415,7 @@ begin
         'ddd7d1995810b1006d5fdbaca64560703ad98f5b4cfae1174b0595b8f41d7ad0',
         'v'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)',
-        'b85e47c8e5a61832dbbc909fb120d38d965d0077914f2d8009249ca9a8ffb3f6',
+        '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef',
         'v'::"char",array['search_path=pg_catalog, public, auth']::text[],true),
       ('public.hotel_v2_seven_arches_pricing_activation_immutable()',
         '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87',
@@ -2397,8 +2424,17 @@ begin
         '220afcdf846be8b91b554acb5054364126bc7adb1aa085d1bd86ac149985bdb7',
         'v'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_pricing_activation_review_guard()',
-        '23ff92a30533948004130655e1e81b79386f1416afdd413c38816b0573220758',
-        'v'::"char",array['search_path=pg_catalog, public, auth']::text[],false)
+        '9d2376f4f1f8e035ffd93818ab382b1e2858dd10b38688fe8a31d3fc5845278c',
+        'v'::"char",array['search_path=pg_catalog, public, auth']::text[],false),
+      ('public.hotel_v2_admin_preview_seven_arches_pricing_activation(jsonb)',
+        'c75f83699e6d8c1c8234dbd6fec8a81dd2a337e9e193289df39f7a730b9014fd',
+        'v'::"char",array['search_path=pg_catalog, public, auth']::text[],true),
+      ('public.hotel_v2_seven_arches_pricing_activation_canonical_json(jsonb)',
+        '34a597ce33e7340b4c3779ecf60286abc51aa67661954a9b616a9f2af2eb0e06',
+        'i'::"char",array['search_path=pg_catalog, public']::text[],false),
+      ('public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)',
+        '17f80cd334cfd5aeeef64b620dcf4785a5a662e1a1a0e64696516f86c778ffe0',
+        'i'::"char",array['search_path=pg_catalog, public']::text[],false)
     ) expected(signature,source_hash,volatility,path,authenticated_execute)
     left join pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
     where procedure_row.oid is null or procedure_row.proowner<>'postgres'::regrole

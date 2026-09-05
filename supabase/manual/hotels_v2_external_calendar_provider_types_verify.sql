@@ -174,7 +174,7 @@ begin
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
         and receipt.provider_bridge_source_hash=
-          'fe87a30bafb9d2b2579a80a53701298fed797fa097f83c70d0fd1f331a776686'
+          'cf03f7dfa57e3cdc2f3097f5ce0dc3c0999c774a49d37603ffa45b0433a60e62'
         and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
         and receipt.pricing_scoped_lineage_at_install_fingerprint=

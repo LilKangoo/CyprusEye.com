@@ -55,6 +55,9 @@ commit;
 
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_preflight.sql
 \ir ../../supabase/migrations/20260811440000_hotels_v2_seven_arches_pricing_activation.sql
+\ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
+\ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
+\ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
 
 begin;
 set local statement_timeout='180s';
@@ -208,9 +211,11 @@ begin
   -- Even with a genuine pending review, the context permits no extra field
   -- and cannot be reused for a repeated activation transition.
   insert into public.hotel_seven_arches_pricing_activation_transaction_context(
-    backend_pid,transaction_id,review_id,actor_id,correlation_id)
+    backend_pid,transaction_id,review_id,actor_id,correlation_id,
+    before_protected_fingerprints,before_stage2_protected_fingerprints)
   values(pg_backend_pid(),txid_current(),(v_preview#>>'{reviewed_plan,review_id}')::uuid,
-    '10000000-0000-4000-8000-000000000001','38800000-0000-4000-8000-000000000098');
+    '10000000-0000-4000-8000-000000000001','38800000-0000-4000-8000-000000000098',
+    '{}'::jsonb,'{}'::jsonb);
   if public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot() is not null then
     raise exception 'seven_arches_activation_incomplete_context_projector_allowed';
   end if;
@@ -275,8 +280,10 @@ begin
     'reviewed_at',to_char(v_expired_reviewed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
     'expires_at',to_char(v_expired_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
   v_expired_plan:=v_expired_plan-'plan_fingerprint';
+  v_expired_plan:=
+    public.hotel_v2_seven_arches_pricing_activation_canonical_json(v_expired_plan);
   v_expired_plan:=v_expired_plan||jsonb_build_object('plan_fingerprint',
-    encode(extensions.digest(convert_to(v_expired_plan::text,'UTF8'),'sha256'),'hex'));
+    public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(v_expired_plan));
   perform set_config('request.jwt.claims',
     '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
   insert into public.hotel_seven_arches_pricing_activation_reviews(

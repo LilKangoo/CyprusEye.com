@@ -66,6 +66,7 @@ commit;
 \ir ../../supabase/migrations/20260811440000_hotels_v2_seven_arches_pricing_activation.sql
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
 \ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
+\ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
 
 -- Activate the exact reviewed shared graph that 114410 evolves.
 begin;
@@ -457,7 +458,7 @@ begin
   end if;
   for v_expected in select * from (values
     ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-      'ba5c87a85d78f7e4dbcea01202200c640d137a11cc9fa53dec09ff63a8dcc289'),
+      '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25'),
     ('public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint()',
       '3fa267946795c33b5c23d987d03926c1e36c0e69e10129bd4d31430c4d3139f5'),
     ('public.hotel_v2_h3_1p_allocation_preview(uuid)',
@@ -473,7 +474,7 @@ begin
     ('public.hotel_v2_admin_c_validate_pricing_graph(uuid)',
       '03f787a5e00fbbe65bdcaf1a96529512f60775074a1fdf4dcdd04104c7c7d335'),
     ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-      '5e7e3112b16b37f3df475b7ade59ede8bed9fb246fb8d2a292dd4d296bd47b2e'),
+      'a11c3e98442af4beaaa7c058f576ca393565b0dcc539304c6e345ea6377b830b'),
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'),
     ('public.hotel_v2_seven_arches_pricing_activation_snapshot()',
@@ -692,7 +693,7 @@ begin
       and v_lineage->>'provider_attribution_exact' is not distinct from 'true'
       and v_lineage->>'activation_context_empty' is not distinct from 'true'
       and v_lower_catalog_rows=17
-      and v_lower_function_security_rows=22
+      and v_lower_function_security_rows=25
     end;
   v_admin_d_bridge_exact:=coalesce(
     jsonb_typeof(v_evolution.admin_d_protected_fingerprints_before)='object'

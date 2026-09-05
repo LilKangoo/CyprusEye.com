@@ -19,11 +19,15 @@ const templateDatabase = decodeURIComponent(fixtureUrl.pathname.replace(/^\//, '
 assert.ok(templateDatabase && !['postgres', 'template0', 'template1'].includes(templateDatabase));
 
 const psqlBin = process.env.HOTELS_V2_TASK3_CONCURRENCY_PSQL || 'psql';
+const maintenanceDatabase =
+  process.env.HOTELS_V2_TASK3_CONCURRENCY_MAINTENANCE_DATABASE || 'postgres';
 const runSuffix = `${process.pid}_${randomBytes(4).toString('hex')}`;
 const caseNames = ['pre_lock', 'post_lock', 'inverse', 'accidental', 'critical'];
 const caseDatabases = new Map(caseNames.map((name) =>
   [name, `hotels_v2_114400_lock_first_${runSuffix}_${name}`]));
-const adminUrl = withDatabase(fixtureUrl, 'postgres');
+assert.notEqual(maintenanceDatabase, templateDatabase,
+  'Concurrency maintenance database must differ from the cloned template');
+const adminUrl = withDatabase(fixtureUrl, maintenanceDatabase);
 const sessions = new Set();
 const createdDatabases = [];
 
@@ -299,7 +303,7 @@ async function activityState(databaseUrl, applicationName) {
 }
 
 async function createReviewedPlan(databaseUrl, label) {
-  return scalar(databaseUrl, `
+  const postgresPlan = await scalar(databaseUrl, `
     begin;
     set local role authenticated;
     do $claims$begin perform set_config('request.jwt.claims',
@@ -328,6 +332,9 @@ async function createReviewedPlan(databaseUrl, label) {
     select (value->'reviewed_plan')::text from preview;
     commit;
   `, `hotels_v2_114400_concurrency_preview_${label}`);
+  // Exercise the browser/PostgREST representation boundary instead of
+  // handing PostgreSQL's exact jsonb text directly back to Apply.
+  return JSON.stringify(JSON.parse(postgresPlan));
 }
 
 function applySql(reviewedPlan, correlationId, idempotencyKey, committedToken) {
@@ -667,6 +674,8 @@ async function assertFixtureReady() {
       'current_safe',public.hotel_v2_seven_arches_pricing_activation_current_is_safe(),
       'scoped_contract',public.hotel_v2_seven_arches_pricing_scoped_lineage()
         ->>'contract_version',
+      'transport_fingerprint_helper',to_regprocedure(
+        'public.hotel_v2_seven_arches_pricing_activation_plan_fingerprint(jsonb)') is not null,
       'activation_receipt_count',(select count(*)
         from public.hotel_seven_arches_pricing_activation_evolution_receipts),
       'reviews_count',(select count(*)
@@ -676,6 +685,7 @@ async function assertFixtureReady() {
     compatibility_exact: true,
     current_safe: true,
     scoped_contract: 'hotels_v2_seven_arches_pricing_scoped_lineage_v1',
+    transport_fingerprint_helper: true,
     activation_receipt_count: 0,
     reviews_count: 0,
   });
