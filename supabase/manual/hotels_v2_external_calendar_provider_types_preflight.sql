@@ -26,6 +26,8 @@ begin
      or to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
      or to_regprocedure(
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()') is null
+     or to_regprocedure(
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
        is null
      or to_regprocedure(
@@ -47,6 +49,7 @@ begin
      or not public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
      or not public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
      or public.hotel_v2_seven_arches_pricing_scoped_lineage() is null
+     or not public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
      or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
      or public.hotel_v2_seven_arches_pricing_scoped_lineage()->>'contract_version'
        is distinct from 'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
@@ -95,10 +98,13 @@ begin
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-        '61556afaeb2359b1850dd517c655cc6d05aa1babdaf63bf31b0ad53de18aff7b','s'::"char",
+        'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',
-        '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0','s'::"char",
+        '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d','s'::"char",
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
+        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
         'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3','s'::"char",

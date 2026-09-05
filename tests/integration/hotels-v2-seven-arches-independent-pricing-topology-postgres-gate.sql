@@ -457,7 +457,7 @@ begin
   end if;
   for v_expected in select * from (values
     ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-      '2bda434306e7ffc14c852ca6ab8deb4edf77411cab5658b77c0bef743c91388d'),
+      'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b'),
     ('public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint()',
       '3fa267946795c33b5c23d987d03926c1e36c0e69e10129bd4d31430c4d3139f5'),
     ('public.hotel_v2_h3_1p_allocation_preview(uuid)',
@@ -473,7 +473,7 @@ begin
     ('public.hotel_v2_admin_c_validate_pricing_graph(uuid)',
       '03f787a5e00fbbe65bdcaf1a96529512f60775074a1fdf4dcdd04104c7c7d335'),
     ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-      'b40320549006a442149f208f05a3d071cd17349a6ecc763313c3bd3c08c67c0a'),
+      'f7e76413da69d8e7c36ae82a36ddea8224b8609c994752541383ccd3ee49513f'),
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'),
     ('public.hotel_v2_seven_arches_pricing_activation_snapshot()',
@@ -692,7 +692,7 @@ begin
       and v_lineage->>'provider_attribution_exact' is not distinct from 'true'
       and v_lineage->>'activation_context_empty' is not distinct from 'true'
       and v_lower_catalog_rows=17
-      and v_lower_function_security_rows=21
+      and v_lower_function_security_rows=22
     end;
   v_admin_d_bridge_exact:=coalesce(
     jsonb_typeof(v_evolution.admin_d_protected_fingerprints_before)='object'

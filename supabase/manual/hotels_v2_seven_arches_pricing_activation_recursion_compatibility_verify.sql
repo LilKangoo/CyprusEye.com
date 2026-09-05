@@ -9,7 +9,7 @@ declare
   c_admin_d_hash constant text:=
     '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a';
   c_receipt_hash constant text:=
-    '4348650219c9355a2ff4259520b2d2582902cb9be7c0cb6fc88131938c18939b';
+    'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec';
   c_inert_hash constant text:=
     '190b30e05c95e7220f800284b6408659f21172dba48161163e2a364c40aa95a5';
   v_admin_d_oid oid:=to_regprocedure(
@@ -115,7 +115,7 @@ begin
          'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_scoped_lineage_oid) is distinct from
-         '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0'
+         '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_transaction_preservation_oid) is distinct from
          '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'

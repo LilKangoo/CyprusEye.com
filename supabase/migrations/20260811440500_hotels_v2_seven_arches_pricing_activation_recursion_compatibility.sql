@@ -19,6 +19,8 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
   v_scoped_lineage_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_payment_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()');
   v_transaction_preservation_oid oid:=to_regprocedure(
     'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
@@ -34,7 +36,7 @@ declare
 begin
   if v_admin_d_oid is null or v_receipt_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
-     or v_scoped_lineage_oid is null
+     or v_scoped_lineage_oid is null or v_payment_lineage_oid is null
      or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
@@ -150,6 +152,21 @@ begin
          and procedure_row.prosecdef and procedure_row.provolatile='s'
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=v_payment_lineage_oid
+         and procedure_row.proowner='postgres'::regrole
+         and language_row.lanname='plpgsql'
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
+           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+         and not procedure_row.proleakproof and not procedure_row.proretset
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -445,6 +462,8 @@ declare
     'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()');
   v_scoped_lineage_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_pricing_scoped_lineage()');
+  v_payment_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()');
   v_transaction_preservation_oid oid:=to_regprocedure(
     'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()');
   v_apply_oid oid:=to_regprocedure(
@@ -476,7 +495,7 @@ begin
       from public.hotel_seven_arches_task2_stage2_compatibility_receipts)<>1
      or v_oid is null or v_admin_d_oid is null or v_inert_oid is null
      or v_task2_validator_oid is null or v_projector_oid is null
-     or v_scoped_lineage_oid is null
+     or v_scoped_lineage_oid is null or v_payment_lineage_oid is null
      or v_transaction_preservation_oid is null
      or v_apply_oid is null
      or v_activation_immutable_oid is null
@@ -691,6 +710,21 @@ begin
          and procedure_row.prosecdef and procedure_row.provolatile='s'
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=v_payment_lineage_oid
+         and procedure_row.proowner='postgres'::regrole
+         and language_row.lanname='plpgsql'
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
+           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+         and not procedure_row.proleakproof and not procedure_row.proretset
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -1205,26 +1239,8 @@ begin
         from public.hotels hotel
         cross join lateral jsonb_array_elements(hotel.pricing_tiers->'rules') source(value)
         where hotel.id=c_hotel and (source.value->>'persons')::integer between 2 and 4))
-     or (select count(*) from public.hotel_payment_policies where hotel_id=c_hotel)<>1
-     or not exists(select 1 from public.hotel_payment_policies policy
-       where policy.hotel_id=c_hotel and policy.code='seven-kamares-request-confirmation'
-         and btrim(policy.currency::text)='EUR' and policy.is_active
-         and policy.review_status='reviewed')
-     or (select count(*) from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel)<>2
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=1
-         and term.due_event='after_partner_acceptance' and term.amount_mode='percent_total'
-         and term.amount_value=50 and term.recipient='partner'
-         and term.payment_methods=array['bank_transfer']::text[])
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=2 and term.due_event='on_arrival'
-         and term.amount_mode='remaining_balance' and term.amount_value is null
-         and term.recipient='partner'
-         and term.payment_methods=array['card','cash']::text[])
+     or public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+       is not true
      or (select count(*) from public.hotel_commission_policies policy
        where policy.hotel_id=c_hotel and policy.is_active
          and policy.review_status='reviewed')<>1
@@ -1414,6 +1430,8 @@ declare
     'public.hotel_v2_admin_d_current_foundation_snapshot()');
   v_receipt_oid oid:=to_regprocedure(
     'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()');
+  v_payment_lineage_oid oid:=to_regprocedure(
+    'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()');
   v_source text;
 begin
   if (select count(*)
@@ -1423,7 +1441,7 @@ begin
          '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         '4348650219c9355a2ff4259520b2d2582902cb9be7c0cb6fc88131938c18939b'
+         'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec'
      or (select proowner from pg_proc where oid=v_admin_d_oid)<>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_admin_d_oid)
      or (select provolatile from pg_proc where oid=v_admin_d_oid)<>'s'
@@ -1434,6 +1452,21 @@ begin
      or (select provolatile from pg_proc where oid=v_receipt_oid)<>'s'
      or (select proconfig from pg_proc where oid=v_receipt_oid)
        is distinct from array['search_path=pg_catalog, public']::text[]
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=v_payment_lineage_oid
+         and procedure_row.proowner='postgres'::regrole
+         and language_row.lanname='plpgsql'
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
+           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+         and not procedure_row.proleakproof and not procedure_row.proretset
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
      or has_function_privilege(0::oid,v_admin_d_oid,'EXECUTE')
      or has_function_privilege('anon',v_admin_d_oid,'EXECUTE')
      or has_function_privilege('authenticated',v_admin_d_oid,'EXECUTE')

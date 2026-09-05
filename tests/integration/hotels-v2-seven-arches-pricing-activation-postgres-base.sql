@@ -74,23 +74,76 @@ insert into public.hotel_commission_policies(
 select '38000000-0000-4000-8000-000000000002',hotel.id,'partner-percent-total',
   'percent_booking_total',12.5,hotel.currency,true,'reviewed'
 from public.hotels hotel where hotel.id='c1000000-0000-4000-8000-000000000001';
+
+create function pg_temp.seven_arches_payment_policy_activity_plan(
+  p_action text,
+  p_term_1_id uuid,
+  p_term_2_id uuid,
+  p_term_1_methods text[],
+  p_term_2_methods text[]
+)
+returns jsonb
+language sql
+volatile
+security definer
+set search_path=pg_catalog,public
+as $function$
+select jsonb_build_object(
+  'hotel_id',hotel.id,
+  'expected_property_updated_at',hotel.updated_at,
+  'reviewed_at',clock_timestamp(),
+  'operations',jsonb_build_array(jsonb_build_object(
+    'entity','payment_policy','type',p_action,
+    'id','38600000-0000-4000-8000-000000000001',
+    'expected_version',case when p_action='create' then 0 else policy.version end,
+    'expected_children_fingerprint',case when p_action='create' then null
+      else public.hotel_v2_h3_1_payment_terms_fingerprint(policy.id) end,
+    'payload',jsonb_build_object(
+      'code','seven-kamares-request-confirmation',
+      'name_i18n',jsonb_build_object('en','7 Arches request confirmation'),
+      'currency','EUR','is_active',true,'review_status','reviewed',
+      'terms',jsonb_build_array(
+        jsonb_build_object(
+          'id',p_term_1_id,'sequence',1,
+          'due_event','after_partner_acceptance','amount_mode','percent_total',
+          'amount_value',50,'recipient','partner',
+          'payment_methods',to_jsonb(p_term_1_methods),
+          'instructions_i18n',jsonb_build_object()),
+        jsonb_build_object(
+          'id',p_term_2_id,'sequence',2,
+          'due_event','on_arrival','amount_mode','remaining_balance',
+          'amount_value',null,'recipient','partner',
+          'payment_methods',to_jsonb(p_term_2_methods),
+          'instructions_i18n',jsonb_build_object())
+      )
+    )
+  ))
+)
+from public.hotels hotel
+left join public.hotel_payment_policies policy
+  on policy.id='38600000-0000-4000-8000-000000000001'
+where hotel.id='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+$function$;
+
 begin;
-insert into public.hotel_payment_policies(
-  id,hotel_id,code,name_i18n,currency,is_active,review_status)
-values('38600000-0000-4000-8000-000000000001','9b6d99a0-923a-4fbc-be54-c066e856e6ca',
-  'seven-kamares-request-confirmation','{"en":"7 Arches request confirmation"}',
-  'EUR',true,'reviewed');
-insert into public.hotel_payment_policy_terms(
-  id,hotel_id,payment_policy_id,sequence,due_event,amount_mode,amount_value,
-  recipient,payment_methods,instructions_i18n)
-values
-  ('38600000-0000-4000-8000-000000000002','9b6d99a0-923a-4fbc-be54-c066e856e6ca',
-   '38600000-0000-4000-8000-000000000001',1,'after_partner_acceptance','percent_total',50,
-   'partner',array['bank_transfer'],'{}'),
-  ('38600000-0000-4000-8000-000000000003','9b6d99a0-923a-4fbc-be54-c066e856e6ca',
-   '38600000-0000-4000-8000-000000000001',2,'on_arrival','remaining_balance',null,
-   'partner',array['card','cash'],'{}');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $seven_arches_payment_policy_activity_create$
+begin
+  perform public.hotel_v2_admin_apply_h3_1_configuration(
+    pg_temp.seven_arches_payment_policy_activity_plan(
+      'create',
+      '38600000-0000-4000-8000-000000000002',
+      '38600000-0000-4000-8000-000000000003',
+      array['bank_transfer'],array['card','cash']),
+    '38610000-0000-4000-8000-000000000001'
+  );
+end
+$seven_arches_payment_policy_activity_create$;
 commit;
+drop function pg_temp.seven_arches_payment_policy_activity_plan(
+  text,uuid,uuid,text[],text[]);
 
 \if :{?seven_arches_owner_live_drift_fixture}
 -- Production has unrelated mutable site-settings columns which predate the
@@ -177,6 +230,7 @@ update public.site_settings set hotel_external_sync_enabled=true where id=1;
 \endif
 \if :{?seven_arches_pricing_activation_exact_six_fixture}
 \if :seven_arches_pricing_activation_exact_six_fixture
+\ir hotels-v2-seven-arches-payment-policy-reviewed-evolution-fixture.sql
 \ir hotels-v2-seven-arches-pricing-activation-exact-six-drift-fixture.sql
 \endif
 \endif

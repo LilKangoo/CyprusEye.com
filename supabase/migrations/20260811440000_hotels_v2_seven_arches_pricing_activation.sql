@@ -128,6 +128,331 @@ cross join lateral (select jsonb_build_object(
     'hotel_instant_booking_enabled',false,
     'hotel_stripe_connect_enabled',false) value) lifecycle;
 
+-- The accepted H3.1 Admin configuration writer owns payment-method
+-- evolution.  Methods remain inert configuration metadata: this predicate
+-- accepts their current value only when the complete ordered Admin activity
+-- chain accounts for it, the fixed commercial terms remain unchanged, and
+-- the exact writer/schema/security/consumer boundary is still installed.
+create function public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+returns boolean language plpgsql stable security definer
+set search_path=pg_catalog,public
+as $function$
+declare
+  c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  c_code constant text:='seven-kamares-request-confirmation';
+  c_supported constant text[]:=array[
+    'bank_transfer','cash','card','online']::text[];
+  v_policy public.hotel_payment_policies%rowtype;
+  v_current_state jsonb;
+  v_latest_state jsonb;
+  v_activity_count integer;
+  v_correlation_count integer;
+  v_chain_exact boolean;
+  v_constraint_fingerprint text;
+  v_trigger_fingerprint text;
+  v_security_fingerprint text;
+begin
+  if (select count(*) from public.hotel_payment_policies
+      where hotel_id=c_hotel)<>1
+     or (select count(*) from public.hotel_payment_policies
+      where hotel_id=c_hotel and code=c_code and currency='EUR'
+        and is_active and review_status='reviewed')<>1 then
+    return false;
+  end if;
+  select * into strict v_policy from public.hotel_payment_policies
+  where hotel_id=c_hotel and code=c_code;
+
+  if (select count(*) from public.hotel_payment_policy_terms
+      where payment_policy_id=v_policy.id and hotel_id=c_hotel)<>2
+     or not exists(select 1 from public.hotel_payment_policy_terms term
+       where term.payment_policy_id=v_policy.id and term.hotel_id=c_hotel
+         and term.sequence=1 and term.due_event='after_partner_acceptance'
+         and term.amount_mode='percent_total' and term.amount_value=50
+         and term.recipient='partner' and cardinality(term.payment_methods)>=1
+         and public.hotel_v2_h3_1_codes_valid(term.payment_methods)
+         and term.payment_methods<@c_supported
+         and term.payment_methods=(select array_agg(method order by method)
+           from unnest(term.payment_methods) method))
+     or not exists(select 1 from public.hotel_payment_policy_terms term
+       where term.payment_policy_id=v_policy.id and term.hotel_id=c_hotel
+         and term.sequence=2 and term.due_event='on_arrival'
+         and term.amount_mode='remaining_balance' and term.amount_value is null
+         and term.recipient='partner' and cardinality(term.payment_methods)>=1
+         and public.hotel_v2_h3_1_codes_valid(term.payment_methods)
+         and term.payment_methods<@c_supported
+         and term.payment_methods=(select array_agg(method order by method)
+           from unnest(term.payment_methods) method)) then
+    return false;
+  end if;
+
+  select to_jsonb(v_policy)||jsonb_build_object('terms',coalesce((
+      select jsonb_agg(to_jsonb(term) order by term.sequence,term.id)
+      from public.hotel_payment_policy_terms term
+      where term.payment_policy_id=v_policy.id),'[]'::jsonb))
+    into v_current_state;
+
+  with ordered as materialized (
+    select activity.*,
+      row_number() over(order by activity.created_at,activity.id) ordinal,
+      lag(activity.after_state) over(order by activity.created_at,activity.id)
+        previous_after_state
+    from public.hotel_activity_log activity
+    where activity.hotel_id=c_hotel and activity.entity_type='payment_policy'
+  ), validation as (
+    select count(*)::integer activity_count,
+      count(distinct activity.correlation_id)::integer correlation_count,
+      coalesce(bool_and(coalesce((
+        activity.entity_id=v_policy.id
+        and activity.source='hotels_v2_h3_1_admin_configuration'
+        and activity.actor_type='admin' and activity.actor_id is not null
+        and activity.correlation_id is not null
+        and case when activity.ordinal=1 then
+          activity.action='create' and activity.before_state is null
+          and (activity.after_state->>'version')::bigint=1
+        else activity.action='update'
+          and activity.before_state is not distinct from
+            activity.previous_after_state
+          and (activity.before_state->>'version')::bigint=activity.ordinal-1
+          and (activity.after_state->>'version')::bigint=activity.ordinal
+        end
+        and jsonb_typeof(activity.after_state)='object'
+        and activity.after_state->>'id'=v_policy.id::text
+        and activity.after_state->>'hotel_id'=c_hotel::text
+        and activity.after_state->>'code'=c_code
+        and btrim(activity.after_state->>'currency')='EUR'
+        and activity.after_state->>'is_active'='true'
+        and activity.after_state->>'review_status'='reviewed'
+        and jsonb_typeof(activity.after_state->'terms')='array'
+        and jsonb_array_length(activity.after_state->'terms')=2
+        and exists(select 1
+          from jsonb_array_elements(activity.after_state->'terms') term(value)
+          where term.value->>'hotel_id'=c_hotel::text
+            and term.value->>'payment_policy_id'=v_policy.id::text
+            and (term.value->>'sequence')::integer=1
+            and term.value->>'due_event'='after_partner_acceptance'
+            and term.value->>'amount_mode'='percent_total'
+            and (term.value->>'amount_value')::numeric=50
+            and term.value->>'recipient'='partner'
+            and (term.value->>'version')::bigint=1
+            and jsonb_typeof(term.value->'payment_methods')='array'
+            and jsonb_array_length(term.value->'payment_methods')>=1
+            and jsonb_array_length(term.value->'payment_methods')=(select
+              count(distinct method.value) from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value))
+            and not exists(select 1 from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value)
+              where method.value<>all(c_supported))
+            and term.value->'payment_methods'=(select jsonb_agg(
+                to_jsonb(method.value) order by method.value)
+              from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value)))
+        and exists(select 1
+          from jsonb_array_elements(activity.after_state->'terms') term(value)
+          where term.value->>'hotel_id'=c_hotel::text
+            and term.value->>'payment_policy_id'=v_policy.id::text
+            and (term.value->>'sequence')::integer=2
+            and term.value->>'due_event'='on_arrival'
+            and term.value->>'amount_mode'='remaining_balance'
+            and term.value->'amount_value'='null'::jsonb
+            and term.value->>'recipient'='partner'
+            and (term.value->>'version')::bigint=1
+            and jsonb_typeof(term.value->'payment_methods')='array'
+            and jsonb_array_length(term.value->'payment_methods')>=1
+            and jsonb_array_length(term.value->'payment_methods')=(select
+              count(distinct method.value) from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value))
+            and not exists(select 1 from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value)
+              where method.value<>all(c_supported))
+            and term.value->'payment_methods'=(select jsonb_agg(
+                to_jsonb(method.value) order by method.value)
+              from jsonb_array_elements_text(
+                term.value->'payment_methods') method(value)))
+      ),false)),false) chain_exact
+    from ordered activity
+  ) select activity_count,correlation_count,chain_exact
+    into v_activity_count,v_correlation_count,v_chain_exact from validation;
+
+  select activity.after_state into v_latest_state
+  from public.hotel_activity_log activity
+  where activity.hotel_id=c_hotel and activity.entity_type='payment_policy'
+  order by activity.created_at desc,activity.id desc limit 1;
+  if v_activity_count<1 or v_activity_count<>v_policy.version
+     or v_correlation_count<>v_activity_count or not coalesce(v_chain_exact,false)
+     or v_latest_state is distinct from v_current_state
+     or exists(select 1 from public.hotel_activity_log activity
+       where activity.entity_type='payment_policy' and activity.entity_id=v_policy.id
+         and activity.hotel_id is distinct from c_hotel) then
+    return false;
+  end if;
+
+  -- Exact accepted writer and validator sources.  The authenticated entry
+  -- point is the only mutation surface; its two cores and all lower helpers
+  -- remain hidden behind the accepted ACLs.
+  if exists(select 1 from (values
+      ('public.hotel_v2_admin_apply_h3_1_configuration(jsonb,uuid)',
+       '2e5c577dc7999322adef814a1658156ccf9e22958b58939033f0baf4af9d6fc7',
+       'plpgsql','v'::"char",true,array['search_path=pg_catalog, public, auth']::text[],true,false),
+      ('public.hotel_v2_admin_apply_h3_1_configuration_admin_c_core(jsonb,uuid)',
+       'da58fde24cde49476306b3c16340091989f66200f05d9fe1617dc4efaaf82048',
+       'plpgsql','v'::"char",true,array['search_path=pg_catalog, public']::text[],false,false),
+      ('public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)',
+       'edcf0db5c9b3bcac0736893b5970c21ddce9876eed01327cc001123265ee111d',
+       'plpgsql','v'::"char",true,array['search_path=pg_catalog, public, auth']::text[],false,false),
+      ('public.hotel_v2_h3_1_payment_policy_constraint_trigger()',
+       '02bb3e7a4deb3a122558fc999757b9b16b5536ff049027b2efc9d51e16d5be1e',
+       'plpgsql','v'::"char",false,array['search_path=pg_catalog, public']::text[],false,false),
+      ('public.hotel_v2_h3_1_payment_terms_fingerprint(uuid)',
+       '8a998637085ce0ef5986c44fa3314ee3a864377d3dd5d277235800b26ba369b2',
+       'sql','s'::"char",false,array['search_path=pg_catalog, public']::text[],false,false),
+      ('public.hotel_v2_h3_1_validate_payment_policy(uuid)',
+       '8cab255d64c241f17c39c37af0a1700cae3cb5749a3ef23abf2a37eff99df3b6',
+       'plpgsql','v'::"char",false,array['search_path=pg_catalog, public']::text[],false,false),
+      ('public.hotel_v2_admin_get_h3_1_configuration(uuid)',
+       'f1e81cf98f4cba46f6bf8901a9de06acf568eda1a8e698c2a0d3c95ad2c69adb',
+       'plpgsql','s'::"char",true,array['search_path=pg_catalog, public, auth']::text[],true,false),
+      ('public.hotel_v2_h3_1_codes_valid(text[])',
+       'b42b2345900af0c711871b1baff071931edd28e7135baa3f4511e789b049d3af',
+       'sql','i'::"char",false,array['search_path=pg_catalog']::text[],true,true),
+      ('public.hotel_v2_set_updated_at_and_version()',
+       '93256e7ee38459abf13272de79bd49c11bfe4dbe936c38f8630bedca7c76a3ca',
+       'plpgsql','v'::"char",false,array['search_path=pg_catalog, public']::text[],false,true)
+    ) expected(signature,source_hash,language_name,volatility,security_definer,
+      path,authenticated_execute,service_execute)
+    left join pg_proc procedure_row
+      on procedure_row.oid=to_regprocedure(expected.signature)
+    left join pg_language language_row on language_row.oid=procedure_row.prolang
+    where procedure_row.oid is null
+      or procedure_row.proowner<>'postgres'::regrole
+      or language_row.lanname is distinct from expected.language_name
+      or procedure_row.provolatile is distinct from expected.volatility
+      or procedure_row.prosecdef is distinct from expected.security_definer
+      or procedure_row.proconfig is distinct from expected.path
+      or procedure_row.proleakproof or procedure_row.proretset
+      or encode(extensions.digest(convert_to(
+          procedure_row.prosrc,'UTF8'),'sha256'),'hex')<>expected.source_hash
+      or has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+      or has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+      or has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         is distinct from expected.authenticated_execute
+      or has_function_privilege('service_role',procedure_row.oid,'EXECUTE')
+         is distinct from expected.service_execute) then
+    return false;
+  end if;
+
+  select public.hotel_v2_h3_2b_hash(coalesce(jsonb_agg(jsonb_build_object(
+      'relation',constraint_row.conrelid::regclass::text,
+      'name',constraint_row.conname,'type',constraint_row.contype,
+      'validated',constraint_row.convalidated,
+      'definition',pg_get_constraintdef(constraint_row.oid,false))
+      order by constraint_row.conrelid::regclass::text,constraint_row.conname),
+      '[]'::jsonb)) into v_constraint_fingerprint
+  from pg_constraint constraint_row where constraint_row.conrelid in(
+    'public.hotel_payment_policies'::regclass,
+    'public.hotel_payment_policy_terms'::regclass);
+  select public.hotel_v2_h3_2b_hash(coalesce(jsonb_agg(jsonb_build_object(
+      'relation',trigger_row.tgrelid::regclass::text,
+      'name',trigger_row.tgname,'type',trigger_row.tgtype,
+      'enabled',trigger_row.tgenabled,
+      'function',trigger_row.tgfoid::regprocedure::text,
+      'definition',pg_get_triggerdef(trigger_row.oid,false))
+      order by trigger_row.tgrelid::regclass::text,trigger_row.tgname),
+      '[]'::jsonb)) into v_trigger_fingerprint
+  from pg_trigger trigger_row where trigger_row.tgrelid in(
+    'public.hotel_payment_policies'::regclass,
+    'public.hotel_payment_policy_terms'::regclass) and not trigger_row.tgisinternal;
+  select public.hotel_v2_h3_2b_hash(jsonb_build_object(
+    'relations',(select jsonb_agg(jsonb_build_object(
+      'relation',relation_row.oid::regclass::text,
+      'owner',pg_get_userbyid(relation_row.relowner),
+      'rls',relation_row.relrowsecurity,'force_rls',relation_row.relforcerowsecurity,
+      'acl',(select jsonb_agg(jsonb_build_object(
+        'grantor',acl.grantor::regrole::text,
+        'grantee',acl.grantee::regrole::text,
+        'privilege',acl.privilege_type,'grantable',acl.is_grantable)
+        order by acl.grantor::regrole::text,acl.grantee::regrole::text,
+          acl.privilege_type) from aclexplode(relation_row.relacl) acl))
+      order by relation_row.oid::regclass::text)
+      from pg_class relation_row where relation_row.oid in(
+        'public.hotel_activity_log'::regclass,
+        'public.hotel_payment_policies'::regclass,
+        'public.hotel_payment_policy_terms'::regclass)),
+    'policies',(select jsonb_agg(jsonb_build_object(
+      'relation',policy_row.polrelid::regclass::text,'name',policy_row.polname,
+      'command',policy_row.polcmd,
+      'roles',(select jsonb_agg(role_id::regrole::text order by role_id::regrole::text)
+        from unnest(policy_row.polroles) role_id),
+      'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),
+      'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid))
+      order by policy_row.polrelid::regclass::text,policy_row.polname)
+      from pg_policy policy_row where policy_row.polrelid in(
+        'public.hotel_activity_log'::regclass,
+        'public.hotel_payment_policies'::regclass,
+        'public.hotel_payment_policy_terms'::regclass))))
+    into v_security_fingerprint;
+  if v_constraint_fingerprint<>
+       '853f7af619c23d2428a55489e45426cfdc9e3625c58cae1c0f40de457158a24d'
+     or v_trigger_fingerprint<>
+       '12324aa32db604c150aebd2e8d145d3ba4910c7b7e4628cbd882506f1dd85a1e'
+     or v_security_fingerprint<>
+       'd179f634c0f079788cc05c51689c38aad00e0804793960a82a49de34983a621e' then
+    return false;
+  end if;
+
+  -- Exact field-consumer inventory: only the hidden accepted writer core and
+  -- hidden fingerprint helper mention payment_methods.  The authenticated
+  -- getter above is a pinned configuration projection, not a payment rail.
+  if (select count(*) from pg_proc procedure_row
+      join pg_namespace namespace_row on namespace_row.oid=procedure_row.pronamespace
+      where namespace_row.nspname='public'
+        and procedure_row.prosrc~'\mpayment_methods\M'
+        and procedure_row.oid<>
+          'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure)<>2
+     or exists(select 1 from pg_proc procedure_row
+       join pg_namespace namespace_row on namespace_row.oid=procedure_row.pronamespace
+       where namespace_row.nspname='public'
+         and procedure_row.prosrc~'\mpayment_methods\M'
+         and procedure_row.oid<>
+           'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure
+         and (procedure_row.oid not in(
+           'public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)'::regprocedure,
+           'public.hotel_v2_h3_1_payment_terms_fingerprint(uuid)'::regprocedure)
+           or has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+           or has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+           or has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+           or has_function_privilege('service_role',procedure_row.oid,'EXECUTE')))
+     or exists(select 1 from pg_views view_row
+       where view_row.definition~'\mpayment_methods\M')
+     or exists(select 1 from pg_matviews view_row
+       where view_row.definition~'\mpayment_methods\M') then
+    return false;
+  end if;
+
+  if not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure
+       and procedure_row.proowner='postgres'::regrole
+       and procedure_row.provolatile='s' and procedure_row.prosecdef
+       and procedure_row.proconfig=array['search_path=pg_catalog, public']::text[]
+       and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+       and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
+    return false;
+  end if;
+  return true;
+exception when no_data_found or too_many_rows or undefined_function
+  or undefined_table or invalid_schema_name or invalid_text_representation
+  or numeric_value_out_of_range then
+  return false;
+end
+$function$;
+
+alter function public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+  owner to postgres;
+revoke all on function
+  public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+from public,anon,authenticated,service_role;
+
 -- Long-lived Hotels lineage is deliberately narrower than the broad H3.2B
 -- protection map.  The latter remains the transaction-level BEFORE/AFTER
 -- guard below; normal fulfillment, deposit, referral, affiliate-event, and
@@ -405,12 +730,20 @@ begin
   from public.hotel_commission_policies policy
   where policy.hotel_id=c_hotel and policy.is_active and policy.review_status='reviewed';
   select jsonb_build_object(
-    'id',policy.id,'code',policy.code,'currency',btrim(policy.currency::text),
-    'is_active',policy.is_active,'review_status',policy.review_status,
-    'terms',coalesce((select jsonb_agg(to_jsonb(term)-array[
-        'created_at','updated_at','created_by','updated_by']::text[] order by term.sequence)
-      from public.hotel_payment_policy_terms term
-      where term.payment_policy_id=policy.id),'[]'::jsonb))
+    'contract_version','hotels_v2_seven_arches_payment_policy_lineage_v1',
+    'id',policy.id,'hotel_id',policy.hotel_id,'code',policy.code,
+    'currency',btrim(policy.currency::text),'is_active',policy.is_active,
+    'review_status',policy.review_status,
+    'fixed_terms',jsonb_build_array(
+      jsonb_build_object('sequence',1,'due_event','after_partner_acceptance',
+        'amount_mode','percent_total','amount_value',50,'recipient','partner'),
+      jsonb_build_object('sequence',2,'due_event','on_arrival',
+        'amount_mode','remaining_balance','amount_value',null,'recipient','partner')),
+    'supported_method_codes',jsonb_build_array(
+      'bank_transfer','cash','card','online'),
+    'evidence_kind','accepted_admin_h3_1_activity_log_only',
+    'execution_status',
+      'supported_inert_configuration_metadata_not_an_executable_payment_rail')
     into v_payment
   from public.hotel_payment_policies policy
   where policy.hotel_id=c_hotel and policy.code='seven-kamares-request-confirmation';
@@ -423,7 +756,8 @@ begin
     ('public.hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact()'),
     ('public.hotel_v2_h3_1p_parity_snapshot(uuid)'),
     ('public.hotel_v2_h3_2b_hash(jsonb)'),
-    ('public.hotel_v2_external_calendar_worker_hash(jsonb)')
+    ('public.hotel_v2_external_calendar_worker_hash(jsonb)'),
+    ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()')
   ) expected(signature);
 
   if exists(select 1 from (values
@@ -444,7 +778,10 @@ begin
         'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828'),
       ('public.hotel_v2_external_calendar_worker_hash(jsonb)',true,'i'::"char",
         array['search_path=pg_catalog']::text[],
-        'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828')
+        'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828'),
+      ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',true,
+        's'::"char",array['search_path=pg_catalog, public']::text[],
+        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d')
     ) expected(signature,security_definer,volatility,path,source_hash)
     left join pg_proc procedure_row
       on procedure_row.oid=to_regprocedure(expected.signature)
@@ -531,20 +868,8 @@ begin
        where policy.hotel_id=c_hotel)<>1
      or v_payment->>'currency'<>'EUR' or v_payment->>'is_active'<>'true'
      or v_payment->>'review_status'<>'reviewed'
-     or jsonb_array_length(v_payment->'terms')<>2
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=1
-         and term.due_event='after_partner_acceptance'
-         and term.amount_mode='percent_total' and term.amount_value=50
-         and term.recipient='partner'
-         and term.payment_methods=array['bank_transfer']::text[])
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=2
-         and term.due_event='on_arrival' and term.amount_mode='remaining_balance'
-         and term.amount_value is null and term.recipient='partner'
-         and term.payment_methods=array['card','cash']::text[])
+     or public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+       is not true
      or not exists(select 1 from public.site_settings setting where setting.id=1
        and setting.hotel_rooms_v2_enabled is not distinct from false
        and setting.hotel_external_sync_enabled is not null
@@ -569,7 +894,10 @@ begin
          'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828'),
        ('public.hotel_v2_external_calendar_worker_hash(jsonb)',true,'i'::"char",
          array['search_path=pg_catalog']::text[],
-         'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828')
+         'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828'),
+       ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',true,
+         's'::"char",array['search_path=pg_catalog, public']::text[],
+         '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d')
      ) expected(signature,security_definer,volatility,path,source_hash)
      left join pg_proc procedure_row
        on procedure_row.oid=to_regprocedure(expected.signature)
@@ -654,6 +982,8 @@ begin
      or to_regprocedure('public.hotel_v2_partner_workspace_function_lineage_is_exact()') is null
      or to_regprocedure('public.hotel_v2_admin_d_current_foundation_snapshot()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
+     or to_regprocedure(
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()') is null
      or to_regprocedure('extensions.digest(bytea,text)') is null
      or to_regclass('public.hotel_partner_property_proposal_foundation_receipts') is null
      or to_regclass('hotels_v2_private.hotel_external_calendar_foundation_receipts') is null
@@ -3379,20 +3709,8 @@ begin
      or (select count(*) from public.hotel_payment_policies where hotel_id=c_hotel)<>1
      or v_payment->>'currency'<>'EUR' or v_payment->>'is_active'<>'true'
      or v_payment->>'review_status'<>'reviewed'
-     or (select count(*) from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel)<>2
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=1
-         and term.due_event='after_partner_acceptance' and term.amount_mode='percent_total'
-         and term.amount_value=50 and term.recipient='partner'
-         and term.payment_methods=array['bank_transfer']::text[])
-     or not exists(select 1 from public.hotel_payment_policy_terms term
-       join public.hotel_payment_policies policy on policy.id=term.payment_policy_id
-       where policy.hotel_id=c_hotel and term.sequence=2 and term.due_event='on_arrival'
-         and term.amount_mode='remaining_balance' and term.amount_value is null
-         and term.recipient='partner' and term.payment_methods=array['card','cash']::text[]) then
+     or public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+       is not true then
     v_blockers:=v_blockers||'"payment_policy_drift"'::jsonb; end if;
   if v_commission is null
      or (select count(*) from public.hotel_commission_policies
@@ -3495,13 +3813,42 @@ create or replace function public.hotel_v2_h3_1p_pricing_promotion_snapshot(p_ho
 returns jsonb language plpgsql stable
 set search_path=pg_catalog,public
 as $function$
-declare v_baseline jsonb; v_activation jsonb;
+declare
+  v_baseline jsonb;
+  v_compatibility jsonb;
+  v_activation jsonb;
+  v_promotion public.hotel_pricing_promotion_reviews%rowtype;
 begin
   v_baseline:=public.hotel_v2_h3_1p_pricing_promotion_snapshot_inert_core(p_hotel_id);
   if p_hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
      and public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() then
+    select * into v_promotion
+    from public.hotel_pricing_promotion_reviews review
+    where review.hotel_id=p_hotel_id
+      and review.contract_version='seven_kamares_legacy_to_h3_pricing_v1'
+      and review.review_status='reviewed';
+    if v_promotion.id is null or v_promotion.parity_case_count<>70
+       or v_promotion.parity_mismatch_count<>0
+       or not v_promotion.acknowledged_pricing_occupancy_mapping then
+      return v_baseline;
+    end if;
     v_activation:=public.hotel_v2_seven_arches_pricing_activation_snapshot();
-    return v_baseline||jsonb_build_object(
+    v_compatibility:=jsonb_set(v_baseline,'{source,pricing_fingerprint}',
+      to_jsonb(v_promotion.source_fingerprint),false);
+    v_compatibility:=jsonb_set(v_compatibility,'{source,tier_fingerprint}',
+      to_jsonb(v_promotion.source_tier_fingerprint),false);
+    v_compatibility:=jsonb_set(v_compatibility,'{target,target_fingerprint}',
+      to_jsonb(v_promotion.target_fingerprint),false);
+    v_compatibility:=jsonb_set(v_compatibility,
+      '{pricing_occupancy_mapping_fingerprint}',
+      to_jsonb(v_promotion.pricing_occupancy_mapping_fingerprint),false);
+    v_compatibility:=jsonb_set(v_compatibility,'{parity,fingerprint}',
+      to_jsonb(v_promotion.parity_fingerprint),false);
+    v_compatibility:=jsonb_set(v_compatibility,'{parity,total_case_count}',
+      to_jsonb(v_promotion.parity_case_count),false);
+    v_compatibility:=jsonb_set(v_compatibility,'{parity,total_mismatch_count}',
+      to_jsonb(v_promotion.parity_mismatch_count),false);
+    return v_compatibility||jsonb_build_object(
       'supported',true,'blockers','[]'::jsonb,'public_change',false,
       'safety',(v_baseline->'safety')||jsonb_build_object(
         'room_schedule_inactive',false,'rate_plan_inactive',false,
@@ -3510,6 +3857,14 @@ begin
         'contract_version','hotels_v2_seven_arches_pricing_activation_evolution_v1',
         'status','active','snapshot_token',v_activation->>'snapshot_token',
         'legacy_authoritative',true,
+        'compatibility_review_id',v_promotion.id,
+        'current_successor',jsonb_build_object(
+          'source_pricing_fingerprint',v_baseline#>>'{source,pricing_fingerprint}',
+          'source_tier_fingerprint',v_baseline#>>'{source,tier_fingerprint}',
+          'target_fingerprint',v_baseline#>>'{target,target_fingerprint}',
+          'pricing_occupancy_mapping_fingerprint',
+            v_baseline->>'pricing_occupancy_mapping_fingerprint',
+          'parity_fingerprint',v_baseline#>>'{parity,fingerprint}'),
         'upper_base_nightly_rate',(select upper_base_nightly_rate
           from public.hotel_seven_arches_pricing_activation_evolution_receipts where id=1),
         'ground_base_nightly_rate',(select ground_base_nightly_rate
@@ -4589,6 +4944,8 @@ alter function public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb
 alter function public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact() owner to postgres;
 alter function public.hotel_v2_seven_arches_pricing_activation_current_is_safe() owner to postgres;
 alter function public.hotel_v2_seven_arches_pricing_scoped_lineage() owner to postgres;
+alter function public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+  owner to postgres;
 alter function public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
   owner to postgres;
 alter function public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot() owner to postgres;
@@ -4621,6 +4978,9 @@ revoke all on function public.hotel_v2_seven_arches_pricing_activation_receipt_i
 revoke all on function public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
   from public,anon,authenticated,service_role;
 revoke all on function public.hotel_v2_seven_arches_pricing_scoped_lineage()
+  from public,anon,authenticated,service_role;
+revoke all on function
+  public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
   from public,anon,authenticated,service_role;
 revoke all on function
   public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
@@ -4692,6 +5052,8 @@ begin
       ('public.hotel_v2_seven_arches_pricing_activation_current_is_safe()',true,
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',true,
+        array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',true,
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',
         true,array['search_path=pg_catalog, public']::text[]),

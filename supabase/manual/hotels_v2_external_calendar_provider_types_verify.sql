@@ -20,6 +20,8 @@ begin
      or to_regprocedure('public.hotel_v2_external_calendar_provider_evolution_is_safe()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
      or to_regprocedure(
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()') is null
+     or to_regprocedure(
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
        is null
      or to_regprocedure(
@@ -49,6 +51,7 @@ begin
      or not public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()
      or not public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()
      or public.hotel_v2_seven_arches_pricing_scoped_lineage() is null
+     or not public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
      or not public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
      or public.hotel_v2_seven_arches_pricing_scoped_lineage()->>'contract_version'
        is distinct from 'hotels_v2_seven_arches_pricing_scoped_lineage_v1'
@@ -62,7 +65,21 @@ begin
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
            'sha256'),'hex')=
-           '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0'
+           '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d'
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       where procedure_row.oid=
+         'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+           'sha256'),'hex')=
+           '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -157,7 +174,7 @@ begin
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
         and receipt.provider_bridge_source_hash=
-          'aa5770828066bcdcddd2b94845793ad6288da3987425d8aad99b89ab27bbb2c3'
+          'ce2d0ed9fbb3fe23d8c0a9807b94f062b6fb355b54b00e7f432620eb8cc1efd6'
         and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
         and receipt.pricing_scoped_lineage_at_install_fingerprint=

@@ -26,6 +26,8 @@ begin
      or to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()') is null
      or to_regprocedure('public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
      or to_regprocedure(
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()') is null
+     or to_regprocedure(
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
        is null
      or to_regprocedure('public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()') is null
@@ -148,16 +150,19 @@ begin
         '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559','v'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-        '2bda434306e7ffc14c852ca6ab8deb4edf77411cab5658b77c0bef743c91388d','s'::"char",
+        'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-        '61556afaeb2359b1850dd517c655cc6d05aa1babdaf63bf31b0ad53de18aff7b','s'::"char",
+        'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',
-        '424dec1ba57f42950e4240c0d97d9823a8803e33d3ac207e8a52584c7126b4c0','s'::"char",
+        '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d','s'::"char",
+        array['search_path=pg_catalog, public']::text[],false),
+      ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
+        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
         'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3','s'::"char",
@@ -815,6 +820,7 @@ from unnest(array[
   ,'public.hotel_v2_seven_arches_reviewed_pricing_oracle()'
   ,'public.hotel_v2_seven_arches_reviewed_pricing_current_state()'
   ,'public.hotel_v2_seven_arches_pricing_scoped_lineage()'
+  ,'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'
   ,'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()'
   ,'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()'
   ,'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'
@@ -864,6 +870,7 @@ from unnest(array[
   'public.hotel_v2_seven_arches_reviewed_pricing_oracle()',
   'public.hotel_v2_seven_arches_reviewed_pricing_current_state()',
   'public.hotel_v2_seven_arches_pricing_scoped_lineage()',
+  'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
   'public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
   'public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact()',
   'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',
@@ -1288,13 +1295,13 @@ begin
       '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()'=
-      '61556afaeb2359b1850dd517c655cc6d05aa1babdaf63bf31b0ad53de18aff7b'
+      'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_public_quote_seven_arches_core(jsonb)'=
       '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()'=
-      '2bda434306e7ffc14c852ca6ab8deb4edf77411cab5658b77c0bef743c91388d'
+      'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b'
     and v_receipt.prior_reviewed_pricing_catalog_fingerprint is not distinct from
       (select foundation.catalog_fingerprint
        from public.hotel_seven_arches_reviewed_pricing_foundation_receipts foundation
@@ -1773,7 +1780,7 @@ select hotels_v2_private.hotel_external_calendar_evolve_function(
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_admin_d_current_foundation_snapshot()',
   '''190b30e05c95e7220f800284b6408659f21172dba48161163e2a364c40aa95a5''',
-  '''b7f42109b544714bd31083357f7eb0f531fa10e01919640736aba150c556a118''',1);
+  '''2fcbd3faf9deab53d06332141cb76ab383bf5e0d87fb4309478a8fbc431ae339''',1);
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_admin_d_current_foundation_snapshot()',
   '    and v_evolution.current_protected_fingerprints is not distinct from v_current',
@@ -2916,6 +2923,7 @@ begin
       ('public.hotel_v2_h3_2b_protected_fingerprints()',true,array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_external_calendar_site_settings_fingerprint()',true,array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',true,array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',true,array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',true,array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_partner_workspace_function_lineage_is_exact()',true,array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_external_calendar_provider_protected_fingerprints()',true,array['search_path=pg_catalog, public']::text[]),
@@ -2950,7 +2958,7 @@ begin
         'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          'aa5770828066bcdcddd2b94845793ad6288da3987425d8aad99b89ab27bbb2c3')
+          'ce2d0ed9fbb3fe23d8c0a9807b94f062b6fb355b54b00e7f432620eb8cc1efd6')
       or has_function_privilege(0::oid,procedure.oid,'EXECUTE')
       or has_function_privilege('anon',procedure.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure.oid,'EXECUTE')

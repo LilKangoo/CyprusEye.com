@@ -13,6 +13,8 @@ begin
   if to_regprocedure(
        'public.hotel_v2_seven_arches_pricing_scoped_lineage()') is null
      or to_regprocedure(
+       'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()') is null
+     or to_regprocedure(
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()')
        is null then
     raise exception using errcode='55000',
@@ -92,7 +94,7 @@ begin
        'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure
        and encode(extensions.digest(convert_to(
          procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-         'b40320549006a442149f208f05a3d071cd17349a6ecc763313c3bd3c08c67c0a')
+         'f7e76413da69d8e7c36ae82a36ddea8224b8609c994752541383ccd3ee49513f')
      or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
        'public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()'::regprocedure
        and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -135,6 +137,23 @@ begin
        and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
        and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
        and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=
+           'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure
+         and procedure_row.proowner='postgres'::regrole
+         and language_row.lanname='plpgsql'
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and procedure_row.proconfig=
+           array['search_path=pg_catalog, public']::text[]
+         and not procedure_row.proleakproof and not procedure_row.proretset
+         and encode(extensions.digest(convert_to(
+           procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
+           '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))
      or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure
        and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -866,6 +885,7 @@ select public.hotel_v2_h3_2b_hash(jsonb_build_object(
       to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_build_plan(jsonb,text)'),
       to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()'),
       'public.hotel_v2_seven_arches_pricing_scoped_lineage()'::regprocedure,
+      'public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure,
       'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'::regprocedure,
       'public.hotel_v2_partner_preview_pricing_plan(jsonb)'::regprocedure,
       'public.hotel_v2_partner_apply_pricing_plan(jsonb,uuid,uuid)'::regprocedure,
@@ -1100,7 +1120,8 @@ begin
      or (v_state#>>'{oracle,guest_one_case_count}')::integer<>20
      or (v_state#>>'{oracle,guest_one_mismatch_count}')::integer<>0
      or v_state->>'commission_fingerprint'<>v_foundation.commission_fingerprint
-     or v_state->>'payment_fingerprint'<>v_foundation.payment_fingerprint
+     or public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+       is not true
      or v_state->>'unrelated_fingerprint'<>
        v_foundation.initial_unrelated_fingerprint then
     raise notice 'REVIEWED_PRICING_CHAIN_FAIL:ORACLE_COMMERCIAL';
@@ -1135,7 +1156,6 @@ begin
            to_jsonb(v_receipt)-'receipt_hash','{created_at}',
            to_jsonb((extract(epoch from v_receipt.created_at)*1000000)::bigint),false))
          or v_receipt.commission_fingerprint<>v_foundation.commission_fingerprint
-         or v_receipt.payment_fingerprint<>v_foundation.payment_fingerprint
          or v_receipt.unrelated_before_fingerprint<>
            v_receipt.unrelated_after_fingerprint
          or v_receipt.unrelated_before_fingerprint<>
@@ -1734,6 +1754,7 @@ declare v_context public.hotel_seven_arches_reviewed_pricing_transaction_context
   v_foundation public.hotel_seven_arches_reviewed_pricing_foundation_receipts%rowtype;
   v_expected_previous text;
   v_expected_hash text;
+  v_current_payment text;
 begin
   if tg_op<>'INSERT' then
     raise exception using errcode='55000',
@@ -1758,6 +1779,18 @@ begin
   v_expected_hash:=public.hotel_v2_h3_2b_hash(jsonb_set(
     to_jsonb(new)-'receipt_hash','{created_at}',
     to_jsonb((extract(epoch from new.created_at)*1000000)::bigint),false));
+  select public.hotel_v2_h3_2b_hash(jsonb_build_object(
+    'policies',coalesce((select jsonb_agg(
+      to_jsonb(policy)-array['created_at','updated_at'] order by policy.id)
+      from public.hotel_payment_policies policy
+      where policy.hotel_id=new.hotel_id),'[]'::jsonb),
+    'terms',coalesce((select jsonb_agg(
+      to_jsonb(term)-array['created_at','updated_at'] order by term.id)
+      from public.hotel_payment_policy_terms term
+      join public.hotel_payment_policies policy
+        on policy.id=term.payment_policy_id
+      where policy.hotel_id=new.hotel_id),'[]'::jsonb)))
+    into v_current_payment;
   if v_context.review_id is null
      or new.previous_receipt_hash<>v_expected_previous
      or new.receipt_hash<>v_expected_hash
@@ -1766,7 +1799,9 @@ begin
      or new.changed_tier_ids<>v_context.selected_tier_ids
      or new.created_at is null or not isfinite(new.created_at)
      or new.commission_fingerprint<>v_foundation.commission_fingerprint
-     or new.payment_fingerprint<>v_foundation.payment_fingerprint
+     or new.payment_fingerprint<>v_current_payment
+     or public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()
+       is not true
      or not public.hotel_v2_h3_2a_jsonb_is_pii_free(new.changed_items) then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_reviewed_pricing_receipt_invalid';
@@ -3301,6 +3336,8 @@ begin
        ('public.hotel_v2_admin_c_h3_1p_freeze_trigger()'::regprocedure,'v'::"char",true,
          array['search_path=pg_catalog, public']::text[]),
        ('public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()'::regprocedure,
+         's'::"char",true,array['search_path=pg_catalog, public']::text[]),
+       ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()'::regprocedure,
          's'::"char",true,array['search_path=pg_catalog, public']::text[]),
        ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure,
          's'::"char",true,array['search_path=pg_catalog, public']::text[])
