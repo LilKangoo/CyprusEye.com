@@ -2251,7 +2251,7 @@
         } catch (error) {
           state.pricingActivationError = error;
         }
-        if (state.pricingActivation?.status !== 'active') {
+        if (!['ready', 'active'].includes(state.pricingActivation?.status)) {
           try {
             state.pricingPromotionPreview = await Repository.getLegacyPricingPromotionPreview(id);
           } catch (error) {
@@ -3434,12 +3434,15 @@
 
   function pricingPromotionWorkspaceState() {
     if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return null;
-    if (state.pricingActivation?.status === 'active') return {
+    if (['ready', 'active'].includes(state.pricingActivation?.status)) return {
       available: true,
       schedule: state.workspace.pricing_schedules.find((entry) => (
         Core.normalizeUuid(entry?.id) === Core.SEVEN_ARCHES_SHADOW_IDS.pricing_schedule
       )),
-      reviewStatus: 'reviewed', reviewed: true, activated: true, tierCount: 27,
+      reviewStatus: 'reviewed', reviewed: true,
+      activated: state.pricingActivation.status === 'active',
+      lifecycleEvidence: true,
+      tierCount: state.pricingActivation.shared_schedule.active_tier_count,
     };
     if (!state.pricingPromotionPreview) return {
       available: false,
@@ -3479,7 +3482,7 @@
       <header><div><span class="hotel-workspace-eyebrow">Legacy → H3 pricing preparation</span><h4>63 legacy rules → 27 shared Room tiers</h4></div><span class="hotel-workspace-status hotel-workspace-status--${tone}">${status}</span></header>
       <p>Review the exact Standard plan, two inactive Room Rates, physical room allocation and separate pricing occupancy used to preserve all accepted 7 Kamares totals.</p>
       <dl><div><dt>Legacy source</dt><dd>63 rules · authoritative</dd></div><div><dt>Room schedule</dt><dd>${pricingState.tierCount || 27} tiers · ${pricingState.activated ? 'active' : 'inactive'}</dd></div><div><dt>Public change</dt><dd>No</dd></div></dl>
-      ${pricingState.activated ? '<p class="hotel-workspace-safety-note">The accepted 70/0 mapping is now pinned by the immutable activation receipt.</p>' : `<button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>`}
+      ${pricingState.activated ? '<p class="hotel-workspace-safety-note">The accepted 70/0 mapping is now pinned by the immutable activation receipt.</p>' : pricingState.lifecycleEvidence ? '<p class="hotel-workspace-safety-note">The completed 70/0 H3.1P Review is pinned by the exact activation snapshot. Historical preparation is read-only and is not rerun.</p>' : `<button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>`}
     </section>`;
   }
 
@@ -3504,7 +3507,7 @@
     return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation>
       <header><div><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>${active ? 'Reviewed normalized pricing is active' : 'Ready for one explicit activation Review'}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${active ? 'success' : 'warning'}">${active ? 'ACTIVE' : 'READY'}</span></header>
       <p><strong>Customer-price authority remains the reviewed 27-tier shared occupancy × LOS schedule.</strong> Positive Room base rates are required readiness values; they do not override the linked schedule.</p>
-      <dl><div><dt>H3.1P parity</dt><dd>${control.h3_1p.parity.total_case_count} cases · ${control.h3_1p.parity.total_mismatch_count} mismatches</dd></div><div><dt>Upper base</dt><dd>${escapeHtml(formatMoney(upper.base_nightly_rate, upper.currency))}</dd></div><div><dt>Ground base</dt><dd>${escapeHtml(formatMoney(ground.base_nightly_rate, ground.currency))}</dd></div><div><dt>Public behavior</dt><dd>Legacy authoritative · flags OFF</dd></div></dl>
+      <dl><div><dt>H3.1P parity</dt><dd>${control.h3_1p.parity.total_case_count} cases · ${control.h3_1p.parity.total_mismatch_count} mismatches</dd></div><div><dt>Upper base</dt><dd>${escapeHtml(formatMoney(upper.base_nightly_rate, upper.currency))}</dd></div><div><dt>Ground base</dt><dd>${escapeHtml(formatMoney(ground.base_nightly_rate, ground.currency))}</dd></div><div><dt>Public behavior</dt><dd>Legacy authoritative · public flags OFF · external sync ${control.feature_flags.hotel_external_sync_enabled ? 'ON' : 'OFF'}</dd></div></dl>
       ${active ? '<p class="hotel-workspace-safety-note">Activation is immutable. Partner cannot activate pricing, edit commission, or change this lifecycle.</p>' : '<button class="btn-primary" type="button" data-open-seven-arches-pricing-activation>Prepare activation Review</button>'}
     </section>`;
   }
@@ -4257,13 +4260,16 @@
       return;
     }
     const control = state.pricingControl;
-    const flagsOff = Object.values(control.feature_flags).every((value) => value === false);
+    const flagsCompatible = Core.hotelLifecycleFeatureFlagsAreCompatible(control.feature_flags);
+    const flagStatus = flagsCompatible
+      ? `PUBLIC FLAGS OFF · EXTERNAL SYNC ${control.feature_flags.hotel_external_sync_enabled ? 'ON' : 'OFF'}`
+      : 'FLAGS DRIFT';
     const architecture = String(control.property.architecture_version || 'unknown');
     const legacyArchitecture = architecture === 'legacy';
     const mutationsLocked = pricingHotelMutationLocked(control);
     const headerActions = `<div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-preview-pricing>Preview stay</button>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-schedule>+ Schedule</button><button class="btn-primary" type="button" data-add-pricing-plan>+ Rate Plan</button>'}</div>`;
     panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.', headerActions)}
-      <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsOff ? 'success' : 'danger'}">FLAGS ${pricingUiHtml(flagsOff ? 'OFF' : 'DRIFT')}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
+      <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsCompatible ? 'success' : 'danger'}">${pricingUiHtml(flagStatus)}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
       ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Protected 7 Arches boundary</span><h4>The generic ADMIN-C pricing editor remains read-only</h4><p>Use the dedicated reviewed independent Room pricing control below. It is the only Admin path allowed to evolve the protected Upper/Ground schedule tiers while preserving topology, parity, commission, payment and receipt lineage.</p></section>' : ''}
       ${lifecycleMarkup}
       ${pricingPropertyDefaultMarkup(control)}

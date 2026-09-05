@@ -137,7 +137,7 @@ function partnerWorkspace() {
       },
     },
     feature_flags: {
-      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
       hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
     },
     content_snapshot_token: HASH,
@@ -185,8 +185,35 @@ function partnerWorkspace() {
   };
 }
 
-async function installPartnerHarness(page: Page) {
+function partnerWorkspaceAt114405() {
   const workspace = partnerWorkspace();
+  const sharedSchedule = {
+    ...workspace.pricing.schedules[0],
+    id: ACTIVATION_SHARED_SCHEDULE,
+    code: 'shared-apartment-occupancy-los',
+    application_scope: 'room_occupancy',
+    sharing_mode: 'shared',
+    linked_room_rate_ids: [UPPER_RATE, GROUND_RATE],
+    is_active: false,
+    review_status: 'reviewed',
+    lifecycle_status: 'inactive',
+    tiers: workspace.pricing.schedules[0].tiers.map((tier: any) => ({
+      ...tier,
+      schedule_id: ACTIVATION_SHARED_SCHEDULE,
+    })),
+  };
+  workspace.pricing.room_rates = workspace.pricing.room_rates.map((rate: any) => ({
+    ...rate,
+    pricing_schedule_id: ACTIVATION_SHARED_SCHEDULE,
+    is_active: false,
+  }));
+  workspace.pricing.schedules = [sharedSchedule];
+  workspace.pricing.schedule_tiers = sharedSchedule.tiers;
+  return workspace;
+}
+
+async function installPartnerHarness(page: Page, options: { boundary114405?: boolean } = {}) {
+  const workspace = options.boundary114405 ? partnerWorkspaceAt114405() : partnerWorkspace();
   const control = {
     contract_version: 'hotels_v2_seven_arches_reviewed_pricing_partner_control_v1',
     partner_id: PARTNER, hotel_id: HOTEL, assignment_id: ASSIGNMENT, assignment_version: 7,
@@ -201,7 +228,7 @@ async function installPartnerHarness(page: Page) {
   </body></html>`);
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
-  await page.evaluate(({ workspaceValue, controlValue, proposalId }) => {
+  await page.evaluate(({ workspaceValue, controlValue, proposalId, boundary114405 }) => {
     const root = window as any;
     const clone = (value: any) => JSON.parse(JSON.stringify(value));
     let uuidSequence = 1;
@@ -209,13 +236,25 @@ async function installPartnerHarness(page: Page) {
       configurable: true,
       value: () => `dddddddd-dddd-4ddd-8ddd-${String(uuidSequence++).padStart(12, '0')}`,
     });
-    const store: any = { calls: [], control: clone(controlValue), genericCalls: 0 };
+    const store: any = {
+      calls: [], control: clone(controlValue), genericCalls: 0,
+      stageClassification: boundary114405
+        && root.HotelsV2PartnerWorkspaceCore.hasSevenArchesReviewedPricingIdentity(workspaceValue)
+        && !root.HotelsV2PartnerWorkspaceCore.isSevenArchesReviewedPricingWorkspace(workspaceValue)
+        ? 'FUTURE_STAGE_NOT_INSTALLED'
+        : null,
+    };
     root.__reviewedPartner = store;
     root.HotelsV2PartnerMedia = {};
     root.HotelsV2PartnerWorkspaceRepository = {
       getWorkspace: async (...args: any[]) => { store.calls.push({ name: 'get', args: clone(args) }); return clone(workspaceValue); },
       getSevenArchesPricingControl: async (...args: any[]) => {
         store.calls.push({ name: 'control', args: clone(args) });
+        if (boundary114405) {
+          const error: any = new Error('Independent reviewed Room pricing becomes available after the 114415 stage.');
+          error.classification = 'FUTURE_STAGE_NOT_INSTALLED';
+          throw error;
+        }
         return clone(store.control);
       },
       previewSevenArchesPricingProposal: async (draft: any) => {
@@ -249,7 +288,10 @@ async function installPartnerHarness(page: Page) {
       applyPricingPlan: async () => { store.genericCalls += 1; throw new Error('generic pricing must remain locked'); },
       clearReviewedPlans: () => {},
     };
-  }, { workspaceValue: workspace, controlValue: control, proposalId: PROPOSAL });
+  }, {
+    workspaceValue: workspace, controlValue: control, proposalId: PROPOSAL,
+    boundary114405: options.boundary114405 === true,
+  });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace.js') });
   await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
     await (window as any).HotelsV2PartnerWorkspace.open({
@@ -268,7 +310,7 @@ function adminPricingControl() {
       children_policy: 'allowed', minimum_child_age: null, booking_mode: 'request_confirmation',
     },
     feature_flags: {
-      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
       hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
     },
     legacy_safety: {
@@ -320,7 +362,7 @@ function readyActivationSnapshot(snapshotToken: string) {
     hotel_id: HOTEL, status: 'ready', snapshot_token: snapshotToken,
     public_change: false, legacy_authoritative: true,
     feature_flags: {
-      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
       hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
     },
     h3_1p: {
@@ -379,7 +421,7 @@ async function installAdminHarness(page: Page) {
     pricing_schedule_tiers: [], amenities_catalog: [], partners: [], operational_partners: [],
     payment_due: {}, counts: { upcoming_bookings: 0, daily_inventory_by_room: {} },
     flags: {
-      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
       hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
     },
     activity: [], readiness: {},
@@ -492,8 +534,11 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
       store.activationGets = 0;
       store.activationPreviews = [];
       store.activationApplies = [];
-      root.HotelsV2WorkspaceRepository.getPricingControl = async () => {
-        throw new Error('Pricing control returned an invalid schedule child or link relationship.');
+      store.legacyPromotionGets = 0;
+      root.HotelsV2WorkspaceRepository.getPricingControl = async () => clone(store.pricing);
+      root.HotelsV2WorkspaceRepository.getLegacyPricingPromotionPreview = async () => {
+        store.legacyPromotionGets += 1;
+        throw new Error('The historical H3.1P preparation must not be rerun after exact activation evidence exists.');
       };
       root.HotelsV2WorkspaceRepository.getSevenArchesReviewedPricing = async () => {
         const error: any = new Error('Load reviewed 7 Arches pricing control: exact future function absent');
@@ -549,9 +594,15 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     await expect(page.locator('.hotel-reviewed-pricing-control')).toContainText(
       'Independent reviewed Room pricing becomes available after the 114415 stage.',
     );
-    await expect(page.getByRole('heading', { name: 'Pricing control unavailable', exact: true })).toBeVisible();
+    await expect(page.getByText('PUBLIC FLAGS OFF · EXTERNAL SYNC ON', { exact: true })).toBeVisible();
+    await expect(page.getByText('FLAGS DRIFT', { exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-seven-kamares-pricing-promotion-card]')).toContainText('REVIEWED');
+    await expect(page.locator('[data-seven-kamares-pricing-promotion-card]')).toContainText(
+      'The completed 70/0 H3.1P Review is pinned by the exact activation snapshot.',
+    );
+    await expect(page.locator('[data-review-seven-kamares-pricing]')).toHaveCount(0);
     await expect(page.locator('[data-open-seven-arches-pricing-activation]')).toBeVisible();
-    await expect(page.locator('[data-add-pricing-plan], [data-add-pricing-schedule], [data-preview-pricing]')).toHaveCount(0);
+    await expect(page.locator('[data-add-pricing-plan], [data-add-pricing-schedule]')).toHaveCount(0);
 
     await page.locator('[data-open-seven-arches-pricing-activation]').click();
     const form = page.locator('#sevenArchesPricingActivationForm');
@@ -576,10 +627,6 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     await expect(page.getByText('Review 7 Arches pricing activation', { exact: true })).toBeVisible();
     const confirm = page.locator('[data-hotel-review-confirm]');
     await expect(confirm).toBeVisible();
-    await confirm.click();
-    await expect.poll(() => page.evaluate(
-      () => (window as any).__reviewedAdmin.activationApplies.length,
-    )).toBe(0);
 
     const store = await page.evaluate(() => (window as any).__reviewedAdmin);
     expect(store.activationGets).toBe(2);
@@ -593,7 +640,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(store.activationPreviews[0].snapshot.snapshot_token).toBe('d'.repeat(64));
     expect(store.activationApplies).toHaveLength(0);
     expect(store.genericCalls).toBe(0);
-    expect(store.toasts.some((entry: any) => /Apply remains unavailable until the exact current pricing control passes client validation/i.test(entry.message))).toBe(true);
+    expect(store.legacyPromotionGets).toBe(0);
   });
 
   test('Partner changes one Upper tier through dedicated Preview and Submit only', async ({ page }) => {
@@ -624,6 +671,30 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     });
     expect(calls.calls.filter((entry: any) => entry.name === 'submit')).toHaveLength(1);
     expect(calls.genericCalls).toBe(0);
+  });
+
+  test('keeps Partner pricing unavailable and unrelated workspace sections usable at the 114405 boundary', async ({ page }) => {
+    await installPartnerHarness(page, { boundary114405: true });
+    await page.locator('[data-phw-section="rates_pricing"]').click();
+
+    const panel = page.locator('[data-phw-panel="rates_pricing"]');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Exact reviewed pricing control is unavailable. No proposal can be prepared.');
+    await expect(page.locator('[data-phw-lifecycle]')).toContainText(
+      'Exact reviewed pricing control is unavailable. No proposal can be prepared.',
+    );
+    await expect(page.locator('[data-phw-seven-arches-pricing], [data-phw-pricing]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /preview proposal|submit for admin review/i })).toHaveCount(0);
+
+    await page.locator('[data-phw-section="overview"]').click();
+    await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+    await expect(page.locator('[data-phw-panel="overview"]')).toContainText('7 Arches Hotel');
+
+    const store = await page.evaluate(() => (window as any).__reviewedPartner);
+    expect(store.stageClassification).toBe('FUTURE_STAGE_NOT_INSTALLED');
+    expect(store.calls.filter((entry: any) => entry.name === 'control')).toHaveLength(0);
+    expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
+    expect(store.genericCalls).toBe(0);
   });
 
   test('Admin reviews a Partner proposal and an explicit two-Room plan through the same planner', async ({ page }) => {

@@ -35,7 +35,7 @@ function snapshot(status: 'ready' | 'active' = 'ready'): any {
     hotel_id: HOTEL, status, snapshot_token: TOKEN, public_change: false,
     legacy_authoritative: true,
     feature_flags: {
-      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
       hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
     },
     h3_1p: {
@@ -255,6 +255,93 @@ describe('7 Arches pricing activation Admin client', () => {
     };
     expect(Core.validateSevenArchesPricingActivationApplyResult(receipt, reviewedPlan(), CORRELATION, IDEMPOTENCY).activity_ids).toHaveLength(4);
     expect(Core.validateSevenArchesPricingActivationSnapshot(snapshot('active')).status).toBe('active');
+  });
+
+  test('accepts only the exact 114405 inert flag lifecycle and exact server blocker vocabulary', () => {
+    const Core = loadCore();
+    const externalOn = snapshot();
+    const externalOff = snapshot();
+    externalOff.feature_flags.hotel_external_sync_enabled = false;
+    expect(Core.hotelLifecycleFeatureFlagsAreCompatible(externalOn.feature_flags)).toBe(true);
+    expect(Core.hotelLifecycleFeatureFlagsAreCompatible(externalOff.feature_flags)).toBe(true);
+    expect(Core.validateSevenArchesPricingActivationSnapshot(externalOn).status).toBe('ready');
+    expect(Core.validateSevenArchesPricingActivationSnapshot(externalOff).status).toBe('ready');
+
+    for (const key of [
+      'hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled',
+    ]) {
+      const unsafe = snapshot();
+      unsafe.feature_flags[key] = true;
+      expect(Core.hotelLifecycleFeatureFlagsAreCompatible(unsafe.feature_flags)).toBe(false);
+      expect(() => Core.validateSevenArchesPricingActivationSnapshot(unsafe))
+        .toThrow('blockers or feature-flag state are inconsistent');
+    }
+
+    for (const malformed of [null, 'true', 1]) {
+      const invalidExternal = snapshot();
+      invalidExternal.feature_flags.hotel_external_sync_enabled = malformed;
+      expect(() => Core.validateSevenArchesPricingActivationSnapshot(invalidExternal))
+        .toThrow('feature flags are invalid');
+    }
+    const missing = snapshot();
+    delete missing.feature_flags.hotel_external_sync_enabled;
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(missing))
+      .toThrow('feature flags are invalid');
+    const unexpected = snapshot();
+    unexpected.feature_flags.unexpected_flag = false;
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(unexpected))
+      .toThrow('feature flags are invalid');
+    const mistypedPublicFlag = snapshot();
+    mistypedPublicFlag.feature_flags.hotel_rooms_v2_enabled = 'false';
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(mistypedPublicFlag))
+      .toThrow('feature flags are invalid');
+
+    for (const reason of ['feature_flags_incompatible', 'task2_stage2_compatibility_drift']) {
+      const blocked = snapshot();
+      blocked.status = 'blocked';
+      blocked.blocking_reasons = [reason];
+      expect(Core.validateSevenArchesPricingActivationSnapshot(blocked).blocking_reasons)
+        .toEqual([reason]);
+    }
+    const staleReason = snapshot();
+    staleReason.status = 'blocked';
+    staleReason.blocking_reasons = ['feature_flags_not_off'];
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(staleReason))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const readyWithBlocker = snapshot();
+    readyWithBlocker.blocking_reasons = ['feature_flags_incompatible'];
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(readyWithBlocker))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const activeWithBlocker = snapshot('active');
+    activeWithBlocker.blocking_reasons = ['feature_flags_incompatible'];
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(activeWithBlocker))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const blockedWithoutReason = snapshot();
+    blockedWithoutReason.status = 'blocked';
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(blockedWithoutReason))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const duplicateBlocker = snapshot();
+    duplicateBlocker.status = 'blocked';
+    duplicateBlocker.blocking_reasons = ['pricing_graph_drift', 'pricing_graph_drift'];
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(duplicateBlocker))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const unknownBlocker = snapshot();
+    unknownBlocker.status = 'blocked';
+    unknownBlocker.blocking_reasons = ['unknown_blocker'];
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(unknownBlocker))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const malformedBlockers = snapshot();
+    malformedBlockers.blocking_reasons = null;
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(malformedBlockers))
+      .toThrow('blockers or feature-flag state are inconsistent');
+    const malformedStatus = snapshot();
+    malformedStatus.status = 'pending';
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(malformedStatus))
+      .toThrow('identity or safety envelope is invalid');
+    const publicChange = snapshot();
+    publicChange.public_change = true;
+    expect(() => Core.validateSevenArchesPricingActivationSnapshot(publicChange))
+      .toThrow('identity or safety envelope is invalid');
   });
 
   test('fails closed for missing translations, zero prices, smuggling and sibling impact changes', () => {

@@ -3675,11 +3675,27 @@
   }
 
   const SEVEN_ARCHES_ACTIVATION_BLOCKERS = Object.freeze([
-    'legacy_property_drift', 'feature_flags_not_off', 'h3_1p_receipt_drift',
-    'h3_1p_parity_drift', 'allocation_5_10_drift', 'pricing_graph_drift',
-    'payment_policy_drift', 'commission_policy_drift', 'unreviewed_activation_state',
-    'activated_graph_drift',
+    'legacy_property_drift', 'feature_flags_incompatible', 'task2_stage2_compatibility_drift',
+    'h3_1p_receipt_drift', 'h3_1p_parity_drift', 'allocation_5_10_drift',
+    'pricing_graph_drift', 'payment_policy_drift', 'commission_policy_drift',
+    'unreviewed_activation_state', 'activated_graph_drift',
   ]);
+
+  const HOTELS_V2_LIFECYCLE_FLAG_KEYS = Object.freeze([
+    'hotel_rooms_v2_enabled', 'hotel_external_sync_enabled',
+    'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled',
+  ]);
+
+  const HOTELS_V2_PUBLIC_DISABLED_FLAG_KEYS = Object.freeze([
+    'hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled',
+    'hotel_stripe_connect_enabled',
+  ]);
+
+  function hotelLifecycleFeatureFlagsAreCompatible(value) {
+    return hasExactKeys(value, HOTELS_V2_LIFECYCLE_FLAG_KEYS)
+      && HOTELS_V2_LIFECYCLE_FLAG_KEYS.every((key) => typeof value[key] === 'boolean')
+      && HOTELS_V2_PUBLIC_DISABLED_FLAG_KEYS.every((key) => value[key] === false);
+  }
 
   function exactActivationI18n(value, maximum, allowLf, requireAll = false) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -3710,16 +3726,15 @@
       || value.legacy_authoritative !== true) {
       throw new Error('7 Arches pricing activation snapshot identity or safety envelope is invalid.');
     }
-    const flagKeys = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
-    if (!hasExactKeys(value.feature_flags, flagKeys)
-        || flagKeys.some((key) => typeof value.feature_flags[key] !== 'boolean')) {
+    if (!hasExactKeys(value.feature_flags, HOTELS_V2_LIFECYCLE_FLAG_KEYS)
+        || HOTELS_V2_LIFECYCLE_FLAG_KEYS.some((key) => typeof value.feature_flags[key] !== 'boolean')) {
       throw new Error('7 Arches pricing activation feature flags are invalid.');
     }
     if (!Array.isArray(value.blocking_reasons) || value.blocking_reasons.length > SEVEN_ARCHES_ACTIVATION_BLOCKERS.length
         || new Set(value.blocking_reasons).size !== value.blocking_reasons.length
         || value.blocking_reasons.some((reason) => !SEVEN_ARCHES_ACTIVATION_BLOCKERS.includes(reason))
         || (value.status === 'blocked') !== (value.blocking_reasons.length > 0)
-        || (value.status !== 'blocked' && flagKeys.some((key) => value.feature_flags[key] !== false))) {
+        || (value.status !== 'blocked' && !hotelLifecycleFeatureFlagsAreCompatible(value.feature_flags))) {
       throw new Error('7 Arches pricing activation blockers or feature-flag state are inconsistent.');
     }
     const parityKeys = ['threshold_case_count', 'threshold_mismatch_count', 'long_stay_case_count', 'long_stay_mismatch_count', 'total_case_count', 'total_mismatch_count', 'fingerprint'];
@@ -8324,6 +8339,7 @@
     validatePartnerPropertyProposalPlan,
     validatePartnerPropertyProposalPreview,
     validatePartnerPropertyProposalApplyResult,
+    hotelLifecycleFeatureFlagsAreCompatible,
     validateSevenArchesPricingActivationSnapshot,
     validateSevenArchesPricingActivationDraft,
     validateSevenArchesPricingActivationPlan,
