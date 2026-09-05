@@ -138,7 +138,7 @@ begin
            encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
              'sha256'),'hex')
          and receipt.pricing_scoped_lineage_helper_source_hash=
-           '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d'
+           '5d8e31185a165c555c2fcfcce2802fe569bb7cc201ddfb7ac91978acfa2e3141'
          and receipt.pricing_transaction_preservation_source_hash=
            encode(extensions.digest(convert_to(preservation_row.prosrc,'UTF8'),
              'sha256'),'hex')

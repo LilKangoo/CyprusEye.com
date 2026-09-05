@@ -48,6 +48,9 @@ const reviewedEvolutionFixture = read(
 const paymentGate = read(
   'tests/integration/hotels-v2-seven-arches-payment-policy-lineage-postgres-gate.sql',
 );
+const paymentSecurityCatalogGate = read(
+  'tests/integration/hotels-v2-seven-arches-payment-security-catalog-representation-postgres-gate.sql',
+);
 
 const helperMarker =
   'create function public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()';
@@ -67,7 +70,7 @@ const WRITER_HASHES = {
 describe('Hotels V2 7 Arches reviewed payment-policy lineage', () => {
   test('pins the exact helper source and its private security boundary', () => {
     expect(sha256(helperBody)).toBe(
-      '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d',
+      '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94',
     );
     const definition = migration114400.slice(
       migration114400.indexOf(helperMarker),
@@ -105,6 +108,39 @@ describe('Hotels V2 7 Arches reviewed payment-policy lineage', () => {
     expect(helperBody).toContain("array['search_path=pg_catalog, public']::text[]");
     expect(helperBody).toContain('procedure_row.proowner<>\'postgres\'::regrole');
     expect(helperBody).toContain("has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')");
+  });
+
+  test('uses the exact representation-stable relation and policy child contract', () => {
+    expect(helperBody).not.toContain(
+      'd179f634c0f079788cc05c51689c38aad00e0804793960a82a49de34983a621e',
+    );
+    expect(helperBody).not.toContain(
+      '676e4e0455dfbc3c6a46b0cb1dfad6392082c23d14f199fe22de361c41dc6cf4',
+    );
+    for (const exactRelation of [
+      'public.hotel_activity_log',
+      'public.hotel_payment_policies',
+      'public.hotel_payment_policy_terms',
+    ]) expect(helperBody).toContain(exactRelation);
+    expect(helperBody).toContain('v_security_contract_exact boolean');
+    expect(helperBody).toContain('actual_direct_acl as materialized');
+    expect(helperBody).toContain('acl.grantee<>relation_row.relowner');
+    expect(helperBody).toContain('actual_effective_acl as materialized');
+    expect(helperBody).toContain("'service_role'::text grantee_name");
+    expect(helperBody).toContain("'SELECT'::text privilege_name,false grantable");
+    expect(helperBody).toContain('from expected_relations where service_insert');
+    expect(helperBody.match(/except all/g)).toHaveLength(6);
+    expect(helperBody).toContain("relation_row.relowner='postgres'::regrole");
+    expect(helperBody).toContain('and relation_row.relrowsecurity');
+    expect(helperBody).toContain('and not relation_row.relforcerowsecurity');
+    expect(helperBody).toContain('actual_policies as materialized');
+    expect(helperBody).toContain('policy_row.polpermissive permissive');
+    expect(helperBody).toContain("array['authenticated']::text[] roles");
+    expect(helperBody).toContain("'is_current_user_admin'::text using_contract");
+    expect(helperBody).toContain("dependency.classid='pg_policy'::regclass");
+    expect(helperBody).toContain(
+      "array['public.is_current_user_admin()'::regprocedure::oid]::oid[]",
+    );
   });
 
   test('trusts exact ordered Admin activity lineage, never broad method containment', () => {
@@ -237,6 +273,26 @@ describe('Hotels V2 7 Arches reviewed payment-policy lineage', () => {
       .toHaveLength(38);
     expect(paymentGate).toContain('2::integer AS positive_count');
     expect(paymentGate).toContain('HOTELS_V2_7A_PAYMENT_POLICY_LINEAGE_GATE_PASS');
+    expect(paymentSecurityCatalogGate).toContain(
+      'HOTELS_V2_7A_PAYMENT_SECURITY_CATALOG_REPRESENTATION_GATE_PASS',
+    );
+    expect(paymentSecurityCatalogGate).toContain('v_positive_count <> 6');
+    expect(paymentSecurityCatalogGate).toContain('v_negative_count <> 16');
+    for (const securityNegative of [
+      'additional_service_role_dml_privilege',
+      'removed_service_role_privilege',
+      'wrong_authenticated_grantee',
+      'changed_grantable_state',
+      'relation_owner_drift',
+      'relation_rls_disabled',
+      'relation_force_rls_enabled',
+      'admin_select_policy_missing',
+      'unexpected_extra_policy',
+      'policy_command_drift',
+      'policy_role_drift',
+      'policy_predicate_drift',
+      'policy_permissive_restrictive_drift',
+    ]) expect(paymentSecurityCatalogGate).toContain(securityNegative);
   });
 
   test('keeps every deployed migration through 114370 byte-identical', () => {

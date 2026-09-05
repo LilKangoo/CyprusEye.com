@@ -457,7 +457,7 @@ begin
   end if;
   for v_expected in select * from (values
     ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-      'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b'),
+      'ba5c87a85d78f7e4dbcea01202200c640d137a11cc9fa53dec09ff63a8dcc289'),
     ('public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint()',
       '3fa267946795c33b5c23d987d03926c1e36c0e69e10129bd4d31430c4d3139f5'),
     ('public.hotel_v2_h3_1p_allocation_preview(uuid)',
@@ -473,7 +473,7 @@ begin
     ('public.hotel_v2_admin_c_validate_pricing_graph(uuid)',
       '03f787a5e00fbbe65bdcaf1a96529512f60775074a1fdf4dcdd04104c7c7d335'),
     ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-      'f7e76413da69d8e7c36ae82a36ddea8224b8609c994752541383ccd3ee49513f'),
+      '5e7e3112b16b37f3df475b7ade59ede8bed9fb246fb8d2a292dd4d296bd47b2e'),
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'),
     ('public.hotel_v2_seven_arches_pricing_activation_snapshot()',

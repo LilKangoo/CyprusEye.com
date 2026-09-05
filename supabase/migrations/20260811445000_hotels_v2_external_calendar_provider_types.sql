@@ -150,7 +150,7 @@ begin
         '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559','v'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-        'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b','s'::"char",
+        'ba5c87a85d78f7e4dbcea01202200c640d137a11cc9fa53dec09ff63a8dcc289','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
@@ -159,10 +159,10 @@ begin
         'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',
-        '655a7f0c9c535036a767e88929e8772bcb03ec2a4274766a5e67b998f0f16c8d','s'::"char",
+        '5d8e31185a165c555c2fcfcce2802fe569bb7cc201ddfb7ac91978acfa2e3141','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
-        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d','s'::"char",
+        '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot()',
         'e42b5b7cabecd6e7ec7a847796983e497572f9f8fc0802f642fdc6b995d84ac3','s'::"char",
@@ -1301,7 +1301,7 @@ begin
       '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()'=
-      'aadbec204b2869a66a5c51d99c5c2feb70098e82f9849d1cca57cc2f29590c4b'
+      'ba5c87a85d78f7e4dbcea01202200c640d137a11cc9fa53dec09ff63a8dcc289'
     and v_receipt.prior_reviewed_pricing_catalog_fingerprint is not distinct from
       (select foundation.catalog_fingerprint
        from public.hotel_seven_arches_reviewed_pricing_foundation_receipts foundation
@@ -2958,7 +2958,7 @@ begin
         'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          'ce2d0ed9fbb3fe23d8c0a9807b94f062b6fb355b54b00e7f432620eb8cc1efd6')
+          'fe87a30bafb9d2b2579a80a53701298fed797fa097f83c70d0fd1f331a776686')
       or has_function_privilege(0::oid,procedure.oid,'EXECUTE')
       or has_function_privilege('anon',procedure.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure.oid,'EXECUTE')

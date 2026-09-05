@@ -94,7 +94,7 @@ begin
        'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure
        and encode(extensions.digest(convert_to(
          procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-         'f7e76413da69d8e7c36ae82a36ddea8224b8609c994752541383ccd3ee49513f')
+         '5e7e3112b16b37f3df475b7ade59ede8bed9fb246fb8d2a292dd4d296bd47b2e')
      or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
        'public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()'::regprocedure
        and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef
@@ -149,7 +149,7 @@ begin
          and not procedure_row.proleakproof and not procedure_row.proretset
          and encode(extensions.digest(convert_to(
            procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-           '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+           '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')

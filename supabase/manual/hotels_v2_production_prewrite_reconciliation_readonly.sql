@@ -80,12 +80,12 @@ DECLARE
   v_payment_activity_chain_exact boolean := false;
   v_payment_writer_security_exact boolean := false;
   v_payment_relation_security_exact boolean := false;
+  v_payment_security_contract_exact boolean := false;
   v_payment_consumer_inventory_exact boolean := false;
   v_payment_policy_lineage_safe boolean := false;
   v_payment_activity_count bigint := 0;
   v_payment_constraint_fingerprint text;
   v_payment_trigger_fingerprint text;
-  v_payment_security_fingerprint text;
   v_scoped_hotels_lineage_safe boolean := false;
   v_pending_property bigint := 0;
   v_pending_pricing bigint := 0;
@@ -1018,45 +1018,140 @@ BEGIN
     FROM pg_trigger trigger_row WHERE trigger_row.tgrelid IN(
       'public.hotel_payment_policies'::regclass,
       'public.hotel_payment_policy_terms'::regclass) AND NOT trigger_row.tgisinternal;
-    SELECT public.hotel_v2_h3_2b_hash(jsonb_build_object(
-      'relations',(SELECT jsonb_agg(jsonb_build_object(
-        'relation',relation_row.oid::regclass::text,
-        'owner',pg_get_userbyid(relation_row.relowner),
-        'rls',relation_row.relrowsecurity,
-        'force_rls',relation_row.relforcerowsecurity,
-        'acl',(SELECT jsonb_agg(jsonb_build_object(
-          'grantor',acl.grantor::regrole::text,
-          'grantee',acl.grantee::regrole::text,
-          'privilege',acl.privilege_type,'grantable',acl.is_grantable)
-          ORDER BY acl.grantor::regrole::text,acl.grantee::regrole::text,
-            acl.privilege_type) FROM aclexplode(relation_row.relacl) acl))
-        ORDER BY relation_row.oid::regclass::text)
-        FROM pg_class relation_row WHERE relation_row.oid IN(
-          'public.hotel_activity_log'::regclass,
-          'public.hotel_payment_policies'::regclass,
-          'public.hotel_payment_policy_terms'::regclass)),
-      'policies',(SELECT jsonb_agg(jsonb_build_object(
-        'relation',policy_row.polrelid::regclass::text,
-        'name',policy_row.polname,'command',policy_row.polcmd,
-        'roles',(SELECT jsonb_agg(role_id::regrole::text
-          ORDER BY role_id::regrole::text)
-          FROM unnest(policy_row.polroles) role_id),
-        'using',pg_get_expr(policy_row.polqual,policy_row.polrelid),
-        'check',pg_get_expr(policy_row.polwithcheck,policy_row.polrelid))
-        ORDER BY policy_row.polrelid::regclass::text,policy_row.polname)
-        FROM pg_policy policy_row WHERE policy_row.polrelid IN(
-          'public.hotel_activity_log'::regclass,
-          'public.hotel_payment_policies'::regclass,
-          'public.hotel_payment_policy_terms'::regclass))))
-      INTO v_payment_security_fingerprint;
+    WITH expected_relations(relation_name,service_insert) AS (VALUES
+      ('public.hotel_activity_log',true),
+      ('public.hotel_payment_policies',false),
+      ('public.hotel_payment_policy_terms',false)
+    ), actual_relations AS MATERIALIZED (
+      SELECT expected.relation_name,expected.service_insert,relation_row.*
+      FROM expected_relations expected
+      LEFT JOIN pg_class relation_row
+        ON relation_row.oid=to_regclass(expected.relation_name)
+    ), privileges(privilege_name) AS (VALUES
+      ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),
+      ('REFERENCES'),('TRIGGER')
+    ), expected_direct_acl AS (
+      SELECT relation_name,'postgres'::text grantor_name,
+        'service_role'::text grantee_name,
+        'SELECT'::text privilege_name,false grantable
+      FROM expected_relations
+      UNION ALL
+      SELECT relation_name,'postgres','service_role','INSERT',false
+      FROM expected_relations WHERE service_insert
+    ), actual_direct_acl AS MATERIALIZED (
+      SELECT relation_row.relation_name,
+        pg_get_userbyid(acl.grantor)::text grantor_name,
+        CASE WHEN acl.grantee=0 THEN 'PUBLIC'
+          ELSE pg_get_userbyid(acl.grantee) END::text grantee_name,
+        acl.privilege_type::text privilege_name,
+        acl.is_grantable grantable
+      FROM actual_relations relation_row
+      CROSS JOIN LATERAL aclexplode(coalesce(
+        relation_row.relacl,'{}'::aclitem[])) acl
+      WHERE acl.grantee<>relation_row.relowner
+    ), checked_roles(role_name,role_oid) AS (VALUES
+      ('PUBLIC'::text,0::oid),
+      ('postgres','postgres'::regrole::oid),
+      ('anon','anon'::regrole::oid),
+      ('authenticated','authenticated'::regrole::oid),
+      ('service_role','service_role'::regrole::oid)
+    ), actual_effective_acl AS MATERIALIZED (
+      SELECT relation_row.relation_name,role.role_name,
+        privilege.privilege_name,
+        has_table_privilege(role.role_oid,relation_row.oid,
+          privilege.privilege_name||' WITH GRANT OPTION') grantable
+      FROM actual_relations relation_row
+      CROSS JOIN checked_roles role
+      CROSS JOIN privileges privilege
+      WHERE relation_row.oid IS NOT NULL
+        AND has_table_privilege(role.role_oid,relation_row.oid,
+          privilege.privilege_name)
+    ), expected_effective_acl AS (
+      SELECT relation_name,'postgres'::text role_name,
+        privilege_name,true grantable
+      FROM expected_relations CROSS JOIN privileges
+      UNION ALL
+      SELECT relation_name,grantee_name,privilege_name,grantable
+      FROM expected_direct_acl
+    ), expected_policies(relation_name,policy_name) AS (VALUES
+      ('public.hotel_activity_log','hotel_activity_log_admin_select'),
+      ('public.hotel_payment_policies','hotel_payment_policies_admin_select'),
+      ('public.hotel_payment_policy_terms',
+        'hotel_payment_policy_terms_admin_select')
+    ), actual_policies AS MATERIALIZED (
+      SELECT policy_namespace.nspname||'.'||policy_relation.relname relation_name,
+        policy_row.polname policy_name,policy_row.polcmd command,
+        policy_row.polpermissive permissive,
+        ARRAY(SELECT DISTINCT CASE WHEN role_id=0 THEN 'PUBLIC'
+            ELSE pg_get_userbyid(role_id) END::text
+          FROM unnest(policy_row.polroles) role_id
+          ORDER BY 1) roles,
+        CASE regexp_replace(lower(pg_get_expr(
+          policy_row.polqual,policy_row.polrelid)),
+          '[[:space:]()]','','g')
+          WHEN 'is_current_user_admin' THEN 'is_current_user_admin'
+          WHEN 'public.is_current_user_admin' THEN 'is_current_user_admin'
+          ELSE NULL END using_contract,
+        CASE WHEN policy_row.polwithcheck IS NULL THEN NULL ELSE
+          regexp_replace(lower(pg_get_expr(
+            policy_row.polwithcheck,policy_row.polrelid)),
+            '[[:space:]]','','g') END check_contract,
+        (SELECT array_agg(DISTINCT dependency.refobjid ORDER BY dependency.refobjid)
+         FROM pg_depend dependency
+         WHERE dependency.classid='pg_policy'::regclass
+           AND dependency.objid=policy_row.oid
+           AND dependency.refclassid='pg_proc'::regclass)
+          function_dependencies
+      FROM pg_policy policy_row
+      JOIN pg_class policy_relation ON policy_relation.oid=policy_row.polrelid
+      JOIN pg_namespace policy_namespace
+        ON policy_namespace.oid=policy_relation.relnamespace
+      WHERE policy_row.polrelid IN(
+        'public.hotel_activity_log'::regclass,
+        'public.hotel_payment_policies'::regclass,
+        'public.hotel_payment_policy_terms'::regclass)
+    ), expected_policy_contract AS (
+      SELECT relation_name,policy_name,'r'::"char" command,true permissive,
+        ARRAY['authenticated']::text[] roles,
+        'is_current_user_admin'::text using_contract,NULL::text check_contract,
+        ARRAY['public.is_current_user_admin()'::regprocedure::oid]::oid[]
+          function_dependencies
+      FROM expected_policies
+    )
+    SELECT
+      (SELECT count(*)=3 AND coalesce(bool_and(
+        relation_row.oid IS NOT NULL
+        AND relation_row.relowner='postgres'::regrole
+        AND relation_row.relkind='r' AND relation_row.relpersistence='p'
+        AND relation_row.relrowsecurity
+        AND NOT relation_row.relforcerowsecurity),false)
+        FROM actual_relations relation_row)
+      AND NOT EXISTS(
+        (SELECT * FROM actual_direct_acl
+         EXCEPT ALL SELECT * FROM expected_direct_acl)
+        UNION ALL
+        (SELECT * FROM expected_direct_acl
+         EXCEPT ALL SELECT * FROM actual_direct_acl))
+      AND NOT EXISTS(
+        (SELECT * FROM actual_effective_acl
+         EXCEPT ALL SELECT * FROM expected_effective_acl)
+        UNION ALL
+        (SELECT * FROM expected_effective_acl
+         EXCEPT ALL SELECT * FROM actual_effective_acl))
+      AND NOT EXISTS(
+        (SELECT * FROM actual_policies
+         EXCEPT ALL SELECT * FROM expected_policy_contract)
+        UNION ALL
+        (SELECT * FROM expected_policy_contract
+         EXCEPT ALL SELECT * FROM actual_policies))
+      INTO v_payment_security_contract_exact;
 
     v_payment_relation_security_exact := v_payment_relation_security_exact
+      AND v_payment_security_contract_exact
       AND v_payment_constraint_fingerprint=
         '853f7af619c23d2428a55489e45426cfdc9e3625c58cae1c0f40de457158a24d'
       AND v_payment_trigger_fingerprint=
-        '12324aa32db604c150aebd2e8d145d3ba4910c7b7e4628cbd882506f1dd85a1e'
-      AND v_payment_security_fingerprint=
-        'd179f634c0f079788cc05c51689c38aad00e0804793960a82a49de34983a621e';
+        '12324aa32db604c150aebd2e8d145d3ba4910c7b7e4628cbd882506f1dd85a1e';
 
     WITH expected(signature) AS (VALUES
       ('public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)'),

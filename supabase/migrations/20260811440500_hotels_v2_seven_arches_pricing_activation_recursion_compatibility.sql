@@ -165,7 +165,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+           'hex')='03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
          and not procedure_row.proleakproof and not procedure_row.proretset
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
@@ -723,7 +723,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+           'hex')='03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
          and not procedure_row.proleakproof and not procedure_row.proretset
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
@@ -1441,7 +1441,7 @@ begin
          '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_receipt_oid)<>
-         'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec'
+         '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0'
      or (select proowner from pg_proc where oid=v_admin_d_oid)<>'postgres'::regrole
      or not (select prosecdef from pg_proc where oid=v_admin_d_oid)
      or (select provolatile from pg_proc where oid=v_admin_d_oid)<>'s'
@@ -1461,7 +1461,7 @@ begin
          and procedure_row.proconfig=
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),
-           'hex')='6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+           'hex')='03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
          and not procedure_row.proleakproof and not procedure_row.proretset
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')

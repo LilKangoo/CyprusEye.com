@@ -235,7 +235,7 @@ begin
       and not procedure_row.proleakproof and not procedure_row.proretset
       and encode(extensions.digest(convert_to(
         procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+        '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
       and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
       and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
       and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -247,7 +247,7 @@ begin
   select expected.signature into v_bad_function
   from (values
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
-      'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec',
+      '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_admin_d_current_foundation_snapshot()',
       '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a',
@@ -625,7 +625,7 @@ begin
         on procedure_row.oid=to_regprocedure(expected.signature)),
     'lower_function_sources',jsonb_build_object(
       'accepted_activation_receipt_validator',
-        'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec',
+        '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0',
       'admin_d',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_admin_d_current_foundation_snapshot()'::regprocedure),'UTF8'),'sha256'),'hex'),
       'canonical_projector',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
@@ -2312,7 +2312,7 @@ begin
          v_site_settings_lifecycle)
      or v_receipt.historical_activation_lineage#>>
        '{lower_function_sources,accepted_activation_receipt_validator}' is distinct from
-       'c8a3885461c04dcd2c814b188803d69a1b3bf64c2cb1cd3a61023f35cbfd62ec'
+       '31004936b1e020921127a449bf75a3d2f2b4a3e248f083cb1c954581d5f82cf0'
      or v_receipt.historical_activation_lineage_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(v_receipt.historical_activation_lineage)
      or v_receipt.historical_activation_lineage_source_hash is distinct from
@@ -2426,7 +2426,7 @@ begin
       and not procedure_row.proleakproof and not procedure_row.proretset
       and encode(extensions.digest(convert_to(
         procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-        '6df11e8680d35ca8caf3a4f4492276105f2b150422f3b086b64ad82d5f6e164d'
+        '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94'
       and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
       and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
       and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
