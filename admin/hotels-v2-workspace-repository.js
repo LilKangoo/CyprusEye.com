@@ -227,13 +227,33 @@
     return data;
   }
 
-  function repositoryError(error, action) {
+  function isExactFutureStageMissingRpc(error, rpcName, httpStatus) {
+    if (rpcName !== RPC.sevenArchesReviewedPricing
+        || Number(httpStatus) !== 404
+        || String(error?.code || '').trim().toUpperCase() !== 'PGRST202') return false;
+    const evidence = [error?.message, error?.details, error?.hint]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' ');
+    return evidence.includes(RPC.sevenArchesReviewedPricing)
+      && /could not find the function|function[^.]*not found/i.test(evidence)
+      && /schema cache/i.test(evidence);
+  }
+
+  function repositoryError(error, action, context = {}) {
     const code = String(error?.code || '').trim();
     const message = String(error?.message || error?.details || 'Unknown database error').trim();
     const normalized = new Error(`${action}: ${message}`);
     normalized.code = code;
     normalized.details = error?.details || null;
     normalized.hint = error?.hint || null;
+    normalized.rpcName = typeof context.rpcName === 'string' ? context.rpcName : null;
+    normalized.httpStatus = Number.isInteger(context.httpStatus) ? context.httpStatus : null;
+    normalized.isFutureStageNotInstalled = isExactFutureStageMissingRpc(
+      error, normalized.rpcName, normalized.httpStatus,
+    );
+    normalized.classification = normalized.isFutureStageNotInstalled
+      ? 'FUTURE_STAGE_NOT_INSTALLED'
+      : null;
     normalized.userMessage = reviewedShadowUserMessage(message);
     normalized.diagnosticReason = /^(?:hotels_v2_admin_[cd]|hotels_v2_h2b(?:1|2)|hotels_v2_h3(?:_1|_2a|_pricing_promotion)|hotels_v2_seven_arches_(?:property_proposal|pricing_activation|reviewed_pricing))_[a-z0-9_]+$/i.test(message)
       ? message
@@ -263,10 +283,13 @@
     try {
       response = await client.rpc(name, payload || {});
     } catch (error) {
-      throw repositoryError(error, action);
+      throw repositoryError(error, action, { rpcName: name });
     }
     const { data, error } = response || {};
-    if (error) throw repositoryError(error, action);
+    if (error) throw repositoryError(error, action, {
+      rpcName: name,
+      httpStatus: Number.isInteger(response?.status) ? response.status : null,
+    });
     return options.preserveArray ? data : asRpcPayload(data);
   }
 

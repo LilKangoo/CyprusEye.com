@@ -377,6 +377,96 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
     });
   });
 
+  test('classifies only the exact absent 114415 reviewed-pricing RPC as a future stage', async () => {
+    const calls: any[] = [];
+    const rpcName = 'hotel_v2_admin_get_seven_arches_reviewed_pricing';
+    const client = {
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        return {
+          data: null,
+          status: 404,
+          statusText: 'Not Found',
+          error: {
+            code: 'PGRST202',
+            message: `Could not find the function public.${rpcName} without parameters in the schema cache`,
+            details: `Searched for the function public.${rpcName} with no matches in the schema cache.`,
+            hint: null,
+          },
+        };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    await expect(Repository.getSevenArchesReviewedPricing()).rejects.toMatchObject({
+      code: 'PGRST202',
+      rpcName,
+      httpStatus: 404,
+      classification: 'FUTURE_STAGE_NOT_INSTALLED',
+      isFutureStageNotInstalled: true,
+      isDefinitiveFailure: true,
+      isAmbiguousOutcome: false,
+    });
+    expect(calls).toEqual([{ name: rpcName, payload: {} }]);
+  });
+
+  test.each([
+    ['another missing RPC', 404, 'PGRST202', 'Could not find the function public.hotel_v2_admin_get_something_else in the schema cache'],
+    ['wrong PostgREST code', 404, 'PGRST204', 'Could not find the function public.hotel_v2_admin_get_seven_arches_reviewed_pricing in the schema cache'],
+    ['unexpected 404', 404, '42501', 'Permission denied for hotel_v2_admin_get_seven_arches_reviewed_pricing'],
+    ['authentication failure', 401, 'PGRST301', 'JWT expired for hotel_v2_admin_get_seven_arches_reviewed_pricing'],
+    ['authorization failure', 403, '42501', 'Permission denied for hotel_v2_admin_get_seven_arches_reviewed_pricing'],
+    ['server failure', 500, 'XX000', 'Server failure in hotel_v2_admin_get_seven_arches_reviewed_pricing'],
+    ['wrong HTTP status', 400, 'PGRST202', 'Could not find the function public.hotel_v2_admin_get_seven_arches_reviewed_pricing in the schema cache'],
+  ])('keeps %s outside the future-stage classification', async (_label, status, code, message) => {
+    const client = { async rpc() { return { data: null, status, error: { code, message } }; } };
+    const { Repository } = loadRepository(client);
+    let rejected: any = null;
+    try { await Repository.getSevenArchesReviewedPricing(); } catch (error) { rejected = error; }
+    expect(rejected).toBeTruthy();
+    expect(rejected.classification).toBeNull();
+    expect(rejected.isFutureStageNotInstalled).toBe(false);
+  });
+
+  test('keeps malformed reviewed-pricing success and transport failure fail-closed', async () => {
+    const malformed = loadRepository({ async rpc() { return { data: {}, status: 200, error: null }; } }).Repository;
+    await expect(malformed.getSevenArchesReviewedPricing()).rejects.toThrow();
+
+    const transport = loadRepository({ async rpc() { throw new TypeError('Failed to fetch'); } }).Repository;
+    await expect(transport.getSevenArchesReviewedPricing()).rejects.toMatchObject({
+      rpcName: 'hotel_v2_admin_get_seven_arches_reviewed_pricing',
+      httpStatus: null,
+      classification: null,
+      isFutureStageNotInstalled: false,
+      isDefinitiveFailure: false,
+      isAmbiguousOutcome: true,
+    });
+  });
+
+  test('does not classify a different invoked missing RPC as the 114415 lifecycle boundary', async () => {
+    const rpcName = 'hotel_v2_admin_get_property_list';
+    const client = {
+      async rpc() {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: 'PGRST202',
+            message: `Could not find the function public.${rpcName} without parameters in the schema cache`,
+          },
+        };
+      },
+    };
+    const { Repository } = loadRepository(client);
+    let rejected: any = null;
+    try { await Repository.listProperties(); } catch (error) { rejected = error; }
+    expect(rejected).toMatchObject({
+      rpcName,
+      httpStatus: 404,
+      classification: null,
+      isFutureStageNotInstalled: false,
+    });
+  });
+
   test('creates an exact unpublished Rooms V2 draft through its dedicated RPC', async () => {
     const calls: any[] = [];
     const client = {

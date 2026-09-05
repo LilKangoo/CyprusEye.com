@@ -113,6 +113,99 @@ function afterState(): any {
   };
 }
 
+function productionShapedPricingControl(active = true): any {
+  const immutable = {
+    locked: true,
+    contract_version: 'seven_kamares_legacy_to_h3_pricing_v1',
+    reason: 'accepted_h3_1p_hotel_pricing_graph',
+  };
+  const sourceReference = {
+    kind: 'legacy_preview', cloned_from_schedule_id: null,
+    pricing_model: 'per_person_per_night',
+    pricing_fingerprint: '7208ab4ecc0e47abd64d87ca1ac53a03',
+    rule_count: 63, guest_counts: [2, 3, 4, 5, 6, 7, 8], migration_blocker: null,
+  };
+  const tierRows = (scheduleId: string, count: number, firstId: string) => (
+    Array.from({ length: count }, (_unused, index) => ({
+      id: index === 0
+        ? firstId
+        : `${count === 27 ? '60000000-0000-6000-d000' : 'a0000000-0000-a000-7000'}-${index.toString(16).padStart(12, '0')}`,
+      schedule_id: scheduleId,
+      guest_count: 2 + Math.floor(index / 9), threshold_nights: 2 + (index % 9),
+      nightly_rate: 100 + Math.floor(index / 9), is_active: true, version: 1,
+      updated_at: UPDATED,
+    }))
+  );
+  const roomType = (id: string, code: string) => ({
+    id, hotel_id: HOTEL, code, name_i18n: { pl: code, en: code, he: code },
+    status: 'active', max_occupancy: 4, capacity_adults: null, capacity_children: null,
+    children_policy_override: null, minimum_child_age_override: null,
+    inventory_mode: 'pooled', base_inventory_count: 1, active_unit_count: 0,
+    version: 1, updated_at: UPDATED,
+  });
+  const roomRate = (id: string, roomTypeId: string) => ({
+    id, hotel_id: HOTEL, room_type_id: roomTypeId, rate_plan_id: PLAN,
+    pricing_schedule_id: SCHEDULE, base_nightly_rate: active ? 100 : 0, currency: 'EUR',
+    external_redirect_url: null, is_active: active, review_status: 'reviewed',
+    lifecycle_status: active ? 'active' : 'inactive', review_basis: 'h3_1p_promotion', sort_order: 100,
+    version: active ? 5 : 4, updated_at: UPDATED, pricing_source: 'pricing_schedule',
+    base_nightly_rate_authoritative: false, independent_tiers: [],
+    independent_tiers_fingerprint: MD5, immutable_contract: immutable,
+    activation_blockers: [],
+  });
+  const schedule = (id: string, code: string, applicationScope: string, active: boolean,
+    links: string[], tiers: any[]) => ({
+    id, hotel_id: HOTEL, code,
+    name_i18n: { pl: code, en: code, he: code }, application_scope: applicationScope,
+    currency: 'EUR', maximum_party_size: applicationScope === 'room_occupancy' ? 4 : 8,
+    minimum_billable_occupancy: 2, is_active: active,
+    review_status: active ? 'reviewed' : 'requires_review',
+    lifecycle_status: active ? 'active' : 'inactive', source: 'legacy_preview',
+    source_reference: sourceReference, version: active ? 4 : 2, updated_at: UPDATED,
+    linked_room_rate_ids: links, link_fingerprint: MD5,
+    sharing_mode: 'shared', tiers, tiers_fingerprint: MD5,
+    immutable_contract: immutable, activation_blockers: [],
+  });
+  return {
+    contract_version: 'hotels_v2_admin_c_pricing_control_v1', hotel_id: HOTEL,
+    property: {
+      id: HOTEL, updated_at: UPDATED, architecture_version: 'legacy', currency: 'EUR',
+      minimum_stay_nights: 2, maximum_stay_nights: 30, children_policy: 'allowed',
+      minimum_child_age: null, booking_mode: 'request_confirmation',
+    },
+    feature_flags: {
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
+      hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
+    },
+    legacy_safety: {
+      architecture_version: 'legacy', legacy_pricing_authoritative: true,
+      legacy_pricing_rule_count: 63,
+      legacy_pricing_fingerprint: '7208ab4ecc0e47abd64d87ca1ac53a03', public_change: false,
+    },
+    snapshot_token: TOKEN,
+    rate_plans: [{
+      id: PLAN, hotel_id: HOTEL, code: 'standard',
+      name_i18n: { pl: 'Standard', en: 'Standard', he: 'סטנדרטי' },
+      description_i18n: { pl: 'Standard', en: 'Standard', he: 'Standard' },
+      meal_plan_code: null, cancellation_policy: { type: 'non_refundable' },
+      booking_mode_override: null, price_inclusions: [], is_active: active,
+      review_status: 'reviewed', lifecycle_status: active ? 'active' : 'inactive',
+      review_basis: 'h3_1p_promotion', sort_order: 100, version: active ? 4 : 3,
+      updated_at: UPDATED, immutable_contract: immutable, activation_blockers: [],
+    }],
+    room_types: [roomType(UPPER_ROOM, 'upper-floor-apartment'), roomType(GROUND_ROOM, 'ground-floor-apartment')],
+    room_rates: [roomRate(UPPER_RATE, UPPER_ROOM), roomRate(GROUND_RATE, GROUND_ROOM)],
+    pricing_schedules: [
+      schedule(SCHEDULE, 'shared-apartment-pricing', 'room_occupancy', active,
+        [GROUND_RATE, UPPER_RATE], tierRows(SCHEDULE, 27, 'f6c679b1-c0d7-64c7-d0d1-4b898f285778')),
+      schedule(PARTY_SCHEDULE, 'property-party-preview', 'property_booking_party', false,
+        [], tierRows(PARTY_SCHEDULE, 63, '2aa13aac-b0c1-a4c5-7183-ddedd93dee57')),
+    ],
+    rate_rules: [], exact_date_prices: [], allocation_rules: [],
+    property_pricing_default: null, recent_activity: [],
+  };
+}
+
 function reviewedPlan(): any {
   const payload = draft();
   delete payload.contract_version; delete payload.hotel_id; delete payload.snapshot_token;
@@ -199,6 +292,77 @@ describe('7 Arches pricing activation Admin client', () => {
       .rejects.toMatchObject({ saveSucceeded: true, isAmbiguousOutcome: true, isDefinitiveFailure: false });
     await expect(Repository.applySevenArchesPricingActivation(reviewed.reviewed_plan, CORRELATION, IDEMPOTENCY))
       .rejects.toThrow('exact server-reviewed plan');
+    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_seven_arches_pricing_activation')).toHaveLength(1);
+  });
+
+  test('accepts a valid post-Apply pricing refresh once and never retries the mutation', async () => {
+    const calls: any[] = [];
+    const Core = loadCore();
+    const acceptedPricingControl = productionShapedPricingControl();
+    expect(Core.validatePricingControl(productionShapedPricingControl(false), HOTEL).pricing_schedules)
+      .toHaveLength(2);
+    expect(Core.validatePricingControl(acceptedPricingControl, HOTEL).pricing_schedules)
+      .toHaveLength(2);
+    const context: any = { console, URL, TextEncoder, crypto: { randomUUID: () => CORRELATION } };
+    context.globalThis = context; context.window = context;
+    context.HotelsV2WorkspaceCore = Core;
+    context.getSupabase = () => ({
+      rpc: async (name: string, payload: any) => {
+        calls.push({ name, payload });
+        if (name === 'hotel_v2_admin_preview_seven_arches_pricing_activation') {
+          return { data: preview(), error: null };
+        }
+        if (name === 'hotel_v2_admin_apply_seven_arches_pricing_activation') {
+          return {
+            data: {
+              contract_version: 'hotels_v2_seven_arches_pricing_activation_apply_result_v1',
+              hotel_id: HOTEL, changed: true, replayed: false, review_id: REVIEW,
+              correlation_id: CORRELATION, idempotency_key: IDEMPOTENCY,
+              activity_ids: [
+                '61111111-1111-4111-8111-111111111111',
+                '62222222-2222-4222-8222-222222222222',
+                '63333333-3333-4333-8333-333333333333',
+                '64444444-4444-4444-8444-444444444444',
+              ],
+              public_change: false, legacy_authoritative: true,
+            },
+            error: null,
+          };
+        }
+        if (name === 'hotel_v2_admin_get_seven_arches_pricing_activation') {
+          return { data: snapshot('active'), error: null };
+        }
+        if (name === 'hotel_v2_admin_get_property_workspace') {
+          return { data: { property: { id: HOTEL }, room_types: [], units: [], rate_plans: [], room_rates: [] }, error: null };
+        }
+        if (name === 'hotel_v2_admin_get_pricing_control') {
+          return { data: productionShapedPricingControl(), error: null };
+        }
+        return { data: null, error: new Error(`Unexpected RPC ${name}`) };
+      },
+    });
+    vm.runInNewContext(
+      fs.readFileSync(path.join(process.cwd(), 'admin/hotels-v2-workspace-repository.js'), 'utf8'),
+      context,
+      { filename: 'admin/hotels-v2-workspace-repository.js' },
+    );
+    const Repository = context.HotelsV2WorkspaceRepository;
+    const reviewed = await Repository.previewSevenArchesPricingActivation(draft(), snapshot());
+    await expect(Repository.applySevenArchesPricingActivation(
+      reviewed.reviewed_plan, CORRELATION, IDEMPOTENCY,
+    )).resolves.toMatchObject({
+      activation: { status: 'active' },
+      pricing_control: {
+        pricing_schedules: [
+          { id: SCHEDULE, tiers: expect.any(Array) },
+          { id: PARTY_SCHEDULE, tiers: expect.any(Array) },
+        ],
+      },
+    });
+    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_seven_arches_pricing_activation')).toHaveLength(1);
+    await expect(Repository.applySevenArchesPricingActivation(
+      reviewed.reviewed_plan, CORRELATION, IDEMPOTENCY,
+    )).rejects.toThrow('exact server-reviewed plan');
     expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_seven_arches_pricing_activation')).toHaveLength(1);
   });
 

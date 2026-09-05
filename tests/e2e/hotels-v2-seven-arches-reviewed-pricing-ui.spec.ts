@@ -16,6 +16,9 @@ const UPPER_SCHEDULE = 'aec20731-7a56-35f0-334e-92b363351f02';
 const GROUND_ROOM = '825c01b7-9f82-492a-9c81-9b1d5cd7acd3';
 const GROUND_RATE = '3320590d-632d-423f-80d0-fd021cba7293';
 const GROUND_SCHEDULE = '9d109336-64f3-3c57-4684-968b59c94c3b';
+const ACTIVATION_PLAN = '22e47a63-a630-4fb6-8f43-816f2d3fdc17';
+const ACTIVATION_SHARED_SCHEDULE = 'b0a3104f-7b31-5265-a59f-c2d166f11a23';
+const ACTIVATION_PREVIEW_SCHEDULE = '443065c0-984a-5de3-a22a-d03042c41107';
 const HASH = 'a'.repeat(64);
 const MD5 = 'b'.repeat(32);
 
@@ -311,6 +314,55 @@ function reviewedAdminControl() {
   };
 }
 
+function readyActivationSnapshot(snapshotToken: string) {
+  return {
+    contract_version: 'hotels_v2_seven_arches_pricing_activation_snapshot_v1',
+    hotel_id: HOTEL, status: 'ready', snapshot_token: snapshotToken,
+    public_change: false, legacy_authoritative: true,
+    feature_flags: {
+      hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
+      hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
+    },
+    h3_1p: {
+      promotion_review_id: PROPOSAL,
+      source_fingerprint: '7208ab4ecc0e47abd64d87ca1ac53a03',
+      parity: {
+        threshold_case_count: 63, threshold_mismatch_count: 0,
+        long_stay_case_count: 7, long_stay_mismatch_count: 0,
+        total_case_count: 70, total_mismatch_count: 0, fingerprint: MD5,
+      },
+      allocation_exact: true,
+    },
+    rate_plan: {
+      id: ACTIVATION_PLAN, version: 3, name_i18n: { en: 'Standard' },
+      description_i18n: {}, cancellation_policy: { type: 'non_refundable' },
+      is_active: false, review_status: 'reviewed',
+    },
+    room_rates: [
+      { id: UPPER_RATE, room_type_id: UPPER_ROOM, base_nightly_rate: 0, currency: 'EUR', is_active: false, review_status: 'reviewed', version: 4 },
+      { id: GROUND_RATE, room_type_id: GROUND_ROOM, base_nightly_rate: 0, currency: 'EUR', is_active: false, review_status: 'reviewed', version: 4 },
+    ],
+    shared_schedule: {
+      id: ACTIVATION_SHARED_SCHEDULE, version: 3, name_i18n: { en: 'Shared apartment pricing' },
+      is_active: false, review_status: 'reviewed', active_tier_count: 27,
+    },
+    preview_schedule: {
+      id: ACTIVATION_PREVIEW_SCHEDULE, version: 2,
+      is_active: false, review_status: 'requires_review',
+    },
+    payment_policy: {
+      id: BOOKING, code: 'seven-kamares-request-confirmation', currency: 'EUR',
+      is_active: true, review_status: 'reviewed', version: 3, terms_fingerprint: MD5,
+    },
+    commission_policy: {
+      id: ADMIN, code: 'seven-kamares-room-night',
+      commission_mode: 'per_allocated_room_per_night', amount: 10, currency: 'EUR',
+      version: 2, updated_at: '2026-08-30T10:00:00.000Z', read_only: true,
+    },
+    blocking_reasons: [],
+  };
+}
+
 async function installAdminHarness(page: Page) {
   const pricingControl = adminPricingControl();
   const reviewedControl = reviewedAdminControl();
@@ -429,6 +481,121 @@ async function installAdminHarness(page: Page) {
 }
 
 test.describe('7 Arches reviewed pricing UI integration', () => {
+  test('keeps ready activation independent at the 114405 boundary and builds exactly one fresh Review', async ({ page }) => {
+    await installAdminHarness(page);
+    const initialSnapshot = readyActivationSnapshot('c'.repeat(64));
+    const freshSnapshot = readyActivationSnapshot('d'.repeat(64));
+    await page.evaluate(async ({ hotelId, initial, fresh, reviewId, fingerprint }) => {
+      const root = window as any;
+      const clone = (value: any) => JSON.parse(JSON.stringify(value));
+      const store = root.__reviewedAdmin;
+      store.activationGets = 0;
+      store.activationPreviews = [];
+      store.activationApplies = [];
+      root.HotelsV2WorkspaceRepository.getPricingControl = async () => {
+        throw new Error('Pricing control returned an invalid schedule child or link relationship.');
+      };
+      root.HotelsV2WorkspaceRepository.getSevenArchesReviewedPricing = async () => {
+        const error: any = new Error('Load reviewed 7 Arches pricing control: exact future function absent');
+        error.classification = 'FUTURE_STAGE_NOT_INSTALLED';
+        throw error;
+      };
+      root.HotelsV2WorkspaceRepository.getSevenArchesPricingActivation = async () => {
+        store.activationGets += 1;
+        return clone(store.activationGets === 1 ? initial : fresh);
+      };
+      root.HotelsV2WorkspaceRepository.previewSevenArchesPricingActivation = async (draft: any, snapshot: any) => {
+        store.activationPreviews.push({ draft: clone(draft), snapshot: clone(snapshot) });
+        const before = {
+          rate_plan: snapshot.rate_plan, room_rates: snapshot.room_rates,
+          shared_schedule: snapshot.shared_schedule, preview_schedule: snapshot.preview_schedule,
+        };
+        const after = {
+          rate_plan: {
+            id: snapshot.rate_plan.id, name_i18n: draft.rate_plan_name_i18n,
+            description_i18n: draft.rate_plan_description_i18n, is_active: true,
+          },
+          room_rates: [
+            { id: snapshot.room_rates[0].id, base_nightly_rate: draft.upper_base_nightly_rate, is_active: true },
+            { id: snapshot.room_rates[1].id, base_nightly_rate: draft.ground_base_nightly_rate, is_active: true },
+          ],
+          shared_schedule: { id: snapshot.shared_schedule.id, name_i18n: draft.schedule_name_i18n, is_active: true },
+          preview_schedule: snapshot.preview_schedule,
+        };
+        return {
+          contract_version: 'hotels_v2_seven_arches_pricing_activation_preview_v1',
+          hotel_id: hotelId, changed: true, blocking_reasons: [],
+          impact: {
+            entity: 'pricing_activation', action: 'activate', id: hotelId, changed: true,
+            fields: ['base_nightly_rates', 'is_active', 'rate_plan_description_i18n', 'rate_plan_name_i18n', 'schedule_name_i18n'],
+            before, after,
+            affected_room_type_ids: [snapshot.room_rates[1].room_type_id, snapshot.room_rates[0].room_type_id],
+            affected_room_rate_ids: [snapshot.room_rates[1].id, snapshot.room_rates[0].id],
+            from: null, to: null,
+          },
+          reviewed_plan: { review_id: reviewId, plan_fingerprint: fingerprint },
+        };
+      };
+      root.HotelsV2WorkspaceRepository.applySevenArchesPricingActivation = async (...args: any[]) => {
+        store.activationApplies.push(clone(args));
+        throw new Error('Apply must remain behind separate explicit confirmation');
+      };
+      await root.HotelsV2Workspace.openWorkspace(hotelId, { tab: 'pricing' });
+    }, { hotelId: HOTEL, initial: initialSnapshot, fresh: freshSnapshot, reviewId: REVIEW, fingerprint: HASH });
+
+    const activationCard = page.locator('[data-seven-arches-pricing-activation]');
+    await expect(activationCard).toBeVisible();
+    await expect(activationCard).toContainText('Ready for one explicit activation Review');
+    await expect(page.locator('.hotel-reviewed-pricing-control')).toContainText(
+      'Independent reviewed Room pricing becomes available after the 114415 stage.',
+    );
+    await expect(page.getByRole('heading', { name: 'Pricing control unavailable', exact: true })).toBeVisible();
+    await expect(page.locator('[data-open-seven-arches-pricing-activation]')).toBeVisible();
+    await expect(page.locator('[data-add-pricing-plan], [data-add-pricing-schedule], [data-preview-pricing]')).toHaveCount(0);
+
+    await page.locator('[data-open-seven-arches-pricing-activation]').click();
+    const form = page.locator('#sevenArchesPricingActivationForm');
+    await form.locator('[name="upper_base_nightly_rate"]').fill('100.00');
+    await form.locator('[name="ground_base_nightly_rate"]').fill('100.00');
+    await form.locator('[name="rate_plan_name_pl"]').fill('Standard');
+    await form.locator('[name="rate_plan_name_en"]').fill('Standard');
+    await form.locator('[name="rate_plan_name_he"]').fill('סטנדרטי');
+    await form.locator('[name="rate_plan_description_pl"]').fill('Standard');
+    await form.locator('[name="rate_plan_description_en"]').fill('Standard');
+    await form.locator('[name="rate_plan_description_he"]').fill('Standard');
+    await form.locator('[name="schedule_name_pl"]').fill('Wspólny cennik apartamentu');
+    await form.locator('[name="schedule_name_en"]').fill('Shared apartment pricing');
+    await form.locator('[name="schedule_name_he"]').fill('תמחור דירה משותף');
+    await form.locator('[name="reason"]').fill(
+      'Reviewed activation using the existing authoritative minimum-stay price as the equal initial base rate for both apartments.',
+    );
+    await form.evaluate((element: HTMLFormElement) => element.requestSubmit());
+    await expect.poll(() => page.evaluate(
+      () => (window as any).__reviewedAdmin.activationPreviews.length,
+    )).toBe(1);
+    await expect(page.getByText('Review 7 Arches pricing activation', { exact: true })).toBeVisible();
+    const confirm = page.locator('[data-hotel-review-confirm]');
+    await expect(confirm).toBeVisible();
+    await confirm.click();
+    await expect.poll(() => page.evaluate(
+      () => (window as any).__reviewedAdmin.activationApplies.length,
+    )).toBe(0);
+
+    const store = await page.evaluate(() => (window as any).__reviewedAdmin);
+    expect(store.activationGets).toBe(2);
+    expect(store.activationPreviews).toHaveLength(1);
+    expect(store.activationPreviews[0].draft).toMatchObject({
+      snapshot_token: 'd'.repeat(64),
+      upper_base_nightly_rate: 100,
+      ground_base_nightly_rate: 100,
+    });
+    expect(store.activationPreviews[0].draft.snapshot_token).not.toBe('c'.repeat(64));
+    expect(store.activationPreviews[0].snapshot.snapshot_token).toBe('d'.repeat(64));
+    expect(store.activationApplies).toHaveLength(0);
+    expect(store.genericCalls).toBe(0);
+    expect(store.toasts.some((entry: any) => /Apply remains unavailable until the exact current pricing control passes client validation/i.test(entry.message))).toBe(true);
+  });
+
   test('Partner changes one Upper tier through dedicated Preview and Submit only', async ({ page }) => {
     await installPartnerHarness(page);
     await page.locator('[data-phw-section="rates_pricing"]').click();

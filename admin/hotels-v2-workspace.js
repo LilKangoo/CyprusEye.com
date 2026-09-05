@@ -3564,6 +3564,11 @@
               pricingUi: true,
               contextMessage: 'The server rechecks the exact H3.1P 70/0 parity, protected graph, payment and €10 commission policy. The shared schedule remains authoritative; no public behavior changes.',
               onConfirm: async () => {
+                if (state.pricingControlError || !state.pricingControl) {
+                  const error = new Error('Activation Apply remains unavailable until the exact current pricing control passes client validation. Refresh the pricing control; Preview is never applied automatically.');
+                  error.userMessage = error.message;
+                  throw error;
+                }
                 const result = await Repository.applySevenArchesPricingActivation(
                   preview.reviewed_plan, Core.newUuid(), Core.newUuid(),
                 );
@@ -4052,6 +4057,9 @@
     if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
     if (state.reviewedPricingLoading) return '<section class="hotel-workspace-card hotel-reviewed-pricing-control"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading reviewed independent pricing…</section>';
     if (state.reviewedPricingError || !state.reviewedPricingControl) {
+      if (state.reviewedPricingError?.classification === 'FUTURE_STAGE_NOT_INSTALLED') {
+        return '<section class="hotel-workspace-card hotel-reviewed-pricing-control"><span class="hotel-workspace-eyebrow">Independent Room pricing</span><h4>Reviewed pricing control unavailable</h4><p>Independent reviewed Room pricing becomes available after the 114415 stage.</p><span class="hotel-workspace-status hotel-workspace-status--warning">FUTURE STAGE</span></section>';
+      }
       return `<section class="hotel-workspace-card hotel-property-empty--error hotel-reviewed-pricing-control"><span class="hotel-workspace-eyebrow">Independent Room pricing</span><h4>Reviewed pricing control unavailable</h4><p>${escapeHtml(state.reviewedPricingError?.userMessage || state.reviewedPricingError?.message || 'The exact 114415 Admin control could not be loaded.')}</p><button class="btn-secondary" type="button" data-retry-reviewed-pricing>Retry secure load</button></section>`;
     }
     const control = state.reviewedPricingControl;
@@ -4232,14 +4240,19 @@
   }
 
   function renderPricingPanel(panel) {
+    const lifecycleMarkup = `${sevenArchesPricingActivationCardMarkup()}
+      ${pricingPromotionCardMarkup()}
+      ${renderSevenArchesReviewedPricingPanel()}`;
     if (state.pricingControlLoading) {
-      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Loading the exact server pricing snapshot…')}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading pricing control…</div>`;
+      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Loading the exact server pricing snapshot…')}${lifecycleMarkup}<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading pricing control…</div>`;
       localizePricingUi(panel);
+      bindPricingPanel(panel);
       return;
     }
     if (state.pricingControlError || !state.pricingControl) {
-      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Pricing fails closed without the dedicated reviewed control plane.')}<section class="hotel-workspace-card hotel-property-empty--error"><h4>Pricing control unavailable</h4><p>${escapeHtml(state.pricingControlError?.userMessage || state.pricingControlError?.message || 'Deploy and verify the ADMIN-C pricing foundation before editing normalized prices.')}</p><button class="btn-secondary" type="button" data-retry-pricing-control>Retry secure load</button></section>`;
+      panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Pricing fails closed without the dedicated reviewed control plane.')}${lifecycleMarkup}<section class="hotel-workspace-card hotel-property-empty--error"><h4>Pricing control unavailable</h4><p>${escapeHtml(state.pricingControlError?.userMessage || state.pricingControlError?.message || 'Deploy and verify the ADMIN-C pricing foundation before editing normalized prices.')}</p><button class="btn-secondary" type="button" data-retry-pricing-control>Retry secure load</button></section>`;
       localizePricingUi(panel);
+      bindPricingPanel(panel);
       panel.querySelector('[data-retry-pricing-control]')?.addEventListener('click', () => void refreshPricingControl());
       return;
     }
@@ -4252,9 +4265,7 @@
     panel.innerHTML = `${workspacePanelHeader('Rates & Pricing', 'Configure Rate Plans, Room products, occupancy / LOS schedules, seasonal prices, exact dates and allocation. The server remains authoritative.', headerActions)}
       <section class="hotel-pricing-safety-banner"><div><span class="hotel-workspace-eyebrow">Shadow pricing safety</span><h4>${pricingUiHtml(legacyArchitecture ? 'Legacy public pricing remains authoritative' : 'Rooms V2 property remains inert and unpublished')}</h4><p>Every change below stays inside the normalized shadow graph. Public Hotels V2 remains OFF and no existing booking, payment, commission, coupon or referral is changed.</p><small>${pricingUiHtml('Property booking mode: {mode}. A Rate Plan override is explicit and server-validated.', { mode: bookingModeLabel(control.property.booking_mode) })}</small></div><div><span class="hotel-workspace-status hotel-workspace-status--${flagsOff ? 'success' : 'danger'}">FLAGS ${pricingUiHtml(flagsOff ? 'OFF' : 'DRIFT')}</span><span class="hotel-workspace-status hotel-workspace-status--success">${escapeHtml(architecture.replaceAll('_', ' ').toUpperCase())} · INERT</span></div></section>
       ${mutationsLocked ? '<section class="hotel-workspace-card hotel-pricing-activation-blockers"><span class="hotel-workspace-eyebrow">Protected 7 Arches boundary</span><h4>The generic ADMIN-C pricing editor remains read-only</h4><p>Use the dedicated reviewed independent Room pricing control below. It is the only Admin path allowed to evolve the protected Upper/Ground schedule tiers while preserving topology, parity, commission, payment and receipt lineage.</p></section>' : ''}
-      ${renderSevenArchesReviewedPricingPanel()}
-      ${pricingPromotionCardMarkup()}
-      ${sevenArchesPricingActivationCardMarkup()}
+      ${lifecycleMarkup}
       ${pricingPropertyDefaultMarkup(control)}
       <nav class="hotel-pricing-jump-nav" aria-label="Rates and pricing sections"><a href="#hotelPricingProducts">Products</a><a href="#hotelPricingSchedules">Schedules</a><a href="#hotelPricingPlans">Rate Plans</a><a href="#hotelPricingRules">Calendar prices</a><a href="#hotelPricingAllocation">Allocation</a><a href="#hotelPricingActivity">Activity</a></nav>
       <section id="hotelPricingProducts" class="hotel-pricing-section"><div class="hotel-workspace-section-title"><div><h4>Room Rate products</h4><p>The highlighted source is the price actually used. A linked schedule always outranks independent tiers; active independent tiers outrank the stored base rate.</p></div><span>${control.room_rates.length}</span></div><div class="hotel-pricing-product-grid">${control.room_rates.length ? control.room_rates.map(pricingSourceCardMarkup).join('') : renderEmptyState('No Room Rate products', 'Create a Rate Plan, then connect it to an exact Room Type.')}</div>${mutationsLocked ? '' : '<button class="btn-secondary" type="button" data-add-pricing-product>+ Room Rate product</button>'}</section>

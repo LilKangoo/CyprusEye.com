@@ -160,6 +160,17 @@ function manualSchedule(): any {
   };
 }
 
+function scheduleTierControl(tierId = 'f6c679b1-c0d7-64c7-d0d1-4b898f285778'): any {
+  const source = control(false);
+  const schedule = manualSchedule();
+  schedule.linked_room_rate_ids = [RATE_ID];
+  schedule.tiers[0].id = tierId;
+  source.pricing_schedules = [schedule];
+  source.room_rates[0].pricing_schedule_id = SCHEDULE_ID;
+  source.room_rates[0].pricing_source = 'pricing_schedule';
+  return source;
+}
+
 function allocationRule(): any {
   return {
     id: ALLOCATION_ID, hotel_id: HOTEL_ID, code: 'two-guests',
@@ -373,6 +384,102 @@ describe('Hotels V2 ADMIN-C pricing client contracts', () => {
     badBookingMode.property.booking_mode = 'browser_mode';
     expect(() => Core.validatePricingControl(badBookingMode, HOTEL_ID))
       .toThrow(/property snapshot/i);
+  });
+
+  test('accepts deterministic PostgreSQL schedule-tier UUIDs without weakening parent identities or links', () => {
+    const deterministicTierId = 'f6c679b1-c0d7-64c7-d0d1-4b898f285778';
+    const propertyPartyTierId = '2aa13aac-b0c1-a4c5-7183-ddedd93dee57';
+    const beforeActivation = scheduleTierControl(deterministicTierId);
+    const sharedSchedule = beforeActivation.pricing_schedules[0];
+    sharedSchedule.sharing_mode = 'shared';
+    sharedSchedule.tiers = Array.from({ length: 27 }, (_unused, index) => ({
+      ...sharedSchedule.tiers[0],
+      id: index === 0
+        ? deterministicTierId
+        : `60000000-0000-6000-d000-${index.toString(16).padStart(12, '0')}`,
+      guest_count: 2 + Math.floor(index / 9),
+      threshold_nights: 2 + (index % 9),
+    }));
+    const partySchedule = structuredClone(manualSchedule());
+    partySchedule.id = DEFAULT_ID;
+    partySchedule.code = 'property-party-preview';
+    partySchedule.application_scope = 'property_booking_party';
+    partySchedule.maximum_party_size = 8;
+    partySchedule.minimum_billable_occupancy = 2;
+    partySchedule.linked_room_rate_ids = [];
+    partySchedule.tiers = Array.from({ length: 63 }, (_unused, index) => ({
+      ...partySchedule.tiers[0],
+      id: index === 0
+        ? propertyPartyTierId
+        : `a0000000-0000-a000-7000-${index.toString(16).padStart(12, '0')}`,
+      schedule_id: DEFAULT_ID,
+      guest_count: 2 + Math.floor(index / 9),
+      threshold_nights: 2 + (index % 9),
+    }));
+    beforeActivation.pricing_schedules.push(partySchedule);
+    const normalized = Core.validatePricingControl(beforeActivation, HOTEL_ID);
+    expect(normalized.pricing_schedules[0].tiers[0].id).toBe(deterministicTierId);
+    expect(normalized.pricing_schedules[0].tiers).toHaveLength(27);
+    expect(normalized.pricing_schedules[1].tiers).toHaveLength(63);
+    expect(normalized.pricing_schedules[1].tiers[0].id).toBe(propertyPartyTierId);
+
+    const afterActivation = structuredClone(beforeActivation);
+    afterActivation.rate_plans[0].is_active = true;
+    afterActivation.rate_plans[0].lifecycle_status = 'active';
+    afterActivation.room_rates[0].is_active = true;
+    afterActivation.room_rates[0].lifecycle_status = 'active';
+    afterActivation.room_rates[0].base_nightly_rate = 100;
+    afterActivation.pricing_schedules[0].is_active = true;
+    afterActivation.pricing_schedules[0].lifecycle_status = 'active';
+    expect(Core.validatePricingControl(afterActivation, HOTEL_ID)
+      .pricing_schedules[0].tiers[0].id).toBe(deterministicTierId);
+
+    const duplicate = scheduleTierControl(deterministicTierId);
+    duplicate.pricing_schedules[0].tiers.push({
+      ...duplicate.pricing_schedules[0].tiers[0], guest_count: 2,
+    });
+    expect(() => Core.validatePricingControl(duplicate, HOTEL_ID))
+      .toThrow(/invalid schedule child or link relationship/i);
+
+    for (const invalidTierId of [
+      deterministicTierId.toUpperCase(),
+      'f6c679b1-c0d7-64c7-d0d1-4b898f28577',
+      'not-a-postgresql-uuid',
+    ]) {
+      expect(() => Core.validatePricingControl(scheduleTierControl(invalidTierId), HOTEL_ID))
+        .toThrow(/invalid schedule child or link relationship/i);
+    }
+
+    const wrongParent = scheduleTierControl(deterministicTierId);
+    wrongParent.pricing_schedules[0].tiers[0].schedule_id = DEFAULT_ID;
+    expect(() => Core.validatePricingControl(wrongParent, HOTEL_ID))
+      .toThrow(/invalid schedule child or link relationship/i);
+
+    const foreignLink = scheduleTierControl(deterministicTierId);
+    foreignLink.pricing_schedules[0].linked_room_rate_ids = [DEFAULT_ID];
+    expect(() => Core.validatePricingControl(foreignLink, HOTEL_ID))
+      .toThrow(/invalid schedule child or link relationship/i);
+
+    const duplicateLink = scheduleTierControl(deterministicTierId);
+    duplicateLink.pricing_schedules[0].linked_room_rate_ids = [RATE_ID, RATE_ID];
+    expect(() => Core.validatePricingControl(duplicateLink, HOTEL_ID))
+      .toThrow(/invalid schedule child or link relationship/i);
+
+    const secondRateId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const independentMultiLink = scheduleTierControl(deterministicTierId);
+    independentMultiLink.room_rates.push({
+      ...structuredClone(independentMultiLink.room_rates[0]), id: secondRateId,
+    });
+    independentMultiLink.pricing_schedules[0].linked_room_rate_ids = [RATE_ID, secondRateId];
+    expect(() => Core.validatePricingControl(independentMultiLink, HOTEL_ID))
+      .toThrow(/invalid schedule child or link relationship/i);
+
+    const nonRfcParent = scheduleTierControl(deterministicTierId);
+    nonRfcParent.pricing_schedules[0].id = deterministicTierId;
+    nonRfcParent.pricing_schedules[0].tiers[0].schedule_id = deterministicTierId;
+    nonRfcParent.room_rates[0].pricing_schedule_id = deterministicTierId;
+    expect(() => Core.validatePricingControl(nonRfcParent, HOTEL_ID))
+      .toThrow(/row without an exact identifier|different property|missing product relationship/i);
   });
 
   test('keeps public pricing flags inert while accepting an authoritative External Calendar boolean', () => {

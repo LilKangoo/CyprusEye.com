@@ -4346,7 +4346,7 @@
       linked_room_rate_ids: asArray(entry?.linked_room_rate_ids).map(normalizeUuid).filter(Boolean).sort(),
       tiers: asArray(entry?.tiers).map((tier) => ({
         ...clone(asObject(tier)),
-        id: normalizeUuid(tier?.id),
+        id: normalizePricingSourceUuid('pricing_schedule_tier', tier?.id),
         schedule_id: normalizeUuid(tier?.schedule_id || entry?.id),
         guest_count: asInteger(tier?.guest_count, 0),
         threshold_nights: asInteger(tier?.threshold_nights, 0),
@@ -4891,12 +4891,12 @@
           && normalizeUuid(raw.property_pricing_default.hotel_id) !== normalized.hotel_id)) {
       throw new Error('Pricing control returned a row outside the exact property.');
     }
-    const requireUniqueExactIds = (rows) => {
-      const ids = rows.map((entry) => normalizeUuid(entry?.id));
+    const requireUniqueExactIds = (rows, normalizeEntryId = (entry) => normalizeUuid(entry?.id)) => {
+      const ids = rows.map(normalizeEntryId);
       return ids.every(Boolean) && new Set(ids).size === ids.length;
     };
     if (![raw.rate_plans, raw.room_types, raw.room_rates, raw.pricing_schedules, raw.rate_rules, raw.exact_date_prices, raw.allocation_rules]
-      .every(requireUniqueExactIds)) {
+      .every((rows) => requireUniqueExactIds(rows))) {
       throw new Error('Pricing control returned a duplicate or malformed exact identifier.');
     }
     const roomRateIds = new Set(normalized.room_rates.map((rate) => rate.id));
@@ -5032,7 +5032,10 @@
     raw.pricing_schedules.forEach((schedule) => {
       const scheduleId = normalizeUuid(schedule.id);
       const linkedIds = schedule.linked_room_rate_ids.map(normalizeUuid);
-      if (!requireUniqueExactIds(schedule.tiers)
+      if (!requireUniqueExactIds(
+        schedule.tiers,
+        (tier) => normalizePricingSourceUuid('pricing_schedule_tier', tier?.id),
+      )
           || linkedIds.some((id) => !id || !roomRateIds.has(id))
           || new Set(linkedIds).size !== linkedIds.length
           || !PRICING_SCHEDULE_SHARING_MODES.includes(schedule.sharing_mode)
@@ -5218,10 +5221,11 @@
       room_rate: new Set(raw.room_rates.map((row) => normalizeUuid(row.id))),
       pricing_schedule: new Set(raw.pricing_schedules.map((row) => normalizeUuid(row.id))),
       occupancy_tier: new Set([
-        ...raw.room_rates,
-        ...raw.room_rates.flatMap((row) => row.independent_tiers),
-        ...raw.pricing_schedules.flatMap((row) => row.tiers),
-      ].map((row) => normalizeUuid(row.id))),
+        ...raw.room_rates.map((row) => normalizeUuid(row.id)),
+        ...raw.room_rates.flatMap((row) => row.independent_tiers).map((row) => normalizeUuid(row.id)),
+        ...raw.pricing_schedules.flatMap((row) => row.tiers)
+          .map((row) => normalizePricingSourceUuid('pricing_schedule_tier', row.id)),
+      ]),
       rate_rule: new Set(raw.rate_rules.map((row) => normalizeUuid(row.id))),
       calendar_override: new Set(raw.exact_date_prices.map((row) => normalizeUuid(row.id))),
       allocation_rule: new Set(raw.allocation_rules.map((row) => normalizeUuid(row.id))),
