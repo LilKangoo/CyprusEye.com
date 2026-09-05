@@ -55,6 +55,7 @@ DECLARE
   v_property_receipt public.hotel_partner_property_proposal_foundation_receipts%rowtype;
   v_history jsonb := '[]'::jsonb;
   v_history_boundary text;
+  v_history_exact boolean := false;
   v_version text;
   v_recorded boolean;
   v_objects_114360 boolean := false;
@@ -62,14 +63,29 @@ DECLARE
   v_later_absent boolean := false;
   v_installed_boundary text := 'UNKNOWN';
   v_owner_receipt_exact boolean := false;
-  v_owner_relation_security_exact boolean := false;
+  v_owner_receipt_component_hashes_exact boolean := false;
+  v_owner_membership_exact boolean := false;
+  v_assignment_exact boolean := false;
+  v_permission_preset_exact boolean := false;
+  v_owner_relation_identity_exact boolean := false;
+  v_owner_rls_force_rls_exact boolean := false;
+  v_owner_direct_acl_exact boolean := false;
+  v_owner_effective_acl_exact boolean := false;
+  v_owner_policy_cardinality_exact boolean := false;
+  v_owner_immutable_trigger_exact boolean := false;
   v_owner_function_security_exact boolean := false;
   v_owner_audit_exact boolean := false;
   v_reconciliation_114360_safe boolean := false;
   v_property_receipt_exact boolean := false;
-  v_property_relation_security_exact boolean := false;
+  v_property_cross_anchor_exact boolean := false;
+  v_property_relation_identity_exact boolean := false;
+  v_property_rls_force_rls_exact boolean := false;
+  v_property_direct_acl_exact boolean := false;
+  v_property_effective_acl_exact boolean := false;
+  v_property_policy_cardinality_exact boolean := false;
   v_property_function_security_exact boolean := false;
-  v_property_trigger_index_exact boolean := false;
+  v_property_trigger_topology_exact boolean := false;
+  v_property_pending_index_exact boolean := false;
   v_property_attribution_exact boolean := false;
   v_reconciliation_114370_safe boolean := false;
   v_expected_property jsonb;
@@ -187,12 +203,6 @@ BEGIN
   END IF;
 
   IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
-    EXECUTE 'select coalesce(max(version::text),'''') from supabase_migrations.schema_migrations'
-      INTO v_version;
-    v_history_boundary := CASE
-      WHEN v_version = '20260811435000' THEN '114350'
-      ELSE 'UNEXPECTED:' || nullif(v_version,'')
-    END;
     FOREACH v_version IN ARRAY array[
       '20260811435000','20260811436000','20260811437000',
       '20260811440000','20260811440500','20260811441000',
@@ -207,6 +217,15 @@ BEGIN
         'exact',v_recorded=(v_version='20260811435000')
       ));
     END LOOP;
+    SELECT NOT EXISTS(
+      SELECT 1
+      FROM jsonb_array_elements(v_history) AS item
+      WHERE (item->>'exact')::boolean IS DISTINCT FROM true
+    ) INTO v_history_exact;
+    v_history_boundary := CASE
+      WHEN v_history_exact THEN '114350'
+      ELSE 'UNEXPECTED_TARGET_STATE'
+    END;
   ELSE
     v_history_boundary := 'MIGRATION_HISTORY_TABLE_ABSENT';
   END IF;
@@ -254,12 +273,6 @@ BEGIN
       (SELECT count(*)=1 FROM public.hotel_admin_availability_foundation_evolution_receipts)
       AND v_owner.contract_version='hotels_v2_admin_d_foundation_evolution_v2'
       AND v_owner.original_foundation_receipt_id=1
-      AND (SELECT count(*) FROM public.hotel_admin_availability_foundation_receipts)=1
-      AND EXISTS(SELECT 1 FROM public.hotel_admin_availability_foundation_receipts original
-        WHERE original.id=v_owner.original_foundation_receipt_id
-          AND original.protected_fingerprint=encode(extensions.digest(convert_to(
-            original.protected_fingerprints::text,'UTF8'),'sha256'),'hex')
-          AND original.protected_fingerprint=v_owner.original_protected_fingerprint)
       AND v_owner.hotel_id=c_hotel
       AND v_owner.permission_version=1
       AND v_owner.action_receipt_id=c_owner_action
@@ -267,7 +280,15 @@ BEGIN
       AND v_owner.idempotency_key=c_owner_idempotency
       AND v_owner.activity_id=c_owner_activity
       AND v_owner.outbox_id=c_owner_outbox
-      AND v_owner.created_at IS NOT NULL AND isfinite(v_owner.created_at)
+      AND v_owner.created_at IS NOT NULL AND isfinite(v_owner.created_at);
+
+    v_owner_receipt_component_hashes_exact :=
+      (SELECT count(*) FROM public.hotel_admin_availability_foundation_receipts)=1
+      AND EXISTS(SELECT 1 FROM public.hotel_admin_availability_foundation_receipts original
+        WHERE original.id=v_owner.original_foundation_receipt_id
+          AND original.protected_fingerprint=encode(extensions.digest(convert_to(
+            original.protected_fingerprints::text,'UTF8'),'sha256'),'hex')
+          AND original.protected_fingerprint=v_owner.original_protected_fingerprint)
       AND v_owner.before_current_protected_fingerprint=
         encode(extensions.digest(convert_to(
           v_owner.before_current_protected_fingerprints::text,'UTF8'),'sha256'),'hex')
@@ -303,8 +324,10 @@ BEGIN
            OR v_owner.stage2_before_current_protected_fingerprints->changed.key_name
               IS NOT DISTINCT FROM v_owner.stage2_current_protected_fingerprints->changed.key_name)
       AND v_owner.before_foreign_permissions_fingerprint=
-          v_owner.current_foreign_permissions_fingerprint
-      AND cardinality(v_owner.owner_user_ids)=3
+          v_owner.current_foreign_permissions_fingerprint;
+
+    v_owner_membership_exact :=
+      cardinality(v_owner.owner_user_ids)=3
       AND array_position(v_owner.owner_user_ids,null) IS NULL
       AND v_owner.owner_user_ids IS NOT DISTINCT FROM (SELECT array_agg(member.user_id ORDER BY member.user_id)
         FROM public.partner_users member
@@ -316,12 +339,10 @@ BEGIN
           'contract_version','hotels_v2_seven_arches_owner_membership_v1',
           'hotel_id',v_owner.hotel_id,'partner_id',v_owner.partner_id,
           'assignment_id',v_owner.assignment_id,'role','owner',
-          'owner_user_ids',to_jsonb(v_owner.owner_user_ids))::text,'UTF8'),'sha256'),'hex')
-      AND v_owner.before_permission IS NOT DISTINCT FROM c_before_permission
-      AND v_owner.capabilities IS NOT DISTINCT FROM c_capabilities
-      AND v_owner.after_permission IS NOT DISTINCT FROM
-        public.hotel_v2_h3_2a_permissions_snapshot(v_owner.assignment_id)
-      AND (SELECT count(*) FROM public.partner_resources assignment
+          'owner_user_ids',to_jsonb(v_owner.owner_user_ids))::text,'UTF8'),'sha256'),'hex');
+
+    v_assignment_exact :=
+      (SELECT count(*) FROM public.partner_resources assignment
         WHERE assignment.resource_type='hotels' AND assignment.resource_id=c_hotel)=1
       AND EXISTS(SELECT 1 FROM public.partner_resources assignment
         WHERE assignment.id=v_owner.assignment_id AND assignment.partner_id=v_owner.partner_id
@@ -329,7 +350,13 @@ BEGIN
       AND EXISTS(SELECT 1 FROM public.hotels hotel JOIN public.partners partner
         ON partner.id=hotel.owner_partner_id
         WHERE hotel.id=c_hotel AND partner.id=v_owner.partner_id
-          AND partner.status='active' AND partner.can_manage_hotels)
+          AND partner.status='active' AND partner.can_manage_hotels);
+
+    v_permission_preset_exact :=
+      v_owner.before_permission IS NOT DISTINCT FROM c_before_permission
+      AND v_owner.capabilities IS NOT DISTINCT FROM c_capabilities
+      AND v_owner.after_permission IS NOT DISTINCT FROM
+        public.hotel_v2_h3_2a_permissions_snapshot(v_owner.assignment_id)
       AND (SELECT count(*) FROM public.hotel_partner_hotel_permissions permission
         WHERE permission.hotel_id=c_hotel)=1
       AND EXISTS(SELECT 1 FROM public.hotel_partner_hotel_permissions permission
@@ -340,35 +367,100 @@ BEGIN
           AND public.hotel_v2_h3_2a_permissions_snapshot(permission.assignment_id)
             IS NOT DISTINCT FROM v_owner.after_permission);
 
-    -- The final condition above deliberately references no live whole-map equality.
-    -- The 114370 cross-anchor below binds the complete immutable 114360 receipt.
-    v_owner_receipt_exact := v_owner_receipt_exact
-      AND v_property_receipt.owner_evolution_receipt_id=v_owner.id
-      AND v_property_receipt.owner_evolution_receipt_fingerprint=
-        public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
-          to_jsonb(extract(epoch FROM v_owner.created_at)),false));
+    SELECT count(*)=1 AND bool_and(
+      relation.relowner='postgres'::regrole
+      AND relation.relkind='r'
+      AND relation.relpersistence='p')
+      INTO v_owner_relation_identity_exact
+    FROM pg_class relation
+    WHERE relation.oid=to_regclass(
+      'public.hotel_admin_availability_foundation_evolution_receipts');
 
-    SELECT NOT EXISTS(SELECT 1 FROM pg_class relation
-      WHERE relation.oid='public.hotel_admin_availability_foundation_evolution_receipts'::regclass
-        AND NOT (relation.relowner='postgres'::regrole AND relation.relkind='r'
-          AND relation.relpersistence='p' AND relation.relrowsecurity
-          AND NOT relation.relforcerowsecurity))
-      AND NOT EXISTS(SELECT 1 FROM pg_policy policy
-        WHERE policy.polrelid='public.hotel_admin_availability_foundation_evolution_receipts'::regclass)
-      AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce((SELECT relacl FROM pg_class
-        WHERE oid='public.hotel_admin_availability_foundation_evolution_receipts'::regclass),
-          acldefault('r','postgres'::regrole))) acl
-        WHERE acl.grantee<>'postgres'::regrole OR acl.is_grantable)
-      AND (SELECT count(*) FROM aclexplode(coalesce((SELECT relacl FROM pg_class
-        WHERE oid='public.hotel_admin_availability_foundation_evolution_receipts'::regclass),
-          acldefault('r','postgres'::regrole))))=7
+    SELECT count(*)=1 AND bool_and(
+      relation.relrowsecurity AND NOT relation.relforcerowsecurity)
+      INTO v_owner_rls_force_rls_exact
+    FROM pg_class relation
+    WHERE relation.oid=to_regclass(
+      'public.hotel_admin_availability_foundation_evolution_receipts');
+
+    -- Ignore only the owner's physical NULL/default/explicit ACL spelling.
+    -- Every direct non-owner table or column ACL item remains forbidden,
+    -- including WITH GRANT OPTION variants and future privilege types.
+    SELECT NOT EXISTS(
+      SELECT 1
+      FROM pg_class relation
+      CROSS JOIN LATERAL aclexplode(relation.relacl) acl
+      WHERE relation.oid=to_regclass(
+          'public.hotel_admin_availability_foundation_evolution_receipts')
+        AND acl.grantee<>relation.relowner
+      UNION ALL
+      SELECT 1
+      FROM pg_class relation
+      JOIN pg_attribute attribute ON attribute.attrelid=relation.oid
+        AND attribute.attnum>0 AND NOT attribute.attisdropped
+      CROSS JOIN LATERAL aclexplode(attribute.attacl) acl
+      WHERE relation.oid=to_regclass(
+          'public.hotel_admin_availability_foundation_evolution_receipts')
+        AND acl.grantee<>relation.relowner
+    ) INTO v_owner_direct_acl_exact;
+
+    -- Use the server's own default table-privilege vocabulary so PG16 and
+    -- PG17's additional MAINTAIN privilege are both checked without making
+    -- the physical owner ACL cardinality part of the contract.
+    SELECT NOT EXISTS(
+      SELECT 1
+      FROM pg_class relation
+      CROSS JOIN (VALUES
+        (0::oid),
+        (to_regrole('anon')),
+        (to_regrole('authenticated')),
+        (to_regrole('service_role'))
+      ) expected_role(role_oid)
+      CROSS JOIN LATERAL (
+        SELECT DISTINCT acl.privilege_type
+        FROM aclexplode(acldefault('r',relation.relowner)) acl
+      ) privilege
+      WHERE relation.oid=to_regclass(
+          'public.hotel_admin_availability_foundation_evolution_receipts')
+        AND (expected_role.role_oid IS NULL OR has_table_privilege(
+          expected_role.role_oid,relation.oid,privilege.privilege_type))
+      UNION ALL
+      SELECT 1
+      FROM pg_class relation
+      JOIN pg_attribute attribute ON attribute.attrelid=relation.oid
+        AND attribute.attnum>0 AND NOT attribute.attisdropped
+      CROSS JOIN (VALUES
+        (0::oid),
+        (to_regrole('anon')),
+        (to_regrole('authenticated')),
+        (to_regrole('service_role'))
+      ) expected_role(role_oid)
+      CROSS JOIN (VALUES
+        ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')
+      ) privilege(privilege_type)
+      WHERE relation.oid=to_regclass(
+          'public.hotel_admin_availability_foundation_evolution_receipts')
+        AND (expected_role.role_oid IS NULL OR has_column_privilege(
+          expected_role.role_oid,relation.oid,attribute.attnum,
+          privilege.privilege_type))
+    ) INTO v_owner_effective_acl_exact;
+
+    SELECT count(*)=0 INTO v_owner_policy_cardinality_exact
+    FROM pg_policy policy
+    WHERE policy.polrelid=to_regclass(
+      'public.hotel_admin_availability_foundation_evolution_receipts');
+
+    SELECT (SELECT count(*) FROM pg_trigger trigger_row
+        WHERE trigger_row.tgrelid=
+          'public.hotel_admin_availability_foundation_evolution_receipts'::regclass
+          AND NOT trigger_row.tgisinternal)=1
       AND EXISTS(SELECT 1 FROM pg_trigger trigger_row
         WHERE trigger_row.tgrelid='public.hotel_admin_availability_foundation_evolution_receipts'::regclass
           AND trigger_row.tgname='hotel_admin_availability_foundation_evolution_immutable'
           AND trigger_row.tgfoid=to_regprocedure('public.hotel_v2_admin_d_immutable_row()')
           AND trigger_row.tgtype=27 AND trigger_row.tgenabled='O'
           AND NOT trigger_row.tgisinternal)
-      INTO v_owner_relation_security_exact;
+      INTO v_owner_immutable_trigger_exact;
 
     SELECT NOT EXISTS(SELECT 1 FROM (VALUES
       ('public.hotel_v2_seven_arches_owner_capabilities()','sql','i'::"char",false,
@@ -449,7 +541,16 @@ BEGIN
             'has_mutation_capability',true,'correlation_id',c_owner_correlation));
 
     v_reconciliation_114360_safe := v_owner_receipt_exact
-      AND v_owner_relation_security_exact
+      AND v_owner_receipt_component_hashes_exact
+      AND v_owner_membership_exact
+      AND v_assignment_exact
+      AND v_permission_preset_exact
+      AND v_owner_relation_identity_exact
+      AND v_owner_rls_force_rls_exact
+      AND v_owner_direct_acl_exact
+      AND v_owner_effective_acl_exact
+      AND v_owner_policy_cardinality_exact
+      AND v_owner_immutable_trigger_exact
       AND v_owner_function_security_exact
       AND v_owner_audit_exact;
 
@@ -462,10 +563,6 @@ BEGIN
       AND EXISTS(SELECT 1 FROM public.hotel_partner_workspace_foundation_receipts receipt
         WHERE receipt.id=1 AND receipt.protected_fingerprint=
           public.hotel_v2_h3_2b_hash(receipt.protected_fingerprints))
-      AND v_property_receipt.owner_evolution_receipt_id=v_owner.id
-      AND v_property_receipt.owner_evolution_receipt_fingerprint=
-        public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
-          to_jsonb(extract(epoch FROM v_owner.created_at)),false))
       AND jsonb_typeof(v_property_receipt.proposal_fields_baseline)='object'
       AND (SELECT count(*) FROM jsonb_object_keys(v_property_receipt.proposal_fields_baseline))=18
       AND v_property_receipt.proposal_fields_baseline ?& array[
@@ -490,23 +587,119 @@ BEGIN
           'public.hotel_v2_external_calendar_provider_sources_are_attributable()'::regprocedure)))
       AND v_property_receipt.created_at IS NOT NULL AND isfinite(v_property_receipt.created_at);
 
-    SELECT NOT EXISTS(SELECT 1 FROM (VALUES
+    -- 114370 independently anchors the complete immutable 114360 receipt;
+    -- current unrelated business rows are intentionally not compared with
+    -- the historical broad protected map.
+    v_property_cross_anchor_exact :=
+      v_property_receipt.owner_evolution_receipt_id=v_owner.id
+      AND v_property_receipt.owner_evolution_receipt_fingerprint=
+        public.hotel_v2_h3_2b_hash(jsonb_set(to_jsonb(v_owner),'{created_at}',
+          to_jsonb(extract(epoch FROM v_owner.created_at)),false));
+
+    SELECT count(*)=4 AND count(relation.oid)=4 AND bool_and(
+      relation.relowner='postgres'::regrole
+      AND relation.relkind='r'
+      AND relation.relpersistence='p')
+      INTO v_property_relation_identity_exact
+    FROM (VALUES
       ('public.hotel_partner_property_drafts'),
       ('public.hotel_partner_property_proposal_admin_reviews'),
       ('public.hotel_partner_property_proposal_admin_transaction_context'),
       ('public.hotel_partner_property_proposal_foundation_receipts')
     ) expected(relation_name)
-    LEFT JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name)
-    WHERE relation.oid IS NULL OR relation.relowner<>'postgres'::regrole
-      OR relation.relkind<>'r' OR relation.relpersistence<>'p'
-      OR NOT relation.relrowsecurity OR relation.relforcerowsecurity
-      OR EXISTS(SELECT 1 FROM pg_policy policy WHERE policy.polrelid=relation.oid)
-      OR EXISTS(SELECT 1 FROM aclexplode(coalesce(relation.relacl,
-        acldefault('r',relation.relowner))) acl
-        WHERE acl.grantee<>relation.relowner OR acl.is_grantable)
-      OR (SELECT count(*) FROM aclexplode(coalesce(relation.relacl,
-        acldefault('r',relation.relowner))))<>7)
-      INTO v_property_relation_security_exact;
+    LEFT JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name);
+
+    SELECT count(*)=4 AND count(relation.oid)=4 AND bool_and(
+      relation.relrowsecurity AND NOT relation.relforcerowsecurity)
+      INTO v_property_rls_force_rls_exact
+    FROM (VALUES
+      ('public.hotel_partner_property_drafts'),
+      ('public.hotel_partner_property_proposal_admin_reviews'),
+      ('public.hotel_partner_property_proposal_admin_transaction_context'),
+      ('public.hotel_partner_property_proposal_foundation_receipts')
+    ) expected(relation_name)
+    LEFT JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name);
+
+    SELECT NOT EXISTS(
+      SELECT 1
+      FROM (VALUES
+        ('public.hotel_partner_property_drafts'),
+        ('public.hotel_partner_property_proposal_admin_reviews'),
+        ('public.hotel_partner_property_proposal_admin_transaction_context'),
+        ('public.hotel_partner_property_proposal_foundation_receipts')
+      ) expected(relation_name)
+      JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name)
+      CROSS JOIN LATERAL aclexplode(relation.relacl) acl
+      WHERE acl.grantee<>relation.relowner
+      UNION ALL
+      SELECT 1
+      FROM (VALUES
+        ('public.hotel_partner_property_drafts'),
+        ('public.hotel_partner_property_proposal_admin_reviews'),
+        ('public.hotel_partner_property_proposal_admin_transaction_context'),
+        ('public.hotel_partner_property_proposal_foundation_receipts')
+      ) expected(relation_name)
+      JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name)
+      JOIN pg_attribute attribute ON attribute.attrelid=relation.oid
+        AND attribute.attnum>0 AND NOT attribute.attisdropped
+      CROSS JOIN LATERAL aclexplode(attribute.attacl) acl
+      WHERE acl.grantee<>relation.relowner
+    ) INTO v_property_direct_acl_exact;
+
+    SELECT NOT EXISTS(
+      SELECT 1
+      FROM (VALUES
+        ('public.hotel_partner_property_drafts'),
+        ('public.hotel_partner_property_proposal_admin_reviews'),
+        ('public.hotel_partner_property_proposal_admin_transaction_context'),
+        ('public.hotel_partner_property_proposal_foundation_receipts')
+      ) expected(relation_name)
+      JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name)
+      CROSS JOIN (VALUES
+        (0::oid),
+        (to_regrole('anon')),
+        (to_regrole('authenticated')),
+        (to_regrole('service_role'))
+      ) expected_role(role_oid)
+      CROSS JOIN LATERAL (
+        SELECT DISTINCT acl.privilege_type
+        FROM aclexplode(acldefault('r',relation.relowner)) acl
+      ) privilege
+      WHERE expected_role.role_oid IS NULL OR has_table_privilege(
+        expected_role.role_oid,relation.oid,privilege.privilege_type)
+      UNION ALL
+      SELECT 1
+      FROM (VALUES
+        ('public.hotel_partner_property_drafts'),
+        ('public.hotel_partner_property_proposal_admin_reviews'),
+        ('public.hotel_partner_property_proposal_admin_transaction_context'),
+        ('public.hotel_partner_property_proposal_foundation_receipts')
+      ) expected(relation_name)
+      JOIN pg_class relation ON relation.oid=to_regclass(expected.relation_name)
+      JOIN pg_attribute attribute ON attribute.attrelid=relation.oid
+        AND attribute.attnum>0 AND NOT attribute.attisdropped
+      CROSS JOIN (VALUES
+        (0::oid),
+        (to_regrole('anon')),
+        (to_regrole('authenticated')),
+        (to_regrole('service_role'))
+      ) expected_role(role_oid)
+      CROSS JOIN (VALUES
+        ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')
+      ) privilege(privilege_type)
+      WHERE expected_role.role_oid IS NULL OR has_column_privilege(
+        expected_role.role_oid,relation.oid,attribute.attnum,
+        privilege.privilege_type)
+    ) INTO v_property_effective_acl_exact;
+
+    SELECT count(*)=0 INTO v_property_policy_cardinality_exact
+    FROM pg_policy policy
+    WHERE policy.polrelid=ANY(ARRAY[
+      'public.hotel_partner_property_drafts'::regclass,
+      'public.hotel_partner_property_proposal_admin_reviews'::regclass,
+      'public.hotel_partner_property_proposal_admin_transaction_context'::regclass,
+      'public.hotel_partner_property_proposal_foundation_receipts'::regclass
+    ]);
 
     SELECT NOT EXISTS(SELECT 1 FROM (VALUES
       ('public.hotel_v2_seven_arches_property_proposal_review_guard()','plpgsql','v'::"char",false,
@@ -560,8 +753,15 @@ BEGIN
          IS DISTINCT FROM expected.authenticated_execute)
       INTO v_property_function_security_exact;
 
-    v_property_trigger_index_exact :=
-      EXISTS(SELECT 1 FROM pg_trigger trigger_row
+    v_property_trigger_topology_exact :=
+      (SELECT count(*) FROM pg_trigger trigger_row
+        WHERE trigger_row.tgrelid=ANY(ARRAY[
+          'public.hotel_partner_property_drafts'::regclass,
+          'public.hotel_partner_property_proposal_admin_reviews'::regclass,
+          'public.hotel_partner_property_proposal_admin_transaction_context'::regclass,
+          'public.hotel_partner_property_proposal_foundation_receipts'::regclass
+        ]) AND NOT trigger_row.tgisinternal)=3
+      AND EXISTS(SELECT 1 FROM pg_trigger trigger_row
         WHERE trigger_row.tgrelid='public.hotel_partner_property_drafts'::regclass
           AND trigger_row.tgname='hotel_partner_property_drafts_guard'
           AND trigger_row.tgfoid=to_regprocedure('public.hotel_v2_h3_2b_guard_property_draft()')
@@ -578,15 +778,19 @@ BEGIN
           AND trigger_row.tgname='hotel_partner_property_proposal_foundation_receipts_immutable'
           AND trigger_row.tgfoid=to_regprocedure('public.hotel_v2_h3_2b_immutable_row()')
           AND trigger_row.tgtype=27 AND trigger_row.tgenabled='O'
-          AND NOT trigger_row.tgisinternal)
-      AND EXISTS(SELECT 1 FROM pg_index index_row
+          AND NOT trigger_row.tgisinternal);
+
+    v_property_pending_index_exact :=
+      EXISTS(SELECT 1 FROM pg_index index_row
         JOIN pg_class index_relation ON index_relation.oid=index_row.indexrelid
         WHERE index_relation.relname='hotel_partner_property_drafts_one_pending_assignment_uidx'
           AND index_row.indrelid='public.hotel_partner_property_drafts'::regclass
           AND index_row.indisunique AND index_row.indisvalid AND index_row.indisready
           AND index_row.indnkeyatts=1
-          AND pg_get_expr(index_row.indpred,index_row.indrelid)
-            ='(status = ''pending_admin_review''::text)')
+          AND regexp_replace(
+            pg_get_expr(index_row.indpred,index_row.indrelid,false),
+            '[[:space:]]+','','g')
+            ='(status=''pending_admin_review''::text)')
       AND NOT EXISTS(SELECT 1 FROM pg_constraint constraint_row
         WHERE constraint_row.conrelid='public.hotel_partner_property_drafts'::regclass
           AND constraint_row.conname IN(
@@ -651,9 +855,15 @@ BEGIN
       AND NOT EXISTS(SELECT 1 FROM public.hotel_partner_property_proposal_admin_transaction_context);
 
     v_reconciliation_114370_safe := v_property_receipt_exact
-      AND v_property_relation_security_exact
+      AND v_property_cross_anchor_exact
+      AND v_property_relation_identity_exact
+      AND v_property_rls_force_rls_exact
+      AND v_property_direct_acl_exact
+      AND v_property_effective_acl_exact
+      AND v_property_policy_cardinality_exact
       AND v_property_function_security_exact
-      AND v_property_trigger_index_exact
+      AND v_property_trigger_topology_exact
+      AND v_property_pending_index_exact
       AND v_property_attribution_exact;
 
     v_expected_property := v_property_receipt.proposal_fields_baseline-'updated_at';
@@ -1046,8 +1256,10 @@ BEGIN
         acl.privilege_type::text privilege_name,
         acl.is_grantable grantable
       FROM actual_relations relation_row
-      CROSS JOIN LATERAL aclexplode(coalesce(
-        relation_row.relacl,'{}'::aclitem[])) acl
+      CROSS JOIN LATERAL aclexplode(CASE
+        WHEN relation_row.relacl IS NULL
+        THEN acldefault('r',relation_row.relowner)
+        ELSE relation_row.relacl END) acl
       WHERE acl.grantee<>relation_row.relowner
     ), checked_roles(role_name,role_oid) AS (VALUES
       ('PUBLIC'::text,0::oid),
@@ -1449,18 +1661,32 @@ BEGIN
       'objects_114400_through_114450_absent',v_later_absent,
       'installed_object_boundary',v_installed_boundary),
     'reconciliation_114360',jsonb_build_object(
-      'receipt_and_components_exact',v_owner_receipt_exact,
-      'relation_trigger_rls_acl_exact',v_owner_relation_security_exact,
-      'function_source_security_exact',v_owner_function_security_exact,
-      'assignment_three_owners_permission_preset_exact',v_owner_receipt_exact,
-      'activity_receipt_outbox_attribution_exact',v_owner_audit_exact,
+      'owner_receipt_exact',v_owner_receipt_exact,
+      'owner_receipt_component_hashes_exact',v_owner_receipt_component_hashes_exact,
+      'owner_membership_exact',v_owner_membership_exact,
+      'assignment_exact',v_assignment_exact,
+      'permission_preset_exact',v_permission_preset_exact,
+      'owner_relation_identity_exact',v_owner_relation_identity_exact,
+      'owner_rls_force_rls_exact',v_owner_rls_force_rls_exact,
+      'owner_direct_acl_exact',v_owner_direct_acl_exact,
+      'owner_effective_acl_exact',v_owner_effective_acl_exact,
+      'owner_policy_cardinality_exact',v_owner_policy_cardinality_exact,
+      'owner_immutable_trigger_exact',v_owner_immutable_trigger_exact,
+      'owner_function_source_security_exact',v_owner_function_security_exact,
+      'owner_activity_receipt_outbox_exact',v_owner_audit_exact,
       'reconciliation_114360_safe',v_reconciliation_114360_safe),
     'reconciliation_114370',jsonb_build_object(
-      'foundation_receipt_exact',v_property_receipt_exact,
-      'relation_rls_acl_exact',v_property_relation_security_exact,
-      'function_source_security_exact',v_property_function_security_exact,
-      'trigger_index_topology_exact',v_property_trigger_index_exact,
-      'reviewed_property_workspace_attribution_exact',v_property_attribution_exact,
+      'property_foundation_receipt_exact',v_property_receipt_exact,
+      'property_cross_anchor_exact',v_property_cross_anchor_exact,
+      'property_relation_identity_exact',v_property_relation_identity_exact,
+      'property_rls_force_rls_exact',v_property_rls_force_rls_exact,
+      'property_direct_acl_exact',v_property_direct_acl_exact,
+      'property_effective_acl_exact',v_property_effective_acl_exact,
+      'property_policy_cardinality_exact',v_property_policy_cardinality_exact,
+      'property_trigger_topology_exact',v_property_trigger_topology_exact,
+      'property_pending_index_exact',v_property_pending_index_exact,
+      'property_function_source_security_exact',v_property_function_security_exact,
+      'property_reviewed_attribution_exact',v_property_attribution_exact,
       'reconciliation_114370_safe',v_reconciliation_114370_safe),
     'scoped_hotels_lineage',jsonb_build_object(
       'hotel_id',c_hotel,
@@ -1502,9 +1728,10 @@ BEGIN
         CASE WHEN v_scheduler_functions AND v_scheduler_job THEN 'PRESENT' ELSE 'ABSENT' END,
         'evidence_source','database_catalog')),
     'summary',jsonb_build_object(
-      'contract_version','hotels_v2_production_prewrite_reconciliation_readonly_v2',
+      'contract_version','hotels_v2_production_prewrite_reconciliation_readonly_v3',
       'transaction_read_only',current_setting('transaction_read_only'),
       'migration_history_boundary',v_history_boundary,
+      'migration_history_target_state_exact',v_history_exact,
       'installed_object_boundary',v_installed_boundary,
       'reconciliation_114360_safe',v_reconciliation_114360_safe,
       'reconciliation_114370_safe',v_reconciliation_114370_safe,
@@ -1516,8 +1743,7 @@ BEGIN
       'production_prewrite_supplementary_gate',
         current_setting('transaction_read_only')='on'
         AND v_history_boundary='114350'
-        AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(v_history) item
-          WHERE NOT (item->>'exact')::boolean)
+        AND v_history_exact
         AND v_installed_boundary='114370'
         AND v_reconciliation_114360_safe
         AND v_reconciliation_114370_safe
@@ -1554,20 +1780,34 @@ SELECT * FROM jsonb_to_record(
 
 SELECT * FROM jsonb_to_record(
   current_setting('hotels_v2_prewrite.result')::jsonb->'reconciliation_114360') AS result(
-    receipt_and_components_exact boolean,
-    relation_trigger_rls_acl_exact boolean,
-    function_source_security_exact boolean,
-    assignment_three_owners_permission_preset_exact boolean,
-    activity_receipt_outbox_attribution_exact boolean,
+    owner_receipt_exact boolean,
+    owner_receipt_component_hashes_exact boolean,
+    owner_membership_exact boolean,
+    assignment_exact boolean,
+    permission_preset_exact boolean,
+    owner_relation_identity_exact boolean,
+    owner_rls_force_rls_exact boolean,
+    owner_direct_acl_exact boolean,
+    owner_effective_acl_exact boolean,
+    owner_policy_cardinality_exact boolean,
+    owner_immutable_trigger_exact boolean,
+    owner_function_source_security_exact boolean,
+    owner_activity_receipt_outbox_exact boolean,
     reconciliation_114360_safe boolean);
 
 SELECT * FROM jsonb_to_record(
   current_setting('hotels_v2_prewrite.result')::jsonb->'reconciliation_114370') AS result(
-    foundation_receipt_exact boolean,
-    relation_rls_acl_exact boolean,
-    function_source_security_exact boolean,
-    trigger_index_topology_exact boolean,
-    reviewed_property_workspace_attribution_exact boolean,
+    property_foundation_receipt_exact boolean,
+    property_cross_anchor_exact boolean,
+    property_relation_identity_exact boolean,
+    property_rls_force_rls_exact boolean,
+    property_direct_acl_exact boolean,
+    property_effective_acl_exact boolean,
+    property_policy_cardinality_exact boolean,
+    property_trigger_topology_exact boolean,
+    property_pending_index_exact boolean,
+    property_function_source_security_exact boolean,
+    property_reviewed_attribution_exact boolean,
     reconciliation_114370_safe boolean);
 
 SELECT * FROM jsonb_to_record(
@@ -1614,6 +1854,7 @@ SELECT * FROM jsonb_to_record(
     contract_version text,
     transaction_read_only text,
     migration_history_boundary text,
+    migration_history_target_state_exact boolean,
     installed_object_boundary text,
     reconciliation_114360_safe boolean,
     reconciliation_114370_safe boolean,
