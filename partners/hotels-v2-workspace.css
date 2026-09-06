@@ -282,7 +282,55 @@
 .phw-drawer .partner-hotel-workspace__nav { display: grid; position: static; }
 .phw-mobile-nav { display: none; }
 .phw-booking-mobile { display: none; }
-.phw-room-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.phw-room-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px; border: 1px solid var(--phw-border); border-radius: 14px; background: var(--phw-bg); width: fit-content; max-width: 100%; }
+.phw-room-tabs .btn-sm { border-color: transparent; }
+.phw-room-tabs [aria-pressed="true"] { background: #8b5cf61f; box-shadow: inset 0 0 18px #8b5cf60d; }
+.phw-module-layout { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(230px, 1fr); gap: 24px; align-items: start; }
+.phw-module-main, .phw-module-aside { min-width: 0; display: grid; gap: 20px; }
+.phw-module-main .partner-hotel-workspace__form { margin: 0; }
+.phw-field-section { margin: 0; padding: 20px 0; border: 0; border-top: 1px solid var(--phw-border); min-width: 0; }
+.phw-field-section legend { float: inline-start; width: 100%; padding: 0 0 14px; font-size: 15px; font-weight: 650; color: var(--phw-text); }
+.phw-field-section > :not(legend) { clear: both; }
+.phw-language-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.phw-proposal-stages { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 0; }
+.phw-proposal-stages li { position: relative; display: flex; gap: 14px; align-items: start; padding-bottom: 28px; color: var(--phw-muted); font-size: 13px; }
+.phw-proposal-stages li:last-child { padding-bottom: 0; }
+.phw-proposal-stages li:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 15px; top: 33px; bottom: 3px; width: 1px; background: var(--phw-border); }
+.phw-proposal-stages li span { flex: 0 0 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--phw-border); }
+.phw-proposal-stages li strong { padding-top: 7px; }
+.phw-proposal-stages [data-stage="current"] { color: var(--phw-text); }
+.phw-proposal-stages [data-stage="current"] span { background: #8b5cf633; border-color: var(--phw-accent); color: var(--phw-accent); box-shadow: 0 0 20px #8b5cf61a; }
+.phw-proposal-stages [data-stage="complete"] span { color: #7adfb5; border-color: #2a6553; }
+.phw-room-list { display: grid; gap: 20px; }
+.phw-room-card { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
+.phw-room-visual { min-height: 180px; border: 1px solid var(--phw-border); border-radius: 12px; background: linear-gradient(145deg, #22263c, #121929); display: grid; place-items: center; overflow: hidden; }
+.phw-room-visual img { width: 100%; height: 100%; max-height: 300px; object-fit: cover; }
+.phw-room-visual svg { width: 48px; height: 48px; color: var(--phw-muted); }
+.phw-room-info { min-width: 0; }
+.phw-room-info h3 { font-size: 21px; }
+.phw-room-info .partner-hotel-workspace__room-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; list-style: none; padding: 20px 0; margin: 0; color: var(--phw-muted); font-size: 12px; }
+.phw-room-editor { border: 1px solid #8b5cf659; border-radius: 16px; overflow: hidden; }
+.phw-room-editor > header { padding: 24px; display: flex; align-items: center; gap: 14px; background: #8b5cf60b; }
+.phw-room-editor > header h3 { margin: 0; }
+.phw-room-editor .partner-hotel-workspace__form { border: 0; margin: 0; border-radius: 0; }
+@media (max-width: 1150px) {
+  .phw-module-layout { grid-template-columns: minmax(0, 1fr); }
+  .phw-module-aside { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .phw-room-card { grid-template-columns: 140px minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .phw-module-layout { gap: 16px; }
+  .phw-module-aside, .phw-language-fields { grid-template-columns: minmax(0, 1fr); }
+  .phw-module-aside { order: -1; }
+  .phw-module-aside .phw-property-current, .phw-module-aside > details { display: none; }
+  .phw-proposal-stages { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; gap: 8px; }
+  .phw-proposal-stages li { flex-direction: column; gap: 4px; padding: 0; font-size: 10px; }
+  .phw-proposal-stages li:not(:last-child)::after { display: none; }
+  .phw-room-card { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .phw-room-visual { min-height: 110px; max-height: 160px; }
+  .phw-room-tabs { width: 100%; }
+  .phw-room-tabs .btn-sm { flex: 1 1 auto; }
+}
 .phw-room-tabs [aria-pressed="true"] { color: var(--phw-accent); border-color: var(--phw-accent); }
 .partner-hotel-workspace [hidden] { display: none !important; }
 .partner-hotel-workspace .hotels-v2-help-trigger { display: inline-grid; place-items: center; justify-self: start; width: 44px; height: 44px; min-width: 44px; margin-inline-start: 8px; border: 1px solid var(--phw-border); border-radius: 50%; background: var(--phw-surface-soft); color: var(--phw-accent); font-size: 15px; font-weight: 650; vertical-align: middle; cursor: pointer; }

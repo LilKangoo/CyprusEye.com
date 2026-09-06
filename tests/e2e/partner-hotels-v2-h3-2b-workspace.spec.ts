@@ -559,6 +559,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
     await navigatePartner(page, 'property_content');
     const form = page.locator('[data-phw-property-photos]');
+    await page.locator('[data-phw-property-tab="photos"]').click();
     await form.locator('input[name="photo"]').last().uncheck();
     await form.locator('[name="reason"]').fill('Synthetic photo proposal for local UI validation');
     await form.getByRole('button', { name: 'Review', exact: true }).click();
@@ -661,6 +662,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
 
     await navigatePartner(page, 'property_content');
     const mediaForm = workspace.locator('[data-phw-property-photos]');
+    await page.locator('[data-phw-property-tab="photos"]').click();
     await mediaForm.locator('input[type="file"]').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from('synthetic') });
     await mediaForm.locator('[data-phw-upload-property]').click();
     await expect(workspace.locator('[data-phw-status]')).toContainText('Only some photos uploaded');
