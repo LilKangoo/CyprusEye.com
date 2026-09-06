@@ -159,7 +159,7 @@ function partnerWorkspace() {
       rate_plans: [],
       room_rates: (Object.entries(identities) as Array<[RoomKey, typeof identities.upper]>).map(([_roomKey, identity]) => ({
         id: identity.roomRateId, hotel_id: HOTEL, room_type_id: identity.roomTypeId,
-        pricing_schedule_id: identity.scheduleId, is_active: true, currency: 'EUR',
+        pricing_schedule_id: identity.scheduleId, is_active: true, currency: 'EUR', review_status: 'reviewed',
         base_nightly_rate_authoritative: false,
       })),
       schedules: scheduleRows,
@@ -213,7 +213,7 @@ function partnerWorkspaceAt114405() {
   return workspace;
 }
 
-async function installPartnerHarness(page: Page, options: { boundary114405?: boolean } = {}) {
+async function installPartnerHarness(page: Page, options: { boundary114405?: boolean; language?: string } = {}) {
   const workspace = options.boundary114405 ? partnerWorkspaceAt114405() : partnerWorkspace();
   const control = {
     contract_version: 'hotels_v2_seven_arches_reviewed_pricing_partner_control_v1',
@@ -222,12 +222,14 @@ async function installPartnerHarness(page: Page, options: { boundary114405?: boo
     commission_policy: { commission_mode: 'per_allocated_room_per_night', amount: 10, currency: 'EUR' },
     current_items: currentItems(), proposals: [],
   };
-  await page.setContent(`<!doctype html><html lang="en"><body>
+  await page.setContent(`<!doctype html><html lang="${options.language || 'en'}"><body>
     <main id="partnerPortalView"></main>
-    <section id="partnerHotelWorkspaceView" hidden></section>
-    <dialog id="partnerHotelWorkspaceReview"></dialog>
+    <section id="partnerHotelWorkspaceView" class="partner-hotel-workspace" hidden></section>
+    <dialog id="partnerHotelWorkspaceReview" class="partner-hotel-workspace-review"></dialog>
   </body></html>`);
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
+  await page.addStyleTag({ path: path.join(process.cwd(), 'partners/hotels-v2-workspace.css') });
+  await page.addStyleTag({ content: 'body { margin: 0; background: #090d18; }' });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.evaluate(({ workspaceValue, controlValue, proposalId, boundary114405 }) => {
     const root = window as any;
@@ -699,12 +701,16 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
 
   test('Partner changes one Upper tier through dedicated Preview and Submit only', async ({ page }) => {
     await installPartnerHarness(page);
-    await page.locator('[data-phw-section="rates_pricing"]').click();
+    await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
     const upper = page.locator('[data-phw-reviewed-room="upper"] [data-phw-reviewed-tier]').first();
     const ground = page.locator('[data-phw-reviewed-room="ground"] [data-phw-reviewed-tier]').first();
     const upperBefore = Number(await upper.getAttribute('data-before-price'));
     const groundBefore = await ground.inputValue();
     await upper.fill(String(upperBefore + 10));
+    await page.locator('[data-phw-pricing-room="ground"]').click();
+    await expect(ground).toHaveValue(groundBefore);
+    await page.locator('[data-phw-pricing-room="upper"]').click();
+    await expect(upper).toHaveValue(String(upperBefore + 10));
     await page.locator('[data-phw-seven-arches-pricing] [name="reason"]').fill('Partner requests one Upper tier change');
     await page.locator('[data-phw-seven-arches-pricing]').evaluate((form: HTMLFormElement) => form.requestSubmit());
 
@@ -727,9 +733,42 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(calls.genericCalls).toBe(0);
   });
 
+  for (const width of [1440, 1024, 768, 390]) {
+    for (const language of ['en', 'pl', 'he']) {
+      test(`Partner redesign independent 27/27 matrix ${language} ${width}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 950 });
+        await installPartnerHarness(page, { language });
+        await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+        for (const room of ['upper', 'ground']) {
+          await page.locator(`[data-phw-pricing-room="${room}"]`).click();
+          const matrix = page.locator(`[data-phw-reviewed-room="${room}"]`);
+          await expect(matrix).toBeVisible();
+          await expect(matrix.locator('[data-phw-reviewed-tier]')).toHaveCount(27);
+          await expect(matrix.locator('tbody tr')).toHaveCount(9);
+          if (width <= 820) {
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible')).toHaveCount(9);
+            await matrix.locator('[data-phw-guest-filter]').selectOption('4');
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible')).toHaveCount(9);
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible').first()).toHaveAttribute('aria-label', /4/);
+          }
+        }
+        const ids = await page.locator('[data-phw-reviewed-tier]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier-id')));
+        await page.locator('[data-phw-pricing-room="upper"]').click();
+        expect(new Set(ids).size).toBe(54);
+        await expect(page.locator('[data-phw-commission-policy]')).toContainText('10');
+        await expect(page.locator('[data-phw-commission-policy]')).not.toContainText('%');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`pricing-${language}-${width}.png`), fullPage: true });
+        const store = await page.evaluate(() => (window as any).__reviewedPartner);
+        expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
+        expect(store.genericCalls).toBe(0);
+      });
+    }
+  }
+
   test('keeps Partner pricing unavailable and unrelated workspace sections usable at the 114405 boundary', async ({ page }) => {
     await installPartnerHarness(page, { boundary114405: true });
-    await page.locator('[data-phw-section="rates_pricing"]').click();
+    await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
 
     const panel = page.locator('[data-phw-panel="rates_pricing"]');
     await expect(panel).toBeVisible();
@@ -740,9 +779,9 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     await expect(page.locator('[data-phw-seven-arches-pricing], [data-phw-pricing]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /preview proposal|submit for admin review/i })).toHaveCount(0);
 
-    await page.locator('[data-phw-section="overview"]').click();
+    await page.locator('[data-phw-section="overview"]:visible').first().click();
     await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
-    await expect(page.locator('[data-phw-panel="overview"]')).toContainText('7 Arches Hotel');
+    await expect(page.locator('#partnerHotelWorkspaceTitle')).toContainText('7 Arches Hotel');
 
     const store = await page.evaluate(() => (window as any).__reviewedPartner);
     expect(store.stageClassification).toBe('FUTURE_STAGE_NOT_INSTALLED');
@@ -750,6 +789,53 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
     expect(store.genericCalls).toBe(0);
   });
+
+  for (const failure of ['PGRST202', '42501', 'HTTP500', 'TRANSPORT']) {
+    test(`Partner 114415 optional pricing failure ${failure} stays read-only without raw errors or retries`, async ({ page }) => {
+      await installPartnerHarness(page);
+      await page.evaluate(() => {
+        const root = window as any;
+        root.__savedPartnerRepository = root.HotelsV2PartnerWorkspaceRepository;
+        // This UI fixture is deliberately partial; full workspace DTO validation has its own strict suites.
+        root.HotelsV2PartnerWorkspaceCore = { ...root.HotelsV2PartnerWorkspaceCore, validateWorkspace: (value: any) => value };
+      });
+      await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
+      await page.evaluate(async ({ code }) => {
+        const root = window as any;
+        const realGet = root.HotelsV2PartnerWorkspaceRepository.getSevenArchesPricingControl;
+        const realWorkspaceGet = root.HotelsV2PartnerWorkspaceRepository.getWorkspace;
+        const saved = root.__savedPartnerRepository;
+        const workspace = await saved.getWorkspace();
+        root.__optionalRpcCalls = [];
+        root.getSupabase = () => ({ rpc: async (name: string) => {
+          if (name === 'hotel_v2_partner_get_workspace') return { data: workspace, error: null };
+          root.__optionalRpcCalls.push(name);
+          if (code === 'TRANSPORT') throw new Error('fetch failed private-response-marker');
+          return { data: null, status: code === 'PGRST202' ? 404 : code === '42501' ? 403 : 500,
+            error: { code, message: 'Could not find the function public.hotel_v2_partner_get_seven_arches_reviewed_pricing in the schema cache private-response-marker' } };
+        } });
+        await realWorkspaceGet(workspace.partner.id, workspace.hotel_id, '2026-09-01', '2026-09-30');
+        // Exercise the real repository RPC/error path while the workspace itself stays a local fixture.
+        saved.getSevenArchesPricingControl = realGet;
+        root.HotelsV2PartnerWorkspaceRepository = saved;
+      }, { code: failure });
+      await page.locator('[data-phw-refresh]:visible').first().click();
+      await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+      const panel = page.locator('[data-phw-panel="rates_pricing"]');
+      await expect(panel).toContainText('Exact reviewed pricing control is unavailable. No proposal can be prepared.');
+      await expect(panel.locator('input:enabled, [data-phw-seven-arches-pricing]')).toHaveCount(0);
+      await expect(panel.locator('input:disabled')).toHaveCount(54);
+      expect(await panel.innerText()).not.toMatch(/PGRST202|404|schema cache|private-response-marker/);
+      await expect(page.locator('#partnerHotelWorkspaceView')).not.toContainText('private-response-marker');
+      await page.locator('[data-phw-section="overview"]:visible').first().click();
+      await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => (window as any).__optionalRpcCalls)).toEqual(['hotel_v2_partner_get_seven_arches_reviewed_pricing']);
+      const store = await page.evaluate(() => (window as any).__reviewedPartner);
+      expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
+      expect(store.genericCalls).toBe(0);
+    });
+  }
 
   test('Admin reviews a Partner proposal and an explicit two-Room plan through the same planner', async ({ page }) => {
     await installAdminHarness(page);
