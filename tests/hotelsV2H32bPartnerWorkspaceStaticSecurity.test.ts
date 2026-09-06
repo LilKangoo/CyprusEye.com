@@ -67,6 +67,6 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     expect(html).toContain('/js/hotels-v2-workspace-help.js?v=20260831_2');
     expect(html).toContain('/js/hotels-v2-partner-workspace-repository.js?v=20260831_2');
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
-    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260831_2');
+    expect(html).toContain('/js/hotels-v2-partner-workspace.js?v=20260906_1');
   });
 });

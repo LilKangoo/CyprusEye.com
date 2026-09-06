@@ -213,7 +213,7 @@ function partnerWorkspaceAt114405() {
   return workspace;
 }
 
-async function installPartnerHarness(page: Page, options: { boundary114405?: boolean } = {}) {
+async function installPartnerHarness(page: Page, options: { boundary114405?: boolean; language?: string } = {}) {
   const workspace = options.boundary114405 ? partnerWorkspaceAt114405() : partnerWorkspace();
   const control = {
     contract_version: 'hotels_v2_seven_arches_reviewed_pricing_partner_control_v1',
@@ -222,12 +222,14 @@ async function installPartnerHarness(page: Page, options: { boundary114405?: boo
     commission_policy: { commission_mode: 'per_allocated_room_per_night', amount: 10, currency: 'EUR' },
     current_items: currentItems(), proposals: [],
   };
-  await page.setContent(`<!doctype html><html lang="en"><body>
+  await page.setContent(`<!doctype html><html lang="${options.language || 'en'}"><body>
     <main id="partnerPortalView"></main>
-    <section id="partnerHotelWorkspaceView" hidden></section>
-    <dialog id="partnerHotelWorkspaceReview"></dialog>
+    <section id="partnerHotelWorkspaceView" class="partner-hotel-workspace" hidden></section>
+    <dialog id="partnerHotelWorkspaceReview" class="partner-hotel-workspace-review"></dialog>
   </body></html>`);
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
+  await page.addStyleTag({ path: path.join(process.cwd(), 'partners/hotels-v2-workspace.css') });
+  await page.addStyleTag({ content: 'body { margin: 0; background: #090d18; }' });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.evaluate(({ workspaceValue, controlValue, proposalId, boundary114405 }) => {
     const root = window as any;
@@ -699,7 +701,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
 
   test('Partner changes one Upper tier through dedicated Preview and Submit only', async ({ page }) => {
     await installPartnerHarness(page);
-    await page.locator('[data-phw-section="rates_pricing"]').click();
+    await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
     const upper = page.locator('[data-phw-reviewed-room="upper"] [data-phw-reviewed-tier]').first();
     const ground = page.locator('[data-phw-reviewed-room="ground"] [data-phw-reviewed-tier]').first();
     const upperBefore = Number(await upper.getAttribute('data-before-price'));
@@ -727,9 +729,39 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(calls.genericCalls).toBe(0);
   });
 
+  for (const width of [1440, 1024, 768, 390]) {
+    for (const language of ['en', 'pl', 'he']) {
+      test(`Partner redesign independent 27/27 matrix ${language} ${width}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 950 });
+        await installPartnerHarness(page, { language });
+        await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+        for (const room of ['upper', 'ground']) {
+          const matrix = page.locator(`[data-phw-reviewed-room="${room}"]`);
+          await expect(matrix.locator('[data-phw-reviewed-tier]')).toHaveCount(27);
+          await expect(matrix.locator('tbody tr')).toHaveCount(9);
+          if (width <= 820) {
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible')).toHaveCount(9);
+            await matrix.locator('[data-phw-guest-filter]').selectOption('4');
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible')).toHaveCount(9);
+            await expect(matrix.locator('[data-phw-reviewed-tier]:visible').first()).toHaveAttribute('aria-label', /4/);
+          }
+        }
+        const ids = await page.locator('[data-phw-reviewed-tier]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier-id')));
+        expect(new Set(ids).size).toBe(54);
+        await expect(page.locator('[data-phw-commission-policy]')).toContainText('10');
+        await expect(page.locator('[data-phw-commission-policy]')).not.toContainText('%');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`pricing-${language}-${width}.png`), fullPage: true });
+        const store = await page.evaluate(() => (window as any).__reviewedPartner);
+        expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
+        expect(store.genericCalls).toBe(0);
+      });
+    }
+  }
+
   test('keeps Partner pricing unavailable and unrelated workspace sections usable at the 114405 boundary', async ({ page }) => {
     await installPartnerHarness(page, { boundary114405: true });
-    await page.locator('[data-phw-section="rates_pricing"]').click();
+    await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
 
     const panel = page.locator('[data-phw-panel="rates_pricing"]');
     await expect(panel).toBeVisible();
@@ -740,9 +772,9 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     await expect(page.locator('[data-phw-seven-arches-pricing], [data-phw-pricing]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /preview proposal|submit for admin review/i })).toHaveCount(0);
 
-    await page.locator('[data-phw-section="overview"]').click();
+    await page.locator('[data-phw-section="overview"]:visible').first().click();
     await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
-    await expect(page.locator('[data-phw-panel="overview"]')).toContainText('7 Arches Hotel');
+    await expect(page.locator('#partnerHotelWorkspaceTitle')).toContainText('7 Arches Hotel');
 
     const store = await page.evaluate(() => (window as any).__reviewedPartner);
     expect(store.stageClassification).toBe('FUTURE_STAGE_NOT_INSTALLED');

@@ -168,7 +168,7 @@ describe('Hotels V2 H3.2B Partner workspace client', () => {
     expect(html).toContain('/js/hotels-v2-partner-media.js?v=20260825_1');
     expect(ui).toContain("`${text('bedConfiguration')}: ${room.bed_configuration.length");
     expect(ui).toContain("room.bathrooms == null ? `${text('missingUnknown')}");
-    expect(ui).toContain("room.size_sqm == null ? `${text('missingUnknown')}");
+    expect(ui).toContain("room.size_sqm == null ? text('notProvided')");
     expect(ui).toContain('data-phw-add-bed');
     expect(ui).toContain('data-phw-remove-bed');
     expect(ui).toContain('bed_configuration: beds, bathrooms: nullableNumber');

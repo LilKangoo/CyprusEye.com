@@ -22,7 +22,7 @@ const PLAN_FINGERPRINT = 'c'.repeat(64);
 type BrowserIssues = { console: string[]; page: string[]; requests: string[] };
 const browserIssues = new WeakMap<Page, BrowserIssues>();
 
-async function installHarness(
+export async function installHarness(
   page: Page,
   viewport: { width: number; height: number },
   language = 'en',
@@ -45,12 +45,16 @@ async function installHarness(
     });
   });
   await page.setViewportSize(viewport);
-  await page.setContent(`<!doctype html><html lang="${language}" dir="${language === 'he' ? 'rtl' : 'ltr'}"><head></head><body>
-    <main id="partnerPortalView"><button id="workspaceOpener">Open</button></main>
+  await page.setContent(`<!doctype html><html lang="${language}" dir="${language === 'he' ? 'rtl' : 'ltr'}"><head></head><body class="partners-page">
+    <header class="admin-header">Portal navigation</header><div class="admin-container"><aside id="adminSidebar" class="admin-sidebar">Portal sections</aside><main class="admin-main">
+    <div id="partnerPortalView"><button id="workspaceOpener">Open</button></div>
     <section id="partnerHotelWorkspaceView" class="partner-hotel-workspace" aria-labelledby="partnerHotelWorkspaceTitle" hidden></section>
     <dialog id="partnerHotelWorkspaceReview" class="partner-hotel-workspace-review" aria-labelledby="partnerHotelWorkspaceReviewTitle"></dialog>
-  </body></html>`);
+  </main></div></body></html>`);
+  await page.addStyleTag({ path: path.join(process.cwd(), 'admin/admin.css') });
   await page.addStyleTag({ path: path.join(process.cwd(), 'partners/hotels-v2-workspace.css') });
+  await page.addStyleTag({ content: 'body { margin: 0; background: #090d18; }' });
+  await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-workspace-help.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-core.js') });
   await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
@@ -184,7 +188,7 @@ async function installHarness(
         return { data: { contract_version: 'hotels_v2_h3_2b_content_preview_v1', partner_id: partnerId, hotel_id: hotelId, changed: false, blocking_reasons: [], impacts: [], reviewed_plan: null }, error: null };
       }
       const operation = {
-        entity: 'property_content', action: 'update', id: store.workspace.property_draft.id || proposalId,
+        entity: draft.intent.entity, action: 'update', id: store.workspace.property_draft.id || proposalId,
         expected_version: store.workspace.property_draft.version, expected_original: clone(store.workspace.property_draft),
         payload: clone(draft.intent.payload), reason: draft.intent.reason,
       };
@@ -292,7 +296,7 @@ async function installHarness(
               })),
               daily_inventory: [],
               unit_calendar_blocks: [], operational_overrides: [], rate_rule_operational_restrictions: [],
-              booking_allocations: [], holds: [], unmapped_booking_blockers: [], recent_activity: [], public_change: false,
+              booking_allocations: clone(store.bookingAllocations || []), holds: [], unmapped_booking_blockers: [], recent_activity: [], public_change: false,
             };
           }
           return { data: clone(store.workspace), error: null };
@@ -329,7 +333,9 @@ async function installHarness(
           const operation = params.p_reviewed_plan.operations[0];
           store.workspace.property_draft = {
             exists: true, id: operation.id, status: 'pending_admin_review', version: operation.expected_version + 1,
-            source_property_updated_at: store.workspace.property.updated_at, content: clone(operation.payload), photos: {}, updated_at: '2026-08-25T12:01:00Z',
+            source_property_updated_at: store.workspace.property.updated_at,
+            content: operation.entity === 'property_content' ? clone(operation.payload) : {},
+            photos: operation.entity === 'property_photos' ? clone(operation.payload) : {}, updated_at: '2026-08-25T12:01:00Z',
           };
           store.workspace.content_snapshot_token = nextToken;
           return { data: {
@@ -355,17 +361,166 @@ async function installHarness(
   }, { partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, hotelId: HOTEL_ID });
 }
 
+export async function navigatePartner(page: Page, section: string): Promise<void> {
+  const direct = page.locator(`.phw-sidebar [data-phw-section="${section}"]:visible, .phw-mobile-nav [data-phw-section="${section}"]:visible`).first();
+  if (await direct.count()) { await direct.click(); return; }
+  await page.locator('[data-phw-more]').click();
+  await page.locator(`[data-phw-drawer] [data-phw-section="${section}"]`).click();
+}
+
 async function expectNoBrowserErrors(page: Page): Promise<void> {
   await page.waitForTimeout(20);
   expect(browserIssues.get(page)).toEqual({ console: [], page: [], requests: [] });
 }
 
 test.describe('Hotels V2 H3.2B Partner workspace', () => {
+  for (const language of ['en', 'pl', 'he']) {
+    for (const width of [1440, 1024, 768, 390]) {
+      test(`redesign all seven pages ${language} ${width}`, async ({ page }, testInfo) => {
+        await installHarness(page, { width, height: 960 }, language, { commercialOwnerPreset: true });
+        await page.evaluate(() => {
+          const root = window as any;
+          root.__h32b.workspace.rooms[0].size_sqm = null;
+          root.__h32b.workspace.feature_flags.hotel_external_sync_enabled = true;
+          root.__h32b.workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
+        });
+        await page.locator('[data-phw-refresh]').click();
+        await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+        await expect(page.locator('#partnerHotelWorkspaceView')).toHaveAttribute('dir', language === 'he' ? 'rtl' : 'ltr');
+        for (const section of ['overview', 'property_content', 'rooms', 'rates_pricing', 'calendar_availability', 'bookings', 'payments']) {
+          await navigatePartner(page, section);
+          const panel = page.locator(`[data-phw-panel="${section}"]`);
+          await expect(panel).toBeVisible();
+          await expect(panel.locator('h2 [data-hv2-section-help]')).toHaveCount(1);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+          if (section === 'rooms') await expect(panel).toContainText({ en: 'Not provided', pl: 'Nie podano', he: 'לא נמסר' }[language]!);
+          if (section === 'payments') {
+            await expect(panel).toContainText('10');
+            await expect(panel).not.toContainText('10%');
+          }
+          await page.screenshot({ path: testInfo.outputPath(`${section}-${language}-${width}.png`), fullPage: true });
+        }
+        const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
+        expect(calls.filter((call: any) => /preview|apply|submit|create_booking/.test(call.name))).toHaveLength(0);
+        expect(calls.filter((call: any) => call.name === 'hotel_v2_partner_get_workspace')).toHaveLength(2);
+        await expectNoBrowserErrors(page);
+      });
+    }
+  }
+
+  test('redesign mobile More, diagnostics and help preserve focus without RPC polling', async ({ page }) => {
+    await installHarness(page, { width: 390, height: 844 }, 'he', { commercialOwnerPreset: true });
+    const before = await page.evaluate(() => (window as any).__h32b.rpcCalls.length);
+    await page.locator('[data-phw-more]').click();
+    await page.locator('[data-phw-drawer] [data-phw-diagnostics]').click();
+    await expect(page.locator('[data-phw-drawer]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-phw-more]')).toBeFocused();
+    await navigatePartner(page, 'property_content');
+    await page.locator('[data-phw-panel="property_content"] h2 [data-hv2-section-help]').click();
+    await expect(page.locator('dialog[open]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => (window as any).__h32b.rpcCalls.length)).toBe(before);
+  });
+
+  test('redesign loading and denied refresh expose no stale data and never auto-retry', async ({ page }) => {
+    await installHarness(page, { width: 390, height: 844 });
+    await page.evaluate(() => {
+      const root = window as any;
+      root.__deniedCalls = 0;
+      root.getSupabase = () => ({ rpc: () => { root.__deniedCalls += 1; return new Promise((resolve) => { root.__denyRefresh = () => resolve({ data: null, error: { code: '42501', message: 'Fixture permission denied' } }); }); } });
+    });
+    await page.locator('[data-phw-refresh]').click();
+    await expect(page.locator('[aria-busy="true"]')).toBeVisible();
+    await expect(page.locator('[data-phw-panel]')).toHaveCount(0);
+    await page.evaluate(() => (window as any).__denyRefresh());
+    await expect(page.locator('[role="alert"]')).toBeVisible();
+    await expect(page.locator('[data-phw-panel]')).toHaveCount(0);
+    await expect(page.locator('[data-phw-refresh]')).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__deniedCalls)).toBe(1);
+    await page.locator('[data-phw-close]').click();
+    await expect(page.locator('body')).not.toHaveClass(/phw-open/);
+    await expect(page.locator('#partnerPortalView')).toBeVisible();
+  });
+
+  test('redesign authorized booking rows adapt to desktop/mobile without invented financial data', async ({ page }, testInfo) => {
+    await installHarness(page, { width: 1440, height: 960 }, 'en', { commercialOwnerPreset: true });
+    await page.evaluate(({ roomId, planId, rateId }) => {
+      const dates = (window as any).__h32b.workspace.availability;
+      (window as any).__h32b.bookingAllocations = [{
+        id: 'dddddddd-dddd-4ddd-8ddd-111111111111', booking_id: 'eeeeeeee-eeee-4eee-8eee-111111111111',
+        arrival_date: dates.from, departure_date: dates.to,
+        current_booking_updated_at: '2026-09-06T10:00:00Z', current_booking_status: 'confirmed',
+        room_type_id: roomId, rate_plan_id: planId, room_rate_id: rateId,
+        unit_ids: [], units_required: 1, allocated_guest_counts: [2], pricing_guest_counts: [2],
+        booking_updated_at: '2026-09-06T10:00:00Z', status: 'active', version: 1,
+        updated_at: '2026-09-06T10:00:00Z', active_commitment_from: null, active_commitment_to: null, active_commitments: [],
+      }];
+    }, { roomId: ROOM_ID, planId: PLAN_ID, rateId: RATE_ID });
+    await page.locator('[data-phw-refresh]').click();
+    await navigatePartner(page, 'bookings');
+    await expect(page.locator('.phw-booking-table')).toBeVisible();
+    await expect(page.locator('.phw-booking-table')).toContainText('#eeeeeeee');
+    await expect(page.locator('.phw-booking-table')).toContainText('Unavailable');
+    await page.locator('[data-phw-booking-search]').fill('not-a-real-reference');
+    await expect(page.locator('[data-phw-no-booking-results]')).toBeVisible();
+    await page.locator('[data-phw-booking-search]').fill('upper');
+    await expect(page.locator('.phw-booking-table tbody tr:visible')).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath('bookings-populated-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.phw-booking-table')).not.toBeVisible();
+    await expect(page.locator('.phw-booking-mobile')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('bookings-populated-mobile.png'), fullPage: true });
+    const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
+    expect(calls.filter((call: any) => /preview|apply|submit|create_booking/.test(call.name))).toHaveLength(0);
+  });
+
+  test('redesign Room tabs retain permission-bound editors and draft-only creation controls', async ({ page }) => {
+    await installHarness(page, { width: 390, height: 844 }, 'en', { commercialOwnerPreset: true });
+    await navigatePartner(page, 'rooms');
+    await page.locator('[data-phw-room-tab="photos"]').click();
+    await expect(page.locator('[data-phw-room-edit="photos"]')).toBeVisible();
+    await expect(page.locator('[data-phw-room-edit="content"]')).not.toBeVisible();
+    await page.locator('[data-phw-room-edit="photos"]').click();
+    await expect(page.locator('[data-phw-room-form="photos"]')).toBeVisible();
+    await page.locator('[data-phw-room-tab="structure"]').click();
+    await page.locator('[data-phw-room-edit="structure"]').click();
+    await expect(page.locator('[data-phw-room-form="structure"] [name="max_occupancy"]')).toHaveValue('4');
+    await page.getByText('Create draft Room', { exact: true }).filter({ hasNot: page.locator('span') }).last().click();
+    await expect(page.locator('[data-phw-room-create]')).toBeVisible();
+    await expect(page.locator('[data-phw-room-create] [name="size_sqm"]')).toBeEmpty();
+    await expect(page.locator('[data-phw-panel="rooms"]').getByRole('button', { name: /publish|activate/i })).toHaveCount(0);
+    const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
+    expect(calls.filter((call: any) => /preview|apply|submit/.test(call.name))).toHaveLength(0);
+  });
+
+  test('redesign Property photos remain a reviewed proposal distinct from active photos', async ({ page }) => {
+    await installHarness(page, { width: 390, height: 844 });
+    await page.evaluate(() => (window as any).__h32b.workspace.property.photos.push('https://example.test/property-b.webp'));
+    await page.locator('[data-phw-refresh]').click();
+    await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+    await navigatePartner(page, 'property_content');
+    const form = page.locator('[data-phw-property-photos]');
+    await form.locator('input[name="photo"]').last().uncheck();
+    await form.locator('[name="reason"]').fill('Synthetic photo proposal for local UI validation');
+    await form.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect(page.locator('#partnerHotelWorkspaceReview')).toBeVisible();
+    let store = await page.evaluate(() => (window as any).__h32b);
+    expect(store.rpcCalls.filter((call: any) => call.name === 'hotel_v2_partner_apply_content_plan')).toHaveLength(0);
+    await page.locator('[data-phw-review-save]').click();
+    await expect(page.locator('[data-phw-panel="property_content"]')).toContainText('Pending Admin review');
+    store = await page.evaluate(() => (window as any).__h32b);
+    expect(store.workspace.property.photos).toHaveLength(2);
+    expect(store.workspace.property_draft.photos.photos).toHaveLength(1);
+    expect(store.rpcCalls.filter((call: any) => call.name === 'hotel_v2_partner_preview_content_plan')).toHaveLength(1);
+    expect(store.rpcCalls.filter((call: any) => call.name === 'hotel_v2_partner_apply_content_plan')).toHaveLength(1);
+  });
   test('exact 7 Arches commercial-owner preset exposes operational tabs without future capabilities', async ({ page }) => {
     await installHarness(page, { width: 1440, height: 1000 }, 'en', { commercialOwnerPreset: true });
     const workspace = page.locator('#partnerHotelWorkspaceView');
 
-    await expect(workspace.locator('[data-phw-section]')).toHaveText([
+    await expect(workspace.locator('.phw-sidebar [data-phw-section]')).toHaveText([
       'Overview', 'Property', 'Rooms', 'Rates & Pricing', 'Calendar', 'Bookings', 'Payments',
     ]);
     await expect(workspace).not.toContainText('Booking changes');
@@ -401,17 +556,17 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     const workspace = page.locator('#partnerHotelWorkspaceView');
     await expect(workspace).toBeVisible();
     await expect(workspace).toHaveAttribute('dir', 'ltr');
-    await expect(workspace.locator('[data-phw-section]')).toHaveText(['Overview', 'Property', 'Rooms', 'Rates & Pricing', 'Bookings', 'Payments']);
+    await expect(workspace.locator('.phw-sidebar [data-phw-section]')).toHaveText(['Overview', 'Property', 'Rooms', 'Rates & Pricing', 'Bookings', 'Payments']);
     await expect(workspace.locator('[data-phw-section="calendar_availability"]')).toHaveCount(0);
     await expect(workspace).toContainText('Booking changes');
     await expect(workspace).toContainText('Stripe onboarding');
     await expect(workspace.getByRole('button', { name: /Stripe|calendar sync|external calendar/i })).toHaveCount(0);
 
-    await workspace.locator('[data-phw-section="property_content"]').click();
+    await navigatePartner(page, 'property_content');
     const content = workspace.locator('[data-phw-property-content]');
     await content.locator('input[name="city"]').fill('Larnaca');
     await content.locator('input[name="reason"]').fill('Reviewed partner content');
-    await content.getByRole('button', { name: 'Review' }).click();
+    await content.getByRole('button', { name: 'Review', exact: true }).click();
     const dialog = page.locator('#partnerHotelWorkspaceReview');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Review exact Hotel change');
@@ -432,14 +587,14 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     const audit = await page.evaluate(() => (window as any).__h32b.rpcCalls);
     expect(audit.filter((call: any) => call.name === 'hotel_v2_partner_apply_content_plan')).toHaveLength(1);
 
-    await workspace.locator('[data-phw-section="rates_pricing"]').click();
+    await navigatePartner(page, 'rates_pricing');
     const priceForm = workspace.locator('[data-phw-pricing]');
     await priceForm.locator('select[name="entity"]').selectOption('schedule_tier_price');
     await expect(priceForm.locator('select[name="target"]')).toHaveValue(SCHEDULE_TIER_ID);
     await priceForm.locator('select[name="entity"]').selectOption('room_rate_price');
     await priceForm.locator('input[name="nightly_rate"]').fill('130');
     await priceForm.locator('input[name="reason"]').fill('Reviewed authoritative rate');
-    await priceForm.getByRole('button', { name: 'Review' }).click();
+    await priceForm.getByRole('button', { name: 'Review', exact: true }).click();
     await expect(dialog).toContainText('€120.00');
     await expect(dialog).toContainText('€130.00');
     await expect(dialog).toContainText('10% of booking total');
@@ -447,20 +602,20 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await expect(dialog).toContainText('Partner net');
     await dialog.getByRole('button', { name: 'Cancel' }).last().click();
 
-    await workspace.locator('[data-phw-section="property_content"]').click();
+    await navigatePartner(page, 'property_content');
     const mediaForm = workspace.locator('[data-phw-property-photos]');
     await mediaForm.locator('input[type="file"]').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from('synthetic') });
     await mediaForm.locator('[data-phw-upload-property]').click();
     await expect(workspace.locator('[data-phw-status]')).toContainText('Only some photos uploaded');
     await expect(mediaForm.locator('input[type="checkbox"][value="https://example.test/property-partial.webp"]')).toBeChecked();
 
-    await workspace.locator('[data-phw-section="bookings"]').click();
+    await navigatePartner(page, 'bookings');
     await workspace.locator('[data-phw-panel="bookings"] [data-phw-existing-flow]').click();
     expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(1);
     await page.evaluate(async ({ partnerId, assignmentId, hotelId }) => {
       await (window as any).HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
     }, { partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, hotelId: HOTEL_ID });
-    await workspace.locator('[data-phw-section="payments"]').click();
+    await navigatePartner(page, 'payments');
     await workspace.locator('[data-phw-panel="payments"] [data-phw-existing-flow]').click();
     expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(2);
     await expectNoBrowserErrors(page);
@@ -470,9 +625,9 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await installHarness(page, { width: 390, height: 844 }, 'pl');
     const workspace = page.locator('#partnerHotelWorkspaceView');
     await expect(workspace).toHaveAttribute('dir', 'ltr');
-    await expect(workspace).toContainText('Panel hotelu');
-    await expect(workspace).toContainText('Publiczne działanie legacy pozostaje nadrzędne');
-    await workspace.locator('[data-phw-section="property_content"]').click();
+    await expect(workspace).toContainText('Panel Partnera');
+    await expect(workspace).toContainText('Panel Partnera nie publikuje rezerwacji publicznych');
+    await navigatePartner(page, 'property_content');
     await expect(workspace).toContainText('Propozycja treści obiektu');
     await expect(workspace).toContainText('Propozycja zdjęć obiektu');
     expect(await workspace.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
@@ -484,7 +639,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     const workspace = page.locator('#partnerHotelWorkspaceView');
     const privateUrl = await page.evaluate(() => (window as any).__h32b.privateIcalUrl);
 
-    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await navigatePartner(page, 'calendar_availability');
     const calendars = workspace.locator('[data-phw-external-calendars]');
     const source = calendars.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"]`);
     await expect(calendars).toBeVisible();
@@ -530,7 +685,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
         assignment: { assignment_id: assignmentId, hotel_id: hotelId },
       });
     }, { partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, hotelId: HOTEL_ID });
-    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await navigatePartner(page, 'calendar_availability');
     await expect(workspace).toHaveAttribute('dir', 'rtl');
     await expect(workspace.locator('[data-phw-external-calendars]')).toContainText('יומנים חיצוניים');
     await expect(workspace.locator('[data-phw-external-lifecycle="enable"]')).toBeDisabled();
@@ -544,7 +699,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
       providerTypes: false,
     });
     const workspace = page.locator('#partnerHotelWorkspaceView');
-    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await navigatePartner(page, 'calendar_availability');
     const calendars = workspace.locator('[data-phw-external-calendars]');
     await expect(calendars).toHaveAttribute('data-provider-stage', 'provider_types_unavailable');
     await expect(calendars).toContainText('Provider controls are read-only');
@@ -565,7 +720,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
       secretConfigured: false,
     });
     const workspace = page.locator('#partnerHotelWorkspaceView');
-    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await navigatePartner(page, 'calendar_availability');
     const source = workspace.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"]`);
     await expect(workspace.locator('[data-phw-external-calendars]')).toHaveAttribute('data-provider-stage', 'provider_types_active');
     await expect(source).toContainText('Not configured');
@@ -584,7 +739,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     });
     const privateUrl = 'https://private.example.test/transient-partner-feed.ics';
     const workspace = page.locator('#partnerHotelWorkspaceView');
-    await workspace.locator('[data-phw-section="calendar_availability"]').click();
+    await navigatePartner(page, 'calendar_availability');
     await workspace.locator(`[data-phw-external-source="${EXTERNAL_SOURCE_ID}"] [data-phw-external-secret="set"]`).click();
     const dialog = page.locator('#partnerHotelWorkspaceReview');
     await dialog.locator('input[name="ical_url"]').fill(privateUrl);
@@ -602,12 +757,12 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await installHarness(page, { width: 412, height: 915 }, 'he');
     const workspace = page.locator('#partnerHotelWorkspaceView');
     await expect(workspace).toHaveAttribute('dir', 'rtl');
-    await expect(workspace).toContainText('סביבת עבודה למלון');
-    await expect(workspace).toContainText('ההתנהגות הציבורית הישנה נשארת סמכותית');
+    await expect(workspace).toContainText('סביבת השותף');
+    await expect(workspace).toContainText('כלי השותף אינם מפעילים הזמנות לציבור');
     await expect(workspace).toContainText('שינויים בהזמנה');
     await expect(workspace).toContainText('הגדרת Stripe');
     await expect(workspace.getByRole('button', { name: /Stripe|סנכרון|לוח שנה חיצוני/i })).toHaveCount(0);
-    await workspace.locator('[data-phw-section="rates_pricing"]').click();
+    await navigatePartner(page, 'rates_pricing');
     await expect(workspace).toContainText('מחיר בסיס ללילה');
     expect(await workspace.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
     await expectNoBrowserErrors(page);
