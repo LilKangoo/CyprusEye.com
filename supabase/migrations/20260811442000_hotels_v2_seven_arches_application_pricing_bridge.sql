@@ -51,7 +51,7 @@ begin
        '50fee36eb4e4c7a11ad0baf0188a9f2042bde3678c5d835b3e8b7ece992ebfef','s',true,
        array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_admin_c_pricing_control_snapshot(uuid)',
-       'd6cec06410e28b4138de5776b66f622ad8c9402662672862726e81ecb7ea613a','s',true,
+       '3f954c525277c771c3009e9ca1fbbf6c68776904f40bc70978d01f7f10a060b0','s',true,
        array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_h3_2b_access_snapshot(uuid,uuid,text)',
        '7f8cb70e2c7034d17f03377cf7ffe3d5648e47dc27800e9ac3542bc95e2bb5b4','s',true,

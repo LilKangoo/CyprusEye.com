@@ -21,6 +21,97 @@ const preview = definition(reviewed, 'hotel_v2_partner_preview_seven_arches_pric
 const submit = definition(reviewed, 'hotel_v2_partner_submit_seven_arches_pricing_proposal');
 
 describe('114420 canonical Partner workspace snapshot contract (no RPC execution)', () => {
+  const snapshotName = 'hotel_v2_admin_c_pricing_control_snapshot';
+  const oldSnapshotHash = 'd6cec06410e28b4138de5776b66f622ad8c9402662672862726e81ecb7ea613a';
+  const currentSnapshotHash = '3f954c525277c771c3009e9ca1fbbf6c68776904f40bc70978d01f7f10a060b0';
+  const originalSnapshotSql = read('supabase/migrations/20260811350000_hotels_v2_admin_c_pricing_control.sql');
+  const hotfixSql = read('supabase/migrations/20260811370000_hotels_v2_pgcrypto_digest_schema_hotfix.sql');
+  const bodyOf = (sql: string) => {
+    const fn = definition(sql.replace(/create or replace function/g, 'create function'), snapshotName);
+    return fn.slice(fn.indexOf('as $function$') + 13, fn.lastIndexOf('$function$;'));
+  };
+
+  test('pins the complete accepted 113700 snapshot body, not the historical 113500 body', () => {
+    expect(sha(bodyOf(originalSnapshotSql))).toBe(oldSnapshotHash);
+    expect(sha(bodyOf(hotfixSql))).toBe(currentSnapshotHash);
+    expect(migration).toContain(`('public.${snapshotName}(uuid)',\n       '${currentSnapshotHash}','s',true,\n       array['search_path=pg_catalog, public']::text[])`);
+    expect(migration).not.toContain(oldSnapshotHash);
+  });
+
+  test('the only accepted snapshot evolution is extensions.digest qualification', () => {
+    const before = bodyOf(originalSnapshotSql);
+    const after = bodyOf(hotfixSql);
+    expect(before.match(/digest\(convert_to/g)).toHaveLength(1);
+    expect(after).toBe(before.replace('digest(convert_to', 'extensions.digest(convert_to'));
+    expect(after.match(/extensions\.digest\(convert_to/g)).toHaveLength(1);
+    expect(after).not.toMatch(/(?<![\w.])digest\(/);
+    expect(definition(hotfixSql.replace(/create or replace function/g, 'create function'), snapshotName))
+      .toContain('set search_path=pg_catalog,public');
+  });
+
+  test('all dependency security and raw source equality checks remain fail-closed', () => {
+    const guard = migration.slice(migration.indexOf('from (values'), migration.indexOf("message='hotels_v2_seven_arches_application_bridge_dependency_source_drift'"));
+    for (const check of [
+      'procedure_row.oid is null', "procedure_row.proowner<>'postgres'::regrole",
+      'procedure_row.provolatile<>expected.volatility::"char"',
+      'procedure_row.prosecdef<>expected.security_definer',
+      'procedure_row.proconfig is distinct from expected.configuration',
+      "encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),'hex')<>\n          expected.source_hash",
+      "not has_function_privilege('postgres',procedure_row.oid,'EXECUTE')",
+      "has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')",
+      ...['anon', 'authenticated', 'service_role'].map(role => `has_function_privilege('${role}',procedure_row.oid,'EXECUTE')`),
+    ]) expect(guard).toContain(check);
+  });
+
+  test('no later applied migration replaces the inherited Admin-C snapshot definition', () => {
+    const laterApplied = fs.readdirSync('supabase/migrations').filter(name =>
+      /^202608114(400|405|406|407|410|415)00_/.test(name));
+    expect(laterApplied).toHaveLength(6);
+    for (const name of laterApplied) {
+      expect(read(`supabase/migrations/${name}`)).not.toMatch(
+        /create\s+(?:or\s+replace\s+)?function\s+public\.hotel_v2_admin_c_pricing_control_snapshot\s*\(/i);
+    }
+  });
+
+  // Optional artifact audit: the production preflight lives outside the repository.
+  // Set this path explicitly when validating a regenerated manual handoff file.
+  (process.env.HOTELS_114420_PREFLIGHT ? test : test.skip)(
+    'regenerated preflight removes only stale-pin suppression from all twelve guarded leaves', () => {
+      const preflight = read(process.env.HOTELS_114420_PREFLIGHT!);
+      expect(preflight).toContain(`-- ${sha(migration)}`);
+      expect(preflight).toContain(`('public.${snapshotName}(uuid)','${currentSnapshotHash}','s',true,ARRAY['search_path=pg_catalog, public']::text[],false)`);
+      expect(preflight).not.toContain(oldSnapshotHash);
+      expect(preflight).toContain('AND (cardinality(s.required_functions)=0\n      OR NOT EXISTS(SELECT 1 FROM pin_results WHERE exact IS NOT TRUE))');
+      expect(preflight).toContain('CASE WHEN eligible THEN');
+      expect(preflight).toContain('ELSE NULL END AS actual');
+      const specs = [...preflight.matchAll(/\((\d+),'[^']+','([^']+)','[^']+',\s*ARRAY\[[^\]]*\]::text\[\],ARRAY\[([^\]]*)\]::text\[\],\s*\$read\d+\$/g)];
+      expect(specs).toHaveLength(102);
+      const guarded = specs.filter(spec => spec[3].length > 0);
+      expect(guarded.map(spec => spec[2])).toEqual([
+        'partner_pricing_snapshot_contract_compatible',
+        'hotel_v2_seven_arches_independent_pricing_topology_is_exact',
+        'hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact',
+        'hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact',
+        'hotel_v2_seven_arches_payment_policy_lineage_is_exact',
+        'hotel_v2_seven_arches_pricing_activation_current_is_safe',
+        'hotel_v2_7a_pricing_activation_transaction_is_preserved',
+        'core_case_count', 'core_mismatch_count', 'guest_one_case_count',
+        'guest_one_mismatch_count', 'scoped_lineage_present',
+      ]);
+      const expectedPin = preflight.match(/\('public\.hotel_v2_admin_c_pricing_control_snapshot\(uuid\)','([0-9a-f]{64})'/)![1];
+      // Model only the source gate, holding all other prerequisites true. This
+      // does not execute helpers or assert current production business results.
+      for (const _leaf of guarded) {
+        const gate = (actualHash: string, otherPinsExact: boolean) =>
+          otherPinsExact && actualHash === expectedPin;
+        expect(gate(sha(bodyOf(hotfixSql)), true)).toBe(true);
+        expect(gate(sha(bodyOf(originalSnapshotSql)), true)).toBe(false);
+        expect(gate(sha(bodyOf(hotfixSql)), false)).toBe(false);
+      }
+      expect(preflight.startsWith('BEGIN;\nSET TRANSACTION READ ONLY;')).toBe(true);
+      expect(preflight.trimEnd().endsWith('ROLLBACK;')).toBe(true);
+    });
+
   test('Get reuses precisely the workspace and date range used by 114415 Preview', () => {
     expect(get).toContain('v_workspace:=public.hotel_v2_partner_get_workspace(\n    p_partner_id,p_hotel_id,current_date,current_date+30);');
     expect(preview).toContain('v_workspace:=public.hotel_v2_partner_get_workspace(\n    v_partner,c_hotel,current_date,current_date+30);');
