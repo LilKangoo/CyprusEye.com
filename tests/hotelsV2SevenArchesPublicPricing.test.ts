@@ -61,6 +61,53 @@ function quote(overrides: Record<string, unknown> = {}): any {
 }
 
 describe('7 Arches public Room-aware pricing bridge', () => {
+  test('both public RPCs fail closed before work on the canonical flag, independently of external sync', () => {
+    const sql = fs.readFileSync('supabase/migrations/20260811442000_hotels_v2_seven_arches_application_pricing_bridge.sql', 'utf8');
+    for (const name of ['hotel_v2_public_quote_seven_arches', 'hotel_v2_public_create_seven_arches_booking']) {
+      const body = sql.split(`create function public.${name}(p_request jsonb)`)[1].split('$function$;')[0];
+      const guard = body.slice(body.indexOf('\nbegin') + 6, body.indexOf('  end if;') + 9);
+      expect(guard).toContain('where id=1 and hotel_rooms_v2_enabled is true');
+      expect(guard).toContain("errcode='42501'");
+      expect(guard).toContain("message='hotels_v2_public_booking_disabled'");
+      expect(guard).not.toContain('hotel_external_sync_enabled');
+      expect(guard).not.toMatch(/insert into|delete from|update public/i);
+    }
+    const provider = fs.readFileSync('supabase/migrations/20260811445000_hotels_v2_external_calendar_provider_types.sql', 'utf8');
+    for (const name of ['hotel_v2_public_quote_seven_arches', 'hotel_v2_public_create_seven_arches_booking']) {
+      expect(provider).not.toMatch(new RegExp(`hotel_external_calendar_evolve_function\\(\\s*'public\\.${name}\\(jsonb\\)'`));
+    }
+    const settings = fs.readFileSync('supabase/migrations/20260811442500_hotels_v2_external_calendar_site_settings_compatibility.sql', 'utf8');
+    expect(settings).toContain('hotel_rooms_v2_enabled is distinct from false');
+    expect(settings).toContain('hotel_external_sync_enabled is distinct from true');
+  });
+
+  test('disabled public quote rejects safely with no automatic retry or booking fallback', async () => {
+    const bridge = api();
+    const client = { rpc: jest.fn().mockResolvedValue({ data: null, error: {
+      code: '42501', message: 'hotels_v2_public_booking_disabled',
+    } }) };
+    await expect(bridge.quote(request(), client)).rejects.toMatchObject({
+      code: '42501', message: 'hotels_v2_public_booking_disabled',
+    });
+    await Promise.resolve();
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc.mock.calls[0][0]).toBe(bridge.RPC.quote);
+  });
+
+  test('disabled booking rejects safely once, including a previously issued quote', async () => {
+    const bridge = api();
+    const client = { rpc: jest.fn().mockResolvedValue({ data: null, error: {
+      code: '42501', message: 'hotels_v2_public_booking_disabled',
+    } }) };
+    await expect(bridge.createBooking({
+      contract_version: bridge.CONTRACTS.bookingRequest, quote: quote(),
+      customer: { name: 'Fixture', email: 'fixture@example.invalid', phone: null, notes: null, language: 'en' },
+      coupon_code: null, referral: null,
+    }, client)).rejects.toMatchObject({ code: '42501', message: 'hotels_v2_public_booking_disabled' });
+    await Promise.resolve();
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+  });
+
   test('requires exact Room identity for one-to-four guests and exposes total capacity eight for bundles', () => {
     const bridge = api();
     expect(bridge.getGuestCapacity({ id: HOTEL })).toBe(8);

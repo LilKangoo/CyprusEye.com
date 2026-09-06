@@ -718,6 +718,13 @@ declare
   v_request_fingerprint text;
   v_issuance_hash text;
 begin
+  -- Infrastructure installation is not public rollout authorization. External
+  -- sync is independent; only the exact canonical Rooms V2 flag opens this RPC.
+  if not exists(select 1 from public.site_settings
+    where id=1 and hotel_rooms_v2_enabled is true) then
+    raise exception using errcode='42501',
+      message='hotels_v2_public_booking_disabled';
+  end if;
   v_internal:=public.hotel_v2_public_quote_seven_arches_core(p_request);
   v_public:=v_internal-array['commission_total','partner_net'];
   v_issued_at:=(v_public->>'quoted_at')::timestamptz;
@@ -759,6 +766,13 @@ declare
   v_result jsonb; v_snapshot jsonb; v_receipt_hash text;
   v_incoming_timezone text:=current_setting('TimeZone');
 begin
+  -- Check before validation, locks, replay lookup or any booking/context write.
+  -- Neither an authenticated caller nor external sync bypasses public rollout.
+  if not exists(select 1 from public.site_settings
+    where id=1 and hotel_rooms_v2_enabled is true) then
+    raise exception using errcode='42501',
+      message='hotels_v2_public_booking_disabled';
+  end if;
   if p_request is null or jsonb_typeof(p_request)<>'object'
      or not public.hotel_v2_h2a_keys_allowed(p_request,array[
        'contract_version','quote','customer','coupon_code','referral'])

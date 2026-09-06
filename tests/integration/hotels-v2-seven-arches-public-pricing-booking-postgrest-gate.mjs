@@ -94,6 +94,22 @@ const upperRequest = {
   guest_count: 2,
   selected_extra_ids: [],
 };
+// The accepted backend rollout keeps Rooms V2 OFF. Public capability must not
+// become operational merely because 114420 is installed. The positive mutation
+// matrix below is reserved for a separately enabled, disposable future fixture.
+if (process.env.HOTELS_V2_PUBLIC_ENABLED_FIXTURE !== 'true') {
+  for (const token of [TOKENS.anon, TOKENS.admin]) {
+    assert.ok(token, 'explicit local authenticated fixture token required');
+    for (const name of ['hotel_v2_public_quote_seven_arches', 'hotel_v2_public_create_seven_arches_booking']) {
+      const result = await rpc(name, token, { p_request: upperRequest });
+      assert.equal(result.ok, false, `${name}: public rollout unexpectedly enabled`);
+      assert.equal(result.payload?.code, '42501');
+      assert.equal(result.payload?.message, 'hotels_v2_public_booking_disabled');
+    }
+  }
+  console.log('PUBLIC_ENABLEMENT_OFF=PASS direct_anon_and_authenticated=BLOCKED requests=4');
+  process.exit(0);
+}
 const upperQuoteResult = await rpc('hotel_v2_public_quote_seven_arches', TOKENS.anon, {
   p_request: upperRequest,
 });

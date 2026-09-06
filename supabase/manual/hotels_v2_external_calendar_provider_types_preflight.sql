@@ -122,7 +122,7 @@ begin
         '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559','v'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_public_create_seven_arches_booking(jsonb)',
-        '3342ae34d00495ad5278e18cdb95ca152f6aed51402f32d56b525779400791ee','v'::"char",
+        '82949643fe6099308f9293a335f27e1d1be9f66c1aa3e0d77925458cdd7142f7','v'::"char",
         array['search_path=pg_catalog, public, auth']::text[])
     ) expected(signature,source_hash,volatility,path)
     left join pg_proc procedure_row on procedure_row.oid=to_regprocedure(expected.signature)
