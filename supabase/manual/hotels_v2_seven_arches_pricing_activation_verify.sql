@@ -25,7 +25,10 @@ begin
     if (select proowner from pg_proc where oid=v_oid)<>'postgres'::regrole
        or not (select prosecdef from pg_proc where oid=v_oid)
        or (select proconfig from pg_proc where oid=v_oid)
-          is distinct from array['search_path=pg_catalog, public, auth']::text[]
+          is distinct from (case when v_signature=
+            'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'
+            then array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]
+            else array['search_path=pg_catalog, public, auth']::text[] end)
        or has_function_privilege(0::oid,v_oid,'EXECUTE')
        or has_function_privilege('anon',v_oid,'EXECUTE')
        or has_function_privilege('service_role',v_oid,'EXECUTE')

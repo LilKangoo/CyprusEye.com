@@ -94,7 +94,7 @@ begin
        'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'::regprocedure
        and encode(extensions.digest(convert_to(
          procedure_row.prosrc,'UTF8'),'sha256'),'hex')=
-         'a11c3e98442af4beaaa7c058f576ca393565b0dcc539304c6e345ea6377b830b')
+         '06b0d82a98ac9c33bed4121b7719110508dbeba31ce86a258c50e587aa5c1318')
      or not exists(select 1 from pg_proc procedure_row where procedure_row.oid=
        'public.hotel_v2_seven_arches_property_proposal_protected_fingerprints()'::regprocedure
        and procedure_row.proowner='postgres'::regrole and procedure_row.prosecdef

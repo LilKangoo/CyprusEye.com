@@ -143,7 +143,7 @@ begin
            encode(extensions.digest(convert_to(preservation_row.prosrc,'UTF8'),
              'sha256'),'hex')
          and receipt.pricing_transaction_preservation_source_hash=
-           '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
+           '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81'
          and procedure_row.proowner='postgres'::regrole
          and procedure_row.prosecdef and procedure_row.provolatile='s'
          and procedure_row.proconfig=

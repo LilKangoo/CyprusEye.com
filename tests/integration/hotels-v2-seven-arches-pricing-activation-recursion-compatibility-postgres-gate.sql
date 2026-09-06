@@ -114,6 +114,7 @@ $recursion_compatibility_prior_call_shape_gate$;
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
 \ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
 \ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
+\ir ../../supabase/migrations/20260811440700_hotels_v2_seven_arches_pricing_activation_apply_timeout.sql
 
 do $recursion_compatibility_pre_activation_gate$
 begin
@@ -130,7 +131,23 @@ begin
     or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
       from pg_proc where oid=to_regprocedure(
          'public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()'))<>
-       '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee' then
+       '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc'
+    or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+      from pg_proc where oid=to_regprocedure(
+        'public.hotel_v2_7a_pricing_activation_transaction_is_preserved()'))<>
+       '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81'
+    or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+      from pg_proc where oid=to_regprocedure(
+        'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'))<>
+       '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef'
+    or (select proconfig from pg_proc where oid=to_regprocedure(
+        'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'))<>
+       array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]
+    or exists(select 1 from pg_proc procedure_row
+      cross join lateral unnest(procedure_row.proconfig) setting(value)
+      where procedure_row.oid=to_regprocedure(
+        'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)')
+        and setting.value like 'lock_timeout=%') then
     raise exception 'pricing_activation_recursion_pre_activation_state_invalid';
   end if;
 end
@@ -1262,4 +1279,9 @@ select
   current_setting('test.hotels_114405_required_probe_count')::integer required_probe_count,
   current_setting('test.hotels_114405_required_probe_labels') required_probe_labels,
   current_setting('test.hotels_114405_failed_activation_rollback')::boolean
-    failed_activation_rollback_contained;
+    failed_activation_rollback_contained,
+  (select proconfig=array[
+      'search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]
+    from pg_proc where oid=to_regprocedure(
+      'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'))
+    as apply_timeout_contract_exact;

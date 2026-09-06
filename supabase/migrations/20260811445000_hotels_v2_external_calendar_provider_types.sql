@@ -150,7 +150,7 @@ begin
         '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559','v'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-        '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25','s'::"char",
+        '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
         'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
@@ -171,7 +171,7 @@ begin
         '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',
-        '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb','s'::"char",
+        '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()',
         '6c6f107b2d90abd7d9216cbd10c5d3817661250cdc35d52858c9ba923cfda258','s'::"char",
@@ -1301,7 +1301,7 @@ begin
       '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()'=
-      '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25'
+      '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe'
     and v_receipt.prior_reviewed_pricing_catalog_fingerprint is not distinct from
       (select foundation.catalog_fingerprint
        from public.hotel_seven_arches_reviewed_pricing_foundation_receipts foundation
@@ -2958,7 +2958,7 @@ begin
         'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          'cf03f7dfa57e3cdc2f3097f5ce0dc3c0999c774a49d37603ffa45b0433a60e62')
+          '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32')
       or has_function_privilege(0::oid,procedure.oid,'EXECUTE')
       or has_function_privilege('anon',procedure.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure.oid,'EXECUTE')

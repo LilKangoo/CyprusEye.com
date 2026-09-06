@@ -81,6 +81,7 @@ function safeResponse(result) {
 
 async function rpc(name, body = {}, bearerToken = adminToken) {
   countRequest(name);
+  const started = performance.now();
   const response = await fetch(`${rpcBase}/rpc/${name}`, {
     method: 'POST',
     redirect: 'error',
@@ -90,7 +91,7 @@ async function rpc(name, body = {}, bearerToken = adminToken) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(65_000),
   });
   const rawText = await response.text();
   let payload = null;
@@ -107,6 +108,7 @@ async function rpc(name, body = {}, bearerToken = adminToken) {
     contentType: response.headers.get('content-type') || '',
     rawText,
     payload,
+    elapsedMs: performance.now() - started,
   };
 }
 
@@ -857,6 +859,7 @@ console.log(JSON.stringify({
   required_negative_contract_count: 33,
   preview_calls: requestCounts.get('hotel_v2_admin_preview_seven_arches_pricing_activation'),
   valid_apply_calls: validApplyCount,
+  valid_apply_runtime_ms: applyResponse.elapsedMs,
   exact_idempotent_replay_calls: replayApplyCount,
   foreign_actor_apply_calls: foreignActorApplyCount,
   idempotent_replay_mutations: 0,

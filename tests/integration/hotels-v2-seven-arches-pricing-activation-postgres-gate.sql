@@ -58,6 +58,49 @@ commit;
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
 \ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
 \ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
+\ir ../../supabase/migrations/20260811440700_hotels_v2_seven_arches_pricing_activation_apply_timeout.sql
+
+do $seven_arches_pricing_activation_timeout_contract_gate$
+declare
+  v_apply_oid oid:=to_regprocedure(
+    'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)');
+begin
+  if not exists(select 1 from pg_proc procedure_row
+    join pg_language language_row on language_row.oid=procedure_row.prolang
+    where procedure_row.oid=v_apply_oid
+      and procedure_row.proowner='postgres'::regrole
+      and language_row.lanname='plpgsql'
+      and procedure_row.prokind='f'
+      and procedure_row.prosecdef
+      and procedure_row.provolatile='v'
+      and not procedure_row.proleakproof
+      and not procedure_row.proretset
+      and procedure_row.proconfig=array[
+        'search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]
+      and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
+        'sha256'),'hex')=
+        '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef'
+      and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+      and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+      and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+      and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')
+      and not exists(select 1 from unnest(procedure_row.proconfig) setting(value)
+        where setting.value like 'lock_timeout=%')) then
+    raise exception 'seven_arches_activation_timeout_contract_invalid';
+  end if;
+  -- These receipt validators become true only after the reviewed activation.
+  if (select count(*) from public.hotel_seven_arches_pricing_activation_evolution_receipts)<>0
+     or public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()
+       is not false
+     or public.hotel_v2_7a_pricing_activation_transaction_is_preserved()
+       is not false
+     or public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
+       is not true then
+    raise exception 'seven_arches_activation_timeout_validator_contract_invalid';
+  end if;
+  perform set_config('test.hotels_114407_timeout_contract','true',false);
+end
+$seven_arches_pricing_activation_timeout_contract_gate$;
 
 begin;
 set local statement_timeout='180s';
@@ -367,5 +410,7 @@ $seven_arches_pricing_activation_parity_freeze_gate$;
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_verify.sql
 
 select 'HOTELS_V2_7A_PRICING_ACTIVATION_POSTGRES_GATE_OK' as sentinel,
-  public.hotel_v2_seven_arches_pricing_activation_current_is_safe() as safe;
+  public.hotel_v2_seven_arches_pricing_activation_current_is_safe() as safe,
+  current_setting('test.hotels_114407_timeout_contract')::boolean
+    as apply_timeout_contract_exact;
 rollback;

@@ -17,6 +17,9 @@ const migration114405 = read(
 const migration114406 = read(
   'supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql',
 );
+const migration114407 = read(
+  'supabase/migrations/20260811440700_hotels_v2_seven_arches_pricing_activation_apply_timeout.sql',
+);
 const recursionVerifier = read(
   'supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_verify.sql',
 );
@@ -267,12 +270,15 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     expect(providerGate).toContain('7 post_provider_live_evolution_domains');
   });
 
-  test('orders additive 114406 before activation and freezes applied 114400/114405', () => {
+  test('orders additive 114406/114407 before activation and freezes applied production migrations', () => {
     expect(sha256(migration)).toBe(
       '4d4d308294fab41c99b8f2feb7fe2241b4dc5a348560b6d838bc12e4a6391ced',
     );
     expect(sha256(migration114405)).toBe(
       '1dd205e4e031bafd6000dc3f45ecbbe2e8977bb132e73bdd20c876b3afb787b6',
+    );
+    expect(sha256(migration114406)).toBe(
+      'b55c078b4c460a8d5f485ae8e2cc048d87db2b3d7e93441279d7c0df97161e40',
     );
 
     const task114400 = forwardChain.indexOf(
@@ -284,13 +290,17 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     const task114406 = forwardChain.indexOf(
       '20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql',
     );
+    const task114407 = forwardChain.indexOf(
+      '20260811440700_hotels_v2_seven_arches_pricing_activation_apply_timeout.sql',
+    );
     const task114410 = forwardChain.indexOf(
       '20260811441000_hotels_v2_seven_arches_independent_pricing_evolution.sql',
     );
     expect(task114400).toBeGreaterThanOrEqual(0);
     expect(task114405).toBeGreaterThan(task114400);
     expect(task114406).toBeGreaterThan(task114405);
-    expect(task114410).toBeGreaterThan(task114406);
+    expect(task114407).toBeGreaterThan(task114406);
+    expect(task114410).toBeGreaterThan(task114407);
 
     expect(migration114406).toContain(
       'hotels_v2_seven_arches_pricing_activation_transport_boundary_mismatch',
@@ -309,6 +319,43 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     );
     expect(migration114405).not.toContain(
       'hotel_v2_seven_arches_pricing_activation_canonical_json',
+    );
+  });
+
+  test('installs one exact Apply-only timeout exemption without changing the Apply body or global roles', () => {
+    for (const marker of [
+      'hotels_v2_seven_arches_pricing_activation_timeout_boundary_mismatch',
+      'hotels_v2_seven_arches_pricing_activation_timeout_apply_boundary_drift',
+      'hotels_v2_seven_arches_pricing_activation_timeout_business_boundary_drift',
+      'hotels_v2_seven_arches_pricing_activation_timeout_apply_postcondition_failed',
+      'hotels_v2_seven_arches_pricing_activation_timeout_business_postcondition_failed',
+      "set statement_timeout='60s'",
+      "array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]",
+      '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef',
+    ]) expect(migration114407).toContain(marker);
+
+    expect(migration114407).toMatch(
+      /alter function\s+public\.hotel_v2_admin_apply_seven_arches_pricing_activation\(jsonb,uuid,text\)\s+set statement_timeout='60s'/i,
+    );
+    expect(migration114407).not.toMatch(
+      /create\s+or\s+replace\s+function\s+public\.hotel_v2_admin_apply_seven_arches_pricing_activation/i,
+    );
+    expect(migration114407).not.toMatch(/alter\s+(?:role|database)\b/i);
+    expect(migration114407).not.toContain("statement_timeout='0'");
+    expect(migration114407).not.toMatch(
+      /alter function\s+public\.hotel_v2_admin_apply_seven_arches_pricing_activation[\s\S]*?set lock_timeout/i,
+    );
+    expect(migration114407).toContain(
+      "setting.value like 'lock_timeout=%'",
+    );
+    expect(migration114407).toContain(
+      'hotel_seven_arches_independent_pricing_evolution_receipts',
+    );
+    expect(migration114407).toContain(
+      'hotel_v2_seven_arches_pricing_activation_current_is_safe()',
+    );
+    expect(migration114407).toContain(
+      'hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
     );
   });
 
@@ -353,7 +400,10 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     ];
     for (const pin of evolvedPins) {
       expect(migration114406).toContain(pin);
-      expect(recursionVerifier).toContain(pin);
+      expect(recursionVerifier).toContain(pin ===
+        '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee'
+        ? '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc'
+        : pin);
     }
     expect(migration114406).toContain(
       'from public,anon,authenticated,service_role',
@@ -392,40 +442,43 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     );
   });
 
-  test('uses only the evolved post-114406 source and topology pins downstream', () => {
+  test('uses only the evolved post-114407 source and topology pins downstream', () => {
     const evolvedPins = [
       '34a597ce33e7340b4c3779ecf60286abc51aa67661954a9b616a9f2af2eb0e06',
       '17f80cd334cfd5aeeef64b620dcf4785a5a662e1a1a0e64696516f86c778ffe0',
       'c75f83699e6d8c1c8234dbd6fec8a81dd2a337e9e193289df39f7a730b9014fd',
       '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef',
       '9d2376f4f1f8e035ffd93818ab382b1e2858dd10b38688fe8a31d3fc5845278c',
-      '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee',
+      '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc',
     ];
     for (const pin of evolvedPins) expect(independentPricing).toContain(pin);
+    for (const post114407Pin of [
+      '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc',
+    ]) expect(independentPricing).toContain(post114407Pin);
 
     expect(forwardChain).toContain(
-      '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25',
+      '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe',
     );
     expect(forwardChain).toContain(
-      'a11c3e98442af4beaaa7c058f576ca393565b0dcc539304c6e345ea6377b830b',
+      '06b0d82a98ac9c33bed4121b7719110508dbeba31ce86a258c50e587aa5c1318',
     );
     expect(reviewedPricing).toContain(
-      'a11c3e98442af4beaaa7c058f576ca393565b0dcc539304c6e345ea6377b830b',
+      '06b0d82a98ac9c33bed4121b7719110508dbeba31ce86a258c50e587aa5c1318',
     );
     expect(applicationBridge).toContain(
       'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650',
     );
     expect(providerMigration).toContain(
-      '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25',
+      '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe',
     );
     expect(providerMigration).toContain(
-      'cf03f7dfa57e3cdc2f3097f5ce0dc3c0999c774a49d37603ffa45b0433a60e62',
+      '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32',
     );
     expect(providerMigration).toContain(
       '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b',
     );
     expect(providerVerifier).toContain(
-      'cf03f7dfa57e3cdc2f3097f5ce0dc3c0999c774a49d37603ffa45b0433a60e62',
+      '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32',
     );
 
     const post114406 = [

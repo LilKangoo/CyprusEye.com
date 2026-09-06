@@ -67,6 +67,7 @@ commit;
 \ir ../../supabase/manual/hotels_v2_seven_arches_pricing_activation_recursion_compatibility_preflight.sql
 \ir ../../supabase/migrations/20260811440500_hotels_v2_seven_arches_pricing_activation_recursion_compatibility.sql
 \ir ../../supabase/migrations/20260811440600_hotels_v2_seven_arches_pricing_activation_transport_stable_fingerprint.sql
+\ir ../../supabase/migrations/20260811440700_hotels_v2_seven_arches_pricing_activation_apply_timeout.sql
 
 -- Activate the exact reviewed shared graph that 114410 evolves.
 begin;
@@ -458,7 +459,7 @@ begin
   end if;
   for v_expected in select * from (values
     ('public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
-      '9e6b4c993551d4e6f8c23529c316ee39c63b99a91dc3631477ee228da577ec25'),
+      '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe'),
     ('public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint()',
       '3fa267946795c33b5c23d987d03926c1e36c0e69e10129bd4d31430c4d3139f5'),
     ('public.hotel_v2_h3_1p_allocation_preview(uuid)',
@@ -474,7 +475,7 @@ begin
     ('public.hotel_v2_admin_c_validate_pricing_graph(uuid)',
       '03f787a5e00fbbe65bdcaf1a96529512f60775074a1fdf4dcdd04104c7c7d335'),
     ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-      'a11c3e98442af4beaaa7c058f576ca393565b0dcc539304c6e345ea6377b830b'),
+      '06b0d82a98ac9c33bed4121b7719110508dbeba31ce86a258c50e587aa5c1318'),
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'),
     ('public.hotel_v2_seven_arches_pricing_activation_snapshot()',

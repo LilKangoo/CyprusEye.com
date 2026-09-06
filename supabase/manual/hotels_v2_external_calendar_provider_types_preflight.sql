@@ -113,7 +113,7 @@ begin
         '0a6255e457f0912452949966e47e29a0ce0f6cda3e85c53b999343f9b68c3a95','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_7a_pricing_activation_transaction_is_preserved()',
-        '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb','s'::"char",
+        '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81','s'::"char",
         array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()',
         'c0e257ae4a8bbf8fae16270025dbbd34490ff39ebeda1733e26de1215b372e0e','s'::"char",

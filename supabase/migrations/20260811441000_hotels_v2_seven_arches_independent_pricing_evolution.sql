@@ -253,7 +253,7 @@ begin
   select expected.signature into v_bad_function
   from (values
     ('public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact()',
-      '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee',
+      '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc',
       's'::"char",array['search_path=pg_catalog, public']::text[]),
     ('public.hotel_v2_admin_d_current_foundation_snapshot()',
       '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a',
@@ -323,7 +323,10 @@ begin
       or not procedure_row.prosecdef
       or procedure_row.provolatile is distinct from expected.volatility
       or procedure_row.proconfig is distinct from
-        array['search_path=pg_catalog, public, auth']::text[]
+        (case when expected.signature=
+          'public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)'
+          then array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[]
+          else array['search_path=pg_catalog, public, auth']::text[] end)
       or encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),'sha256'),'hex')
         is distinct from expected.source_hash
       or has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
@@ -643,7 +646,7 @@ begin
         on procedure_row.oid=to_regprocedure(expected.signature)),
     'lower_function_sources',jsonb_build_object(
       'accepted_activation_receipt_validator',
-        '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee',
+        '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc',
       'admin_d',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
         'public.hotel_v2_admin_d_current_foundation_snapshot()'::regprocedure),'UTF8'),'sha256'),'hex'),
       'canonical_projector',encode(extensions.digest(convert_to((select prosrc from pg_proc where oid=
@@ -2339,7 +2342,7 @@ begin
          v_site_settings_lifecycle)
      or v_receipt.historical_activation_lineage#>>
        '{lower_function_sources,accepted_activation_receipt_validator}' is distinct from
-       '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee'
+       '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc'
      or v_receipt.historical_activation_lineage_fingerprint is distinct from
        public.hotel_v2_h3_2b_hash(v_receipt.historical_activation_lineage)
      or v_receipt.historical_activation_lineage_source_hash is distinct from
@@ -2416,7 +2419,7 @@ begin
         'v'::"char",array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_admin_apply_seven_arches_pricing_activation(jsonb,uuid,text)',
         '786485c7a27574feda2f2c6716c8ea4c755795f3f2eea8ab2153d91e4c2c44ef',
-        'v'::"char",array['search_path=pg_catalog, public, auth']::text[],true),
+        'v'::"char",array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[],true),
       ('public.hotel_v2_seven_arches_pricing_activation_immutable()',
         '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87',
         'v'::"char",array['search_path=pg_catalog']::text[],false),

@@ -10,7 +10,7 @@ declare
   c_admin_d_hash constant text:=
     '2ed412e46a827c3b57b570f3c6675edc5d1a92562fb8acb59b7148b245ed592a';
   c_receipt_hash constant text:=
-    '2829ec9059a4e035344ed35d26c7cac1d12c7296fd91ab498c7df78aa8f13dee';
+    '27f6e8d41876858864374139e4273a363c03c3710f6d077dd04ab755ca4ca2dc';
   c_inert_hash constant text:=
     '190b30e05c95e7220f800284b6408659f21172dba48161163e2a364c40aa95a5';
   c_canonical_json_hash constant text:=
@@ -144,7 +144,7 @@ begin
          '5d8e31185a165c555c2fcfcce2802fe569bb7cc201ddfb7ac91978acfa2e3141'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_transaction_preservation_oid) is distinct from
-         '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
+         '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81'
      or (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
        from pg_proc where oid=v_activation_immutable_oid) is distinct from
          '4b3e5ff853a0b8f2e21dd4d18359f8a92614f298d33e7cb9223e9b6aca31fc87'
@@ -159,7 +159,7 @@ begin
        (v_preview_oid,c_preview_hash,'v'::"char",
          array['search_path=pg_catalog, public, auth']::text[],true),
        (v_apply_oid,c_apply_hash,'v'::"char",
-         array['search_path=pg_catalog, public, auth']::text[],true),
+         array['search_path=pg_catalog, public, auth','statement_timeout=60s']::text[],true),
        (v_canonical_json_oid,c_canonical_json_hash,'i'::"char",
          array['search_path=pg_catalog, public']::text[],false),
        (v_plan_fingerprint_oid,c_plan_fingerprint_hash,'i'::"char",

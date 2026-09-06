@@ -96,7 +96,7 @@ begin
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
            'sha256'),'hex')=receipt.pricing_transaction_preservation_source_hash
          and receipt.pricing_transaction_preservation_source_hash=
-           '54b3d6baea7b5b99330b2cb6cdb212314d80e41da75a9ab8f800bc7dab215fdb'
+           '1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -174,7 +174,7 @@ begin
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
         and receipt.provider_bridge_source_hash=
-          'cf03f7dfa57e3cdc2f3097f5ce0dc3c0999c774a49d37603ffa45b0433a60e62'
+          '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32'
         and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
         and receipt.pricing_scoped_lineage_at_install_fingerprint=
