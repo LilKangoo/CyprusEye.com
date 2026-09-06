@@ -117,6 +117,42 @@ function preview(): any {
 }
 
 describe('7 Arches reviewed independent pricing Admin client', () => {
+  test.each([{ prices: [] }, { prices: [100] }, { prices: [101, 100] }])('direct Admin request rejects empty or unchanged tiers: $prices', ({ prices }) => {
+    const Core = loadCore();
+    const items = prices.map((requested_price) => {
+      const value = item({ requested_price }); delete value.item_index; delete value.room_key;
+      return value;
+    });
+    expect(() => Core.validateSevenArchesReviewedPricingAdminRequest({
+      contract_version: Core.SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
+      hotel_id: HOTEL, action: 'accept', reason: 'Test', items,
+    })).toThrow();
+  });
+
+  test.each([101, 10, 100.01, 9999999999.99])('direct Admin changed price %s stays within the exact server range', (requested_price) => {
+    const Core = loadCore();
+    const value = item({ requested_price }); delete value.item_index; delete value.room_key;
+    expect(Core.validateSevenArchesReviewedPricingAdminRequest({
+      contract_version: Core.SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
+      hotel_id: HOTEL, action: 'accept', reason: 'Test', items: [value],
+    }).items[0].requested_price).toBe(requested_price);
+  });
+
+  test.each(['101', 9, 100.001, 10000000000, NaN])('direct Admin invalid price %s remains rejected', (requested_price) => {
+    const Core = loadCore();
+    expect(() => Core.validateSevenArchesReviewedPricingItem(item({ requested_price }))).toThrow();
+  });
+
+  test('changed-only editor agrees with the unmodified server no-op guard', () => {
+    const sql = fs.readFileSync('supabase/migrations/20260811441500_hotels_v2_seven_arches_reviewed_pricing_evolution.sql', 'utf8');
+    expect(sql).toContain('if v_requested=v_before then');
+    expect(sql).toContain('hotels_v2_seven_arches_reviewed_pricing_unchanged_item');
+    const ui = fs.readFileSync('admin/hotels-v2-workspace.js', 'utf8');
+    expect(ui).toContain('const items = current.changed.map');
+    expect(ui).toContain('if (current.message) return;');
+    expect(ui).toContain('if (buildInFlight) return;');
+  });
+
   test('adapts exact 114415 GET items without a redundant Hotel, never a foreign or malformed Hotel', () => {
     const Core = loadCore();
     const sql = fs.readFileSync('supabase/migrations/20260811441500_hotels_v2_seven_arches_reviewed_pricing_evolution.sql', 'utf8');

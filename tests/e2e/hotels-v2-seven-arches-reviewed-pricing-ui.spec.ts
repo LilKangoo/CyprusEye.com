@@ -532,6 +532,28 @@ async function installAdminHarness(page: Page, real114415 = false) {
       store.rpcCalls = [];
       root.getSupabase = () => ({ rpc: async (name: string, payload: any) => {
         store.rpcCalls.push({ name, payload: clone(payload) });
+        if (name === 'hotel_v2_admin_preview_seven_arches_reviewed_pricing') {
+          if (store.deferBuild) await new Promise<void>((resolve) => { store.releaseBuild = resolve; });
+          if (store.buildFailure === 'transport') throw new TypeError('Failed to fetch private-response-marker');
+          if (store.buildFailure) return { data: null, status: store.buildFailure, error: {
+            code: store.buildFailure === 403 ? '42501' : 'PGRST000', message: 'Request rejected',
+          } };
+          const response = previewFor(payload.p_request);
+          // 114415 creates an Admin proposal during Preview, even when the
+          // request has no proposal_id; its Review lasts exactly 30 minutes.
+          response.proposal_id = '99999999-9999-4999-8999-999999999999';
+          response.reviewed_plan.proposal_id = response.proposal_id;
+          response.reviewed_plan.proposal_version = 1;
+          response.reviewed_plan.expires_at = '2026-08-30T10:31:00.000000Z';
+          if (store.httpTransport) {
+            store.httpResponse = response;
+            const result = await fetch(`http://127.0.0.1:4317/rest/v1/rpc/${name}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            return { data: await result.json(), error: null, status: result.status };
+          }
+          return { data: response, error: null, status: 200 };
+        }
         const responses: any = {
           hotel_v2_admin_get_pricing_control: store.pricing,
           hotel_v2_admin_get_seven_arches_reviewed_pricing: store.reviewed,
@@ -554,6 +576,211 @@ async function installAdminHarness(page: Page, real114415 = false) {
 }
 
 test.describe('7 Arches reviewed pricing UI integration', () => {
+  test('Admin no-op has an executed handler, inline explanation and zero requests', async ({ page }) => {
+    let networkCalls = 0;
+    page.on('request', (request) => { if (request.url().includes('/rest/v1/rpc/')) networkCalls += 1; });
+    await installAdminHarness(page, true);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Test');
+    const checks = page.locator('[data-reviewed-pricing-select]');
+    await checks.nth(0).check(); await checks.nth(1).check();
+    await page.locator('#sevenArchesReviewedPricingAdminForm').evaluate((form) => {
+      (window as any).__formSubmits = 0;
+      form.addEventListener('submit', () => { (window as any).__formSubmits += 1; }, true);
+    });
+    await page.getByRole('button', { name: 'Build server Review', exact: true }).click();
+    const proof = await page.evaluate(() => ({ submits: (window as any).__formSubmits,
+      calls: (window as any).__reviewedAdmin.rpcCalls.filter((c: any) => c.name.includes('preview')),
+      toasts: (window as any).__reviewedAdmin.toasts }));
+    expect(proof.submits).toBe(1); expect(proof.calls).toHaveLength(0);
+    expect(networkCalls).toBe(0);
+    expect(proof.toasts).toHaveLength(0);
+    await expect(page.locator('[data-reviewed-pricing-feedback]')).toHaveText('Change at least one selected price before building the Review.');
+    await expect(page.locator('[data-reviewed-pricing-counts]')).toHaveText('54 rows · 2 selected · 0 changed');
+  });
+
+  test('Admin bulk selection preserves 54 independent identities and every price value', async ({ page }) => {
+    await installAdminHarness(page, true);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    const rows = page.locator('[data-reviewed-pricing-tier]');
+    const snapshot = () => rows.evaluateAll((elements) => elements.map((e) => ({
+      identity: { ...(e as HTMLElement).dataset }, value: e.querySelector<HTMLInputElement>('[data-reviewed-pricing-price]')!.value,
+    })));
+    const initial = await snapshot();
+    await page.getByRole('button', { name: 'Select all', exact: true }).click();
+    await expect(page.locator('[data-reviewed-pricing-select]:checked')).toHaveCount(54);
+    await expect(page.locator('[data-room-key="upper"] [data-reviewed-pricing-select]:checked')).toHaveCount(27);
+    await expect(page.locator('[data-room-key="ground"] [data-reviewed-pricing-select]:checked')).toHaveCount(27);
+    expect(await snapshot()).toEqual(initial);
+    await expect(page.locator('[data-reviewed-pricing-counts]')).toHaveText('54 rows · 54 selected · 0 changed');
+    const upperPrice = page.locator('[data-reviewed-pricing-tier][data-room-key="upper"]').first().locator('[data-reviewed-pricing-price]');
+    await upperPrice.fill('100.00');
+    await expect(page.locator('[data-reviewed-pricing-counts]')).toHaveText('54 rows · 54 selected · 0 changed');
+    await page.locator('[data-reviewed-pricing-tier][data-room-key="upper"]').first().locator('[data-reviewed-pricing-price]').fill('101');
+    const ground = page.locator('[data-reviewed-pricing-tier][data-room-key="ground"]').first();
+    await ground.locator('[data-reviewed-pricing-price]').fill('102');
+    const edited = await snapshot();
+    await page.getByRole('button', { name: 'Clear all', exact: true }).click();
+    await expect(page.locator('[data-reviewed-pricing-select]:checked')).toHaveCount(0);
+    await expect(page.locator('[data-reviewed-pricing-counts]')).toHaveText('54 rows · 0 selected · 2 changed');
+    expect(await snapshot()).toEqual(edited);
+    await page.getByRole('button', { name: 'Select changed', exact: true }).click();
+    await expect(page.locator('[data-reviewed-pricing-select]:checked')).toHaveCount(2);
+    await expect(page.locator('[data-reviewed-pricing-counts]')).toHaveText('54 rows · 2 selected · 2 changed');
+    expect(await snapshot()).toEqual(edited);
+    expect(await page.evaluate(() => (window as any).__reviewedAdmin.rpcCalls.filter((c: any) => /preview|apply/.test(c.name)))).toEqual([]);
+  });
+
+  for (const selection of ['upper', 'ground', 'both', 'multiple upper']) {
+    test(`Admin changed-only ${selection} makes one HTTP Preview and one render, never Apply`, async ({ page }) => {
+      await installAdminHarness(page, true);
+      let networkCalls = 0;
+      let wirePayload: any;
+      await page.route('http://127.0.0.1:4317/rest/v1/rpc/hotel_v2_admin_preview_seven_arches_reviewed_pricing', async (route) => {
+        if (route.request().method() === 'OPTIONS') {
+          await route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type' } });
+          return;
+        }
+        networkCalls += 1;
+        wirePayload = route.request().postDataJSON();
+        const data = await page.evaluate(() => (window as any).__reviewedAdmin.httpResponse);
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(data) });
+      });
+      await page.evaluate(() => { (window as any).__reviewedAdmin.httpTransport = true; });
+      await page.locator('[data-start-reviewed-pricing]').click();
+      await page.getByRole('button', { name: 'Select all', exact: true }).click();
+      const keys = selection === 'both' ? ['upper', 'ground'] : selection === 'multiple upper' ? ['upper', 'upper'] : [selection];
+      for (const [i, key] of keys.entries()) {
+        const row = page.locator(`[data-reviewed-pricing-tier][data-room-key="${key}"]`).nth(selection === 'multiple upper' ? i : 0);
+        if (selection !== 'multiple upper') expect(Number(await row.getAttribute('data-before-price'))).toBe(100);
+        await row.locator('[data-reviewed-pricing-price]').fill(String(Number(await row.getAttribute('data-before-price')) + 1));
+      }
+      await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Test');
+      await page.locator('#sevenArchesReviewedPricingAdminForm').evaluate((form) => {
+        (window as any).__realSubmits = 0;
+        form.addEventListener('submit', () => { (window as any).__realSubmits += 1; }, true);
+      });
+      await page.getByRole('button', { name: 'Build server Review', exact: true }).click();
+      await expect(page.locator('.hotel-reviewed-pricing-impact')).toHaveCount(1);
+      await expect(page.locator('.hotel-reviewed-pricing-impact')).toBeVisible();
+      expect(networkCalls).toBe(1);
+      expect(wirePayload.p_request.items).toHaveLength(keys.length);
+      expect(wirePayload.p_request.items.map((entry: any) => entry.pricing_schedule_id).sort()).toEqual(
+        keys.map((key) => key === 'upper' ? UPPER_SCHEDULE : GROUND_SCHEDULE).sort());
+      for (const entry of wirePayload.p_request.items) {
+        expect(entry.requested_price).toBe(entry.before_price + 1);
+        expect(entry.room_rate_id).toBe(entry.pricing_schedule_id === UPPER_SCHEDULE ? UPPER_RATE : GROUND_RATE);
+      }
+      const proof = await page.evaluate(() => ({ store: (window as any).__reviewedAdmin, submits: (window as any).__realSubmits }));
+      expect(proof.submits).toBe(1);
+      expect(proof.store.rpcCalls.filter((c: any) => c.name.includes('preview'))).toHaveLength(1);
+      expect(proof.store.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+      expect(proof.store.genericCalls).toBe(0);
+    });
+  }
+
+  test('Admin zero selection and invalid reason/price stay local with accessible explanations', async ({ page }) => {
+    await installAdminHarness(page, true);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    const reason = page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]');
+    const feedback = page.locator('[data-reviewed-pricing-feedback]');
+    const button = page.getByRole('button', { name: 'Build server Review', exact: true });
+    await reason.fill('Test'); await button.click();
+    await expect(feedback).toHaveText('Select at least one price.');
+    const row = page.locator('[data-reviewed-pricing-tier]').first();
+    await row.locator('[data-reviewed-pricing-select]').check();
+    await row.locator('[data-reviewed-pricing-price]').fill('101');
+    for (const value of ['', 'ab', '   ', 'Line\nbreak']) {
+      await reason.fill(value); await button.click();
+      await expect(feedback).toHaveText('Enter a reason of 3–500 characters on one line.');
+    }
+    await reason.fill('Test');
+    for (const value of ['', '9', '100.001', '10000000000']) {
+      await row.locator('[data-reviewed-pricing-price]').fill(value); await button.click();
+      await expect(feedback).toContainText('Enter valid selected prices');
+    }
+    await expect(button).toHaveAttribute('aria-describedby', 'sevenArchesReviewedPricingEditorFeedback');
+    expect(await page.evaluate(() => (window as any).__reviewedAdmin.rpcCalls.filter((c: any) => /preview|apply/.test(c.name)))).toEqual([]);
+  });
+
+  for (const [language, message, selectAll] of [
+    ['pl', 'Zmień co najmniej jedną zaznaczoną cenę przed przygotowaniem Review.', 'Zaznacz wszystkie'],
+    ['he', 'יש לשנות לפחות מחיר נבחר אחד לפני הכנת הבדיקה.', 'בחר הכול'],
+  ]) {
+    test(`Admin inline no-op and bulk controls are localized in ${language}`, async ({ page }) => {
+      await installAdminHarness(page, true);
+      await page.evaluate((lang) => { document.documentElement.lang = lang; }, language);
+      await page.locator('[data-start-reviewed-pricing]').click();
+      await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Test');
+      await page.getByRole('button', { name: selectAll, exact: true }).click();
+      await page.locator('button[form="sevenArchesReviewedPricingAdminForm"]').click();
+      await expect(page.locator('[data-reviewed-pricing-feedback]')).toHaveText(message);
+    });
+  }
+  test('functional completion Admin Build uses real parser/repository once despite repeated submit, without Apply', async ({ page }) => {
+    await installAdminHarness(page, true);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    const row = page.locator('[data-reviewed-pricing-tier][data-room-key="upper"]').first();
+    await row.locator('[data-reviewed-pricing-select]').check();
+    const before = Number(await row.getAttribute('data-before-price'));
+    await row.locator('[data-reviewed-pricing-price]').fill(String(before + 5));
+    await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Reviewed independent Upper change');
+    await page.evaluate(() => { (window as any).__reviewedAdmin.deferBuild = true; });
+    await page.locator('#sevenArchesReviewedPricingAdminForm').evaluate((form: HTMLFormElement) => {
+      form.requestSubmit(); form.requestSubmit();
+    });
+    const calls = await page.evaluate(() => (window as any).__reviewedAdmin.rpcCalls.filter((c: any) => c.name.includes('preview')));
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe('hotel_v2_admin_preview_seven_arches_reviewed_pricing');
+    expect(calls[0].payload).toEqual({ p_request: {
+      contract_version: 'hotels_v2_seven_arches_reviewed_pricing_admin_request_v1',
+      hotel_id: HOTEL, action: 'accept', reason: 'Reviewed independent Upper change',
+      items: [expect.objectContaining({ hotel_id: HOTEL, room_type_id: UPPER_ROOM,
+        room_rate_id: UPPER_RATE, pricing_schedule_id: UPPER_SCHEDULE,
+        before_price: before, requested_price: before + 5, currency: 'EUR' })],
+    } });
+    await page.evaluate(() => (window as any).__reviewedAdmin.releaseBuild());
+    expect(await page.evaluate(() => (window as any).__reviewedAdmin.toasts)).toEqual([]);
+    await expect(page.locator('.hotel-reviewed-pricing-impact')).toBeVisible();
+    const state = await page.evaluate(() => (window as any).__reviewedAdmin);
+    expect(state.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+    expect(state.genericCalls).toBe(0);
+  });
+
+  for (const failure of ['transport', 401, 403, 500]) {
+    test(`functional completion Admin Build ${failure} fails closed without retries`, async ({ page }) => {
+      await installAdminHarness(page, true);
+      await page.locator('[data-start-reviewed-pricing]').click();
+      const row = page.locator('[data-reviewed-pricing-tier]').first();
+      await row.locator('[data-reviewed-pricing-select]').check();
+      await row.locator('[data-reviewed-pricing-price]').fill(String(Number(await row.getAttribute('data-before-price')) + 5));
+      await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Reviewed local failure path');
+      await page.evaluate((value) => { (window as any).__reviewedAdmin.buildFailure = value; }, failure);
+      await page.getByRole('button', { name: 'Build server Review', exact: true }).click();
+      await expect.poll(() => page.evaluate(() => (window as any).__reviewedAdmin.toasts.length)).toBeGreaterThan(0);
+      const store = await page.evaluate(() => (window as any).__reviewedAdmin);
+      expect(store.rpcCalls.filter((c: any) => c.name.includes('preview'))).toHaveLength(1);
+      expect(store.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+      expect(store.genericCalls).toBe(0);
+      expect(store.toasts.map((t: any) => t.message).join(' ')).not.toContain('private-response-marker');
+      await expect(page.locator('[data-apply-reviewed-pricing]')).toHaveCount(0);
+      await expect(page.locator('[data-reviewed-pricing-feedback]')).toBeVisible();
+      await expect(page.locator('[data-reviewed-pricing-feedback]')).toHaveText(store.toasts.at(-1).message);
+      await expect(page.locator('[data-reviewed-pricing-feedback]')).toContainText(failure === 'transport'
+        ? 'Check the request status' : 'The server rejected this Review');
+      const build = page.getByRole('button', { name: 'Build server Review', exact: true });
+      await expect(build).toBeEnabled();
+      // A distinct explicit user action in a local fixture, not an automatic
+      // retry. This proves the terminal failure released the per-form guard.
+      await page.evaluate(() => { (window as any).__reviewedAdmin.buildFailure = null; });
+      await build.click();
+      await expect(page.locator('.hotel-reviewed-pricing-impact')).toHaveCount(1);
+      const after = await page.evaluate(() => (window as any).__reviewedAdmin);
+      expect(after.rpcCalls.filter((c: any) => c.name.includes('preview'))).toHaveLength(2);
+      expect(after.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+    });
+  }
+
   test('114415 real repository/parser retains independent topology and immutable activation before any Preview', async ({ page }) => {
     await installAdminHarness(page, true);
     const activation = page.locator('[data-seven-arches-pricing-activation]');

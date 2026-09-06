@@ -826,6 +826,20 @@
   // sentence after values such as counts, product names or dates are inserted.
   const PRICING_UI_WORKFLOW_TEXT = Object.freeze({
     pl: Object.freeze({
+      'Select all': 'Zaznacz wszystkie',
+      'Clear all': 'Odznacz wszystkie',
+      'Select changed': 'Zaznacz zmienione',
+      '{count} rows': '{count} wiersze',
+      '{count} selected': '{count} zaznaczonych',
+      '{count} changed': '{count} zmienionych',
+      'Only changed selected prices will be sent for Review.': 'Do Review zostaną wysłane tylko zmienione, zaznaczone ceny.',
+      'Select at least one price.': 'Zaznacz co najmniej jedną cenę.',
+      'Change at least one selected price before building the Review.': 'Zmień co najmniej jedną zaznaczoną cenę przed przygotowaniem Review.',
+      'Enter a reason of 3–500 characters on one line.': 'Podaj powód w jednym wierszu, od 3 do 500 znaków.',
+      'Enter valid selected prices from EUR 10 to EUR 9999999999.99, with at most two decimal places.': 'Podaj poprawne zaznaczone ceny od 10 do 9999999999,99 EUR, z najwyżej dwoma miejscami po przecinku.',
+      'Building the Review…': 'Przygotowywanie Review…',
+      'The Review response could not be confirmed. No Apply was called and nothing was retried. Check the request status before preparing another Review; the server may have stored it.': 'Nie udało się potwierdzić odpowiedzi Review. Nie wywołano Apply ani nie ponowiono żądania. Sprawdź status żądania przed przygotowaniem kolejnego Review; serwer mógł je zapisać.',
+      'The server rejected this Review. No Apply was called. Check your access and reload pricing before preparing another Review.': 'Serwer odrzucił to Review. Nie wywołano Apply. Sprawdź uprawnienia i odśwież cennik przed przygotowaniem kolejnego Review.',
       'Guests': 'Goście',
       'From nights': 'Od liczby nocy',
       'Enabled tier': 'Włączony próg',
@@ -1167,6 +1181,20 @@
       '{name} tier matrix': 'Macierz progów: {name}',
     }),
     he: Object.freeze({
+      'Select all': 'בחר הכול',
+      'Clear all': 'נקה בחירה',
+      'Select changed': 'בחר שורות ששונו',
+      '{count} rows': '{count} שורות',
+      '{count} selected': '{count} נבחרו',
+      '{count} changed': '{count} שונו',
+      'Only changed selected prices will be sent for Review.': 'רק מחירים שנבחרו ושונו יישלחו לבדיקה.',
+      'Select at least one price.': 'יש לבחור מחיר אחד לפחות.',
+      'Change at least one selected price before building the Review.': 'יש לשנות לפחות מחיר נבחר אחד לפני הכנת הבדיקה.',
+      'Enter a reason of 3–500 characters on one line.': 'יש להזין סיבה בשורה אחת, באורך 3–500 תווים.',
+      'Enter valid selected prices from EUR 10 to EUR 9999999999.99, with at most two decimal places.': 'יש להזין מחירים נבחרים תקינים בין 10 ל־9999999999.99 אירו, עם עד שתי ספרות אחרי הנקודה.',
+      'Building the Review…': 'מכין את הבדיקה…',
+      'The Review response could not be confirmed. No Apply was called and nothing was retried. Check the request status before preparing another Review; the server may have stored it.': 'לא ניתן היה לאמת את התשובה לבדיקה. לא בוצעה החלה ולא נשלחה בקשה חוזרת. יש לבדוק את מצב הבקשה לפני הכנת בדיקה נוספת; ייתכן שהשרת שמר אותה.',
+      'The server rejected this Review. No Apply was called. Check your access and reload pricing before preparing another Review.': 'השרת דחה את הבדיקה. לא בוצעה החלה. יש לבדוק את ההרשאות ולטעון מחדש את התמחור לפני הכנת בדיקה נוספת.',
       'Guests': 'אורחים',
       'From nights': 'החל ממספר לילות',
       'Enabled tier': 'מדרגה פעילה',
@@ -4182,21 +4210,91 @@
       body: `<form id="sevenArchesReviewedPricingAdminForm" class="hotel-workspace-form"><p class="hotel-workspace-safety-note">Select only tiers that should change. Upper and Ground remain independently selectable. Customer totals, commission and Partner net are calculated by the server.</p><label class="admin-form-field"><span>Reason</span><textarea name="reason" minlength="3" maxlength="500" rows="3" required></textarea></label><div class="hotel-review-table-wrap"><table class="hotel-review-table hotel-reviewed-pricing-tier-editor"><thead><tr><th>Change</th><th>Room</th><th>Guests</th><th>Minimum nights</th><th>Current</th><th>Requested nightly price</th></tr></thead><tbody>${rows.map((row) => `<tr data-reviewed-pricing-tier="${escapeAttr(row.schedule_tier_id)}" data-room-key="${escapeAttr(row.room_key)}" data-room-type-id="${escapeAttr(row.room_type_id)}" data-room-rate-id="${escapeAttr(row.room_rate_id)}" data-schedule-id="${escapeAttr(row.pricing_schedule_id)}" data-guest-count="${escapeAttr(row.guest_count)}" data-minimum-nights="${escapeAttr(row.minimum_nights)}" data-currency="${escapeAttr(row.currency)}" data-before-price="${escapeAttr(row.before_price)}"><td><input type="checkbox" data-reviewed-pricing-select aria-label="Change ${escapeAttr(row.label)}, ${escapeAttr(row.guest_count)} guests, ${escapeAttr(row.minimum_nights)} nights" /></td><th>${escapeHtml(row.label)}</th><td>${escapeHtml(row.guest_count)}</td><td>${escapeHtml(row.minimum_nights)}+</td><td>${escapeHtml(formatMoney(row.before_price, row.currency))}</td><td><input type="number" min="10" max="9999999999.99" step="0.01" value="${escapeAttr(row.before_price)}" data-reviewed-pricing-price disabled /></td></tr>`).join('')}</tbody></table></div></form>`,
       footer: '<button class="btn-secondary" type="button" data-hotel-modal-close>Cancel</button><button class="btn-primary" type="submit" form="sevenArchesReviewedPricingAdminForm">Build server Review</button>',
       onReady(overlay) {
-        overlay.querySelectorAll('[data-reviewed-pricing-select]').forEach((checkbox) => {
-          checkbox.addEventListener('change', () => {
-            const input = checkbox.closest('[data-reviewed-pricing-tier]')?.querySelector('[data-reviewed-pricing-price]');
-            if (input) input.disabled = !checkbox.checked;
+        const form = overlay.querySelector('#sevenArchesReviewedPricingAdminForm');
+        const tierRows = Array.from(form.querySelectorAll('[data-reviewed-pricing-tier]'));
+        const submit = overlay.querySelector('button[form="sevenArchesReviewedPricingAdminForm"]');
+        form.querySelector('.hotel-review-table-wrap').insertAdjacentHTML('beforebegin', `
+          <div class="hotel-workspace-panel-actions" role="group" aria-label="${pricingUiAttr('Change')}">
+            <button type="button" class="btn-secondary" data-reviewed-pricing-select-all>${pricingUiHtml('Select all')}</button>
+            <button type="button" class="btn-secondary" data-reviewed-pricing-clear-all>${pricingUiHtml('Clear all')}</button>
+            <button type="button" class="btn-secondary" data-reviewed-pricing-select-changed>${pricingUiHtml('Select changed')}</button>
+          </div>
+          <p data-reviewed-pricing-counts aria-live="polite"></p>
+          <p>${pricingUiHtml('Only changed selected prices will be sent for Review.')}</p>
+          <p id="sevenArchesReviewedPricingEditorFeedback" data-reviewed-pricing-feedback role="status" aria-live="polite" aria-atomic="true"></p>`);
+        const feedback = form.querySelector('[data-reviewed-pricing-feedback]');
+        submit.setAttribute('aria-describedby', feedback.id);
+        let buildInFlight = false;
+        // Use the editor's Number normalization, never rounding a changed price
+        // into a valid one. Core and the server still validate the exact items.
+        const priceInput = (row) => row.querySelector('[data-reviewed-pricing-price]');
+        const isChanged = (row) => Number(priceInput(row).value) !== Number(row.dataset.beforePrice);
+        const isSelected = (row) => row.querySelector('[data-reviewed-pricing-select]').checked;
+        const editorState = () => {
+          const selected = tierRows.filter(isSelected);
+          const changed = selected.filter(isChanged);
+          const reason = String(new FormData(form).get('reason') || '').trim();
+          let message = '';
+          if (reason.length < 3 || reason.length > 500 || /[\u0000-\u001f\u007f-\u009f]/u.test(reason)) {
+            message = 'Enter a reason of 3–500 characters on one line.';
+          } else if (!selected.length) {
+            message = 'Select at least one price.';
+          } else if (selected.some((row) => !priceInput(row).value || !priceInput(row).validity.valid
+            || !Core.isExactMoney(Number(priceInput(row).value), 10))) {
+            message = 'Enter valid selected prices from EUR 10 to EUR 9999999999.99, with at most two decimal places.';
+          } else if (!changed.length) {
+            message = 'Change at least one selected price before building the Review.';
+          }
+          return { selected, changed, reason, message };
+        };
+        const showState = () => {
+          const current = editorState();
+          form.querySelector('[data-reviewed-pricing-counts]').textContent = [
+            pricingUiText('{count} rows', { count: tierRows.length }),
+            pricingUiText('{count} selected', { count: current.selected.length }),
+            pricingUiText('{count} changed', { count: tierRows.filter(isChanged).length }),
+          ].join(' · ');
+          feedback.textContent = pricingUiText(buildInFlight ? 'Building the Review…'
+            : current.message || 'Only changed selected prices will be sent for Review.');
+          return current;
+        };
+        tierRows.forEach((row) => {
+          priceInput(row).required = true;
+          row.querySelector('[data-reviewed-pricing-select]').addEventListener('change', () => {
+            priceInput(row).disabled = !isSelected(row);
           });
         });
-        const form = overlay.querySelector('#sevenArchesReviewedPricingAdminForm');
+        for (const [selector, predicate] of [
+          ['[data-reviewed-pricing-select-all]', () => true],
+          ['[data-reviewed-pricing-clear-all]', () => false],
+          ['[data-reviewed-pricing-select-changed]', isChanged],
+        ]) {
+          form.querySelector(selector).addEventListener('click', () => {
+            tierRows.forEach((row) => {
+              row.querySelector('[data-reviewed-pricing-select]').checked = predicate(row);
+              priceInput(row).disabled = !isSelected(row);
+            });
+            showState();
+          });
+        }
+        form.addEventListener('input', showState);
+        form.addEventListener('change', showState);
+        // Native invalid inputs can prevent submit entirely: still explain the
+        // gate inside this modal, not only in a toast behind it.
+        form.addEventListener('invalid', showState, true);
+        showState();
         form?.addEventListener('submit', async (event) => {
           event.preventDefault();
-          const selected = Array.from(overlay.querySelectorAll('[data-reviewed-pricing-tier]'))
-            .filter((row) => row.querySelector('[data-reviewed-pricing-select]')?.checked);
-          const submit = overlay.querySelector('button[form="sevenArchesReviewedPricingAdminForm"]');
+          if (buildInFlight) return;
+          const current = showState();
+          if (current.message) return;
+          buildInFlight = true;
           submit.disabled = true;
+          showState();
           try {
-            const items = selected.map((row) => ({
+            // 114415 rejects unchanged_item: bulk selection is not a full
+            // snapshot submission and cannot add unchanged tiers to the plan.
+            const items = current.changed.map((row) => ({
               hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID,
               room_type_id: row.dataset.roomTypeId,
               room_rate_id: row.dataset.roomRateId,
@@ -4212,14 +4310,22 @@
               contract_version: Core.SEVEN_ARCHES_REVIEWED_PRICING_ADMIN_REQUEST_CONTRACT,
               hotel_id: Core.SEVEN_ARCHES_PROPERTY_ID,
               action: 'accept',
-              reason: String(new FormData(form).get('reason') || '').trim(),
+              reason: current.reason,
               items,
             }, state.reviewedPricingControl);
             closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             openSevenArchesReviewedPricingFinalReview(preview, opener);
           } catch (error) {
+            buildInFlight = false;
             submit.disabled = false;
-            toast(error.userMessage || error.message, error?.isStale ? 'warning' : 'error');
+            // This editor owns its feedback; no newer Repository patch is
+            // required. Unknown/transport outcomes must not imply no Review
+            // was stored or reveal a raw exception behind the modal.
+            const message = error?.isDefinitiveFailure === true
+              ? error.userMessage || 'The server rejected this Review. No Apply was called. Check your access and reload pricing before preparing another Review.'
+              : 'The Review response could not be confirmed. No Apply was called and nothing was retried. Check the request status before preparing another Review; the server may have stored it.';
+            feedback.textContent = pricingUiText(message);
+            toast(pricingUiText(message), error?.isStale ? 'warning' : 'error');
           }
         });
       },
