@@ -3441,6 +3441,7 @@
       )),
       reviewStatus: 'reviewed', reviewed: true,
       activated: state.pricingActivation.status === 'active',
+      independent: state.pricingActivation.pricing_authority === 'independent_room_schedules',
       lifecycleEvidence: true,
       tierCount: state.pricingActivation.shared_schedule.active_tier_count,
     };
@@ -3480,9 +3481,10 @@
     const action = pricingState.reviewed ? 'View pricing mapping' : 'Review legacy → H3 pricing';
     return `<section class="hotel-workspace-card hotel-pricing-promotion-card" data-seven-kamares-pricing-promotion-card>
       <header><div><span class="hotel-workspace-eyebrow">Legacy → H3 pricing preparation</span><h4>63 legacy rules → 27 shared Room tiers</h4></div><span class="hotel-workspace-status hotel-workspace-status--${tone}">${status}</span></header>
-      <p>Review the exact Standard plan, two inactive Room Rates, physical room allocation and separate pricing occupancy used to preserve all accepted 7 Kamares totals.</p>
+      <p>${pricingState.activated ? 'Historical pricing preparation is complete and immutable. No preparation action is available.' : 'Review the exact Standard plan, two inactive Room Rates, physical room allocation and separate pricing occupancy used to preserve all accepted 7 Kamares totals.'}</p>
       <dl><div><dt>Legacy source</dt><dd>63 rules · authoritative</dd></div><div><dt>Room schedule</dt><dd>${pricingState.tierCount || 27} tiers · ${pricingState.activated ? 'active' : 'inactive'}</dd></div><div><dt>Public change</dt><dd>No</dd></div></dl>
       ${pricingState.activated ? '<p class="hotel-workspace-safety-note">The accepted 70/0 mapping is now pinned by the immutable activation receipt.</p>' : pricingState.lifecycleEvidence ? '<p class="hotel-workspace-safety-note">The completed 70/0 H3.1P Review is pinned by the exact activation snapshot. Historical preparation is read-only and is not rerun.</p>' : `<button class="${pricingState.reviewed ? 'btn-secondary' : 'btn-primary'}" type="button" data-review-seven-kamares-pricing>${action}</button>`}
+      ${pricingState.independent ? '<p>Current Room pricing uses the two independent schedules. The shared schedule is preserved historical evidence.</p>' : ''}
     </section>`;
   }
 
@@ -3504,10 +3506,11 @@
       return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>Activation blocked by exact server state</h4><ul>${control.blocking_reasons.map((reason) => `<li>${escapeHtml(reason.replaceAll('_', ' '))}</li>`).join('')}</ul><p>No activation request is available and nothing is retried.</p></section>`;
     }
     const active = control.status === 'active';
+    const independent = control.pricing_authority === 'independent_room_schedules';
     return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation>
       <header><div><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>${active ? 'Reviewed normalized pricing is active' : 'Ready for one explicit activation Review'}</h4></div><span class="hotel-workspace-status hotel-workspace-status--${active ? 'success' : 'warning'}">${active ? 'ACTIVE' : 'READY'}</span></header>
-      <p><strong>Customer-price authority remains the reviewed 27-tier shared occupancy × LOS schedule.</strong> Positive Room base rates are required readiness values; they do not override the linked schedule.</p>
-      <dl><div><dt>H3.1P parity</dt><dd>${control.h3_1p.parity.total_case_count} cases · ${control.h3_1p.parity.total_mismatch_count} mismatches</dd></div><div><dt>Upper base</dt><dd>${escapeHtml(formatMoney(upper.base_nightly_rate, upper.currency))}</dd></div><div><dt>Ground base</dt><dd>${escapeHtml(formatMoney(ground.base_nightly_rate, ground.currency))}</dd></div><div><dt>Public behavior</dt><dd>Legacy authoritative · public flags OFF · external sync ${control.feature_flags.hotel_external_sync_enabled ? 'ON' : 'OFF'}</dd></div></dl>
+      <p><strong>${independent ? 'Independent Room schedules are active: Upper 27 tiers and Ground 27 tiers. The shared schedule is preserved, not the current Room pricing authority.' : 'Customer-price authority remains the reviewed 27-tier shared occupancy × LOS schedule.'}</strong> Positive Room base rates are required readiness values; they do not override the linked schedule.</p>
+      <dl><div><dt>H3.1P parity</dt><dd>${control.h3_1p.parity.total_case_count} cases · ${control.h3_1p.parity.total_mismatch_count} mismatches</dd></div><div><dt>Upper base</dt><dd>${escapeHtml(formatMoney(upper.base_nightly_rate, upper.currency))}</dd></div><div><dt>Ground base</dt><dd>${escapeHtml(formatMoney(ground.base_nightly_rate, ground.currency))}</dd></div><div><dt>Public behavior</dt><dd>Legacy public architecture · public flags OFF · external sync ${control.feature_flags.hotel_external_sync_enabled ? 'ON' : 'OFF'}</dd></div></dl>
       ${active ? '<p class="hotel-workspace-safety-note">Activation is immutable. Partner cannot activate pricing, edit commission, or change this lifecycle.</p>' : '<button class="btn-primary" type="button" data-open-seven-arches-pricing-activation>Prepare activation Review</button>'}
     </section>`;
   }
@@ -7288,7 +7291,7 @@
     const pricingRateById = new Map(Core.asArray(state.pricingControl?.room_rates)
       .map((rate) => [Core.normalizeUuid(rate.id), rate]));
     const pricingScheduleById = new Map(Core.asArray(state.pricingControl?.pricing_schedules)
-      .map((schedule) => [Core.normalizeUuid(schedule.id), schedule]));
+      .map((schedule) => [Core.normalizePricingScheduleId(schedule.id), schedule]));
     const propertyPricingDefault = Core.asObject(state.pricingControl?.property_pricing_default);
     return Core.asArray(data.room_rates).map((raw) => {
       const rate = Core.asObject(raw);
@@ -7296,7 +7299,7 @@
       const room = roomById.get(rate.room_type_id) || Core.asObject(rate.room_type);
       const plan = planById.get(rate.rate_plan_id) || Core.asObject(rate.rate_plan);
       const schedule = exactPricingRate.pricing_schedule_id
-        ? pricingScheduleById.get(Core.normalizeUuid(exactPricingRate.pricing_schedule_id))
+        ? pricingScheduleById.get(Core.normalizePricingScheduleId(exactPricingRate.pricing_schedule_id))
           || state.workspace.pricing_schedules.find((candidate) => candidate.id === exactPricingRate.pricing_schedule_id)
         : null;
       const scheduleTierCount = schedule

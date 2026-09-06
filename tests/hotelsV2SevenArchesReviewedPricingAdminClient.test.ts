@@ -117,6 +117,29 @@ function preview(): any {
 }
 
 describe('7 Arches reviewed independent pricing Admin client', () => {
+  test('adapts exact 114415 GET items without a redundant Hotel, never a foreign or malformed Hotel', () => {
+    const Core = loadCore();
+    const sql = fs.readFileSync('supabase/migrations/20260811441500_hotels_v2_seven_arches_reviewed_pricing_evolution.sql', 'utf8');
+    const getBody = sql.slice(sql.indexOf('create function public.hotel_v2_admin_get_seven_arches_reviewed_pricing()'));
+    const projection = getBody.slice(getBody.indexOf("'items',(select jsonb_agg(jsonb_build_object("), getBody.indexOf('order by item.item_index)'));
+    expect(projection).toContain("'schedule_tier_id',item.schedule_tier_id");
+    expect(projection).not.toContain("'hotel_id'");
+    const response = control();
+    delete response.proposals[0].items[0].hotel_id;
+    const before = JSON.stringify(response);
+    expect(Core.validateSevenArchesReviewedPricingControl(response, HOTEL)
+      .proposals[0].items[0].hotel_id).toBe(HOTEL);
+    expect(JSON.stringify(response)).toBe(before);
+    for (const hotel of [null, '', PARTNER]) {
+      const wrong = control(); wrong.proposals[0].items[0].hotel_id = hotel;
+      expect(() => Core.validateSevenArchesReviewedPricingControl(wrong, HOTEL)).toThrow();
+    }
+    response.hotel_id = PARTNER;
+    expect(() => Core.validateSevenArchesReviewedPricingControl(response, HOTEL)).toThrow();
+    const foreignRoom = control(); delete foreignRoom.proposals[0].items[0].hotel_id;
+    foreignRoom.proposals[0].items[0].room_type_id = PARTNER;
+    expect(() => Core.validateSevenArchesReviewedPricingControl(foreignRoom, HOTEL)).toThrow();
+  });
   test('strictly validates pending proposal, server commercial impacts and exact reviewed plan', () => {
     const Core = loadCore();
     expect(Core.validateSevenArchesReviewedPricingControl(control(), HOTEL).proposals[0].fresh).toBe(true);

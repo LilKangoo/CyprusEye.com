@@ -277,6 +277,14 @@
     return normalizeUuid(value);
   }
 
+  // PostgreSQL schedule identities may be deterministic MD5 UUIDs. Keep this
+  // contract separate from RFC UUID validation for actors, Hotels and products.
+  function normalizePricingScheduleId(value) {
+    return typeof value === 'string'
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
+      ? value : '';
+  }
+
   function newUuid() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
     throw new Error('Secure UUID generation is unavailable in this browser.');
@@ -690,7 +698,7 @@
         const schedule = asObject(entry);
         return {
           ...clone(schedule),
-          id: normalizeUuid(schedule.id),
+          id: normalizePricingScheduleId(schedule.id),
           hotel_id: normalizeUuid(schedule.hotel_id || source.hotel_id) || null,
           minimum_billable_occupancy: schedule.minimum_billable_occupancy == null
             ? null
@@ -1732,7 +1740,7 @@
       hotel_id: normalizeUuid(source.hotel_id),
       room_type_id: normalizeUuid(source.room_type_id),
       rate_plan_id: normalizeUuid(source.rate_plan_id),
-      pricing_schedule_id: normalizeUuid(source.pricing_schedule_id) || null,
+      pricing_schedule_id: normalizePricingScheduleId(source.pricing_schedule_id) || null,
       base_nightly_rate: asNumber(source.base_nightly_rate, null),
       currency: (asText(source.currency) || 'EUR').toUpperCase(),
       external_redirect_url: asNullableText(source.external_redirect_url),
@@ -1748,7 +1756,7 @@
     const rate = asObject(product);
     const roomRateId = normalizeUuid(rate.id);
     const roomTypeId = normalizeUuid(rate.room_type_id);
-    const scheduleId = normalizeUuid(rate.pricing_schedule_id);
+    const scheduleId = normalizePricingScheduleId(rate.pricing_schedule_id);
     const date = asText(stayDate);
     if (!scheduleId) return null;
     if (!roomRateId || !roomTypeId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -3714,17 +3722,35 @@
   }
 
   function validateSevenArchesPricingActivationSnapshot(value) {
+    const independent = Object.hasOwn(asObject(value), 'pricing_authority')
+      || Object.hasOwn(asObject(value), 'independent_topology');
     if (!hasExactKeys(value, [
       'contract_version', 'hotel_id', 'status', 'snapshot_token', 'public_change',
       'legacy_authoritative', 'feature_flags', 'h3_1p', 'rate_plan', 'room_rates',
       'shared_schedule', 'preview_schedule', 'payment_policy', 'commission_policy',
       'blocking_reasons',
+      ...(independent ? ['pricing_authority', 'independent_topology'] : []),
     ]) || value.contract_version !== SEVEN_ARCHES_PRICING_ACTIVATION_SNAPSHOT_CONTRACT
       || value.hotel_id !== SEVEN_ARCHES_PROPERTY_ID
       || !['ready', 'active', 'blocked'].includes(value.status)
       || !isExactSnapshotToken(value.snapshot_token) || value.public_change !== false
-      || value.legacy_authoritative !== true) {
+      || value.legacy_authoritative !== !independent) {
       throw new Error('7 Arches pricing activation snapshot identity or safety envelope is invalid.');
+    }
+    if (independent && (value.status !== 'active'
+        || value.pricing_authority !== 'independent_room_schedules'
+        || !Array.isArray(value.blocking_reasons) || value.blocking_reasons.length !== 0
+        || !hasExactKeys(value.independent_topology, [
+          'contract_version', 'upper_schedule_id', 'ground_schedule_id', 'authority_row_count',
+        ])
+        || value.independent_topology.contract_version !== 'hotels_v2_seven_arches_independent_pricing_topology_v1'
+        || value.independent_topology.authority_row_count !== 54
+        || ['upper', 'ground'].some((room) => {
+          const id = value.independent_topology[`${room}_schedule_id`];
+          return normalizePricingScheduleId(id) !== id
+            || id !== SEVEN_ARCHES_INDEPENDENT_PRICING_IDS[`${room}_schedule`];
+        }))) {
+      throw new Error('7 Arches independent activation topology is invalid.');
     }
     if (!hasExactKeys(value.feature_flags, HOTELS_V2_LIFECYCLE_FLAG_KEYS)
         || HOTELS_V2_LIFECYCLE_FLAG_KEYS.some((key) => typeof value.feature_flags[key] !== 'boolean')) {
@@ -4044,7 +4070,7 @@
     return clone(value);
   }
 
-  function validateSevenArchesReviewedPricingProposal(value) {
+  function validateSevenArchesReviewedPricingProposal(value, hotelId) {
     if (!hasExactKeys(value, [
       'id', 'initiator_type', 'partner_id', 'assignment_id', 'status', 'version',
       'reason', 'item_count', 'created_at', 'expires_at', 'fresh', 'items',
@@ -4067,7 +4093,12 @@
     } else if (value.partner_id !== null || value.assignment_id !== null) {
       throw new Error('Admin-initiated pricing proposal contains a Partner identity.');
     }
-    const items = value.items.map((item) => validateSevenArchesReviewedPricingItem(item, {
+    // 114415 GET omits the redundant item Hotel. Its table constraint and exact
+    // top-level Hotel bind every item. An explicitly supplied foreign ID is
+    // never overwritten; the item validator rejects it.
+    const items = value.items.map((item) => validateSevenArchesReviewedPricingItem({
+      ...item, hotel_id: Object.hasOwn(asObject(item), 'hotel_id') ? item.hotel_id : hotelId,
+    }, {
       includeIndex: true, includeRoomKey: true,
     }));
     if (new Set(items.map((item) => item.item_index)).size !== items.length
@@ -4085,7 +4116,8 @@
         || !Array.isArray(value.proposals) || value.proposals.length > 100) {
       throw new Error('7 Arches reviewed pricing Admin control is invalid or cross-property.');
     }
-    const proposals = value.proposals.map(validateSevenArchesReviewedPricingProposal);
+    const proposals = value.proposals.map((proposal) =>
+      validateSevenArchesReviewedPricingProposal(proposal, value.hotel_id));
     if (new Set(proposals.map((proposal) => proposal.id)).size !== proposals.length) {
       throw new Error('7 Arches reviewed pricing Admin control contains duplicate proposals.');
     }
@@ -4355,14 +4387,14 @@
     }));
     const schedules = asArray(source.pricing_schedules).map((entry) => ({
       ...clone(asObject(entry)),
-      id: normalizeUuid(entry?.id),
+      id: normalizePricingScheduleId(entry?.id),
       hotel_id: normalizeUuid(entry?.hotel_id),
       name_i18n: normalizeI18n(entry?.name_i18n),
       linked_room_rate_ids: asArray(entry?.linked_room_rate_ids).map(normalizeUuid).filter(Boolean).sort(),
       tiers: asArray(entry?.tiers).map((tier) => ({
         ...clone(asObject(tier)),
         id: normalizePricingSourceUuid('pricing_schedule_tier', tier?.id),
-        schedule_id: normalizeUuid(tier?.schedule_id || entry?.id),
+        schedule_id: normalizePricingScheduleId(tier?.schedule_id),
         guest_count: asInteger(tier?.guest_count, 0),
         threshold_nights: asInteger(tier?.threshold_nights, 0),
         nightly_rate: asNumber(tier?.nightly_rate, null),
@@ -4910,8 +4942,9 @@
       const ids = rows.map(normalizeEntryId);
       return ids.every(Boolean) && new Set(ids).size === ids.length;
     };
-    if (![raw.rate_plans, raw.room_types, raw.room_rates, raw.pricing_schedules, raw.rate_rules, raw.exact_date_prices, raw.allocation_rules]
-      .every((rows) => requireUniqueExactIds(rows))) {
+    if (![raw.rate_plans, raw.room_types, raw.room_rates, raw.rate_rules, raw.exact_date_prices, raw.allocation_rules]
+      .every((rows) => requireUniqueExactIds(rows))
+        || !requireUniqueExactIds(raw.pricing_schedules, (row) => normalizePricingScheduleId(row.id))) {
       throw new Error('Pricing control returned a duplicate or malformed exact identifier.');
     }
     const roomRateIds = new Set(normalized.room_rates.map((rate) => rate.id));
@@ -4992,7 +5025,7 @@
     if (raw.room_rates.some((rate) => (
       !ratePlanIds.has(normalizeUuid(rate.rate_plan_id))
       || !roomTypeIds.has(normalizeUuid(rate.room_type_id))
-      || !(rate.pricing_schedule_id === null || scheduleIds.has(normalizeUuid(rate.pricing_schedule_id)))
+      || !(rate.pricing_schedule_id === null || scheduleIds.has(normalizePricingScheduleId(rate.pricing_schedule_id)))
       || !isExactMoney(rate.base_nightly_rate)
       || typeof rate.currency !== 'string' || !/^[A-Z]{3}$/.test(rate.currency)
       || !(rate.external_redirect_url === null || isExactHttpsUrl(rate.external_redirect_url))
@@ -5045,7 +5078,7 @@
           ))) throw new Error('Pricing control returned an invalid Room Rate tier relationship.');
     });
     raw.pricing_schedules.forEach((schedule) => {
-      const scheduleId = normalizeUuid(schedule.id);
+      const scheduleId = normalizePricingScheduleId(schedule.id);
       const linkedIds = schedule.linked_room_rate_ids.map(normalizeUuid);
       if (!requireUniqueExactIds(
         schedule.tiers,
@@ -5058,7 +5091,7 @@
           || !isExactFingerprint(schedule.link_fingerprint)
           || (schedule.sharing_mode === 'independent' && linkedIds.length > 1)
           || schedule.tiers.some((tier) => (
-            normalizeUuid(tier.schedule_id) !== scheduleId
+            normalizePricingScheduleId(tier.schedule_id) !== scheduleId
             || typeof tier.version !== 'number' || !Number.isInteger(tier.version) || tier.version < 1
             || typeof tier.guest_count !== 'number' || !Number.isInteger(tier.guest_count) || tier.guest_count < 1
             || typeof tier.threshold_nights !== 'number' || !Number.isInteger(tier.threshold_nights) || tier.threshold_nights < 1
@@ -5075,7 +5108,7 @@
       ]) || reference.kind !== schedule.source) return false;
       if (schedule.source === 'manual') {
         return (reference.cloned_from_schedule_id === null
-            || Boolean(normalizeUuid(reference.cloned_from_schedule_id)))
+            || Boolean(normalizePricingScheduleId(reference.cloned_from_schedule_id)))
           && reference.pricing_model === null
           && reference.pricing_fingerprint === null
           && reference.rule_count === null
@@ -5234,7 +5267,7 @@
     const pricingActivityIds = {
       rate_plan: new Set(raw.rate_plans.map((row) => normalizeUuid(row.id))),
       room_rate: new Set(raw.room_rates.map((row) => normalizeUuid(row.id))),
-      pricing_schedule: new Set(raw.pricing_schedules.map((row) => normalizeUuid(row.id))),
+      pricing_schedule: new Set(raw.pricing_schedules.map((row) => normalizePricingScheduleId(row.id))),
       occupancy_tier: new Set([
         ...raw.room_rates.map((row) => normalizeUuid(row.id)),
         ...raw.room_rates.flatMap((row) => row.independent_tiers).map((row) => normalizeUuid(row.id)),
@@ -8324,6 +8357,7 @@
     asInteger,
     asNumber,
     normalizeUuid,
+    normalizePricingScheduleId,
     newUuid,
     normalizeI18n,
     i18nText,

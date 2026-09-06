@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { enableSupabaseStub, waitForSupabaseStub } from './utils/supabase';
+import { independentPricingControl, independentActivationSnapshot } from '../fixtures/hotels-v2-114415-client';
 
 const HOTEL = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
 const PARTNER = '22222222-2222-4222-8222-222222222222';
@@ -405,9 +406,17 @@ function readyActivationSnapshot(snapshotToken: string) {
   };
 }
 
-async function installAdminHarness(page: Page) {
-  const pricingControl = adminPricingControl();
+async function installAdminHarness(page: Page, real114415 = false) {
+  const pricingControl = real114415 ? independentPricingControl(true) : adminPricingControl();
   const reviewedControl = reviewedAdminControl();
+  const activation = independentActivationSnapshot(readyActivationSnapshot(HASH));
+  activation.rate_plan.is_active = true;
+  activation.rate_plan.name_i18n = { pl: 'Standard', en: 'Standard', he: 'סטנדרטי' };
+  activation.rate_plan.description_i18n = { pl: 'Standard', en: 'Standard', he: 'Standard' };
+  activation.room_rates.forEach((rate: any) => { rate.is_active = true; rate.base_nightly_rate = 100; });
+  activation.shared_schedule.is_active = true;
+  activation.shared_schedule.name_i18n = { pl: 'Wspólny cennik apartamentu', en: 'Shared apartment pricing', he: 'תמחור דירה משותף' };
+  if (real114415) { reviewedControl.proposals = []; reviewedControl.current_state.receipt_count = 0; }
   const workspace = {
     property: {
       id: HOTEL, slug: 'seven-arches-hotel', architecture_version: 'legacy',
@@ -432,8 +441,10 @@ async function installAdminHarness(page: Page) {
     <div id="hotelPropertyList"></div>
   </body></html>`);
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-core.js') });
-  await page.evaluate(({ workspaceValue, pricingValue, reviewedValue, adminId, reviewId, hash }) => {
+  await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace-repository.js') });
+  await page.evaluate(({ workspaceValue, pricingValue, reviewedValue, adminId, reviewId, hash, useReal, activationValue }) => {
     const root = window as any;
+    const realRepository = root.HotelsV2WorkspaceRepository;
     const clone = (value: any) => JSON.parse(JSON.stringify(value));
     let uuidSequence = 1;
     Object.defineProperty(root.crypto, 'randomUUID', {
@@ -515,7 +526,25 @@ async function installAdminHarness(page: Page) {
       },
       applyPricingControlPlan: async () => { store.genericCalls += 1; throw new Error('generic pricing must remain locked'); },
     };
-  }, { workspaceValue: workspace, pricingValue: pricingControl, reviewedValue: reviewedControl, adminId: ADMIN, reviewId: REVIEW, hash: HASH });
+    if (useReal) {
+      store.rpcCalls = [];
+      root.getSupabase = () => ({ rpc: async (name: string, payload: any) => {
+        store.rpcCalls.push({ name, payload: clone(payload) });
+        const responses: any = {
+          hotel_v2_admin_get_pricing_control: store.pricing,
+          hotel_v2_admin_get_seven_arches_reviewed_pricing: store.reviewed,
+          hotel_v2_admin_get_seven_arches_pricing_activation: activationValue,
+        };
+        if (!Object.hasOwn(responses, name)) throw new Error(`Unexpected RPC: ${name}`);
+        // Transport stub only: the actual repository and Core parser run.
+        return { data: clone(responses[name]), error: null, status: 200 };
+      } });
+      for (const name of ['getPricingControl', 'getSevenArchesReviewedPricing', 'getSevenArchesPricingActivation',
+        'getLegacyPricingPromotionPreview', 'previewSevenArchesReviewedPricing', 'applySevenArchesReviewedPricing']) {
+        root.HotelsV2WorkspaceRepository[name] = realRepository[name];
+      }
+    }
+  }, { workspaceValue: workspace, pricingValue: pricingControl, reviewedValue: reviewedControl, adminId: ADMIN, reviewId: REVIEW, hash: HASH, useReal: real114415, activationValue: activation });
   await page.addScriptTag({ path: path.join(process.cwd(), 'admin/hotels-v2-workspace.js') });
   await page.evaluate(async (hotelId) => {
     await (window as any).HotelsV2Workspace.openWorkspace(hotelId, { tab: 'pricing' });
@@ -523,6 +552,31 @@ async function installAdminHarness(page: Page) {
 }
 
 test.describe('7 Arches reviewed pricing UI integration', () => {
+  test('114415 real repository/parser retains independent topology and immutable activation before any Preview', async ({ page }) => {
+    await installAdminHarness(page, true);
+    const activation = page.locator('[data-seven-arches-pricing-activation]');
+    await expect(activation).toContainText('ACTIVE');
+    await expect(activation).toContainText('Activation is immutable');
+    await expect(activation).toContainText('Independent Room schedules are active');
+    await expect(activation).not.toContainText('Customer-price authority remains the reviewed 27-tier shared');
+    await expect(page.locator('[data-open-seven-arches-pricing-activation]')).toHaveCount(0);
+    await expect(page.locator('[data-review-seven-kamares-pricing]')).toHaveCount(0);
+    await expect(page.locator('[data-seven-kamares-pricing-promotion-card]')).toContainText('ACTIVATED');
+    await expect(page.getByText('Pricing control unavailable', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Legacy pricing Review unavailable', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.hotel-pricing-safety-banner')).toContainText('PUBLIC FLAGS OFF · EXTERNAL SYNC ON');
+    await expect(page.locator('[data-add-pricing-plan]')).toHaveCount(0);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    await expect(page.locator('#sevenArchesReviewedPricingAdminForm')).toBeVisible();
+    await expect(page.locator('[data-reviewed-pricing-tier]')).toHaveCount(54);
+    await expect(page.locator('[data-reviewed-pricing-tier][data-room-key="upper"]')).toHaveCount(27);
+    await expect(page.locator('[data-reviewed-pricing-tier][data-room-key="ground"]')).toHaveCount(27);
+    const calls = await page.evaluate(() => (window as any).__reviewedAdmin.rpcCalls.map((c: any) => c.name));
+    expect(calls.filter((name: string) => name === 'hotel_v2_admin_get_pricing_control')).toHaveLength(1);
+    expect(calls.filter((name: string) => /preview|apply|submit|promotion/.test(name))).toHaveLength(0);
+    expect(await page.evaluate(() => (window as any).__reviewedAdmin.genericCalls)).toBe(0);
+  });
+
   test('keeps ready activation independent at the 114405 boundary and builds exactly one fresh Review', async ({ page }) => {
     await installAdminHarness(page);
     const initialSnapshot = readyActivationSnapshot('c'.repeat(64));

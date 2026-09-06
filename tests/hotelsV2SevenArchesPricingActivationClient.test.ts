@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { independentActivationSnapshot } from './fixtures/hotels-v2-114415-client';
 
 const HOTEL = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
 const PLAN = '22e47a63-a630-4fb6-8f43-816f2d3fdc17';
@@ -237,6 +238,39 @@ function preview(): any {
 }
 
 describe('7 Arches pricing activation Admin client', () => {
+  test('accepts only the exact immutable post-114410 envelope, retaining the historical contract', () => {
+    const Core = loadCore();
+    const valid = independentActivationSnapshot(snapshot('active'));
+    expect(Core.validateSevenArchesPricingActivationSnapshot(valid)).toEqual(valid);
+    expect(Core.validateSevenArchesPricingActivationSnapshot(snapshot()).status).toBe('ready');
+    const mutations = [
+      (x: any) => { x.status = 'ready'; },
+      (x: any) => { x.blocking_reasons = ['feature_flags_incompatible']; },
+      (x: any) => { x.legacy_authoritative = true; },
+      (x: any) => { x.public_change = true; },
+      (x: any) => { x.hotel_id = PROMOTION; },
+      (x: any) => { x.pricing_authority = 'shared_schedule'; },
+      (x: any) => { delete x.independent_topology; },
+      (x: any) => { delete x.pricing_authority; },
+      (x: any) => { x.unexpected = true; },
+      (x: any) => { x.independent_topology.extra = 1; },
+      (x: any) => { x.independent_topology.authority_row_count = '54'; },
+      (x: any) => { x.independent_topology.authority_row_count = 53; },
+      (x: any) => { x.independent_topology.contract_version = 'wrong'; },
+      (x: any) => { x.independent_topology.upper_schedule_id = x.independent_topology.ground_schedule_id; },
+      (x: any) => { x.independent_topology.upper_schedule_id = x.independent_topology.upper_schedule_id.toUpperCase(); },
+      ...['hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled']
+        .map((key) => (x: any) => { x.feature_flags[key] = true; }),
+      (x: any) => { x.feature_flags.hotel_external_sync_enabled = 'true'; },
+      (x: any) => { delete x.feature_flags.hotel_external_sync_enabled; },
+    ];
+    for (const mutate of mutations) {
+      const bad = JSON.parse(JSON.stringify(valid)); mutate(bad);
+      expect(() => Core.validateSevenArchesPricingActivationSnapshot(bad)).toThrow();
+    }
+    valid.feature_flags.hotel_external_sync_enabled = false;
+    expect(Core.validateSevenArchesPricingActivationSnapshot(valid).status).toBe('active');
+  });
   test('strictly binds the ready snapshot, complete PL/EN/HE draft, Review impact and receipt', () => {
     const Core = loadCore();
     expect(Core.validateSevenArchesPricingActivationSnapshot(snapshot()).status).toBe('ready');

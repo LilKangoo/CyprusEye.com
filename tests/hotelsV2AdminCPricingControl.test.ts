@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { independentPricingControl } from './fixtures/hotels-v2-114415-client';
 
 const HOTEL_ID = '11111111-1111-4111-8111-111111111111';
 const ROOM_ID = '22222222-2222-4222-8222-222222222222';
@@ -478,8 +479,42 @@ describe('Hotels V2 ADMIN-C pricing client contracts', () => {
     nonRfcParent.pricing_schedules[0].id = deterministicTierId;
     nonRfcParent.pricing_schedules[0].tiers[0].schedule_id = deterministicTierId;
     nonRfcParent.room_rates[0].pricing_schedule_id = deterministicTierId;
-    expect(() => Core.validatePricingControl(nonRfcParent, HOTEL_ID))
-      .toThrow(/row without an exact identifier|different property|missing product relationship/i);
+    expect(Core.validatePricingControl(nonRfcParent, HOTEL_ID).pricing_schedules[0].id)
+      .toBe(deterministicTierId);
+  });
+
+  test('retains exact post-114410 schedules and 54 tiers through the real parser', () => {
+    const raw = independentPricingControl();
+    const parsed = Core.validatePricingControl(raw, raw.hotel_id);
+    expect(parsed.pricing_schedules).toHaveLength(2);
+    expect(parsed.pricing_schedules.map((s: any) => s.tiers.length)).toEqual([27, 27]);
+    expect(parsed.pricing_schedules.flatMap((s: any) => s.tiers)).toHaveLength(54);
+    parsed.pricing_schedules.forEach((s: any, i: number) => {
+      expect(s.id).toBe(raw.pricing_schedules[i].id);
+      expect(parsed.room_rates[i].pricing_schedule_id).toBe(s.id);
+      expect(s.tiers.every((t: any) => t.schedule_id === s.id)).toBe(true);
+      expect(Core.normalizeUuid(s.id)).toBe('');
+      expect(Core.normalizePricingScheduleId(s.id)).toBe(s.id);
+    });
+    expect(Core.validatePricingControl(independentPricingControl(true), raw.hotel_id)
+      .pricing_schedules).toHaveLength(4);
+    for (const bad of ['not-uuid', raw.pricing_schedules[0].id.toUpperCase(), ` ${raw.pricing_schedules[0].id}`, null, 42]) {
+      for (const leaf of ['id', 'child', 'link']) {
+        const changed = independentPricingControl();
+        if (leaf === 'id') changed.pricing_schedules[0].id = bad;
+        if (leaf === 'child') changed.pricing_schedules[0].tiers[0].schedule_id = bad;
+        if (leaf === 'link') changed.room_rates[0].pricing_schedule_id = bad;
+        expect(() => Core.validatePricingControl(changed, changed.hotel_id)).toThrow();
+      }
+    }
+    const crossRoom = independentPricingControl();
+    crossRoom.pricing_schedules[0].tiers[0].schedule_id = crossRoom.pricing_schedules[1].id;
+    expect(() => Core.validatePricingControl(crossRoom, crossRoom.hotel_id)).toThrow();
+    for (const collection of ['room_types', 'room_rates', 'rate_plans']) {
+      const changed = independentPricingControl();
+      changed[collection][0].id = raw.pricing_schedules[0].id;
+      expect(() => Core.validatePricingControl(changed, changed.hotel_id)).toThrow();
+    }
   });
 
   test('keeps public pricing flags inert while accepting an authoritative External Calendar boolean', () => {
