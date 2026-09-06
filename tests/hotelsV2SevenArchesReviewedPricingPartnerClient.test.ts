@@ -82,6 +82,47 @@ function reviewedWorkspace(): any {
 describe('7 Arches reviewed Partner pricing client', () => {
   const Core = loadCore();
 
+  test.each([[0, 1], [0, 5], [0, 27], [27, 1], [27, 5], [27, 27], [0, 54]])(
+    'functional completion changed-only tier matrix offset %i count %i', (offset, count) => {
+      const workspace = reviewedWorkspace();
+      const before = JSON.stringify(workspace);
+      const tiers = Core.sevenArchesReviewedPricingTargets(workspace).flatMap((target: any) => target.tiers);
+      const changes = tiers.slice(offset, offset + count).map((tier: any, index: number) => ({
+        schedule_tier_id: tier.id, requested_price: tier.nightly_rate + index + 1,
+      }));
+      const draft = Core.buildSevenArchesReviewedPricingDraft(workspace, changes, 'Independent changes only');
+      expect(Core.validateSevenArchesReviewedPricingDraft(draft, workspace).items).toHaveLength(count);
+      expect(draft.items.map((item: any) => item.schedule_tier_id)).toEqual(changes.map((item: any) => item.schedule_tier_id));
+      expect(JSON.stringify(workspace)).toBe(before);
+    },
+  );
+
+  test('functional completion unauthorized, foreign and malformed drafts fail closed', () => {
+    const workspace = reviewedWorkspace();
+    const tier = Core.sevenArchesReviewedPricingTargets(workspace)[0].tiers[0];
+    const change = { schedule_tier_id: tier.id, requested_price: tier.nightly_rate + 5 };
+    const build = (items: any[]) => Core.buildSevenArchesReviewedPricingDraft(workspace, items, 'Reviewed change');
+    for (const value of [9.99, -1, NaN, Infinity, '110', 10.001, 10000000000]) {
+      expect(() => build([{ ...change, requested_price: value }])).toThrow();
+    }
+    expect(() => build([])).toThrow();
+    expect(() => build([change, change])).toThrow();
+    expect(() => build([{ ...change, schedule_tier_id: PARTNER }])).toThrow();
+    for (const mutate of [
+      (draft: any) => { draft.partner_id = ASSIGNMENT; },
+      (draft: any) => { draft.hotel_id = PARTNER; },
+      (draft: any) => { draft.items[0].currency = 'USD'; },
+      (draft: any) => { draft.items[0].room_type_id = PARTNER; },
+      (draft: any) => { draft.items[0].before_price += 1; },
+      (draft: any) => { draft.items[0].guest_count = 1; },
+    ]) {
+      const draft = build([change]); mutate(draft);
+      expect(() => Core.validateSevenArchesReviewedPricingDraft(draft, workspace)).toThrow();
+    }
+    workspace.assignment.capabilities.manage_prices = false;
+    expect(() => build([change])).toThrow();
+  });
+
   test('recognizes the exact two independent Room matrices and builds only changed typed items', () => {
     const workspace = reviewedWorkspace();
     const targets = Core.sevenArchesReviewedPricingTargets(workspace);

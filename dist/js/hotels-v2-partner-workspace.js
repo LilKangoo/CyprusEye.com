@@ -299,6 +299,7 @@
       pricingHint: 'View live prices and prepare changes for Admin approval.',
       availabilityHint: 'View availability and manage supported calendar sources.',
       bookingsHint: 'See authorized stays and open existing booking management.',
+      bookingsLimitedScope: 'This availability projection is not the complete booking history. Stays outside the loaded range or without an exact Room allocation may be missing.',
       paymentsHint: 'Check available payment information and your commission policy.',
       draftTimeline: 'Active data → Draft → Review → Admin decision → Active',
       availabilitySnapshot: 'Availability snapshot', availableUnits: 'Available units',
@@ -330,6 +331,7 @@
       pricingHint: 'Sprawdź aktywne ceny i przygotuj propozycję dla Admina.',
       availabilityHint: 'Sprawdź dostępność i obsługiwane źródła kalendarza.',
       bookingsHint: 'Zobacz dostępne pobyty i otwórz zarządzanie rezerwacjami.',
+      bookingsLimitedScope: 'Ten widok dostępności nie jest pełną historią rezerwacji. Może pomijać pobyty poza wczytanym zakresem lub bez dokładnego przypisania pokoju.',
       paymentsHint: 'Sprawdź dostępne płatności i zasady prowizji.',
       draftTimeline: 'Aktywne dane → Projekt → Weryfikacja → Decyzja Admina → Aktywne',
       availabilitySnapshot: 'Bieżąca dostępność', availableUnits: 'Dostępne jednostki',
@@ -361,6 +363,7 @@
       pricingHint: 'הצגת מחירים פעילים והכנת שינויים לאישור מנהל.',
       availabilityHint: 'הצגת זמינות וניהול מקורות יומן נתמכים.',
       bookingsHint: 'הצגת שהיות מורשות ופתיחת ניהול ההזמנות הקיים.',
+      bookingsLimitedScope: 'תצוגת הזמינות אינה היסטוריית ההזמנות המלאה. ייתכן ששהיות מחוץ לטווח שנטען או ללא שיוך מדויק לחדר אינן מוצגות.',
       paymentsHint: 'הצגת מידע זמין על תשלומים ומדיניות העמלה.',
       draftTimeline: 'נתונים פעילים ← טיוטה ← בדיקה ← החלטת מנהל ← פעיל',
       availabilitySnapshot: 'תמונת זמינות', availableUnits: 'יחידות זמינות',
@@ -875,6 +878,7 @@
       return `<section class="partner-hotel-workspace__panel" data-phw-panel="bookings"><h2>${html(text('bookings'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(state.presentationError || text('bookingPresentationUnavailable'))}</p>${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="bookings">${html(text('openBookingManagement'))}</button>` : ''}</section>`;
     }
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="bookings"><h2>${html(text('bookings'))}</h2>
+      <p class="partner-hotel-workspace__panel-copy" data-phw-bookings-scope>${html(text('bookingsLimitedScope'))} ${html(state.workspace.availability?.from || '')} – ${html(state.workspace.availability?.to || '')}</p>
       <p class="partner-hotel-workspace__panel-copy">${html(text('bookingsHint'))}</p>${counts.length ? `<div class="partner-hotel-workspace__summary">${counts.map(([key, label]) => `<span><strong>${presentationCount(presentation.summary[key])}</strong>${html(text(label))}</span>`).join('')}</div>` : ''}
       ${presentation.bookings.length ? `<label class="partner-hotel-workspace__field">${html(text('searchBookings'))}<input type="search" data-phw-booking-search autocomplete="off"></label><div class="partner-hotel-workspace__table-wrap phw-booking-table"><table class="partner-hotel-workspace__table"><thead><tr>${['bookings', 'bookingDates', 'roomAllocation', 'guestCount', 'bookingStatus', ...(hasTotals ? ['customerPays'] : [])].map((key) => `<th scope="col">${html(text(key))}</th>`).join('')}</tr></thead><tbody>${presentation.bookings.map((booking) => `<tr data-phw-booking-search-row="${html([booking.reference, booking.booking_id, booking.status, ...(booking.allocation || []).map((row) => localized(row.room_name_i18n))].filter(Boolean).join(' '))}"><th scope="row">${html(booking.reference || `#${booking.booking_id.slice(0, 8)}`)}</th><td>${html(booking.arrival_date)}<br>${html(booking.departure_date)}</td><td>${bookingAllocationMarkup(booking)}</td><td>${html(booking.guest_count ?? text('notProvided'))}</td><td>${statusBadge(presentationStatus(booking.status), booking.status === 'confirmed' ? 'success' : 'muted')}</td>${hasTotals ? `<td>${presentationMoney(booking.customer_total, booking.currency)}</td>` : ''}</tr>`).join('')}</tbody></table></div><div class="partner-hotel-workspace__grid phw-booking-mobile">${presentation.bookings.map((booking) => `<div data-phw-booking-search-row="${html([booking.reference, booking.booking_id, booking.status, ...(booking.allocation || []).map((row) => localized(row.room_name_i18n))].filter(Boolean).join(' '))}">${bookingCardMarkup(booking)}</div>`).join('')}</div><p data-phw-no-booking-results hidden>${html(text('noResults'))}</p>` : `<div class="phw-module-empty"><span class="phw-empty-icon">${icon('bookings')}</span><h3>${html(text('noBookings'))}</h3><p>${html(text('bookingsHint'))}</p></div>`}
       ${presentation.capabilities.full_booking_management ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="bookings">${html(text('openBookingManagement'))}</button>` : ''}

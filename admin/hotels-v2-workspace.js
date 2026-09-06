@@ -4189,8 +4189,11 @@
           });
         });
         const form = overlay.querySelector('#sevenArchesReviewedPricingAdminForm');
+        let buildInFlight = false;
         form?.addEventListener('submit', async (event) => {
           event.preventDefault();
+          if (buildInFlight) return;
+          buildInFlight = true;
           const selected = Array.from(overlay.querySelectorAll('[data-reviewed-pricing-tier]'))
             .filter((row) => row.querySelector('[data-reviewed-pricing-select]')?.checked);
           const submit = overlay.querySelector('button[form="sevenArchesReviewedPricingAdminForm"]');
@@ -4218,6 +4221,7 @@
             closeModal({ restoreFocus: false, skipCleanup: true, force: true });
             openSevenArchesReviewedPricingFinalReview(preview, opener);
           } catch (error) {
+            buildInFlight = false;
             submit.disabled = false;
             toast(error.userMessage || error.message, error?.isStale ? 'warning' : 'error');
           }

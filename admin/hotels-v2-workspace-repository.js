@@ -274,6 +274,10 @@
       || /^[0-9A-Z]{5}$/.test(code)
       || /^PGRST[0-9A-Z]+$/i.test(code);
     normalized.isAmbiguousOutcome = !normalized.isDefinitiveFailure;
+    if (normalized.rpcName === RPC.previewSevenArchesReviewedPricing
+        && normalized.isAmbiguousOutcome) {
+      normalized.userMessage = 'The server Review response could not be confirmed. No Apply was called and nothing was retried. Check the request status and connection before preparing another Review; the server may have stored the Review.';
+    }
     return normalized;
   }
 

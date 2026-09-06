@@ -460,6 +460,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
           if (section === 'payments') {
             await expect(panel).toContainText('10');
             await expect(panel).not.toContainText('10%');
+            await expect(panel.locator('[data-stripe-connect], [data-connect-stripe], a[href*="connect.stripe.com"]')).toHaveCount(0);
           }
           await page.screenshot({ path: testInfo.outputPath(`${section}-${language}-${width}.png`), fullPage: true });
         }
@@ -523,6 +524,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await page.locator('[data-phw-refresh]').click();
     await navigatePartner(page, 'bookings');
     await expect(page.locator('.phw-booking-table')).toBeVisible();
+    await expect(page.locator('[data-phw-bookings-scope]')).toContainText('not the complete booking history');
     await expect(page.locator('.phw-booking-table')).toContainText('#eeeeeeee');
     await expect(page.locator('.phw-booking-table')).not.toContainText('Customer pays');
     await expect(page.locator('.phw-booking-table')).not.toContainText('Unavailable');

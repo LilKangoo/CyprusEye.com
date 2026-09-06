@@ -532,6 +532,21 @@ async function installAdminHarness(page: Page, real114415 = false) {
       store.rpcCalls = [];
       root.getSupabase = () => ({ rpc: async (name: string, payload: any) => {
         store.rpcCalls.push({ name, payload: clone(payload) });
+        if (name === 'hotel_v2_admin_preview_seven_arches_reviewed_pricing') {
+          if (store.deferBuild) await new Promise<void>((resolve) => { store.releaseBuild = resolve; });
+          if (store.buildFailure === 'transport') throw new TypeError('Failed to fetch private-response-marker');
+          if (store.buildFailure) return { data: null, status: store.buildFailure, error: {
+            code: store.buildFailure === 403 ? '42501' : 'PGRST000', message: 'Request rejected',
+          } };
+          const response = previewFor(payload.p_request);
+          // 114415 creates an Admin proposal during Preview, even when the
+          // request has no proposal_id; its Review lasts exactly 30 minutes.
+          response.proposal_id = '99999999-9999-4999-8999-999999999999';
+          response.reviewed_plan.proposal_id = response.proposal_id;
+          response.reviewed_plan.proposal_version = 1;
+          response.reviewed_plan.expires_at = '2026-08-30T10:31:00.000000Z';
+          return { data: response, error: null, status: 200 };
+        }
         const responses: any = {
           hotel_v2_admin_get_pricing_control: store.pricing,
           hotel_v2_admin_get_seven_arches_reviewed_pricing: store.reviewed,
@@ -554,6 +569,56 @@ async function installAdminHarness(page: Page, real114415 = false) {
 }
 
 test.describe('7 Arches reviewed pricing UI integration', () => {
+  test('functional completion Admin Build uses real parser/repository once despite repeated submit, without Apply', async ({ page }) => {
+    await installAdminHarness(page, true);
+    await page.locator('[data-start-reviewed-pricing]').click();
+    const row = page.locator('[data-reviewed-pricing-tier][data-room-key="upper"]').first();
+    await row.locator('[data-reviewed-pricing-select]').check();
+    const before = Number(await row.getAttribute('data-before-price'));
+    await row.locator('[data-reviewed-pricing-price]').fill(String(before + 5));
+    await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Reviewed independent Upper change');
+    await page.evaluate(() => { (window as any).__reviewedAdmin.deferBuild = true; });
+    await page.locator('#sevenArchesReviewedPricingAdminForm').evaluate((form: HTMLFormElement) => {
+      form.requestSubmit(); form.requestSubmit();
+    });
+    const calls = await page.evaluate(() => (window as any).__reviewedAdmin.rpcCalls.filter((c: any) => c.name.includes('preview')));
+    expect(calls).toHaveLength(1);
+    expect(calls[0].name).toBe('hotel_v2_admin_preview_seven_arches_reviewed_pricing');
+    expect(calls[0].payload).toEqual({ p_request: {
+      contract_version: 'hotels_v2_seven_arches_reviewed_pricing_admin_request_v1',
+      hotel_id: HOTEL, action: 'accept', reason: 'Reviewed independent Upper change',
+      items: [expect.objectContaining({ hotel_id: HOTEL, room_type_id: UPPER_ROOM,
+        room_rate_id: UPPER_RATE, pricing_schedule_id: UPPER_SCHEDULE,
+        before_price: before, requested_price: before + 5, currency: 'EUR' })],
+    } });
+    await page.evaluate(() => (window as any).__reviewedAdmin.releaseBuild());
+    expect(await page.evaluate(() => (window as any).__reviewedAdmin.toasts)).toEqual([]);
+    await expect(page.locator('.hotel-reviewed-pricing-impact')).toBeVisible();
+    const state = await page.evaluate(() => (window as any).__reviewedAdmin);
+    expect(state.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+    expect(state.genericCalls).toBe(0);
+  });
+
+  for (const failure of ['transport', 401, 403, 500]) {
+    test(`functional completion Admin Build ${failure} fails closed without retries`, async ({ page }) => {
+      await installAdminHarness(page, true);
+      await page.locator('[data-start-reviewed-pricing]').click();
+      const row = page.locator('[data-reviewed-pricing-tier]').first();
+      await row.locator('[data-reviewed-pricing-select]').check();
+      await row.locator('[data-reviewed-pricing-price]').fill(String(Number(await row.getAttribute('data-before-price')) + 5));
+      await page.locator('#sevenArchesReviewedPricingAdminForm [name="reason"]').fill('Reviewed local failure path');
+      await page.evaluate((value) => { (window as any).__reviewedAdmin.buildFailure = value; }, failure);
+      await page.getByRole('button', { name: 'Build server Review', exact: true }).click();
+      await expect.poll(() => page.evaluate(() => (window as any).__reviewedAdmin.toasts.length)).toBeGreaterThan(0);
+      const store = await page.evaluate(() => (window as any).__reviewedAdmin);
+      expect(store.rpcCalls.filter((c: any) => c.name.includes('preview'))).toHaveLength(1);
+      expect(store.rpcCalls.filter((c: any) => /apply|submit/.test(c.name))).toHaveLength(0);
+      expect(store.genericCalls).toBe(0);
+      expect(store.toasts.map((t: any) => t.message).join(' ')).not.toContain('private-response-marker');
+      await expect(page.locator('[data-apply-reviewed-pricing]')).toHaveCount(0);
+    });
+  }
+
   test('114415 real repository/parser retains independent topology and immutable activation before any Preview', async ({ page }) => {
     await installAdminHarness(page, true);
     const activation = page.locator('[data-seven-arches-pricing-activation]');
@@ -732,6 +797,40 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(calls.calls.filter((entry: any) => entry.name === 'submit')).toHaveLength(1);
     expect(calls.genericCalls).toBe(0);
   });
+
+  for (const [upperCount, groundCount] of [[1, 0], [5, 0], [27, 0], [0, 1], [0, 5], [0, 27], [27, 27]]) {
+    test(`functional completion Partner changed-only ${upperCount}/${groundCount} tiers remain proposal-only`, async ({ page }) => {
+      await installPartnerHarness(page);
+      await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+      const expected: any[] = [];
+      for (const [room, count] of [['upper', upperCount], ['ground', groundCount]] as const) {
+        await page.locator(`[data-phw-pricing-room="${room}"]`).click();
+        const inputs = page.locator(`[data-phw-reviewed-room="${room}"] [data-phw-reviewed-tier]`);
+        await expect(inputs).toHaveCount(27);
+        for (let i = 0; i < count; i += 1) {
+          const input = inputs.nth(i);
+          const before = Number(await input.getAttribute('data-before-price'));
+          const after = before + (room === 'upper' ? 5 : 7);
+          expected.push({ schedule_tier_id: await input.getAttribute('data-tier-id'), requested_price: after });
+          await input.fill(String(after));
+        }
+      }
+      await page.locator('[data-phw-seven-arches-pricing] [name="reason"]').fill('Independent selected tier changes');
+      await page.locator('[data-phw-seven-arches-pricing]').evaluate((form: HTMLFormElement) => form.requestSubmit());
+      await expect(page.locator('#partnerHotelWorkspaceReview')).toBeVisible();
+      let store = await page.evaluate(() => (window as any).__reviewedPartner);
+      expect(store.calls.filter((c: any) => c.name === 'submit')).toHaveLength(0);
+      const previews = store.calls.filter((c: any) => c.name === 'preview');
+      expect(previews).toHaveLength(1);
+      expect(previews[0].draft.items.map(({ schedule_tier_id, requested_price }: any) => ({ schedule_tier_id, requested_price }))).toEqual(expected);
+      await page.locator('[data-phw-review-save]').click();
+      await expect(page.locator('[data-phw-reviewed-pricing-status]')).toContainText('pending admin review', { ignoreCase: true });
+      store = await page.evaluate(() => (window as any).__reviewedPartner);
+      expect(store.calls.filter((c: any) => c.name === 'submit')).toHaveLength(1);
+      expect(store.genericCalls).toBe(0);
+      expect(store.calls.some((c: any) => /apply/i.test(c.name))).toBe(false);
+    });
+  }
 
   for (const width of [1440, 1024, 768, 390]) {
     for (const language of ['en', 'pl', 'he']) {
