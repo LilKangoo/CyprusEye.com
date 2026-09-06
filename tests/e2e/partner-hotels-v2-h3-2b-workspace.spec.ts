@@ -518,7 +518,8 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await navigatePartner(page, 'bookings');
     await expect(page.locator('.phw-booking-table')).toBeVisible();
     await expect(page.locator('.phw-booking-table')).toContainText('#eeeeeeee');
-    await expect(page.locator('.phw-booking-table')).toContainText('Unavailable');
+    await expect(page.locator('.phw-booking-table')).not.toContainText('Customer pays');
+    await expect(page.locator('.phw-booking-table')).not.toContainText('Unavailable');
     await page.locator('[data-phw-booking-search]').fill('not-a-real-reference');
     await expect(page.locator('[data-phw-no-booking-results]')).toBeVisible();
     await page.locator('[data-phw-booking-search]').fill('upper');
@@ -711,6 +712,7 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     expect(await page.locator('html').evaluate((node) => node.outerHTML)).not.toContain(privateUrl);
 
     const form = source.locator('[data-phw-external-source-form]');
+    await source.locator('.phw-source-settings > summary').click();
     await form.locator('input[name="priority"]').fill('101');
     await form.locator('input[name="reason"]').fill('Sprawdzona zmiana priorytetu');
     await form.getByRole('button', { name: 'Sprawdź' }).click();
