@@ -6,6 +6,18 @@ const ui = read('js/hotels-v2-partner-workspace.js');
 const css = read('partners/hotels-v2-workspace.css');
 
 describe('Partner hotel redesign presentation boundaries', () => {
+  test('V2 composes Overview status, permissions and navigation without changing business authority', () => {
+    const overview = ui.slice(ui.indexOf('  function renderOverview()'), ui.indexOf('  function i18nFields('));
+    expect(overview).toContain('Core.CAPABILITIES.filter((key) => capability(key))');
+    expect(overview).toContain('phw-permission-list');
+    expect(overview).toContain('phw-status-summary');
+    expect(overview).not.toContain('<form');
+    expect(ui).toContain('phw-mobile-header');
+    expect(ui).toContain('phw-status-cell');
+    expect(ui).toContain("state.lastRefresh ? `<div class=\"phw-refresh-banner\"");
+    expect(css).toContain('.phw-status-summary, .phw-overview-quick { display: none; }');
+    expect(css).toContain('grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr)');
+  });
   test('new presentation copy covers the same keys in EN, PL and HE', () => {
     const literal = ui.match(/const PORTAL_COPY = (\{[\s\S]*?\n  \});/)?.[1];
     expect(literal).toBeTruthy();

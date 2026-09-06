@@ -374,6 +374,63 @@ async function expectNoBrowserErrors(page: Page): Promise<void> {
 }
 
 test.describe('Hotels V2 H3.2B Partner workspace', () => {
+  for (const width of [1024, 768]) {
+    test(`visual fidelity V2 responsive Overview ${width}`, async ({ page }) => {
+      await installHarness(page, { width, height: 900 }, 'en', { commercialOwnerPreset: true });
+      await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+      await expect(page.locator('.phw-status-cell')).toHaveCount(5);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      if (width === 768) await expect(page.locator('.phw-mobile-nav')).toBeVisible();
+      else await expect(page.locator('.phw-sidebar')).toBeVisible();
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      expect(await page.locator('.phw-metric').first().evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+      await expectNoBrowserErrors(page);
+    });
+  }
+  for (const [language, width] of [['en', 1440], ['en', 1536], ['en', 390], ['he', 390], ['pl', 1440]] as const) {
+    test(`visual fidelity V2 Overview ${language} ${width}`, async ({ page }, testInfo) => {
+      await installHarness(page, { width, height: 1000 }, language, { commercialOwnerPreset: true });
+      await page.evaluate(() => {
+        // Synthetic presentation fixture only; no production snapshot or runtime defaults.
+        const workspace = (window as any).__h32b.workspace;
+        workspace.property.title_i18n = { en: '7 Arches', pl: '7 Arches', he: '7 Arches' };
+        workspace.property.city = 'Lefkara';
+        workspace.feature_flags.hotel_external_sync_enabled = true;
+        workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
+      });
+      await page.locator('[data-phw-refresh]').click();
+      const overview = page.locator('[data-phw-panel="overview"]');
+      await expect(overview).toBeVisible();
+      await expect(page.locator('.phw-status-cell')).toHaveCount(5);
+      await expect(overview.locator('.phw-metric')).toHaveCount(4);
+      await expect(overview.locator('.phw-permission-list li')).toHaveCount(10);
+      await expect(overview.locator('form')).toHaveCount(0);
+      await expect(page.locator('.phw-refresh-banner')).toBeVisible();
+      await expect(page.locator('#partnerHotelWorkspaceView')).toHaveAttribute('dir', language === 'he' ? 'rtl' : 'ltr');
+      if (width === 390) {
+        await expect(page.locator('.phw-sidebar')).not.toBeVisible();
+        await expect(page.locator('.phw-mobile-header')).toBeVisible();
+        await expect(page.locator('.phw-mobile-nav')).toBeVisible();
+        await expect(overview.locator('.phw-overview-quick')).not.toBeVisible();
+        await page.locator('[data-phw-menu]').click();
+        await expect(page.locator('[data-phw-drawer] [data-phw-section]')).toHaveCount(7);
+        await page.keyboard.press('Escape');
+        await expect(page.locator('[data-phw-menu]')).toBeFocused();
+      } else {
+        await expect(page.locator('.phw-sidebar')).toBeVisible();
+        await expect(overview.locator('.phw-status-summary')).toBeVisible();
+        const columns = await overview.locator('.phw-metrics').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        expect(columns).toBe(4);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await page.locator('#partnerHotelWorkspaceTitle').click();
+      await page.screenshot({ path: testInfo.outputPath(`overview-${language}-${width}.png`), fullPage: true });
+      const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
+      expect(calls.filter((call: any) => /preview|apply|submit|create_booking/.test(call.name))).toHaveLength(0);
+      expect(calls.filter((call: any) => call.name === 'hotel_v2_partner_get_workspace')).toHaveLength(2);
+      await expectNoBrowserErrors(page);
+    });
+  }
   for (const language of ['en', 'pl', 'he']) {
     for (const width of [1440, 1024, 768, 390]) {
       test(`redesign all seven pages ${language} ${width}`, async ({ page }, testInfo) => {

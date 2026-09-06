@@ -274,6 +274,13 @@
   // Presentation-only copy. Backend permission and review contracts remain in Core/Repository.
   const PORTAL_COPY = {
     en: {
+      portalLabel: 'PARTNER PORTAL', permissionsHint: 'The actions available to your assignment',
+      approvalNote: 'Some changes need Admin approval before they become active.',
+      statusSummary: 'Hotel status summary', overviewSummary: 'Summary of your hotel status and permissions',
+      refreshed: 'Workspace refreshed successfully', needHelp: 'Need a hand?', contactSupport: 'Contact support',
+      workspaceCard: 'Your hotel management tools.', pricingCard: 'Your current Room pricing.',
+      approvalCard: 'Reviewed changes, kept in control.', calendarsCard: 'Your external calendar sources.',
+      quickTitle: 'Quick access', menu: 'Open hotel navigation', statusUnavailable: 'Unavailable',
       refresh: 'Refresh workspace', loading: 'Loading your hotel…', access: 'Your permissions',
       workspace: 'Partner workspace', publicOff: 'Partner tools do not publish public booking. Changes follow the available review process.',
       management: 'Hotel management', more: 'More', support: 'Support', close: 'Close',
@@ -297,6 +304,13 @@
       noResults: 'No matching results', retry: 'Try refresh again', ratesShort: 'Rates', roomList: 'Room list',
     },
     pl: {
+      portalLabel: 'PORTAL PARTNERA', permissionsHint: 'Działania dostępne dla Twojego przypisania',
+      approvalNote: 'Niektóre zmiany wymagają zgody Admina przed aktywacją.',
+      statusSummary: 'Stan hotelu', overviewSummary: 'Podsumowanie stanu hotelu i Twoich uprawnień',
+      refreshed: 'Panel został odświeżony', needHelp: 'Potrzebujesz pomocy?', contactSupport: 'Skontaktuj się z pomocą',
+      workspaceCard: 'Narzędzia do zarządzania hotelem.', pricingCard: 'Bieżące ceny Twoich pokoi.',
+      approvalCard: 'Zmiany pod kontrolą i po weryfikacji.', calendarsCard: 'Twoje zewnętrzne kalendarze.',
+      quickTitle: 'Szybki dostęp', menu: 'Otwórz nawigację hotelu', statusUnavailable: 'Niedostępne',
       refresh: 'Odśwież panel', loading: 'Ładowanie hotelu…', access: 'Twoje uprawnienia',
       workspace: 'Panel Partnera', publicOff: 'Panel Partnera nie publikuje rezerwacji publicznych. Zmiany przechodzą dostępny proces weryfikacji.',
       management: 'Zarządzanie hotelem', more: 'Więcej', support: 'Pomoc', close: 'Zamknij',
@@ -320,6 +334,13 @@
       noResults: 'Brak pasujących wyników', retry: 'Spróbuj odświeżyć ponownie', ratesShort: 'Ceny', roomList: 'Lista pokoi',
     },
     he: {
+      portalLabel: 'פורטל שותפים', permissionsHint: 'הפעולות הזמינות בהתאם להרשאות שלך',
+      approvalNote: 'חלק מהשינויים דורשים אישור מנהל לפני הפעלתם.',
+      statusSummary: 'סיכום מצב המלון', overviewSummary: 'סיכום מצב המלון וההרשאות שלך',
+      refreshed: 'סביבת העבודה רועננה בהצלחה', needHelp: 'צריכים עזרה?', contactSupport: 'יצירת קשר עם התמיכה',
+      workspaceCard: 'כלים לניהול המלון שלך.', pricingCard: 'התמחור הנוכחי של החדרים.',
+      approvalCard: 'שינויים מבוקרים לאחר בדיקה.', calendarsCard: 'מקורות היומן החיצוניים שלך.',
+      quickTitle: 'גישה מהירה', menu: 'פתיחת ניווט המלון', statusUnavailable: 'לא זמין',
       refresh: 'רענון סביבת העבודה', loading: 'טוען את המלון…', access: 'ההרשאות שלך',
       workspace: 'סביבת השותף', publicOff: 'כלי השותף אינם מפעילים הזמנות לציבור. שינויים עוברים את תהליך הבדיקה הזמין.',
       management: 'ניהול המלון', more: 'עוד', support: 'תמיכה', close: 'סגירה',
@@ -387,12 +408,23 @@
       bookings: 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6m-6 4h6',
       payments: 'M3 6h18v13H3zM3 10h18m-5 5h2', more: 'M5 12h1m5 0h1m5 0h1',
       support: 'M9 8a3 3 0 116 0c0 2-3 2-3 4m0 4h.01M22 12a10 10 0 11-20 0 10 10 0 0120 0',
+      check: 'M5 12l4 4L19 6', menu: 'M4 6h16M4 12h16M4 18h16',
+      location: 'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1116 0zM15 10a3 3 0 11-6 0 3 3 0 016 0',
+      shield: 'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6',
+      public: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18',
     };
     return `<svg class="phw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[key] || paths.overview}"/></svg>`;
   }
   function statusBadge(label, tone = 'info') { return `<span class="phw-badge" data-state="${tone}">${html(label)}</span>`; }
-  function metricCard(label, value, tone, detail = '') {
-    return `<article class="phw-metric"><span>${html(label)}</span>${statusBadge(value, tone)}${detail ? `<small>${html(detail)}</small>` : ''}</article>`;
+  function metricCard(label, value, tone, detail, symbol) {
+    return `<article class="phw-metric" data-tone="${tone}"><div class="phw-metric-top"><span class="phw-icon-tile">${icon(symbol)}</span>${statusBadge(value, tone)}</div><h3>${html(label)}</h3><p>${html(detail)}</p></article>`;
+  }
+  function refreshTime() {
+    return state.lastRefresh ? new Intl.DateTimeFormat(state.language, { hour: '2-digit', minute: '2-digit' }).format(state.lastRefresh) : text('notProvided');
+  }
+  function statusGroups() {
+    const flag = state.workspace.feature_flags.hotel_rooms_v2_enabled;
+    return [...workspaceStatuses(), [text('publicBooking'), text(flag === true ? 'active' : flag === false ? 'disabled' : 'unavailable'), flag === true ? 'success' : 'muted']];
   }
   function workspaceStatuses() {
     const pricing = state.workspace.pricing;
@@ -404,10 +436,10 @@
     const externalReady = state.externalCalendar?.provider_capability?.stage === 'provider_types_active'
       && sources?.some((row) => row.review_status === 'reviewed' && row.secret_configured === true);
     return [
-      [text('workspace'), text(state.workspace.sections.overview.available ? 'active' : 'unavailable'), state.workspace.sections.overview.available ? 'success' : 'muted'],
-      [text('pricing'), text(!pricing ? 'unavailable' : pricesActive ? 'active' : 'inactive'), pricesActive ? 'success' : 'muted'],
+      [text('workspace'), text(state.workspace.sections.overview.available ? 'active' : 'statusUnavailable'), state.workspace.sections.overview.available ? 'success' : 'muted'],
+      [text('pricing'), text(!pricing ? 'statusUnavailable' : pricesActive ? 'active' : 'inactive'), pricesActive ? 'success' : 'muted'],
       [text('approval'), text(capability('edit_property_content') || capability('edit_property_photos') || state.pricingControl ? 'required' : 'readOnly'), 'warning'],
-      [text('externalCalendars'), text(!state.externalCalendar ? 'unavailable' : externalActive ? 'active' : externalReady ? 'ready' : 'notConfigured'), externalActive || externalReady ? 'success' : 'muted'],
+      [text('externalCalendars'), text(!state.externalCalendar ? 'statusUnavailable' : externalActive ? 'active' : externalReady ? 'ready' : 'notConfigured'), externalActive || externalReady ? 'success' : 'muted'],
     ];
   }
   function publicStatus() {
@@ -549,19 +581,26 @@
 
   function renderOverview() {
     const enabled = Core.CAPABILITIES.filter((key) => capability(key));
+    const symbols = ['overview', 'pricing', 'shield', 'availability'];
+    const details = ['workspaceCard', 'pricingCard', 'approvalCard', 'calendarsCard'];
     const deferred = [
-      capability('request_booking_changes') ? `<div class="partner-hotel-workspace__card"><h3>${html(text('bookingChanges'))}</h3><p>${html(text('future'))}</p></div>` : '',
-      capability('initiate_stripe_onboarding') ? `<div class="partner-hotel-workspace__card"><h3>${html(text('stripeOnboarding'))}</h3><p>${html(text('future'))}</p></div>` : '',
+      capability('request_booking_changes') ? `<p>${html(text('bookingChanges'))} · ${html(text('future'))}</p>` : '',
+      capability('initiate_stripe_onboarding') ? `<p>${html(text('stripeOnboarding'))} · ${html(text('future'))}</p>` : '',
     ].join('');
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="overview">
-      <h2>${html(text('overview'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('welcome'))}</p>
-      <div class="phw-metrics">${workspaceStatuses().map(([label, value, tone]) => metricCard(label, value, tone)).join('')}</div>
-      <h3>${html(text('quickAccess'))}</h3><div class="phw-quick-links">${sectionDefinitions().filter(([key]) => key !== 'overview').map(([key, label]) => `<button type="button" data-phw-section="${key}" class="phw-quick-link">${icon(label)}<strong>${html(text(label))}</strong><span>${html(text(`${label}Hint`))}</span><b aria-hidden="true">↗</b></button>`).join('')}</div>
-      <div class="partner-hotel-workspace__grid phw-overview-details">
-        <div class="partner-hotel-workspace__card"><h3>${html(text('access'))}</h3><div class="partner-hotel-workspace__chips">${enabled.map((key) => `<span class="partner-hotel-workspace__chip">${html(capabilityLabel(key))}</span>`).join('') || `<span>${html(text('unavailable'))}</span>`}</div></div>
-        <div class="partner-hotel-workspace__card"><h3>${html(text('publicBooking'))}</h3><p>${publicStatus()}</p><p>${html(text('publicOff'))}</p></div>
-        ${deferred}
+      <h2>${html(text('overview'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('overviewSummary'))}</p>
+      <div class="phw-metrics">${workspaceStatuses().map(([label, value, tone], i) => metricCard(label, value, tone, text(details[i]), symbols[i])).join('')}</div>
+      <div class="phw-overview-details">
+        <article class="phw-section-card phw-permissions"><header><span class="phw-section-icon">${icon('shield')}</span><div><h3>${html(text('access'))}</h3><p>${html(text('permissionsHint'))}</p></div></header>
+          <ul class="phw-permission-list">${enabled.map((key) => `<li>${icon('check')}<span>${html(capabilityLabel(key))}</span></li>`).join('') || `<li>${html(text('unavailable'))}</li>`}</ul>
+          <div class="phw-approval-note">${icon('support')}<span>${html(text('approvalNote'))}</span></div>${deferred ? `<div class="phw-deferred">${deferred}</div>` : ''}
+        </article>
+        <article class="phw-section-card phw-status-summary"><header><span class="phw-section-icon">${icon('overview')}</span><h3>${html(text('statusSummary'))}</h3></header><dl>
+          ${statusGroups().map(([label, value, tone]) => `<div><dt>${html(label)}</dt><dd>${statusBadge(value, tone)}</dd></div>`).join('')}
+          <div><dt>${html(text('lastRefresh'))}</dt><dd><time>${html(refreshTime())}</time></dd></div>
+        </dl></article>
       </div>
+      <section class="phw-overview-quick"><h3>${html(text('quickTitle'))}</h3><div class="phw-quick-links">${sectionDefinitions().filter(([key]) => key !== 'overview').map(([key, label]) => `<button type="button" data-phw-section="${key}" class="phw-quick-link"><span class="phw-quick-icon">${icon(label)}</span><strong>${html(text(label))}</strong><span>${html(text(`${label}Hint`))}</span><b aria-hidden="true">↗</b></button>`).join('')}</div></section>
     </section>`;
   }
 
@@ -874,25 +913,26 @@
     const panels = [renderOverview(), renderProperty(), renderRooms(), renderPricing(), renderAvailability(), renderBookings(), renderPayments()].join('');
     state.root.dir = state.language === 'he' ? 'rtl' : 'ltr';
     state.root.lang = state.language;
-    const refreshTime = state.lastRefresh ? new Intl.DateTimeFormat(state.language, { hour: '2-digit', minute: '2-digit' }).format(state.lastRefresh) : text('notProvided');
     const primary = definitions.filter(([key]) => ['overview', 'property_content', 'rooms', 'rates_pricing'].includes(key));
     state.root.innerHTML = `
       <div class="phw-shell">
         <aside class="phw-sidebar">
-          <div class="phw-brand"><span class="phw-brand-mark" aria-hidden="true">C</span><div>CyprusEye<small>${html(text('workspace'))}</small></div></div>
+          <div class="phw-brand"><span class="phw-brand-mark" aria-hidden="true">C</span><div>CYPRUSEYE<small>${html(text('portalLabel'))}</small></div></div>
           <span class="partner-hotel-workspace__eyebrow">${html(text('management'))}</span>
           <nav class="partner-hotel-workspace__nav" aria-label="${html(text('workspace'))}">${definitions.map(([key, label]) => navButton(key, label)).join('')}</nav>
-          <div class="phw-sidebar-footer"><button class="btn-sm" type="button" data-phw-diagnostics>${html(text('technical'))}</button><button class="btn-sm" type="button" data-phw-support>${icon('support')}${html(text('support'))}</button></div>
+          <div class="phw-sidebar-footer"><div class="phw-sidebar-status"><span>${html(text('workspace'))}</span>${statusBadge(workspaceStatuses()[0][1], workspaceStatuses()[0][2])}<button type="button" data-phw-diagnostics>${html(text('technical'))}<span aria-hidden="true">↗</span></button></div><div class="phw-sidebar-support">${icon('support')}<strong>${html(text('needHelp'))}</strong><button type="button" data-phw-support>${html(text('contactSupport'))}<span aria-hidden="true">↗</span></button></div></div>
         </aside>
         <div class="phw-main">
+          <div class="phw-mobile-header"><button type="button" data-phw-menu aria-label="${html(text('menu'))}" aria-haspopup="dialog">${icon('menu')}</button><span class="phw-mobile-wordmark"><b class="phw-brand-mark" aria-hidden="true">C</b>CYPRUSEYE</span><button type="button" data-phw-support aria-label="${html(text('support'))}">${icon('support')}</button></div>
           <header class="partner-hotel-workspace__header">
-            <div class="partner-hotel-workspace__identity"><div class="partner-hotel-workspace__eyebrow">${html(text('hotel'))}</div><h1 id="partnerHotelWorkspaceTitle">${html(propertyName())}</h1><div class="partner-hotel-workspace__meta">${html([state.workspace.property.city, state.workspace.property.country].filter(Boolean).join(', '))}</div></div>
+            <div class="partner-hotel-workspace__identity"><div class="partner-hotel-workspace__eyebrow">${html(text('hotel'))}</div><div class="phw-hotel-heading"><h1 id="partnerHotelWorkspaceTitle" dir="auto">${html(propertyName())}</h1><span class="phw-mobile-workspace-state">${statusBadge(workspaceStatuses()[0][1], workspaceStatuses()[0][2])}</span></div><div class="partner-hotel-workspace__meta">${icon('location')}${html([state.workspace.property.city, state.workspace.property.country].filter(Boolean).join(', '))}</div></div>
             <div class="partner-hotel-workspace__header-actions"><label class="partner-hotel-workspace__field">${html(text('language'))}<select data-phw-language><option value="en" ${state.language === 'en' ? 'selected' : ''}>English</option><option value="pl" ${state.language === 'pl' ? 'selected' : ''}>Polski</option><option value="he" ${state.language === 'he' ? 'selected' : ''}>עברית</option></select></label><button type="button" class="btn-sm" data-phw-refresh>${html(text('refresh'))}</button><button type="button" class="btn-sm phw-back" data-phw-close>${html(text('back'))}</button></div>
           </header>
-          <div class="phw-status-strip" data-phw-public-status><span>${publicStatus()}</span><span>${html(text('lastRefresh'))} <time>${html(refreshTime)}</time></span></div>
+          <div class="phw-status-strip" data-phw-public-status>${statusGroups().map(([label, value, tone], i) => `<div class="phw-status-cell" data-tone="${tone}">${icon(['overview', 'pricing', 'shield', 'availability', 'public'][i])}<div><span>${html(label)}</span><strong>${html(value)}</strong></div></div>`).join('')}</div>
+          ${state.lastRefresh ? `<div class="phw-refresh-banner">${icon('check')}<div><strong>${html(text('refreshed'))}</strong><span>${html(text('lastRefresh'))}: <time>${html(refreshTime())}</time></span></div><button type="button" data-phw-diagnostics>${html(text('technical'))}<span aria-hidden="true">↗</span></button></div>` : ''}
           <div class="partner-hotel-workspace__status" data-phw-status role="status" aria-live="polite"></div>
           <div class="partner-hotel-workspace__body">${panels}</div>
-          <details class="phw-workspace-notes"><summary>${html(text('lifecycleTitle'))}</summary>${lifecycleBannerMarkup()}</details>
+          <details class="phw-workspace-notes"><summary>${html(text('lifecycleTitle'))}</summary><p>${html(text('publicOff'))}</p>${lifecycleBannerMarkup()}</details>
         </div>
       </div>
       <nav class="phw-mobile-nav" aria-label="${html(text('workspace'))}">${primary.map(([key, label]) => navButton(key, label, true)).join('')}<button type="button" data-phw-more aria-haspopup="dialog">${icon('more')}<span>${html(text('more'))}</span></button></nav>
@@ -906,9 +946,9 @@
   function openUtilityDrawer(kind, opener) {
     const drawer = state.root.querySelector('[data-phw-drawer]');
     if (!drawer) return;
-    const title = text(kind === 'more' ? 'more' : kind === 'support' ? 'support' : 'technical');
-    const content = kind === 'more'
-      ? `<nav class="partner-hotel-workspace__nav">${sectionDefinitions().filter(([key]) => ['calendar_availability', 'bookings', 'payments'].includes(key)).map(([key, label]) => navButton(key, label)).join('')}<button type="button" data-phw-diagnostics>${html(text('technical'))}</button><button type="button" data-phw-support>${html(text('support'))}</button><button type="button" data-phw-close>${html(text('back'))}</button></nav>`
+    const title = text(kind === 'menu' ? 'management' : kind === 'more' ? 'more' : kind === 'support' ? 'support' : 'technical');
+    const content = kind === 'more' || kind === 'menu'
+      ? `<nav class="partner-hotel-workspace__nav">${sectionDefinitions().filter(([key]) => kind === 'menu' || ['calendar_availability', 'bookings', 'payments'].includes(key)).map(([key, label]) => navButton(key, label)).join('')}<button type="button" data-phw-diagnostics>${html(text('technical'))}</button><button type="button" data-phw-support>${html(text('support'))}</button><button type="button" data-phw-close>${html(text('back'))}</button></nav>`
       : kind === 'support' ? `<p>${html(text('supportCopy'))}</p>`
         : `<dl><dt>${html(text('workspace'))}</dt><dd>${html(state.workspace.contract_version)}</dd><dt>${html(text('hotel'))}</dt><dd><code>${html(state.workspace.hotel_id)}</code></dd><dt>${html(text('publicBooking'))}</dt><dd>${publicStatus()}</dd></dl>${lifecycleBannerMarkup()}`;
     drawer.innerHTML = `<header><h2 id="phwDrawerTitle">${html(title)}</h2><button class="btn-sm" type="button" data-phw-drawer-close>${html(text('close'))}</button></header>${content}`;
@@ -1162,6 +1202,7 @@
       if (button.matches('[data-phw-close]')) { close({ restorePortal: true }); return; }
       if (button.matches('[data-phw-refresh]')) { if (state.loading) return; Repository.clearReviewedPlans(); void load(); return; }
       if (button.matches('[data-phw-more]')) { openUtilityDrawer('more', button); return; }
+      if (button.matches('[data-phw-menu]')) { openUtilityDrawer('menu', button); return; }
       if (button.matches('[data-phw-diagnostics]')) { openUtilityDrawer('diagnostics', button); return; }
       if (button.matches('[data-phw-support]')) { openUtilityDrawer('support', button); return; }
       if (button.matches('[data-phw-drawer-close]')) { button.closest('dialog').close(); return; }
