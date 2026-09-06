@@ -302,6 +302,29 @@
 .phw-proposal-stages [data-stage="current"] span { background: #8b5cf633; border-color: var(--phw-accent); color: var(--phw-accent); box-shadow: 0 0 20px #8b5cf61a; }
 .phw-proposal-stages [data-stage="complete"] span { color: #7adfb5; border-color: #2a6553; }
 .phw-room-list { display: grid; gap: 20px; }
+.phw-pricing-form { display: grid; gap: 24px; }
+.phw-pricing-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.phw-pricing-selector { display: flex; align-items: center; gap: 14px; text-align: start; padding: 22px; border: 1px solid var(--phw-border); border-radius: 15px; background: var(--phw-surface); color: var(--phw-text); cursor: pointer; min-width: 0; }
+.phw-pricing-selector > span:nth-child(2) { flex: 1; min-width: 0; }
+.phw-pricing-selector strong { display: block; font-size: 16px; }
+.phw-pricing-selector small { display: block; margin-top: 8px; color: var(--phw-muted); font-size: 11px; overflow-wrap: anywhere; }
+.phw-pricing-selector[aria-pressed="true"] { border-color: #997bfb; background: linear-gradient(120deg, #8b5cf61f, var(--phw-surface)); box-shadow: 0 0 22px #8b5cf612; }
+.phw-pricing-layout .phw-module-aside { position: sticky; top: 24px; }
+.phw-pricing-layout .phw-module-aside p { line-height: 1.75; }
+.phw-pricing-layout .phw-module-aside > article > .phw-quick-icon { margin-bottom: 18px; }
+.phw-pricing-room .phw-price-matrix td, .phw-pricing-room .phw-price-matrix th { padding: 14px 12px; }
+.phw-pricing-room .phw-price-matrix input { min-height: 44px; font-weight: 650; text-align: end; font-variant-numeric: tabular-nums; }
+.phw-pricing-room .phw-price-matrix tbody tr:nth-child(even) { background: #ffffff02; }
+.phw-pricing-room .phw-price-matrix th small { display: block; color: var(--phw-muted); font-weight: 400; }
+@media (max-width: 600px) {
+  .phw-pricing-selectors { gap: 10px; }
+  .phw-pricing-selector { display: grid; padding: 14px 12px; gap: 10px; align-content: start; }
+  .phw-pricing-selector > .phw-quick-icon { display: none; }
+  .phw-pricing-selector strong { font-size: 13px; }
+  .phw-pricing-selector > span:nth-child(2) small { display: none; }
+  .phw-pricing-layout .phw-module-aside { order: 0; position: static; }
+  .phw-pricing-room .phw-price-matrix td, .phw-pricing-room .phw-price-matrix th { padding: 12px 8px; }
+}
 .phw-room-card { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
 .phw-room-visual { min-height: 180px; border: 1px solid var(--phw-border); border-radius: 12px; background: linear-gradient(145deg, #22263c, #121929); display: grid; place-items: center; overflow: hidden; }
 .phw-room-visual img { width: 100%; height: 100%; max-height: 300px; object-fit: cover; }

@@ -736,7 +736,9 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
         await installPartnerHarness(page, { language });
         await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
         for (const room of ['upper', 'ground']) {
+          await page.locator(`[data-phw-pricing-room="${room}"]`).click();
           const matrix = page.locator(`[data-phw-reviewed-room="${room}"]`);
+          await expect(matrix).toBeVisible();
           await expect(matrix.locator('[data-phw-reviewed-tier]')).toHaveCount(27);
           await expect(matrix.locator('tbody tr')).toHaveCount(9);
           if (width <= 820) {
@@ -747,6 +749,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
           }
         }
         const ids = await page.locator('[data-phw-reviewed-tier]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tier-id')));
+        await page.locator('[data-phw-pricing-room="upper"]').click();
         expect(new Set(ids).size).toBe(54);
         await expect(page.locator('[data-phw-commission-policy]')).toContainText('10');
         await expect(page.locator('[data-phw-commission-policy]')).not.toContainText('%');
