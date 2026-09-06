@@ -157,6 +157,22 @@ describe('7 Arches reviewed Partner pricing client', () => {
       }],
     };
     expect(Core.validateSevenArchesReviewedPricingControl(control, workspace).current_items).toHaveLength(54);
+    // Model distinct raw Admin-C and composite Partner workspace tokens. The
+    // fixed Get must forward the latter; no dual-token acceptance is allowed.
+    const compositeToken = 'b'.repeat(64);
+    const compositeWorkspace = { ...workspace, pricing: { ...workspace.pricing, snapshot_token: compositeToken } };
+    const compositeControl = { ...control, pricing_snapshot_token: compositeToken };
+    expect(Core.validateSevenArchesReviewedPricingControl(compositeControl, compositeWorkspace).pricing_snapshot_token).toBe(compositeToken);
+    expect(() => Core.validateSevenArchesReviewedPricingControl(control, compositeWorkspace)).toThrow('exact loaded Partner workspace');
+    for (const changed of [
+      { partner_id: '88888888-8888-4888-8888-888888888888' },
+      { assignment_id: '99999999-9999-4999-8999-999999999999' },
+      { hotel_id: '66666666-6666-4666-8666-666666666666' },
+      { assignment_version: 8 },
+      { access_snapshot_token: 'c'.repeat(64) },
+    ]) {
+      expect(() => Core.validateSevenArchesReviewedPricingControl({ ...compositeControl, ...changed }, compositeWorkspace)).toThrow('exact loaded Partner workspace');
+    }
     expect(() => Core.validateSevenArchesReviewedPricingControl({ ...control, proposals: [{ ...control.proposals[0], status: 'accepted' }] }, workspace)).toThrow('consumption state');
     expect(() => Core.validateSevenArchesReviewedPricingControl({ ...control, actor_id: PARTNER }, workspace)).toThrow('unexpected field envelope');
   });

@@ -15,6 +15,9 @@ begin
      or to_regprocedure('public.hotel_v2_seven_arches_reviewed_pricing_oracle()') is null
      or to_regprocedure('public.hotel_v2_admin_c_pricing_control_snapshot(uuid)') is null
      or to_regprocedure('public.hotel_v2_h3_2b_access_snapshot(uuid,uuid,text)') is null
+     or to_regprocedure('public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)') is null
+     or to_regprocedure('public.hotel_v2_partner_workspace_function_lineage_is_exact()') is null
+     or to_regprocedure('public.hotel_v2_h3_2b_exact_price_projection(uuid)') is null
      or to_regprocedure('public.hotel_v2_h3_2b_commission_policy(uuid)') is null
      or to_regprocedure('public.hotel_v2_h3_2b_commercial(jsonb,numeric,integer,numeric)') is null
      or to_regprocedure('public.hotel_v2_h3_2b_hash(jsonb)') is null
@@ -53,6 +56,12 @@ begin
       ('public.hotel_v2_h3_2b_access_snapshot(uuid,uuid,text)',
        '7f8cb70e2c7034d17f03377cf7ffe3d5648e47dc27800e9ac3542bc95e2bb5b4','s',true,
        array['search_path=pg_catalog, public, auth']::text[]),
+      ('public.hotel_v2_partner_workspace_function_lineage_is_exact()',
+       'dde4fac2d044a53bb713cced26ca93c8295548c9bde3717d0ea83dc511801a85','s',true,
+       array['search_path=pg_catalog, public']::text[]),
+      ('public.hotel_v2_h3_2b_exact_price_projection(uuid)',
+       '41f8609b712906301ef93e0eb438188ce1989e1114ccea1dcf3f55e1775f438b','s',true,
+       array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_h3_2b_commission_policy(uuid)',
        '533a819b7903a4247196955a555a32c4a26b4bea4450814017334c83903ace77','s',true,
        array['search_path=pg_catalog, public']::text[]),
@@ -89,6 +98,25 @@ begin
      or (select count(*) from public.hotel_seven_arches_independent_pricing_authority)<>54 then
     raise exception using errcode='55000',
       message='hotels_v2_seven_arches_application_bridge_upstream_invalid';
+  end if;
+  -- Reuse the immutable-receipt-bound Partner workspace token contract. Its
+  -- pricing token includes commission and exact-date state, not just Admin-C.
+  if public.hotel_v2_partner_workspace_function_lineage_is_exact() is not true
+     or not exists(select 1 from pg_proc procedure_row
+       join pg_language language_row on language_row.oid=procedure_row.prolang
+       where procedure_row.oid=
+         'public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)'::regprocedure
+         and procedure_row.proowner='postgres'::regrole
+         and procedure_row.prosecdef and procedure_row.provolatile='s'
+         and language_row.lanname='plpgsql'
+         and procedure_row.proconfig=array['search_path=pg_catalog, public, auth']::text[]
+         and has_function_privilege('postgres',procedure_row.oid,'EXECUTE')
+         and has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+         and not has_function_privilege('service_role',procedure_row.oid,'EXECUTE')) then
+    raise exception using errcode='55000',
+      message='hotels_v2_seven_arches_application_bridge_partner_workspace_drift';
   end if;
   v_oracle:=public.hotel_v2_seven_arches_reviewed_pricing_oracle();
   if (v_oracle->>'core_case_count')::integer is distinct from 100
@@ -1043,7 +1071,7 @@ create function public.hotel_v2_partner_get_seven_arches_reviewed_pricing(
 ) returns jsonb language plpgsql stable security definer
 set search_path=pg_catalog,public,auth
 as $function$
-declare v_access jsonb; v_pricing jsonb; v_state jsonb; v_policy jsonb;
+declare v_access jsonb; v_workspace jsonb; v_state jsonb; v_policy jsonb;
 begin
   if p_hotel_id is distinct from
        '9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid
@@ -1054,7 +1082,10 @@ begin
   end if;
   v_access:=public.hotel_v2_h3_2b_access_snapshot(
     p_partner_id,p_hotel_id,'manage_prices');
-  v_pricing:=public.hotel_v2_admin_c_pricing_control_snapshot(p_hotel_id);
+  -- Match the exact workspace used by the existing 114415 Partner Preview.
+  -- Do not reconstruct or substitute the raw Admin-C snapshot token here.
+  v_workspace:=public.hotel_v2_partner_get_workspace(
+    p_partner_id,p_hotel_id,current_date,current_date+30);
   v_state:=public.hotel_v2_seven_arches_reviewed_pricing_current_state();
   v_policy:=public.hotel_v2_h3_2b_commission_policy(p_hotel_id);
   return jsonb_build_object(
@@ -1063,7 +1094,7 @@ begin
     'assignment_id',(v_access->>'assignment_id')::uuid,
     'assignment_version',(v_access->>'permission_version')::bigint,
     'access_snapshot_token',public.hotel_v2_h3_2b_hash(v_access),
-    'pricing_snapshot_token',v_pricing->>'snapshot_token',
+    'pricing_snapshot_token',v_workspace#>>'{pricing,snapshot_token}',
     'evolution_snapshot_token',v_state->>'snapshot_token',
     'commission_policy',jsonb_build_object(
       'commission_mode',v_policy->>'commission_mode',
