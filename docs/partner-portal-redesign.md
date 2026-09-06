@@ -1,5 +1,38 @@
 # Partner Portal redesign — isolated frontend phase
 
+## Production frontend release / backend boundary 114415
+
+The human-approved frontend release does not enable any backend stage. The
+following inventory is from committed SQL definitions, not production RPC calls.
+Every name below has the `hotel_v2_partner_` prefix:
+
+| RPC suffix | Availability at 114415 | UI boundary |
+| --- | --- | --- |
+| `list_assigned_properties` | AVAILABLE_AT_114415 | Existing authorized assignment selector |
+| `get_workspace` | AVAILABLE_AT_114415 (113800) | All seven sections, strict DTO/capability validation |
+| `preview_content_plan`, `apply_content_plan` | AVAILABLE_AT_114415 (113800) | Explicit reviewed content/photo/Room actions only |
+| `preview_pricing_plan`, `apply_pricing_plan` | AVAILABLE_AT_114415 (113800, evolved 114415) | Generic pricing does not bypass Seven Arches dedicated controls |
+| `preview_commercial_stay` | AVAILABLE_AT_114415 (113800) | Explicit existing commercial preview only |
+| `preview_availability_plan`, `apply_availability_plan` | AVAILABLE_AT_114415 (113800) | Existing explicit reviewed availability actions only |
+| `preview_seven_arches_pricing_proposal`, `submit_seven_arches_pricing_proposal` | AVAILABLE_AT_114415 | Unreachable until validated dedicated Get succeeds |
+| `get_seven_arches_reviewed_pricing` | FUTURE_114420 | Missing/error result leaves actual current tiers read-only, no proposal form |
+| `get_external_calendar_control`, `preview_external_calendar_plan`, `apply_external_calendar_plan` | AVAILABLE_AT_114415 (114200) | Exact provider capability contract controls available actions |
+
+FUTURE_114425 adds no new RPC called by this workspace. FUTURE_114450 evolves
+provider capability/Apply behavior but introduces no new automatic call here.
+Before that stage the validated `provider_types_unavailable` state disables
+provider proposals, URL operations, activation and manual sync. No polling or
+automatic retry was added. Bookings/Payments presentation is derived locally from
+the existing authorized availability projection, not a new API. Media upload uses
+the unchanged permission-protected storage flow and only an explicit user action.
+
+Optional pricing/calendar Get failures display localized unavailable copy, with
+only a bounded error code behind collapsed Diagnostics. Raw response bodies are
+not displayed or retained in that UI state. Authentication, malformed response
+and transport failures remain fail-closed; they are not classified as successful
+or granted future capabilities. Public booking continues to display Disabled
+when `hotel_rooms_v2_enabled=false`; no flags or commercial data are changed.
+
 Base: `2e8e462ff323290c1d9f04272e8fec7c6401bf97`.
 Branch: `feature/partner-portal-redesign`. No production access or rollout changes.
 

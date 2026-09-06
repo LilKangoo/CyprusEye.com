@@ -790,6 +790,53 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(store.genericCalls).toBe(0);
   });
 
+  for (const failure of ['PGRST202', '42501', 'HTTP500', 'TRANSPORT']) {
+    test(`Partner 114415 optional pricing failure ${failure} stays read-only without raw errors or retries`, async ({ page }) => {
+      await installPartnerHarness(page);
+      await page.evaluate(() => {
+        const root = window as any;
+        root.__savedPartnerRepository = root.HotelsV2PartnerWorkspaceRepository;
+        // This UI fixture is deliberately partial; full workspace DTO validation has its own strict suites.
+        root.HotelsV2PartnerWorkspaceCore = { ...root.HotelsV2PartnerWorkspaceCore, validateWorkspace: (value: any) => value };
+      });
+      await page.addScriptTag({ path: path.join(process.cwd(), 'js/hotels-v2-partner-workspace-repository.js') });
+      await page.evaluate(async ({ code }) => {
+        const root = window as any;
+        const realGet = root.HotelsV2PartnerWorkspaceRepository.getSevenArchesPricingControl;
+        const realWorkspaceGet = root.HotelsV2PartnerWorkspaceRepository.getWorkspace;
+        const saved = root.__savedPartnerRepository;
+        const workspace = await saved.getWorkspace();
+        root.__optionalRpcCalls = [];
+        root.getSupabase = () => ({ rpc: async (name: string) => {
+          if (name === 'hotel_v2_partner_get_workspace') return { data: workspace, error: null };
+          root.__optionalRpcCalls.push(name);
+          if (code === 'TRANSPORT') throw new Error('fetch failed private-response-marker');
+          return { data: null, status: code === 'PGRST202' ? 404 : code === '42501' ? 403 : 500,
+            error: { code, message: 'Could not find the function public.hotel_v2_partner_get_seven_arches_reviewed_pricing in the schema cache private-response-marker' } };
+        } });
+        await realWorkspaceGet(workspace.partner.id, workspace.hotel_id, '2026-09-01', '2026-09-30');
+        // Exercise the real repository RPC/error path while the workspace itself stays a local fixture.
+        saved.getSevenArchesPricingControl = realGet;
+        root.HotelsV2PartnerWorkspaceRepository = saved;
+      }, { code: failure });
+      await page.locator('[data-phw-refresh]:visible').first().click();
+      await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+      const panel = page.locator('[data-phw-panel="rates_pricing"]');
+      await expect(panel).toContainText('Exact reviewed pricing control is unavailable. No proposal can be prepared.');
+      await expect(panel.locator('input:enabled, [data-phw-seven-arches-pricing]')).toHaveCount(0);
+      await expect(panel.locator('input:disabled')).toHaveCount(54);
+      expect(await panel.innerText()).not.toMatch(/PGRST202|404|schema cache|private-response-marker/);
+      await expect(page.locator('#partnerHotelWorkspaceView')).not.toContainText('private-response-marker');
+      await page.locator('[data-phw-section="overview"]:visible').first().click();
+      await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => (window as any).__optionalRpcCalls)).toEqual(['hotel_v2_partner_get_seven_arches_reviewed_pricing']);
+      const store = await page.evaluate(() => (window as any).__reviewedPartner);
+      expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
+      expect(store.genericCalls).toBe(0);
+    });
+  }
+
   test('Admin reviews a Partner proposal and an explicit two-Room plan through the same planner', async ({ page }) => {
     await installAdminHarness(page);
     const panel = page.locator('.hotel-reviewed-pricing-control');
