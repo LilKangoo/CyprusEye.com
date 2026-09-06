@@ -925,17 +925,17 @@
     });
     const controls = [
       ['property_content', '[data-phw-property-content] > h3', 'controls.property'],
-      ['rooms', '[data-phw-panel="rooms"] > h2', 'controls.rooms'],
+      ['rooms', '.phw-room-card h3', 'controls.rooms'],
       ['rates_pricing', '[data-phw-seven-arches-pricing] h3', 'controls.pricing'],
       ['calendar_availability', '[data-phw-external-calendars] > h3', 'controls.calendar'],
-      ['bookings', '[data-phw-panel="bookings"] .partner-hotel-workspace__summary', 'controls.bookings'],
-      ['payments', '[data-phw-panel="payments"] .partner-hotel-workspace__panel-copy', 'controls.payments'],
+      ['bookings', '[data-phw-panel="bookings"] .phw-module-empty h3', 'controls.bookings'],
+      ['payments', '.phw-payment-layout .phw-module-main > h3', 'controls.payments'],
     ];
     controls.forEach(([section, selector, topic]) => {
       if (state.root.querySelector(`[data-hv2-help-topic="${topic}"]:not([data-hv2-section-help])`)) return;
       const panel = state.root.querySelector(`[data-phw-panel="${section}"]`);
       const target = state.root.querySelector(selector) || panel?.querySelector('h2');
-      target?.insertAdjacentHTML('afterend', Help.helpButton(topic));
+      if (target && target.tagName !== 'H2') target.insertAdjacentHTML('beforeend', Help.helpButton(topic));
     });
     state.helpController?.destroy?.();
     state.helpController = Help.createController({ root: state.root, language: state.language });

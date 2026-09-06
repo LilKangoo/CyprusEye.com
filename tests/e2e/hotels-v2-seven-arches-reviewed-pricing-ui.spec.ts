@@ -159,7 +159,7 @@ function partnerWorkspace() {
       rate_plans: [],
       room_rates: (Object.entries(identities) as Array<[RoomKey, typeof identities.upper]>).map(([_roomKey, identity]) => ({
         id: identity.roomRateId, hotel_id: HOTEL, room_type_id: identity.roomTypeId,
-        pricing_schedule_id: identity.scheduleId, is_active: true, currency: 'EUR',
+        pricing_schedule_id: identity.scheduleId, is_active: true, currency: 'EUR', review_status: 'reviewed',
         base_nightly_rate_authoritative: false,
       })),
       schedules: scheduleRows,
@@ -707,6 +707,10 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     const upperBefore = Number(await upper.getAttribute('data-before-price'));
     const groundBefore = await ground.inputValue();
     await upper.fill(String(upperBefore + 10));
+    await page.locator('[data-phw-pricing-room="ground"]').click();
+    await expect(ground).toHaveValue(groundBefore);
+    await page.locator('[data-phw-pricing-room="upper"]').click();
+    await expect(upper).toHaveValue(String(upperBefore + 10));
     await page.locator('[data-phw-seven-arches-pricing] [name="reason"]').fill('Partner requests one Upper tier change');
     await page.locator('[data-phw-seven-arches-pricing]').evaluate((form: HTMLFormElement) => form.requestSubmit());
 

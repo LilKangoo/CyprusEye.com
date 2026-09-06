@@ -6,6 +6,30 @@ const ui = read('js/hotels-v2-partner-workspace.js');
 const css = read('partners/hotels-v2-workspace.css');
 
 describe('Partner hotel redesign presentation boundaries', () => {
+  test('module grouping retains exact proposal fields and does not create unsupported draft actions', () => {
+    expect(ui).toContain('data-phw-property-tab');
+    expect(ui).toContain('data-phw-property-pane');
+    expect(ui).toContain('phw-field-section');
+    expect(ui).toContain("draft.exists && draft.status === 'pending_admin_review'");
+    expect(ui).toContain('phw-room-card');
+    expect(ui).not.toMatch(/data-phw-(?:discard-draft|save-draft|create-booking)/);
+  });
+
+  test('calendar groups returned availability without adding events or polling', () => {
+    const calendar = ui.slice(ui.indexOf('  function availabilityCalendar('), ui.indexOf('  function presentationMoney('));
+    expect(calendar).toContain('availability.cells.find');
+    expect(calendar).toContain('entry.room_type_id === room.id');
+    expect(calendar).toContain("text('unknownDay')");
+    expect(calendar).not.toMatch(/Repository\.|setInterval|setTimeout|fetch\(/);
+    expect(ui).toContain('grid.dataset.roomId !== room || grid.dataset.month !== month');
+  });
+
+  test('booking totals and payment fields are omitted when the server projection does not return them', () => {
+    expect(ui).toContain("typeof booking.customer_total === 'number'");
+    expect(ui).toContain("typeof payment?.[key] === 'number'");
+    expect(ui).toContain("...(hasTotals ? ['customerPays'] : [])");
+    expect(ui).toContain('phw-payment-layout');
+  });
   test('V2 composes Overview status, permissions and navigation without changing business authority', () => {
     const overview = ui.slice(ui.indexOf('  function renderOverview()'), ui.indexOf('  function i18nFields('));
     expect(overview).toContain('Core.CAPABILITIES.filter((key) => capability(key))');

@@ -296,7 +296,7 @@
 .phw-proposal-stages li { position: relative; display: flex; gap: 14px; align-items: start; padding-bottom: 28px; color: var(--phw-muted); font-size: 13px; }
 .phw-proposal-stages li:last-child { padding-bottom: 0; }
 .phw-proposal-stages li:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 15px; top: 33px; bottom: 3px; width: 1px; background: var(--phw-border); }
-.phw-proposal-stages li span { flex: 0 0 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--phw-border); }
+.phw-proposal-stages li span { flex: 0 0 32px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--phw-border); }
 .phw-proposal-stages li strong { padding-top: 7px; }
 .phw-proposal-stages [data-stage="current"] { color: var(--phw-text); }
 .phw-proposal-stages [data-stage="current"] span { background: #8b5cf633; border-color: var(--phw-accent); color: var(--phw-accent); box-shadow: 0 0 20px #8b5cf61a; }

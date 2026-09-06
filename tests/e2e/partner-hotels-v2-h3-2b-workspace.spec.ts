@@ -437,7 +437,13 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
         await installHarness(page, { width, height: 960 }, language, { commercialOwnerPreset: true });
         await page.evaluate(() => {
           const root = window as any;
+          // Explicit synthetic presentation fixture, never loaded by application runtime.
+          root.__h32b.workspace.property.title_i18n = { en: '7 Arches', pl: '7 Arches', he: '7 Arches' };
+          root.__h32b.workspace.property.city = 'Lefkara';
           root.__h32b.workspace.rooms[0].size_sqm = null;
+          root.__h32b.workspace.rooms[0].gallery = [];
+          root.__h32b.workspace.rooms[0].name_i18n = { en: 'Upper Floor Apartment', pl: 'Apartament na piętrze', he: 'דירה בקומה העליונה' };
+          root.__h32b.workspace.rooms.push({ ...JSON.parse(JSON.stringify(root.__h32b.workspace.rooms[0])), id: '77777777-7777-4777-8777-777777777777', code: 'ground', name_i18n: { en: 'Ground Floor Apartment', pl: 'Apartament na parterze', he: 'דירה בקומת הקרקע' } });
           root.__h32b.workspace.feature_flags.hotel_external_sync_enabled = true;
           root.__h32b.workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
         });
@@ -532,6 +538,32 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
     await page.screenshot({ path: testInfo.outputPath('bookings-populated-mobile.png'), fullPage: true });
     const calls = await page.evaluate(() => (window as any).__h32b.rpcCalls);
     expect(calls.filter((call: any) => /preview|apply|submit|create_booking/.test(call.name))).toHaveLength(0);
+  });
+
+  test('V2 Property tabs retain unsaved fields and Calendar filters only select returned data', async ({ page }) => {
+    await installHarness(page, { width: 390, height: 844 }, 'en', { commercialOwnerPreset: true });
+    await navigatePartner(page, 'property_content');
+    await page.locator('[data-phw-property-content] [name="city"]').fill('Unsaved local proposal');
+    const callsBefore = await page.evaluate(() => (window as any).__h32b.rpcCalls.length);
+    await page.locator('[data-phw-property-tab="photos"]').click();
+    await expect(page.locator('[data-phw-property-content]')).not.toBeVisible();
+    await page.locator('[data-phw-property-tab="content"]').click();
+    await expect(page.locator('[data-phw-property-content] [name="city"]')).toHaveValue('Unsaved local proposal');
+    await navigatePartner(page, 'calendar_availability');
+    await expect(page.locator('[data-phw-calendar-grid]:visible')).toHaveCount(1);
+    const options = await page.locator('[data-phw-calendar-month] option').allTextContents();
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    if (options.length > 1) await page.locator('[data-phw-calendar-month]').selectOption({ index: 1 });
+    await expect(page.locator('[data-phw-calendar-grid]:visible')).toHaveCount(1);
+    const activeMonth = await page.locator('[data-phw-calendar-month]').inputValue();
+    await expect(page.locator('[data-phw-calendar-grid]:visible')).toHaveAttribute('data-month', activeMonth);
+    const data = await page.evaluate(() => (window as any).__h32b);
+    expect(data.rpcCalls.length).toBe(callsBefore);
+    expect(await page.locator('[data-calendar-state="open"]').count()).toBe(data.workspace.availability.cells.filter((cell: any) => cell.available_units > 0 && !cell.operational_closed && !cell.safety_closed).length);
+    await expect(page.locator('[data-phw-availability]')).not.toBeVisible();
+    await page.locator('.phw-availability-editor > summary').click();
+    await expect(page.locator('[data-phw-availability]')).toBeVisible();
+    expect(data.rpcCalls.filter((call: any) => /preview|apply|submit/.test(call.name))).toHaveLength(0);
   });
 
   test('redesign Room tabs retain permission-bound editors and draft-only creation controls', async ({ page }) => {
