@@ -302,6 +302,14 @@
 .phw-proposal-stages [data-stage="current"] span { background: #8b5cf633; border-color: var(--phw-accent); color: var(--phw-accent); box-shadow: 0 0 20px #8b5cf61a; }
 .phw-proposal-stages [data-stage="complete"] span { color: #7adfb5; border-color: #2a6553; }
 .phw-room-list { display: grid; gap: 20px; }
+.phw-payment-layout { grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); }
+.phw-payment-layout .phw-module-main > h3 { margin: 0; font-size: 16px; }
+.phw-payment-policy { border-color: #8b5cf638; }
+.phw-payment-policy > .phw-quick-icon { margin-bottom: 20px; }
+.phw-payment-policy > strong { display: block; font-size: 18px; line-height: 1.7; color: #d4c8f8; }
+.phw-payment-policy p { line-height: 1.75; }
+@media (max-width: 1150px) { .phw-payment-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .phw-payment-layout .phw-module-aside { order: 0; } }
 .phw-module-empty { display: grid; justify-items: center; text-align: center; padding: 50px 28px; gap: 16px; border: 1px solid var(--phw-border); border-radius: 16px; background: radial-gradient(ellipse at top, #8b5cf60c, transparent 70%), var(--phw-surface); }
 .phw-module-empty h3, .phw-module-empty p { margin: 0; max-width: 52ch; }
 .phw-module-empty p { color: var(--phw-muted); line-height: 1.75; }

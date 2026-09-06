@@ -883,19 +883,13 @@
 
   function renderPayments() {
     const presentation = state.presentation;
-    const paymentContext = `<div class="partner-hotel-workspace__grid"><article class="partner-hotel-workspace__card"><h3>${html(text('commissionPolicy'))}</h3><p>${html(commissionRule(state.workspace.pricing?.commission_policy))}</p><p>${html(text('readOnly'))}</p></article>${state.workspace.feature_flags.hotel_stripe_connect_enabled === false ? `<article class="partner-hotel-workspace__card"><h3>${html(text('payoutServices'))}</h3>${statusBadge(text('notConfigured'), 'muted')}</article>` : ''}</div>`;
-    if (!presentation?.capabilities.payments_visible) {
-      const canOpen = state.workspace?.sections?.payments?.available === true;
-      return `<section class="partner-hotel-workspace__panel" data-phw-panel="payments"><h2>${html(text('payments'))}</h2>${paymentContext}<p class="partner-hotel-workspace__panel-copy">${html(state.presentationError || text('paymentPresentationUnavailable'))}</p><p class="partner-hotel-workspace__panel-copy">${html(text('commissionReadOnly'))}</p>${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</section>`;
-    }
-    const rows = presentation.bookings.filter((booking) => booking.payment !== null);
-    return `<section class="partner-hotel-workspace__panel" data-phw-panel="payments"><h2>${html(text('payments'))}</h2>${paymentContext}
-      <p class="partner-hotel-workspace__panel-copy">${html(text('commissionReadOnly'))}</p>
-      <div class="partner-hotel-workspace__grid">${rows.length ? rows.map((booking) => bookingCardMarkup(booking, true)).join('') : `<p>${html(text('noPayments'))}</p>`}</div>
-      ${presentation.capabilities.full_payment_management ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}
-    </section>`;
+    const visible = presentation?.capabilities.payments_visible === true;
+    const canOpen = visible ? presentation.capabilities.full_payment_management : state.workspace?.sections?.payments?.available === true;
+    const rows = visible ? presentation.bookings.filter((booking) => booking.payment !== null) : [];
+    const policy = state.workspace.pricing?.commission_policy;
+    const details = rows.length ? rows.map((booking) => bookingCardMarkup(booking, true)).join('') : `<article class="phw-module-empty"><span class="phw-empty-icon">${icon('payments')}</span><h3>${html(text(visible ? 'noPayments' : 'paymentPresentationUnavailable'))}</h3><p>${html(text('paymentsHint'))}</p>${state.presentationError ? `<details><summary>${html(text('technical'))}</summary><p>${html(state.presentationError)}</p></details>` : ''}${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</article>`;
+    return `<section class="partner-hotel-workspace__panel" data-phw-panel="payments"><h2>${html(text('payments'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('paymentsHint'))}</p><div class="phw-module-layout phw-payment-layout"><div class="phw-module-main"><h3>${html(text('paymentOverview'))}</h3>${details}${rows.length && canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</div><aside class="phw-module-aside"><article class="partner-hotel-workspace__card phw-payment-policy"><span class="phw-quick-icon">${icon('pricing')}</span><h3>${html(text('commissionPolicy'))}</h3><strong>${html(commissionRule(policy))}</strong><p>${html(text('commissionReadOnly'))}</p>${statusBadge(text('readOnly'), 'muted')}</article>${state.workspace.feature_flags.hotel_stripe_connect_enabled === false ? `<article class="partner-hotel-workspace__card"><h3>${html(text('payoutServices'))}</h3>${statusBadge(text('notConfigured'), 'muted')}</article>` : ''}</aside></div></section>`;
   }
-
   function lifecycleBannerMarkup() {
     const messages = [];
     if (capability('manage_prices') && !state.pricingControl) messages.push(text('pricingControlUnavailable'));
