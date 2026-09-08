@@ -4341,6 +4341,41 @@
       value.penalty_mode === 'percent' ? 100 : 9999999999.99);
   }
 
+  function validateCapabilityLifecycle(value, expectedFlags = null, withControls = false) {
+    const keys = ['contract_version', 'version', 'feature_flags', 'public_booking_enabled',
+      'architecture', 'expected_public_change', 'audit_chain_exact'];
+    const flags = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled',
+      'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
+    if (!hasExactKeys(value, withControls ? [...keys, 'capabilities'] : keys)
+        || value.contract_version !== 'hotels_v2_capability_lifecycle_v1'
+        || !Number.isSafeInteger(value.version) || value.version < 0
+        || !hasExactKeys(value.feature_flags, flags)
+        || flags.some((key) => typeof value.feature_flags[key] !== 'boolean')
+        || value.feature_flags.hotel_instant_booking_enabled !== false
+        || value.public_booking_enabled !== false || value.expected_public_change !== false
+        || value.architecture !== 'legacy' || value.audit_chain_exact !== true
+        || (value.version === 0 && (value.feature_flags.hotel_rooms_v2_enabled || value.feature_flags.hotel_stripe_connect_enabled))
+        || (expectedFlags && (!hasExactKeys(expectedFlags, flags)
+          || flags.some((key) => expectedFlags[key] !== value.feature_flags[key])))) {
+      throw new Error('Hotels capability lifecycle is missing or inconsistent; activation remains unavailable.');
+    }
+    if (withControls) {
+      const mapping = { rooms: 'hotel_rooms_v2_enabled', external: 'hotel_external_sync_enabled',
+        stripe: 'hotel_stripe_connect_enabled', instant: 'hotel_instant_booking_enabled', public_booking: null };
+      if (!Array.isArray(value.capabilities) || value.capabilities.length !== 5
+          || new Set(value.capabilities.map((row) => row?.key)).size !== 5
+          || value.capabilities.some((row) => !hasExactKeys(row, ['key', 'enabled', 'blocked_reasons', 'requires_confirmation'])
+            || !Object.prototype.hasOwnProperty.call(mapping, row.key)
+            || row.enabled !== (mapping[row.key] ? value.feature_flags[mapping[row.key]] : false)
+            || row.requires_confirmation !== true || !Array.isArray(row.blocked_reasons)
+            || row.blocked_reasons.some((reason) => typeof reason !== 'string' || !/^[a-z_]{1,100}$/.test(reason))
+            || (['instant', 'public_booking', 'external'].includes(row.key) && row.blocked_reasons.length === 0))) {
+        throw new Error('Hotels capability prerequisites are invalid.');
+      }
+    }
+    return clone(value);
+  }
+
   function normalizePricingControl(value) {
     const source = asObject(value);
     const property = asObject(source.property);
@@ -4427,6 +4462,8 @@
       property: clone(property),
       feature_flags: clone(asObject(source.feature_flags)),
       legacy_safety: clone(asObject(source.legacy_safety)),
+      ...(Object.prototype.hasOwnProperty.call(source, 'capability_lifecycle')
+        ? { capability_lifecycle: clone(source.capability_lifecycle) } : {}),
       snapshot_token: asText(source.snapshot_token),
       rate_plans: ratePlans,
       room_types: roomTypes,
@@ -4448,6 +4485,10 @@
       'recent_activity',
     ];
     const raw = asObject(value);
+    if (Object.prototype.hasOwnProperty.call(raw, 'capability_lifecycle')) {
+      exactTopLevelKeys.push('capability_lifecycle');
+      validateCapabilityLifecycle(raw.capability_lifecycle, raw.feature_flags);
+    }
     if (!hasExactKeys(raw, exactTopLevelKeys)) throw new Error('The pricing control response has an unexpected field envelope.');
     for (const key of ['rate_plans', 'room_types', 'room_rates', 'pricing_schedules', 'rate_rules', 'exact_date_prices', 'allocation_rules', 'recent_activity']) {
       if (!Array.isArray(raw[key])) throw new Error(`The pricing control ${key.replaceAll('_', ' ')} collection is invalid.`);
@@ -4903,7 +4944,7 @@
     ];
     const architecture = asText(normalized.property?.architecture_version);
     if (typeof normalized.feature_flags.hotel_external_sync_enabled !== 'boolean'
-        || requiredOffFlags.some((key) => normalized.feature_flags[key] !== false)
+        || (!raw.capability_lifecycle && requiredOffFlags.some((key) => normalized.feature_flags[key] !== false))
         || !['legacy', 'rooms_v2'].includes(architecture)
         || (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID && architecture !== 'legacy')) {
       throw new Error('Pricing control requires a supported inert Hotel architecture, public Hotels V2 flags OFF, an exact External Calendar flag and the exact 7 Kamares legacy lock.');
@@ -8374,6 +8415,7 @@
     validatePartnerPropertyProposalPreview,
     validatePartnerPropertyProposalApplyResult,
     hotelLifecycleFeatureFlagsAreCompatible,
+    validateCapabilityLifecycle,
     validateSevenArchesPricingActivationSnapshot,
     validateSevenArchesPricingActivationDraft,
     validateSevenArchesPricingActivationPlan,
