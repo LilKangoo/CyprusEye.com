@@ -1,6 +1,14 @@
 # Security & Performance Headers for Cloudflare Pages
 # https://developers.cloudflare.com/pages/configuration/headers/
 
+/partners/stripe-connect-return.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
+/partners/stripe-connect.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff

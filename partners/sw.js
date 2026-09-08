@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260826_1';
+const CACHE_VERSION = '20260907_1';
 const CACHE_PREFIX = 'ce-partners-pwa-';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 
@@ -52,6 +52,8 @@ function shouldHandleRequest(requestUrl) {
   try {
     const url = new URL(requestUrl);
     if (url.origin !== self.location.origin) return false;
+    // OAuth codes must never be used as Cache Storage request keys.
+    if (url.pathname === '/partners/stripe-connect-return.html' || url.pathname === '/partners/stripe-connect.html') return false;
     return url.pathname.startsWith('/partners/') || url.pathname.startsWith('/assets/') || url.pathname.startsWith('/js/') ||
       url.pathname.startsWith('/css/') || url.pathname.startsWith('/admin/');
   } catch (_e) {
