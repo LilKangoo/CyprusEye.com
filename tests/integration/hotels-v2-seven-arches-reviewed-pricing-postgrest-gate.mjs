@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { TOKENS } from './hotels-v2-h3-2a-partner-access-auth.mjs';
 
 const BASE_URL = process.env.HOTELS_V2_REVIEWED_PRICING_POSTGREST_URL
@@ -12,10 +13,12 @@ const PARTNER = '20000000-0000-4000-8000-000000000001';
 const UPPER_ROOM = 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94';
 const UPPER_RATE = '7e420964-9cbf-4f1b-abd3-09840af5240f';
 const UPPER_SCHEDULE = 'aec20731-7a56-35f0-334e-92b363351f02';
-const CORRELATION = '41500000-0000-4000-8000-000000000001';
-const IDEMPOTENCY = '41510000-0000-4000-8000-000000000001';
-const APPLY_CORRELATION = '41520000-0000-4000-8000-000000000001';
-const APPLY_IDEMPOTENCY = '41530000-0000-4000-8000-000000000001';
+// A fully installed fixture already contains historical SQL-gate receipts.
+// Fresh identities isolate this run; replay probes reuse these same values.
+const CORRELATION = randomUUID();
+const IDEMPOTENCY = randomUUID();
+const APPLY_CORRELATION = randomUUID();
+const APPLY_IDEMPOTENCY = randomUUID();
 
 const checks = {
   authorization_denials: 0,

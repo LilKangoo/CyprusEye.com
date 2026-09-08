@@ -1,6 +1,27 @@
 \set ON_ERROR_STOP on
 \ir hotels-v2-seven-arches-reviewed-pricing-evolution-postgres-gate.sql
 
+-- The historical phase fixtures intentionally retain the 113500 snapshot.
+-- Model the accepted production 113700 digest qualification before 114420,
+-- without rerunning its unrelated writer evolutions over later contracts.
+do $accepted_snapshot_fixture$
+declare v_oid oid := 'public.hotel_v2_admin_c_pricing_control_snapshot(uuid)'::regprocedure;
+  v_source text;
+begin
+  select prosrc into v_source from pg_proc where oid=v_oid;
+  if encode(extensions.digest(convert_to(v_source,'UTF8'),'sha256'),'hex') <>
+    'd6cec06410e28b4138de5776b66f622ad8c9402662672862726e81ecb7ea613a' then
+    raise exception 'unexpected historical snapshot fixture';
+  end if;
+  execute replace(pg_get_functiondef(v_oid),'digest(convert_to','extensions.digest(convert_to');
+  if (select encode(extensions.digest(convert_to(prosrc,'UTF8'),'sha256'),'hex')
+    from pg_proc where oid=v_oid) <>
+    '3f954c525277c771c3009e9ca1fbbf6c68776904f40bc70978d01f7f10a060b0' then
+    raise exception 'accepted 113700 snapshot fixture mismatch';
+  end if;
+end
+$accepted_snapshot_fixture$;
+
 -- The accepted focused Hotels V2 chain intentionally carries a reduced
 -- hotel_bookings fixture.  Restore the committed production booking columns
 -- consumed by the application bridge without replaying unrelated migrations.
@@ -300,6 +321,9 @@ select
   public.hotel_v2_seven_arches_reviewed_pricing_current_state() pricing_state;
 
 begin;
+-- Public booking success is a future-enable fixture only; all changes below
+-- (including the flag) roll back before the remaining provider chain.
+update public.site_settings set hotel_rooms_v2_enabled=true where id=1;
 do $application_bridge_clean_and_negatives$
 declare
   c_hotel constant uuid:='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
@@ -538,6 +562,7 @@ begin
       message='application_bridge_gate_coupon_receipt_chain_invalid';
   end if;
 
+  update public.site_settings set hotel_rooms_v2_enabled=false where id=1;
   set local role authenticated;
   perform set_config('request.jwt.claims',
     '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated"}',
@@ -561,6 +586,7 @@ begin
   end if;
 
   -- Exact negative probes, each rolled back by its PL/pgSQL subtransaction.
+  update public.site_settings set hotel_rooms_v2_enabled=true where id=1;
   begin
     set local role anon;
     perform set_config('request.jwt.claims','{"role":"anon"}',true);
