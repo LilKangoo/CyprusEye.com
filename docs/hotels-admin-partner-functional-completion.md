@@ -1,5 +1,10 @@
 # Hotels Admin + Partner functional completion — local evidence
 
+> Historical report. The continuation and confirmed Partner-owned Standard
+> Stripe decision are documented in `hotels-functional-completion-20260907.md`.
+> That report also records the newly reproduced public/Stripe flag lifecycle
+> blockers; this older report is not a final rollout authorization.
+
 Baseline: `785b6353d2003956fae366d96394be700c1af7b4`.
 Branch: `feature/hotels-admin-partner-functional-completion`.
 Production boundary 114415 is user-reported, not re-queried during this task.
