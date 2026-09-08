@@ -1344,6 +1344,41 @@
     }, 'Load Admin pricing control'), id);
   }
 
+  async function getCapabilityLifecycle() {
+    return Core.validateCapabilityLifecycle(await runRpc('hotel_v2_admin_get_capability_lifecycle', {},
+      'Load audited Hotels capability lifecycle'), null, true);
+  }
+
+  async function setCapabilityLifecycle(draft) {
+    if (!draft || !['rooms', 'stripe'].includes(draft.capability) || typeof draft.enabled !== 'boolean'
+        || !Number.isSafeInteger(draft.expectedVersion) || draft.expectedVersion < 0
+        || typeof draft.reason !== 'string' || draft.reason.trim() !== draft.reason
+        || draft.reason.length < 10 || draft.reason.length > 1000 || draft.confirmed !== true) {
+      throw new Error('An exact capability, version, reason and explicit confirmation are required.');
+    }
+    const fresh = await getCapabilityLifecycle();
+    const target = fresh.capabilities.find((row) => row.key === draft.capability);
+    if (fresh.version !== draft.expectedVersion || target.enabled === draft.enabled
+        || (draft.enabled && target.blocked_reasons.length)) throw new Error('Capability state changed or prerequisites are not satisfied. Nothing was submitted.');
+    // One request only. Never retry a lost mutation response automatically.
+    const result = await runRpc('hotel_v2_admin_set_capability_lifecycle', {
+      p_capability: draft.capability, p_enabled: draft.enabled, p_expected_version: draft.expectedVersion,
+      p_request_id: Core.newUuid(), p_reason: draft.reason, p_confirmation: 'CONFIRM_HOTELS_CAPABILITY_CHANGE',
+    }, 'Explicit Hotels capability decision');
+    if (!result || Object.keys(result).sort().join() !== 'current,decision_version,replayed'
+        || typeof result.replayed !== 'boolean' || result.decision_version !== draft.expectedVersion + 1) {
+      throw new Error('Capability result could not be verified. Do not retry; inspect the audit state.');
+    }
+    Core.validateCapabilityLifecycle(result.current, null, true);
+    const expectedFlags = { ...fresh.feature_flags,
+      [draft.capability === 'rooms' ? 'hotel_rooms_v2_enabled' : 'hotel_stripe_connect_enabled']: draft.enabled };
+    if (result.current.version !== result.decision_version
+        || Object.keys(expectedFlags).some((key) => result.current.feature_flags[key] !== expectedFlags[key])) {
+      throw new Error('Capability decision target could not be verified. Do not retry; inspect the audit state.');
+    }
+    return result;
+  }
+
   async function applyPricingControlPlan(plan, correlationId, idempotencyKey) {
     const reviewedPlan = Core.validatePricingControlPlan(plan);
     const correlation = correlationId === undefined || correlationId === null
@@ -1536,6 +1571,8 @@
   return Object.freeze({
     RPC,
     getClient,
+    getCapabilityLifecycle,
+    setCapabilityLifecycle,
     listProperties,
     getWorkspace,
     getBookingsPaymentsPresentation,

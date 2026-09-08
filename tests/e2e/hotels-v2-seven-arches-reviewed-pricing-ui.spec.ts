@@ -458,6 +458,7 @@ async function installAdminHarness(page: Page, real114415 = false) {
       pricing: clone(pricingValue), reviewed: clone(reviewedValue),
     };
     root.__reviewedAdmin = store;
+    store.realRepository = realRepository;
     root.showToast = (message: string, type: string) => store.toasts.push({ message, type });
     root.CE_HOTEL_PRICING = { normalizeHotelRoomTypes: () => [], getHotelMinPricePerNight: () => null };
     const previewFor = (request: any) => {
@@ -513,6 +514,14 @@ async function installAdminHarness(page: Page, real114415 = false) {
         store.applies.push({ plan: clone(plan), correlationId, idempotencyKey });
         store.reviewed.proposals = store.reviewed.proposals.filter((entry: any) => entry.id !== plan.proposal_id);
         const accepted = plan.action === 'accept';
+        // Local server simulation: active tiers change only in explicit Apply.
+        if (accepted) for (const item of plan.canonical_items) {
+          const schedule = store.pricing.pricing_schedules.find((s: any) => s.id === item.pricing_schedule_id);
+          const tier = schedule?.tiers.find((t: any) => t.id === item.schedule_tier_id);
+          if (!tier || tier.nightly_rate !== item.before_price) throw new Error('synthetic_stale_tier');
+          tier.nightly_rate = item.requested_price;
+          tier.version += 1;
+        }
         return {
           contract_version: 'hotels_v2_seven_arches_reviewed_pricing_admin_apply_v1',
           hotel_id: plan.hotel_id, proposal_id: plan.proposal_id, review_id: plan.review_id,
@@ -574,6 +583,61 @@ async function installAdminHarness(page: Page, real114415 = false) {
     await (window as any).HotelsV2Workspace.openWorkspace(hotelId, { tab: 'pricing' });
   }, HOTEL);
 }
+
+test.describe('Audited global Hotels capability controls', () => {
+  for (const outcome of ['success', 'lost response', 'stale version']) {
+    test(`explicit confirmation, fresh state and no pricing mutation: ${outcome}`, async ({ page }) => {
+      await installAdminHarness(page, true);
+      await page.evaluate(async ({ hotel, outcome }) => {
+        const root = window as any, store = root.__reviewedAdmin;
+        const clone = (v: any) => JSON.parse(JSON.stringify(v));
+        store.lifecycleCalls = [];
+        store.lifecycle = { contract_version: 'hotels_v2_capability_lifecycle_v1', version: 0,
+          feature_flags: { hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: true,
+            hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false },
+          public_booking_enabled: false, architecture: 'legacy', expected_public_change: false, audit_chain_exact: true,
+          capabilities: ['rooms', 'external', 'stripe', 'instant', 'public_booking'].map(key => ({ key,
+            enabled: key === 'external', requires_confirmation: true,
+            blocked_reasons: key === 'rooms' ? [] : [key === 'stripe' ? 'verified_server_configuration_required' : 'separate_contract_required'] })) };
+        const previousClient = root.getSupabase;
+        root.getSupabase = () => ({ rpc: async (name: string, payload: any) => {
+          if (!name.includes('capability_lifecycle')) return previousClient().rpc(name, payload);
+          store.lifecycleCalls.push({ name, payload: clone(payload || {}) });
+          if (name === 'hotel_v2_admin_get_capability_lifecycle') {
+            if (outcome === 'stale version' && store.lifecycleCalls.length > 1) store.lifecycle.version = 1;
+            return { data: clone(store.lifecycle), error: null, status: 200 };
+          }
+          if (outcome === 'lost response') throw new Error('Synthetic lost response; inspect state before another decision.');
+          store.lifecycle.version += 1;
+          store.lifecycle.feature_flags.hotel_rooms_v2_enabled = true;
+          store.lifecycle.capabilities[0].enabled = true;
+          return { data: { replayed: false, decision_version: 1, current: clone(store.lifecycle) }, error: null, status: 200 };
+        } });
+        for (const name of ['getCapabilityLifecycle', 'setCapabilityLifecycle']) root.HotelsV2WorkspaceRepository[name] = store.realRepository[name];
+        await root.HotelsV2Workspace.openWorkspace(hotel, { tab: 'pricing' });
+      }, { hotel: HOTEL, outcome });
+      const panel = page.locator('[data-capability-lifecycle]');
+      await panel.locator('summary').click();
+      for (const key of ['external', 'stripe', 'instant', 'public_booking']) await expect(panel.locator(`[data-capability-request="${key}"]`)).toBeDisabled();
+      await panel.locator('[data-capability-request="rooms"]').click();
+      await expect(panel.locator('[data-capability-decision]')).toBeVisible();
+      await panel.locator('[name="reason"]').fill('Explicit isolated browser test decision only.');
+      await panel.locator('[name="confirmation"]').check();
+      expect(await page.evaluate(() => (window as any).__reviewedAdmin.lifecycleCalls.length)).toBe(1);
+      await panel.getByRole('button', { name: 'Confirm capability decision', exact: true }).click();
+      if (outcome === 'success') await expect(panel.locator('[data-capability-audit]')).toHaveText('Audit version 1');
+      else await expect(panel.locator('[role="alert"]')).toBeAttached();
+      const evidence = await page.evaluate(() => {
+        const s = (window as any).__reviewedAdmin;
+        return { gets: s.lifecycleCalls.filter((c: any) => c.name.startsWith('hotel_v2_admin_get')).length,
+          writes: s.lifecycleCalls.filter((c: any) => c.name.startsWith('hotel_v2_admin_set')).length,
+          previews: s.previews.length, applies: s.applies.length, generic: s.genericCalls,
+          public: s.lifecycle.public_booking_enabled };
+      });
+      expect(evidence).toEqual({ gets: 2, writes: outcome === 'stale version' ? 0 : 1, previews: 0, applies: 0, generic: 0, public: false });
+    });
+  }
+});
 
 test.describe('7 Arches reviewed pricing UI integration', () => {
   test('Admin no-op has an executed handler, inline explanation and zero requests', async ({ page }) => {
@@ -1115,6 +1179,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
 
   test('Admin rejects a Partner proposal without pricing or receipt mutation', async ({ page }) => {
     await installAdminHarness(page);
+    const before = await page.evaluate(() => (window as any).__reviewedAdmin.pricing);
     await page.locator('[data-reviewed-pricing-action="reject"]').click();
     await page.locator('#sevenArchesReviewedPricingReasonForm [name="reason"]')
       .fill('Admin rejects this exact Partner proposal');
@@ -1132,6 +1197,45 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
     expect(store.applies[0].plan).toMatchObject({ proposal_id: PROPOSAL, action: 'reject' });
     expect(store.genericCalls).toBe(0);
     expect(store.toasts.some((entry: any) => /rejected/i.test(entry.message))).toBe(true);
+    expect(store.pricing).toEqual(before);
+  });
+
+  for (const decision of ['accept', 'reject']) test(`local Partner → Admin ${decision}: shared proposal, no active change before Apply`, async ({page,context}) => {
+    await installPartnerHarness(page);
+    await page.locator('[data-phw-section="rates_pricing"]:visible').first().click();
+    const input=page.locator('[data-phw-reviewed-room="upper"] [data-phw-reviewed-tier]').first();
+    const beforePrice=Number(await input.getAttribute('data-before-price'));
+    await input.fill(String(beforePrice+9));
+    await page.locator('[data-phw-seven-arches-pricing] [name="reason"]').fill('Synthetic cross-flow tier proposal');
+    await page.locator('[data-phw-seven-arches-pricing]').evaluate((form:HTMLFormElement)=>form.requestSubmit());
+    await page.locator('[data-phw-review-save]').click();
+    await expect(page.locator('[data-phw-reviewed-pricing-status]')).toContainText('pending admin review',{ignoreCase:true});
+    const partnerStore=await page.evaluate(()=>(window as any).__reviewedPartner);
+    const draft=partnerStore.calls.find((c:any)=>c.name==='preview').draft;
+    expect(partnerStore.control.current_items[0].current_price).toBe(beforePrice);
+    const admin=await context.newPage();await installAdminHarness(admin);
+    await admin.evaluate(({items,reason})=>{
+      const s=(window as any).__reviewedAdmin;
+      s.reviewed.proposals[0].items=items.map((item:any,i:number)=>({...item,item_index:i+1,room_key:'upper'}));
+      s.reviewed.proposals[0].reason=reason;s.reviewed.proposals[0].item_count=items.length;
+    },draft);
+    const before=await admin.evaluate(()=>(window as any).__reviewedAdmin.pricing);
+    await admin.locator(`[data-reviewed-pricing-action="${decision}"]`).click();
+    await admin.locator('#sevenArchesReviewedPricingReasonForm [name="reason"]').fill('Synthetic Admin cross-flow decision');
+    await admin.locator('#sevenArchesReviewedPricingReasonForm').evaluate((form:HTMLFormElement)=>form.requestSubmit());
+    await expect(admin.locator('[data-apply-reviewed-pricing]')).toBeVisible();
+    expect(await admin.evaluate(()=>(window as any).__reviewedAdmin.pricing)).toEqual(before);
+    await admin.locator('[data-apply-reviewed-pricing]').click();
+    await expect(admin.locator('.hotel-reviewed-pricing-control')).toContainText('No Partner or Admin pricing proposal');
+    const after=await admin.evaluate(()=>(window as any).__reviewedAdmin);
+    const tiers=after.pricing.pricing_schedules.flatMap((s:any)=>s.tiers);
+    const beforeTiers=before.pricing_schedules.flatMap((s:any)=>s.tiers);
+    expect(tiers).toHaveLength(54);
+    expect(tiers.filter((tier:any,i:number)=>tier.nightly_rate!==beforeTiers[i].nightly_rate)).toHaveLength(decision==='accept'?1:0);
+    expect(after.applies).toHaveLength(1);expect(after.previews).toHaveLength(1);expect(after.genericCalls).toBe(0);
+    expect(partnerStore.calls.filter((c:any)=>c.name==='preview')).toHaveLength(1);
+    expect(partnerStore.calls.filter((c:any)=>c.name==='submit')).toHaveLength(1);
+    expect(partnerStore.genericCalls).toBe(0);await admin.close();
   });
 
   test('public Hotel form selects an exact Room, switches to bundle capacity, and coalesces booking submit', async ({ page }) => {

@@ -368,6 +368,42 @@ export async function navigatePartner(page: Page, section: string): Promise<void
   await page.locator(`[data-phw-drawer] [data-phw-section="${section}"]`).click();
 }
 
+test.describe('Audited capability lifecycle: Partner separation', () => {
+  for (const scenario of [
+    { rooms: false, stripe: false, permission: false, status: 'NOT_CONNECTED', label: 'Stripe platform capability disabled', connect: false },
+    { rooms: true, stripe: false, permission: true, status: 'NOT_CONNECTED', label: 'Stripe platform capability disabled', connect: false },
+    { rooms: true, stripe: true, permission: false, status: 'NOT_CONNECTED', label: 'Contact Admin', connect: false },
+    { rooms: true, stripe: true, permission: true, status: 'NOT_CONNECTED', label: 'Not connected', connect: true },
+    { rooms: false, stripe: true, permission: true, status: 'ONBOARDING_INCOMPLETE', label: 'Onboarding incomplete', connect: true },
+    { rooms: false, stripe: true, permission: true, status: 'CONNECTED', label: 'Connected — server verified', connect: false },
+    { rooms: true, stripe: true, permission: true, status: 'RESTRICTED', label: 'Action required', connect: false },
+  ]) test(`capabilities ${JSON.stringify(scenario)}`, async ({ page }) => {
+    await installHarness(page, { width: 1280, height: 900 }, 'en', { commercialOwnerPreset: true });
+    await page.evaluate(async ({ scenario, partnerId, hotelId, assignmentId }) => {
+      const root = window as any; const w = root.__h32b.workspace;
+      w.feature_flags = { hotel_rooms_v2_enabled: scenario.rooms, hotel_external_sync_enabled: true,
+        hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: scenario.stripe };
+      w.capability_lifecycle = { contract_version: 'hotels_v2_capability_lifecycle_v1', version: 3,
+        feature_flags: { ...w.feature_flags }, public_booking_enabled: false, architecture: 'legacy',
+        expected_public_change: false, audit_chain_exact: true };
+      w.stripe_connection = { contract_version: 'hotels_partner_stripe_capability_v1', partner_id: partnerId,
+        hotel_id: hotelId, platform_enabled: scenario.stripe, onboarding_authorized: scenario.permission,
+        account_status: scenario.status, checked_at: scenario.status === 'NOT_CONNECTED' ? null : '2026-09-07T10:00:00Z', can_connect: scenario.connect };
+      await root.HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
+    }, { scenario, partnerId: PARTNER_ID, hotelId: HOTEL_ID, assignmentId: ASSIGNMENT_ID });
+    await navigatePartner(page, 'rooms');
+    await expect(page.locator('[data-phw-panel="rooms"]')).toBeVisible();
+    await navigatePartner(page, 'payments');
+    await expect(page.locator('[data-phw-stripe-lifecycle]')).toContainText(scenario.label);
+    await expect(page.locator('[data-phw-stripe-connection]')).toHaveCount(scenario.connect ? 1 : 0);
+    const report = await page.evaluate(() => ({ calls: (window as any).__h32b.rpcCalls,
+      publicBooking: (window as any).__h32b.workspace.capability_lifecycle.public_booking_enabled }));
+    expect(report.publicBooking).toBe(false);
+    expect(report.calls.filter((call: any) => /preview|apply|submit|create_booking/.test(call.name))).toHaveLength(0);
+    await expectNoBrowserErrors(page);
+  });
+});
+
 async function expectNoBrowserErrors(page: Page): Promise<void> {
   await page.waitForTimeout(20);
   expect(browserIssues.get(page)).toEqual({ console: [], page: [], requests: [] });

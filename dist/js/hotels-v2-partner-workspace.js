@@ -426,7 +426,7 @@
     return state.lastRefresh ? new Intl.DateTimeFormat(state.language, { hour: '2-digit', minute: '2-digit' }).format(state.lastRefresh) : text('notProvided');
   }
   function statusGroups() {
-    const flag = state.workspace.feature_flags.hotel_rooms_v2_enabled;
+    const flag = state.workspace.capability_lifecycle?.public_booking_enabled ?? state.workspace.feature_flags.hotel_rooms_v2_enabled;
     return [...workspaceStatuses(), [text('publicBooking'), text(flag === true ? 'active' : flag === false ? 'disabled' : 'unavailable'), flag === true ? 'success' : 'muted']];
   }
   function workspaceStatuses() {
@@ -446,7 +446,7 @@
     ];
   }
   function publicStatus() {
-    const flag = state.workspace.feature_flags.hotel_rooms_v2_enabled;
+    const flag = state.workspace.capability_lifecycle?.public_booking_enabled ?? state.workspace.feature_flags.hotel_rooms_v2_enabled;
     return `${html(text('publicBooking'))} ${statusBadge(text(flag === true ? 'active' : flag === false ? 'disabled' : 'unavailable'), flag === true ? 'success' : 'muted')}`;
   }
   function navButton(key, label, mobile = false) {
@@ -883,11 +883,21 @@
 
   function renderPayments() {
     const presentation = state.presentation;
+    const connection = state.workspace.stripe_connection;
+    const connectionCopy = !connection ? 'Stripe capability status unavailable'
+      : !connection.platform_enabled ? 'Stripe platform capability disabled'
+      : !connection.onboarding_authorized ? 'Contact Admin: Partner onboarding approval required'
+      : connection.account_status === 'CONNECTED' ? 'Connected — server verified'
+      : connection.account_status === 'NOT_CONNECTED' ? 'Not connected'
+      : connection.account_status === 'ONBOARDING_INCOMPLETE' ? 'Onboarding incomplete'
+      : connection.account_status === 'DISABLED' ? 'Connection disabled' : 'Action required';
+    const connectLink = `<article class="partner-hotel-workspace__card" data-phw-stripe-lifecycle><h3>Stripe Connect</h3><p>${html(connectionCopy)}</p><p>One Partner account serves all assigned Hotels. Connection does not change payment routing.</p>${connection?.can_connect === true
+      ? `<p><a data-phw-stripe-connection href="/partners/stripe-connect.html?partner=${encodeURIComponent(state.partnerId)}&amp;hotel=${encodeURIComponent(state.workspace.hotel_id)}&amp;lang=${encodeURIComponent(state.language)}">${connection.account_status === 'ONBOARDING_INCOMPLETE' ? 'Continue setup' : 'Connect Stripe'}</a></p>` : ''}</article>`;
     const visible = presentation?.capabilities.payments_visible === true;
     const canOpen = visible ? presentation.capabilities.full_payment_management : state.workspace?.sections?.payments?.available === true;
     const rows = visible ? presentation.bookings.filter((booking) => booking.payment !== null) : [];
     const policy = state.workspace.pricing?.commission_policy;
-    const details = rows.length ? rows.map((booking) => bookingCardMarkup(booking, true)).join('') : `<article class="phw-module-empty"><span class="phw-empty-icon">${icon('payments')}</span><h3>${html(text(visible ? 'noPayments' : 'paymentPresentationUnavailable'))}</h3><p>${html(text('paymentsHint'))}</p>${state.presentationError ? `<details><summary>${html(text('technical'))}</summary><p>${html(state.presentationError)}</p></details>` : ''}${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</article>`;
+    const details = connectLink + (rows.length ? rows.map((booking) => bookingCardMarkup(booking, true)).join('') : `<article class="phw-module-empty"><span class="phw-empty-icon">${icon('payments')}</span><h3>${html(text(visible ? 'noPayments' : 'paymentPresentationUnavailable'))}</h3><p>${html(text('paymentsHint'))}</p>${state.presentationError ? `<details><summary>${html(text('technical'))}</summary><p>${html(state.presentationError)}</p></details>` : ''}${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</article>`);
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="payments"><h2>${html(text('payments'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('paymentsHint'))}</p><div class="phw-module-layout phw-payment-layout"><div class="phw-module-main"><h3>${html(text('paymentOverview'))}</h3>${details}${rows.length && canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="payments">${html(text('openPaymentManagement'))}</button>` : ''}</div><aside class="phw-module-aside"><article class="partner-hotel-workspace__card phw-payment-policy"><span class="phw-quick-icon">${icon('pricing')}</span><h3>${html(text('commissionPolicy'))}</h3><strong>${html(commissionRule(policy))}</strong><p>${html(text('commissionReadOnly'))}</p>${statusBadge(text('readOnly'), 'muted')}</article>${state.workspace.feature_flags.hotel_stripe_connect_enabled === false ? `<article class="partner-hotel-workspace__card"><h3>${html(text('payoutServices'))}</h3>${statusBadge(text('notConfigured'), 'muted')}</article>` : ''}</aside></div></section>`;
   }
   function lifecycleBannerMarkup() {

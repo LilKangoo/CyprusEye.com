@@ -499,6 +499,7 @@
       'contract_version', 'partner', 'hotel_id', 'assignment', 'feature_flags', 'content_snapshot_token',
       'property', 'property_draft', 'rooms', 'units', 'pricing', 'availability', 'sections', 'recent_activity',
       'legacy_authoritative', 'public_change',
+      ...(Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle') ? ['capability_lifecycle', 'stripe_connection'] : []),
     ], 'Partner Hotel workspace');
     if (value.contract_version !== CONTRACTS.workspace) fail('Unsupported Partner Hotel workspace contract.');
     requireExactKeys(value.partner, ['id', 'role'], 'Partner identity');
@@ -512,7 +513,22 @@
     CAPABILITIES.forEach((key) => { if (typeof value.assignment.capabilities[key] !== 'boolean') fail(`Capability ${key} is invalid.`); });
     requireExactKeys(value.feature_flags, FEATURE_FLAGS, 'Hotel feature flags');
     FEATURE_FLAGS.forEach((key) => { if (typeof value.feature_flags[key] !== 'boolean') fail(`Hotel feature flag ${key} must be an exact boolean.`); });
-    ['hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle')) {
+      AdminCore.validateCapabilityLifecycle(value.capability_lifecycle, value.feature_flags);
+      const connection = value.stripe_connection;
+      requireExactKeys(connection, ['contract_version', 'partner_id', 'hotel_id', 'platform_enabled',
+        'onboarding_authorized', 'account_status', 'checked_at', 'can_connect'], 'Partner Stripe lifecycle');
+      if (connection.contract_version !== 'hotels_partner_stripe_capability_v1'
+          || connection.partner_id !== partnerId || connection.hotel_id !== hotelId
+          || connection.platform_enabled !== value.feature_flags.hotel_stripe_connect_enabled
+          || typeof connection.onboarding_authorized !== 'boolean' || typeof connection.can_connect !== 'boolean'
+          || !['NOT_CONNECTED', 'ONBOARDING_INCOMPLETE', 'CONNECTED', 'RESTRICTED', 'ACTION_REQUIRED', 'DISABLED'].includes(connection.account_status)
+          || (connection.checked_at !== null && (typeof connection.checked_at !== 'string' || !Number.isFinite(Date.parse(connection.checked_at))))
+          || (connection.account_status !== 'NOT_CONNECTED' && connection.checked_at === null)
+          || connection.can_connect !== (connection.platform_enabled && connection.onboarding_authorized
+            && ['NOT_CONNECTED', 'ONBOARDING_INCOMPLETE'].includes(connection.account_status))
+          || (connection.onboarding_authorized && value.partner.role !== 'owner')) fail('Partner Stripe lifecycle is inconsistent.');
+    } else ['hotel_rooms_v2_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'].forEach((key) => {
       if (value.feature_flags[key] !== false) fail('Public Hotels V2 feature flags must remain OFF in the Partner workspace.');
     });
     requireSnapshot(value.content_snapshot_token, 'content_snapshot_token');

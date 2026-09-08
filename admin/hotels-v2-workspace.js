@@ -12,6 +12,9 @@
     loading: false,
     properties: [],
     workspace: null,
+    capabilityLifecycle: null,
+    capabilityLifecycleError: null,
+    capabilityLifecycleBusy: false,
     contentControl: null,
     contentControlError: null,
     partnerPropertyProposals: null,
@@ -2235,6 +2238,10 @@
     workspaceElement.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading Property Workspace…</div>';
     try {
       state.workspace = await Repository.getWorkspace(id);
+      state.capabilityLifecycle = null;
+      state.capabilityLifecycleError = null;
+      try { state.capabilityLifecycle = await Repository.getCapabilityLifecycle(); }
+      catch (error) { state.capabilityLifecycleError = error; }
       state.h3Configuration = null;
       state.h3ConfigurationError = null;
       state.contentControl = null;
@@ -2426,6 +2433,7 @@
         </div>
       </header>
       ${adminLifecycleBannerMarkup()}
+      ${capabilityLifecycleMarkup()}
       <nav class="hotel-workspace-tabs" role="tablist" aria-label="Property Workspace sections">
         ${WORKSPACE_TABS.map(([key, label]) => `
           <button type="button" role="tab" id="hotelWorkspaceTab-${key}" data-hotel-workspace-tab="${key}" aria-controls="hotelWorkspaceActivePanel" aria-selected="${state.activeTab === key}" tabindex="${state.activeTab === key ? '0' : '-1'}" class="${state.activeTab === key ? 'is-active' : ''}">${escapeHtml(key === 'pricing' ? pricingUiText(label) : label)}</button>
@@ -2433,6 +2441,7 @@
       </nav>
       <div class="hotel-workspace-panel" id="hotelWorkspaceActivePanel" role="tabpanel" aria-labelledby="hotelWorkspaceTab-${escapeAttr(state.activeTab)}" tabindex="0"></div>`;
     container.querySelector('[data-hotel-workspace-back]')?.addEventListener('click', closeWorkspace);
+    bindCapabilityLifecycle(container);
     const activateTab = (key, options = {}) => {
       state.activeTab = key;
       renderWorkspace();
@@ -2508,6 +2517,47 @@
     state.helpController = root.HotelsV2WorkspaceHelp.createController({
       root: byId('hotelPropertyWorkspace'), language: pricingUiLanguage(), role: 'admin',
     });
+  }
+
+  function capabilityLifecycleMarkup() {
+    const lifecycle = state.capabilityLifecycle;
+    if (!lifecycle) return '<section class="hotel-workspace-card" data-capability-lifecycle><h3>Hotels capability lifecycle unavailable</h3><p>The audited activation stage must be installed and verified. No capability changes are available.</p></section>';
+    const labels = { rooms: 'Rooms V2 backend capability', external: 'External calendar capability',
+      stripe: 'Stripe Connect platform capability', instant: 'Instant booking capability', public_booking: 'Public booking capability' };
+    const descriptions = { rooms: 'Enables the backend capability, not public customer booking.',
+      external: 'Existing reviewed source and worker activation remains a separate contract.',
+      stripe: 'Does not grant Partner onboarding permission, connect an account or change payment routing.',
+      instant: 'Requires a separately approved instant-booking contract.', public_booking: 'Requires a separately approved public release. Remains OFF.' };
+    return `<details class="hotel-workspace-card" data-capability-lifecycle><summary>Audited global Hotels capabilities</summary><p>Applies platform-wide. Architecture remains legacy; public booking remains OFF. Each change requires a reason and a separate explicit confirmation.</p><p data-capability-audit>Audit version ${lifecycle.version}</p>${state.capabilityLifecycleError ? `<p role="alert">${escapeHtml(state.capabilityLifecycleError.message || 'Decision could not be verified. Do not retry automatically; inspect current state.')}</p>` : ''}<div class="hotel-workspace-grid">${lifecycle.capabilities.map((row) => `<article class="hotel-workspace-card" data-capability="${row.key}"><h4>${labels[row.key]}</h4><strong>${row.enabled ? 'ON' : 'OFF'}</strong><p>${descriptions[row.key]}</p>${row.blocked_reasons.length ? `<p data-capability-blocked>${row.blocked_reasons.map(escapeHtml).join(', ')}</p>` : '<p>Prerequisites satisfied; explicit human confirmation required.</p>'}<button class="btn-secondary" type="button" data-capability-request="${row.key}" ${state.capabilityLifecycleBusy || !['rooms', 'stripe'].includes(row.key) || (!row.enabled && row.blocked_reasons.length) ? 'disabled' : ''}>Review ${row.enabled ? 'disable' : 'enable'}</button><div data-capability-form-slot></div></article>`).join('')}</div></details>`;
+  }
+
+  function bindCapabilityLifecycle(container) {
+    container.querySelectorAll('[data-capability-request]').forEach((button) => button.addEventListener('click', () => {
+      if (state.capabilityLifecycleBusy) return;
+      const capability = button.dataset.capabilityRequest;
+      const row = state.capabilityLifecycle?.capabilities.find((entry) => entry.key === capability);
+      if (!row || !['rooms', 'stripe'].includes(capability)) return;
+      const expectedVersion = state.capabilityLifecycle.version;
+      const slot = button.parentElement.querySelector('[data-capability-form-slot]');
+      slot.innerHTML = `<form data-capability-decision><p>Target: ${escapeHtml(capability)} ${row.enabled ? 'OFF' : 'ON'}. This is not pricing activation or a public launch.</p><label>Reason<textarea name="reason" required minlength="10" maxlength="1000"></textarea></label><label><input type="checkbox" name="confirmation" required> I explicitly authorize this global capability change.</label><button class="btn-primary" type="submit">Confirm capability decision</button></form>`;
+      slot.querySelector('form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (state.capabilityLifecycleBusy) return;
+        const form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        const draft = { capability, enabled: !row.enabled, expectedVersion,
+          reason: form.elements.reason.value.trim(), confirmed: form.elements.confirmation.checked };
+        state.capabilityLifecycleBusy = true; state.capabilityLifecycleError = null;
+        slot.replaceChildren(); container.querySelectorAll('[data-capability-request]').forEach((control) => { control.disabled = true; });
+        try {
+          const result = await Repository.setCapabilityLifecycle(draft);
+          state.capabilityLifecycle = result.current;
+          // Read refresh only. Never repeat the decision if a refreshed DTO fails.
+          await refreshPricingControl();
+        } catch (error) { state.capabilityLifecycleError = error; }
+        finally { state.capabilityLifecycleBusy = false; renderWorkspace(); }
+      });
+    }));
   }
 
   function adminLifecycleBannerMarkup() {
@@ -4369,8 +4419,8 @@
       return;
     }
     const control = state.pricingControl;
-    const flagsCompatible = Core.hotelLifecycleFeatureFlagsAreCompatible(control.feature_flags);
-    const flagStatus = flagsCompatible
+    const flagsCompatible = !!control.capability_lifecycle || Core.hotelLifecycleFeatureFlagsAreCompatible(control.feature_flags);
+    const flagStatus = control.capability_lifecycle ? `PUBLIC BOOKING OFF · ROOMS ${control.feature_flags.hotel_rooms_v2_enabled ? 'ON' : 'OFF'} · STRIPE CAPABILITY ${control.feature_flags.hotel_stripe_connect_enabled ? 'ON' : 'OFF'}` : flagsCompatible
       ? `PUBLIC FLAGS OFF · EXTERNAL SYNC ${control.feature_flags.hotel_external_sync_enabled ? 'ON' : 'OFF'}`
       : 'FLAGS DRIFT';
     const architecture = String(control.property.architecture_version || 'unknown');
@@ -7709,17 +7759,9 @@
       const [data, externalResult] = await Promise.all([
         Repository.getAvailabilityControl(propertyId, range.start, range.end),
         Repository.getExternalCalendarControl(propertyId)
-          .then(async (control) => {
-            if (control.provider_capability.stage !== 'provider_types_active') {
-              return { control, error: null, reviews: null, reviewsError: null };
-            }
-            try {
-              const reviews = await Repository.getExternalCalendarProviderReviews(propertyId);
-              return { control, error: null, reviews, reviewsError: null };
-            } catch (reviewsError) {
-              return { control, error: null, reviews: null, reviewsError };
-            }
-          })
+          // 114450's review-list Get expires pending proposals. Loading a
+          // calendar/range must never initiate that lifecycle mutation.
+          .then((control) => ({ control, error: null, reviews: null, reviewsError: null }))
           .catch((error) => ({ control: null, error, reviews: null, reviewsError: null })),
       ]);
       if (!state.workspace || state.workspace.property.id !== propertyId) return;
@@ -8413,6 +8455,9 @@
 
   const EXTERNAL_CALENDAR_TEXT = Object.freeze({
     pl: Object.freeze({
+      'Refresh provider reviews': 'Odśwież przeglądy dostawców',
+      'Refreshing provider reviews can expire old proposals. It does not run calendar sync.': 'Odświeżenie przeglądów dostawców może wygasić stare propozycje. Nie uruchamia synchronizacji kalendarza.',
+      'Provider review refresh failed. Nothing was retried automatically.': 'Odświeżenie przeglądów dostawców nie powiodło się. Niczego nie ponowiono automatycznie.',
       'External calendars': 'Kalendarze zewnętrzne', 'Add provider source': 'Dodaj źródło dostawcy', 'Edit source': 'Edytuj źródło',
       'Configured (URL hidden)': 'Skonfigurowano (URL ukryty)', 'Not configured': 'Nie skonfigurowano',
       'Set URL': 'Ustaw URL', 'Rotate URL': 'Obróć URL', 'Clear URL': 'Usuń URL', 'Enable': 'Włącz', 'Disable': 'Wyłącz',
@@ -8432,6 +8477,9 @@
       'never_synced': 'Nigdy nie synchronizowano', 'healthy': 'Prawidłowy', 'degraded': 'Pogorszony', 'syncing': 'Synchronizacja',
     }),
     he: Object.freeze({
+      'Refresh provider reviews': 'רענון בדיקות ספקים',
+      'Refreshing provider reviews can expire old proposals. It does not run calendar sync.': 'רענון בדיקות ספקים עשוי לפוגג הצעות ישנות. הוא אינו מפעיל סנכרון יומן.',
+      'Provider review refresh failed. Nothing was retried automatically.': 'רענון בדיקות הספקים נכשל. לא בוצע ניסיון חוזר אוטומטי.',
       'External calendars': 'יומנים חיצוניים', 'Add provider source': 'הוספת מקור ספק', 'Edit source': 'עריכת מקור',
       'Configured (URL hidden)': 'מוגדר (הכתובת מוסתרת)', 'Not configured': 'לא מוגדר',
       'Set URL': 'הגדרת כתובת', 'Rotate URL': 'החלפת כתובת', 'Clear URL': 'מחיקת כתובת', 'Enable': 'הפעלה', 'Disable': 'השבתה',
@@ -8492,6 +8540,9 @@
       return `<article class="hotel-availability-row hotel-external-calendar-source" data-provider-stage="${escapeAttr(capability.stage)}"><span><strong>${escapeHtml(source.code)} · ${escapeHtml(externalCalendarProviderLabel(source.source_type))} · ${escapeHtml(roomName(source.room_type_id))}</strong><small>${escapeHtml(externalCalendarText(source.secret_configured ? 'Configured (URL hidden)' : 'Not configured'))} · ${escapeHtml(source.review_status)} · ${escapeHtml(externalCalendarText(source.health.status))}</small><small>${escapeHtml(externalCalendarText('Last attempt'))}: ${escapeHtml(source.health.last_attempt_at || '—')} · ${escapeHtml(externalCalendarText('Last success'))}: ${escapeHtml(source.health.last_success_at || '—')} · ${escapeHtml(externalCalendarText('Last failure'))}: ${escapeHtml(source.health.last_error_code || source.health.last_error_message || '—')}</small><small>${escapeHtml(externalCalendarText('Events'))}: ${source.health.last_event_count} · ${escapeHtml(externalCalendarText('Active events'))}: ${source.health.last_active_event_count} · ${escapeHtml(externalCalendarText('Blocks'))}: ${source.health.last_block_count}</small></span><span><button class="btn-secondary" type="button" data-external-calendar-edit="${escapeAttr(source.id)}" ${canReview ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Edit source'))}</button><button class="btn-secondary" type="button" data-external-calendar-secret="${source.secret_configured ? 'rotate' : 'set'}" data-source-id="${escapeAttr(source.id)}" ${canManageUrl ? '' : 'disabled'}>${escapeHtml(externalCalendarText(source.secret_configured ? 'Rotate URL' : 'Set URL'))}</button>${source.secret_configured && !source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-secret="clear" data-source-id="${escapeAttr(source.id)}" ${canManageUrl ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Clear URL'))}</button>` : ''}${source.is_enabled ? `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="disable" data-source-id="${escapeAttr(source.id)}" ${canReview ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Disable'))}</button>` : `<button class="btn-secondary" type="button" data-external-calendar-lifecycle="enable" data-source-id="${escapeAttr(source.id)}" ${canEnable ? '' : `disabled title="${escapeAttr(externalCalendarText(activationReason))}"`}>${escapeHtml(externalCalendarText('Enable'))}</button>`}<button class="btn-secondary" type="button" data-external-calendar-sync="${escapeAttr(source.id)}" ${source.is_enabled && capability.manual_sync_available ? '' : 'disabled'}>${escapeHtml(externalCalendarText('Run manual sync'))}</button></span>${!source.is_enabled && !canEnable ? `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText(activationReason))}</p>` : ''}<details class="hotel-review-diagnostics"><summary>${availabilityUiHtml('Technical diagnostics')}</summary><code>${escapeHtml(source.id)}</code><code>${escapeHtml(control.snapshot_token)}</code></details></article>`;
     }).join('');
     const reviewList = state.calendar.external_calendar_provider_reviews;
+    if (providerActive) {
+      sources += `<p class="hotel-workspace-safety-note">${escapeHtml(externalCalendarText('Refreshing provider reviews can expire old proposals. It does not run calendar sync.'))}</p><button class="btn-secondary" type="button" data-external-calendar-refresh-reviews>${escapeHtml(externalCalendarText('Refresh provider reviews'))}</button>`;
+    }
     if (state.calendar.external_calendar_provider_reviews_error) {
       sources += `<p class="hotel-property-empty--error">${escapeHtml(state.calendar.external_calendar_provider_reviews_error.userMessage || state.calendar.external_calendar_provider_reviews_error.message)}</p>`;
     } else if (reviewList) {
@@ -8556,18 +8607,25 @@
     openModal({ title: externalCalendarText(action === 'trigger' ? 'Run manual sync' : action === 'rotate' ? 'Rotate URL' : action === 'set' ? 'Set URL' : action === 'clear' ? 'Clear URL' : action === 'enable' ? 'Enable' : 'Disable'), body: `<form id="externalCalendarActionForm" class="hotel-workspace-form">${secretInput ? `<label class="admin-form-field"><span>${escapeHtml(externalCalendarText('Private HTTPS iCal URL'))}</span><input name="ical_url" type="password" inputmode="url" autocomplete="new-password" maxlength="4096" required></label><p>${escapeHtml(externalCalendarText('The private HTTPS iCal URL is used only for this reviewed Save and is never displayed again.'))}</p>` : ''}<label class="admin-form-field"><span>${availabilityUiHtml('Reason')}</span><input name="reason" minlength="3" maxlength="500" required></label></form>`, footer: `<button class="btn-secondary" type="button" data-hotel-modal-close>${availabilityUiHtml('Cancel')}</button><button class="btn-primary" type="submit" form="externalCalendarActionForm">${availabilityUiHtml('Review')}</button>`, onReady(overlay) { overlay.querySelector('#externalCalendarActionForm')?.addEventListener('submit', (event) => { event.preventDefault(); const fd = new FormData(event.currentTarget); const secretUrl = secretInput ? String(fd.get('ical_url') || '') : null; const payload = entity === 'ical_secret' ? (action === 'clear' ? { source_id: source.id } : { source_id: source.id, ical_url: secretUrl }) : entity === 'calendar_sync' ? { source_id: source.id } : {}; const expectedVersion = entity === 'ical_secret' ? (source.binding_version || 0) : entity === 'calendar_sync' ? source.health.state_version : source.version; closeModal({ restoreFocus: false }); void previewExternalCalendarIntent({ entity, action, id: source.id, expected_version: expectedVersion, payload, reason: String(fd.get('reason') || '').trim() }, externalCalendarText(action === 'trigger' ? 'Run manual sync' : action), secretUrl); }); } });
   }
 
+  let providerReviewsRefreshInFlight = false;
   async function refreshExternalCalendarProviderControl() {
     const hotelId = state.workspace?.property?.id;
-    if (!hotelId) return;
-    const [control, reviews] = await Promise.all([
-      Repository.getExternalCalendarControl(hotelId),
-      Repository.getExternalCalendarProviderReviews(hotelId),
-    ]);
-    state.calendar.external_calendar = control;
-    state.calendar.external_calendar_error = null;
-    state.calendar.external_calendar_provider_reviews = reviews;
-    state.calendar.external_calendar_provider_reviews_error = null;
-    renderActivePanel();
+    if (!hotelId || providerReviewsRefreshInFlight) return;
+    providerReviewsRefreshInFlight = true;
+    try {
+      const [control, reviews] = await Promise.all([
+        Repository.getExternalCalendarControl(hotelId),
+        Repository.getExternalCalendarProviderReviews(hotelId),
+      ]);
+      if (state.workspace?.property?.id !== hotelId) return;
+      state.calendar.external_calendar = control;
+      state.calendar.external_calendar_error = null;
+      state.calendar.external_calendar_provider_reviews = reviews;
+      state.calendar.external_calendar_provider_reviews_error = null;
+      renderActivePanel();
+    } finally {
+      providerReviewsRefreshInFlight = false;
+    }
   }
 
   function openExternalCalendarPartnerProposalReview(proposalId) {
@@ -8692,6 +8750,24 @@
     panel.querySelectorAll('[data-availability-clear-rule]').forEach((button) => button.addEventListener('click', () => openAvailabilityRateRule(button.dataset.availabilityClearRule, true)));
     panel.querySelector('[data-availability-stay-form]')?.addEventListener('submit', previewAvailabilityStayFromForm);
     panel.querySelector('[data-external-calendar-create]')?.addEventListener('click', () => openExternalCalendarEditor());
+    panel.querySelector('[data-external-calendar-refresh-reviews]')?.addEventListener('click', async (event) => {
+      const hotelId = state.workspace?.property?.id;
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await refreshExternalCalendarProviderControl();
+      } catch (error) {
+        if (state.workspace?.property?.id === hotelId) {
+          state.calendar.external_calendar_provider_reviews = null;
+          state.calendar.external_calendar_provider_reviews_error = {
+            userMessage: externalCalendarText('Provider review refresh failed. Nothing was retried automatically.'),
+          };
+          renderActivePanel();
+        }
+      } finally {
+        button.disabled = false;
+      }
+    });
     panel.querySelectorAll('[data-external-calendar-edit]').forEach((button) => button.addEventListener('click', () => openExternalCalendarEditor(button.dataset.externalCalendarEdit)));
     panel.querySelectorAll('[data-external-calendar-secret]').forEach((button) => button.addEventListener('click', () => openExternalCalendarAction(button.dataset.sourceId, 'ical_secret', button.dataset.externalCalendarSecret)));
     panel.querySelectorAll('[data-external-calendar-lifecycle]').forEach((button) => button.addEventListener('click', () => openExternalCalendarAction(button.dataset.sourceId, 'calendar_source', button.dataset.externalCalendarLifecycle)));

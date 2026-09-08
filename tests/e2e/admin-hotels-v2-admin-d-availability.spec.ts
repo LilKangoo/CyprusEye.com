@@ -610,7 +610,12 @@ async function installAvailabilityHarness(
 
         getExternalCalendarControl: async () => clone(store.externalControl),
 
-        getExternalCalendarProviderReviews: async () => clone(store.providerReviews),
+        getExternalCalendarProviderReviews: async () => {
+          store.providerRefreshes = (store.providerRefreshes || 0) + 1;
+          if (store.deferProviderRefresh) await new Promise<void>((resolve) => { store.releaseProviderRefresh = resolve; });
+          if (store.failProviderRefresh) throw new Error('private-provider-response');
+          return clone(store.providerReviews);
+        },
 
         previewExternalCalendarPartnerProposal: async (proposalValue: any, adminReason: string) => {
           const proposal = store.providerReviews.proposals.find(
@@ -790,6 +795,36 @@ async function openReviewedInventoryChange(
     review.locator('[data-availability-confirm]'),
   ).toBeVisible();
 }
+
+test('Calendar range loading is read-only; provider expiry requires one explicit refresh', async ({ page }) => {
+  await installAvailabilityHarness(page);
+  await page.evaluate(() => {
+    const api = (window as any).HotelsV2Workspace;
+    api.state.calendar.data = null;
+    api.renderWorkspace();
+  });
+  await expect(page.locator('[data-external-calendar-refresh-reviews]')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__adminD.providerRefreshes || 0)).toBe(0);
+  await expect(page.locator('[data-external-calendar-control]')).toContainText('can expire old proposals');
+  await page.evaluate(() => { (window as any).__adminD.deferProviderRefresh = true; });
+  await page.locator('[data-external-calendar-refresh-reviews]').evaluate((button) => {
+    button.dispatchEvent(new Event('click')); button.dispatchEvent(new Event('click'));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).__adminD.providerRefreshes)).toBe(1);
+  await page.evaluate(() => (window as any).__adminD.releaseProviderRefresh());
+  await expect(page.locator('[data-external-calendar-proposal]')).toHaveCount(2);
+  await expect(page.locator('[data-external-calendar-proposal]').first()).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__adminD.providerRefreshes)).toBe(1);
+});
+
+test('Calendar explicit refresh error never retries or exposes raw server text', async ({ page }) => {
+  await installAvailabilityHarness(page);
+  await page.evaluate(() => { (window as any).__adminD.failProviderRefresh = true; });
+  await page.locator('[data-external-calendar-refresh-reviews]').click();
+  await expect(page.locator('[data-external-calendar-control]')).toContainText('Nothing was retried automatically.');
+  await expect(page.locator('[data-external-calendar-control]')).not.toContainText('private-provider-response');
+  expect(await page.evaluate(() => (window as any).__adminD.providerRefreshes)).toBe(1);
+});
 
 test(
   'ADMIN-D Calendar inventory uses server Review and applies only the exact reviewed plan while V2 flags stay OFF',
