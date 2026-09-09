@@ -66,6 +66,7 @@ Every listed file is under `supabase/manual/` and included in the detached manif
 
 | Stage | Prewrite | Postinstall |
 |---|---|---|
+| 114420 | hotels_v2_114420_after_lineage_reconciliation_preaction_readonly.sql | hotels_v2_114420_postinstall_readonly.sql (BEFORE history repair) |
 | 114425 | hotels_v2_external_calendar_site_settings_compatibility_preflight.sql | hotels_v2_external_calendar_site_settings_compatibility_verify.sql |
 | 114450 | hotels_v2_external_calendar_provider_types_preflight.sql | hotels_v2_external_calendar_provider_types_verify.sql AND hotels_v2_114450_successor_postinstall_readonly.sql |
 | 114460 | hotels_v2_partner_stripe_connect_prewrite_readonly.sql | hotels_v2_partner_stripe_connect_postinstall_readonly.sql |
@@ -73,8 +74,15 @@ Every listed file is under `supabase/manual/` and included in the detached manif
 | 114480 | hotels_v2_capability_lifecycle_prewrite_readonly.sql | hotels_v2_capability_lifecycle_postinstall_readonly.sql AND hotels_v2_114480_successor_postinstall_readonly.sql |
 
 114420 embeds atomic installation checks in the unchanged tested migration.
-No unversioned old temporary postinstall wrapper is an authoritative package input.
-Any additional 114420 operator-only postinstall query needs separate review.
+After physical installation, run the final successor-compatible
+`hotels_v2_114420_postinstall_readonly.sql` BEFORE recording 114420 in history.
+Require all 134 named leaves and `POSTINSTALL_READY=true`, `blocker_codes=[]`
+(135 rows total). It requires 114416 recorded and 114420 still unrecorded.
+Stop on any false leaf or SQL error. Only a separately authorized history repair
+may follow PASS; then verify the ledger before any separately authorized 114425
+preflight. The new postinstall intentionally fails after history repair.
+No old temporary postinstall wrapper is an authoritative package input.
+See `docs/hotels-114420-postinstall-verifier-validation.md` for local evidence.
 
 The successor supplements each return one safe sentinel row. They pin all 15
 statically defined reconciliation helper bodies, require exact certificate stage
