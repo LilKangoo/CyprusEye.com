@@ -26,11 +26,11 @@ to the accepted local forward-chain candidate. Never substitute an earlier packa
 
 ## Human recovery-point boundary
 
-Accepted human evidence: **08 Sep 2026 05:38:06 UTC, COMPLETED, Restore available**;
-the user reports no subsequent production database writes. The recovery point
-remains valid on that evidence, not on a new remote inspection.
-Before any eventual write, the human must reopen Backups and reconfirm this or a
-newer completed recovery point. Every stage requires separate authorization.
+Current accepted human evidence: **09 Sep 2026 05:37:22 UTC, COMPLETED, PHYSICAL,
+Restore available**. This supersedes the earlier 08 Sep annotation. The human has
+since confirmed 114416 and 114420 installed, verified and recorded. Recovery
+evidence remains external to SQL; no new remote backup inspection was performed.
+Every future stage requires separate authorization.
 
 ## 114416 operator handoff
 
@@ -67,7 +67,7 @@ Every listed file is under `supabase/manual/` and included in the detached manif
 | Stage | Prewrite | Postinstall |
 |---|---|---|
 | 114420 | hotels_v2_114420_after_lineage_reconciliation_preaction_readonly.sql | hotels_v2_114420_postinstall_readonly.sql (BEFORE history repair) |
-| 114425 | hotels_v2_external_calendar_site_settings_compatibility_preflight.sql | hotels_v2_external_calendar_site_settings_compatibility_verify.sql |
+| 114425 | hotels_v2_114425_preaction_readonly.sql | hotels_v2_114425_postinstall_readonly.sql (BEFORE history repair) |
 | 114450 | hotels_v2_external_calendar_provider_types_preflight.sql | hotels_v2_external_calendar_provider_types_verify.sql AND hotels_v2_114450_successor_postinstall_readonly.sql |
 | 114460 | hotels_v2_partner_stripe_connect_prewrite_readonly.sql | hotels_v2_partner_stripe_connect_postinstall_readonly.sql |
 | 114470 | hotels_v2_partner_stripe_authorization_prewrite_readonly.sql | hotels_v2_partner_stripe_authorization_postinstall_readonly.sql |
@@ -83,6 +83,19 @@ may follow PASS; then verify the ledger before any separately authorized 114425
 preflight. The new postinstall intentionally fails after history repair.
 No old temporary postinstall wrapper is an authoritative package input.
 See `docs/hotels-114420-postinstall-verifier-validation.md` for local evidence.
+
+The final 114425 gates retain the exact post-114420 successor boundary and add
+the site-settings helper contract. Preaction requires 144/144 leaves (145 rows)
+and `PREACTION_READY=true`. After separately authorized physical installation,
+postinstall requires 147/147 leaves (148 rows), `POSTINSTALL_READY=true`, and
+`blocker_codes=[]`, while 114425 remains UNRECORDED. Only then may separately
+authorized history repair and history verification follow. The postinstall
+intentionally fails once 114425 is recorded. Consider 114450 only afterwards.
+Both files require READ ONLY / REPEATABLE READ and end with ROLLBACK.
+The earlier site-settings preflight/verify files remain unchanged supporting
+contract evidence; they are not the complete final operational gates. Old
+temporary prewrite/postinstall files from baseline d98d2ff are obsolete and
+must not be used. See `docs/hotels-114425-rollout-gates-validation.md`.
 
 The successor supplements each return one safe sentinel row. They pin all 15
 statically defined reconciliation helper bodies, require exact certificate stage

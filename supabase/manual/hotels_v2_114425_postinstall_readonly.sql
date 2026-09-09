@@ -1,0 +1,687 @@
+BEGIN;
+SET TRANSACTION READ ONLY;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SET LOCAL search_path=pg_catalog,public;
+-- Final successor 114425 postinstall; accepted base c081653a7806651f5d5f06c704420bb976652030.
+-- Migration SHA256 d72c244840bd21a5c5e7e46f654c8b3a7466f80f1d18ebac3ca938ab43163ee5; 306 lines; migration unchanged.
+-- 114416 and 114420 recorded; 114425 and all later stages unrecorded.
+-- Expected rows: 148 (147 required leaves and one summary).
+-- Derived from exact 114420 postinstall catalogs plus every 114425 readiness guard.
+-- Source-pinned two-state fingerprint helper excludes unrelated settings; flags here remain f/t/f/f.
+-- Fixed SELECT-only queries; inspected Preview/Submit signatures are NEVER called.
+-- No timeout override, mutation RPC, DDL/DML or explicit write lock.
+-- Human recovery: 09 Sep 2026 05:37:22 UTC; COMPLETED; PHYSICAL; Restore available.
+-- SQL does not establish backups or authorize any production write.
+WITH
+pins(signature,source_sha256,volatility,security_definer,configuration,authenticated_execute) AS (
+  VALUES
+  ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()','8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()','b3693dead7fbbe9029a9503e361d085e2c21ef0fef025d150149ef013f249873','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_seven_arches_reviewed_pricing_current_state()','1374c443a68b4eefbfb361021c0a8d24b51a3200a5995d87a8d7aa114f0835d1','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_seven_arches_reviewed_pricing_oracle()','50fee36eb4e4c7a11ad0baf0188a9f2042bde3678c5d835b3e8b7ece992ebfef','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_admin_c_pricing_control_snapshot(uuid)','3f954c525277c771c3009e9ca1fbbf6c68776904f40bc70978d01f7f10a060b0','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_h3_2b_access_snapshot(uuid,uuid,text)','7f8cb70e2c7034d17f03377cf7ffe3d5648e47dc27800e9ac3542bc95e2bb5b4','s',true,ARRAY['search_path=pg_catalog, public, auth']::text[],false),
+  ('public.hotel_v2_partner_workspace_function_lineage_is_exact()','dde4fac2d044a53bb713cced26ca93c8295548c9bde3717d0ea83dc511801a85','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_h3_2b_exact_price_projection(uuid)','41f8609b712906301ef93e0eb438188ce1989e1114ccea1dcf3f55e1775f438b','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_h3_2b_commission_policy(uuid)','533a819b7903a4247196955a555a32c4a26b4bea4450814017334c83903ace77','s',true,ARRAY['search_path=pg_catalog, public']::text[],false),
+  ('public.hotel_v2_h3_2b_commercial(jsonb,numeric,integer,numeric)','5dec10461b12cec5efb72c9760d7f6126db440107c64af629412034bce0127db','i',true,ARRAY['search_path=pg_catalog']::text[],false),
+  ('public.hotel_v2_h3_2b_hash(jsonb)','d60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828','i',false,ARRAY['search_path=pg_catalog']::text[],false),
+  ('public.hotel_v2_h2a_keys_allowed(jsonb,text[])','ad7d11bdbc9f1351e300ceaf9dc0e69b95464b0f8a4b6cd4fbdb179f77ae65e3','i',false,ARRAY['search_path=pg_catalog']::text[],false),
+  ('public.hotel_v2_partner_preview_seven_arches_pricing_proposal(jsonb)','4359cc39a9bec782c54f3300fb6c4cf5e53aa552eaa8ee0b540bd678c39f2ce5','v',true,ARRAY['search_path=pg_catalog, public, auth']::text[],true),
+  ('public.hotel_v2_partner_submit_seven_arches_pricing_proposal(jsonb,uuid,uuid)','b63c69fbf6c3a376f01259ad56f0a1fc6e4f19ace374ffddbcbebd33fe456bc6','v',true,ARRAY['search_path=pg_catalog, public, auth']::text[],true),
+  ('public.hotel_v2_external_calendar_site_settings_fingerprint()','e297f1b640f544644d695b36b4aca0b2dc90385e83709e8a494044aabc3b95bd','s',true,ARRAY['search_path=pg_catalog, public']::text[],false)
+),
+pin_results AS MATERIALIZED (
+  SELECT e.signature,
+    p.oid IS NOT NULL
+    AND p.proowner='postgres'::regrole
+    AND p.provolatile=e.volatility::"char"
+    AND p.prosecdef=e.security_definer
+    AND p.proconfig IS NOT DISTINCT FROM e.configuration
+    AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=e.source_sha256
+    AND has_function_privilege('postgres',p.oid,'EXECUTE')
+    AND NOT has_function_privilege(0::oid,p.oid,'EXECUTE')
+    AND NOT has_function_privilege('anon',p.oid,'EXECUTE')
+    AND has_function_privilege('authenticated',p.oid,'EXECUTE')=e.authenticated_execute
+    AND NOT has_function_privilege('service_role',p.oid,'EXECUTE') AS exact,
+    jsonb_build_object('exists',p.oid IS NOT NULL,
+      'source_exact',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=e.source_sha256,
+      'owner',pg_get_userbyid(p.proowner),'volatility',p.provolatile,
+      'security_definer',p.prosecdef,'configuration',p.proconfig,
+      'public_execute',has_function_privilege(0::oid,p.oid,'EXECUTE'),
+      'anon_execute',has_function_privilege('anon',p.oid,'EXECUTE'),
+      'authenticated_execute',has_function_privilege('authenticated',p.oid,'EXECUTE'),
+      'service_role_execute',has_function_privilege('service_role',p.oid,'EXECUTE')
+    )::text AS safe_context
+  FROM pins e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)
+),
+specs(ordinal,section,leaf_name,expected,required_relations,required_functions,read_query) AS (
+ VALUES
+  (1,'session','transaction_read_only','on',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check1$SELECT (current_setting('transaction_read_only'))::text AS actual$check1$),
+  (2,'workspace_contract','partner_pricing_snapshot_contract_compatible','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_partner_workspace_function_lineage_is_exact()']::text[],
+    $check2$SELECT (public.hotel_v2_partner_workspace_function_lineage_is_exact())::text AS actual$check2$),
+  (3,'history','recorded_114350','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check3$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811435000'))::text AS actual$check3$),
+  (4,'history','recorded_114360','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check4$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811436000'))::text AS actual$check4$),
+  (5,'history','recorded_114370','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check5$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811437000'))::text AS actual$check5$),
+  (6,'history','recorded_114400','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check6$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811440000'))::text AS actual$check6$),
+  (7,'history','recorded_114405','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check7$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811440500'))::text AS actual$check7$),
+  (8,'history','recorded_114406','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check8$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811440600'))::text AS actual$check8$),
+  (9,'history','recorded_114407','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check9$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811440700'))::text AS actual$check9$),
+  (10,'history','recorded_114410','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check10$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811441000'))::text AS actual$check10$),
+  (11,'history','recorded_114415','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check11$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811441500'))::text AS actual$check11$),
+  (12,'history','recorded_114420','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check12$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811442000'))::text AS actual$check12$),
+  (13,'history','recorded_114425','0',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check13$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811442500'))::text AS actual$check13$),
+  (14,'history','recorded_114450','0',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check14$SELECT ((SELECT count(*) FROM supabase_migrations.schema_migrations WHERE version::text='20260811445000'))::text AS actual$check14$),
+  (15,'reviewed_foundation','foundation_receipts_count','1',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_foundation_receipts']::text[],ARRAY[]::text[],
+    $check15$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_foundation_receipts))::text AS actual$check15$),
+  (16,'reviewed_security','foundation_receipts_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check16$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_foundation_receipts') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check16$),
+  (17,'reviewed_foundation','evolution_receipts_count','0',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_evolution_receipts']::text[],ARRAY[]::text[],
+    $check17$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_evolution_receipts))::text AS actual$check17$),
+  (18,'reviewed_security','evolution_receipts_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check18$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_evolution_receipts') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check18$),
+  (19,'reviewed_foundation','proposals_count','0',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_proposals']::text[],ARRAY[]::text[],
+    $check19$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_proposals))::text AS actual$check19$),
+  (20,'reviewed_security','proposals_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check20$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_proposals') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check20$),
+  (21,'reviewed_foundation','proposal_items_count','0',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_proposal_items']::text[],ARRAY[]::text[],
+    $check21$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_proposal_items))::text AS actual$check21$),
+  (22,'reviewed_security','proposal_items_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check22$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_proposal_items') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check22$),
+  (23,'reviewed_foundation','admin_reviews_count','0',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_admin_reviews']::text[],ARRAY[]::text[],
+    $check23$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_admin_reviews))::text AS actual$check23$),
+  (24,'reviewed_security','admin_reviews_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check24$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_admin_reviews') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check24$),
+  (25,'reviewed_foundation','transaction_context_count','0',
+    ARRAY['public.hotel_seven_arches_reviewed_pricing_transaction_context']::text[],ARRAY[]::text[],
+    $check25$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_reviewed_pricing_transaction_context))::text AS actual$check25$),
+  (26,'reviewed_security','transaction_context_security','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check26$SELECT (EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_reviewed_pricing_transaction_context') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name))))::text AS actual$check26$),
+  (27,'lineage','pricing_activation_evolution_receipts_count','1',
+    ARRAY['public.hotel_seven_arches_pricing_activation_evolution_receipts']::text[],ARRAY[]::text[],
+    $check27$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_pricing_activation_evolution_receipts))::text AS actual$check27$),
+  (28,'lineage','pricing_activation_transaction_context_count','0',
+    ARRAY['public.hotel_seven_arches_pricing_activation_transaction_context']::text[],ARRAY[]::text[],
+    $check28$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_pricing_activation_transaction_context))::text AS actual$check28$),
+  (29,'lineage','independent_pricing_topology_receipts_count','2',
+    ARRAY['public.hotel_seven_arches_independent_pricing_topology_receipts']::text[],ARRAY[]::text[],
+    $check29$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_independent_pricing_topology_receipts))::text AS actual$check29$),
+  (30,'lineage','independent_pricing_evolution_receipts_count','1',
+    ARRAY['public.hotel_seven_arches_independent_pricing_evolution_receipts']::text[],ARRAY[]::text[],
+    $check30$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_independent_pricing_evolution_receipts))::text AS actual$check30$),
+  (31,'lineage','independent_pricing_authority_count','54',
+    ARRAY['public.hotel_seven_arches_independent_pricing_authority']::text[],ARRAY[]::text[],
+    $check31$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_independent_pricing_authority))::text AS actual$check31$),
+  (32,'pricing','upper_rate_exact','true',
+    ARRAY['public.hotel_room_rates']::text[],ARRAY[]::text[],
+    $check32$SELECT (EXISTS(SELECT 1 FROM public.hotel_room_rates WHERE id='7e420964-9cbf-4f1b-abd3-09840af5240f'::uuid AND hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND room_type_id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94'::uuid AND rate_plan_id='22e47a63-a630-4fb6-8f43-816f2d3fdc17'::uuid AND pricing_schedule_id='aec20731-7a56-35f0-334e-92b363351f02'::uuid AND base_nightly_rate=100 AND btrim(currency::text)='EUR' AND is_active AND review_status='reviewed'))::text AS actual$check32$),
+  (33,'pricing','upper_schedule_exact','true',
+    ARRAY['public.hotel_pricing_schedules']::text[],ARRAY[]::text[],
+    $check33$SELECT (EXISTS(SELECT 1 FROM public.hotel_pricing_schedules WHERE id='aec20731-7a56-35f0-334e-92b363351f02'::uuid AND hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND is_active AND review_status='reviewed' AND sharing_mode='independent'))::text AS actual$check33$),
+  (34,'pricing','upper_active_tiers','27',
+    ARRAY['public.hotel_pricing_schedule_occupancy_tiers']::text[],ARRAY[]::text[],
+    $check34$SELECT ((SELECT count(*) FROM public.hotel_pricing_schedule_occupancy_tiers WHERE schedule_id='aec20731-7a56-35f0-334e-92b363351f02'::uuid AND is_active))::text AS actual$check34$),
+  (35,'pricing','upper_authority_bindings','27',
+    ARRAY['public.hotel_seven_arches_independent_pricing_authority','public.hotel_pricing_schedule_occupancy_tiers']::text[],ARRAY[]::text[],
+    $check35$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_independent_pricing_authority a JOIN public.hotel_pricing_schedule_occupancy_tiers t ON t.id=a.target_tier_id WHERE a.room_key='upper' AND a.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND a.room_type_id='b4ef504f-cdeb-4e3c-a54d-932146ef4e94'::uuid AND a.room_rate_id='7e420964-9cbf-4f1b-abd3-09840af5240f'::uuid AND a.independent_schedule_id='aec20731-7a56-35f0-334e-92b363351f02'::uuid AND t.schedule_id=a.independent_schedule_id AND t.is_active AND t.nightly_rate=a.current_nightly_rate AND t.version=a.current_target_version AND t.guest_count=a.guest_count AND t.threshold_nights=a.threshold_nights))::text AS actual$check35$),
+  (36,'pricing','ground_rate_exact','true',
+    ARRAY['public.hotel_room_rates']::text[],ARRAY[]::text[],
+    $check36$SELECT (EXISTS(SELECT 1 FROM public.hotel_room_rates WHERE id='3320590d-632d-423f-80d0-fd021cba7293'::uuid AND hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND room_type_id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3'::uuid AND rate_plan_id='22e47a63-a630-4fb6-8f43-816f2d3fdc17'::uuid AND pricing_schedule_id='9d109336-64f3-3c57-4684-968b59c94c3b'::uuid AND base_nightly_rate=100 AND btrim(currency::text)='EUR' AND is_active AND review_status='reviewed'))::text AS actual$check36$),
+  (37,'pricing','ground_schedule_exact','true',
+    ARRAY['public.hotel_pricing_schedules']::text[],ARRAY[]::text[],
+    $check37$SELECT (EXISTS(SELECT 1 FROM public.hotel_pricing_schedules WHERE id='9d109336-64f3-3c57-4684-968b59c94c3b'::uuid AND hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND is_active AND review_status='reviewed' AND sharing_mode='independent'))::text AS actual$check37$),
+  (38,'pricing','ground_active_tiers','27',
+    ARRAY['public.hotel_pricing_schedule_occupancy_tiers']::text[],ARRAY[]::text[],
+    $check38$SELECT ((SELECT count(*) FROM public.hotel_pricing_schedule_occupancy_tiers WHERE schedule_id='9d109336-64f3-3c57-4684-968b59c94c3b'::uuid AND is_active))::text AS actual$check38$),
+  (39,'pricing','ground_authority_bindings','27',
+    ARRAY['public.hotel_seven_arches_independent_pricing_authority','public.hotel_pricing_schedule_occupancy_tiers']::text[],ARRAY[]::text[],
+    $check39$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_independent_pricing_authority a JOIN public.hotel_pricing_schedule_occupancy_tiers t ON t.id=a.target_tier_id WHERE a.room_key='ground' AND a.hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND a.room_type_id='825c01b7-9f82-492a-9c81-9b1d5cd7acd3'::uuid AND a.room_rate_id='3320590d-632d-423f-80d0-fd021cba7293'::uuid AND a.independent_schedule_id='9d109336-64f3-3c57-4684-968b59c94c3b'::uuid AND t.schedule_id=a.independent_schedule_id AND t.is_active AND t.nightly_rate=a.current_nightly_rate AND t.version=a.current_target_version AND t.guest_count=a.guest_count AND t.threshold_nights=a.threshold_nights))::text AS actual$check39$),
+  (40,'safe_predicate','hotel_v2_seven_arches_independent_pricing_topology_is_exact','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()']::text[],
+    $check40$SELECT (public.hotel_v2_seven_arches_independent_pricing_topology_is_exact())::text AS actual$check40$),
+  (41,'safe_predicate','hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()']::text[],
+    $check41$SELECT (public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact())::text AS actual$check41$),
+  (42,'safe_predicate','hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact()']::text[],
+    $check42$SELECT (public.hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact())::text AS actual$check42$),
+  (43,'safe_predicate','hotel_v2_seven_arches_payment_policy_lineage_is_exact','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()']::text[],
+    $check43$SELECT (public.hotel_v2_seven_arches_payment_policy_lineage_is_exact())::text AS actual$check43$),
+  (44,'safe_predicate','hotel_v2_seven_arches_pricing_activation_current_is_safe','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_pricing_activation_current_is_safe()']::text[],
+    $check44$SELECT (public.hotel_v2_seven_arches_pricing_activation_current_is_safe())::text AS actual$check44$),
+  (45,'safe_predicate','hotel_v2_7a_pricing_activation_transaction_is_preserved','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_7a_pricing_activation_transaction_is_preserved()']::text[],
+    $check45$SELECT (public.hotel_v2_7a_pricing_activation_transaction_is_preserved())::text AS actual$check45$),
+  (46,'parity','core_case_count','100',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_reviewed_pricing_oracle()']::text[],
+    $check46$SELECT (public.hotel_v2_seven_arches_reviewed_pricing_oracle()->>'core_case_count')::text AS actual$check46$),
+  (47,'parity','core_mismatch_count','0',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_reviewed_pricing_oracle()']::text[],
+    $check47$SELECT (public.hotel_v2_seven_arches_reviewed_pricing_oracle()->>'core_mismatch_count')::text AS actual$check47$),
+  (48,'parity','guest_one_case_count','20',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_reviewed_pricing_oracle()']::text[],
+    $check48$SELECT (public.hotel_v2_seven_arches_reviewed_pricing_oracle()->>'guest_one_case_count')::text AS actual$check48$),
+  (49,'parity','guest_one_mismatch_count','0',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_reviewed_pricing_oracle()']::text[],
+    $check49$SELECT (public.hotel_v2_seven_arches_reviewed_pricing_oracle()->>'guest_one_mismatch_count')::text AS actual$check49$),
+  (50,'lineage','scoped_lineage_present','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_pricing_scoped_lineage()']::text[],
+    $check50$SELECT (public.hotel_v2_seven_arches_pricing_scoped_lineage() IS NOT NULL)::text AS actual$check50$),
+  (51,'commercial','active_reviewed_commission_count','1',
+    ARRAY['public.hotel_commission_policies']::text[],ARRAY[]::text[],
+    $check51$SELECT ((SELECT count(*) FROM public.hotel_commission_policies WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND is_active AND review_status='reviewed'))::text AS actual$check51$),
+  (52,'commercial','commission_EUR10_exact','1',
+    ARRAY['public.hotel_commission_policies']::text[],ARRAY[]::text[],
+    $check52$SELECT ((SELECT count(*) FROM public.hotel_commission_policies WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND is_active AND review_status='reviewed' AND commission_mode='per_allocated_room_per_night' AND amount=10 AND btrim(currency::text)='EUR'))::text AS actual$check52$),
+  (53,'flags','legacy_architecture','true',
+    ARRAY['public.hotels']::text[],ARRAY[]::text[],
+    $check53$SELECT (EXISTS(SELECT 1 FROM public.hotels WHERE id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND architecture_version='legacy'))::text AS actual$check53$),
+  (54,'flags','hotel_rooms_v2_enabled','false',
+    ARRAY['public.site_settings']::text[],ARRAY[]::text[],
+    $check54$SELECT ((SELECT hotel_rooms_v2_enabled FROM public.site_settings WHERE id=1))::text AS actual$check54$),
+  (55,'flags','hotel_external_sync_enabled','true',
+    ARRAY['public.site_settings']::text[],ARRAY[]::text[],
+    $check55$SELECT ((SELECT hotel_external_sync_enabled FROM public.site_settings WHERE id=1))::text AS actual$check55$),
+  (56,'flags','hotel_instant_booking_enabled','false',
+    ARRAY['public.site_settings']::text[],ARRAY[]::text[],
+    $check56$SELECT ((SELECT hotel_instant_booking_enabled FROM public.site_settings WHERE id=1))::text AS actual$check56$),
+  (57,'flags','hotel_stripe_connect_enabled','false',
+    ARRAY['public.site_settings']::text[],ARRAY[]::text[],
+    $check57$SELECT ((SELECT hotel_stripe_connect_enabled FROM public.site_settings WHERE id=1))::text AS actual$check57$),
+  (58,'maintenance','unconsumed_live_activation_reviews','0',
+    ARRAY['public.hotel_seven_arches_pricing_activation_reviews']::text[],ARRAY[]::text[],
+    $check58$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_pricing_activation_reviews WHERE consumed_at IS NULL AND expires_at>statement_timestamp()))::text AS actual$check58$),
+  (59,'maintenance','pending_property_proposals','0',
+    ARRAY['public.hotel_partner_property_drafts']::text[],ARRAY[]::text[],
+    $check59$SELECT ((SELECT count(*) FROM public.hotel_partner_property_drafts WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND status='pending_admin_review'))::text AS actual$check59$),
+  (60,'maintenance','open_jobs','0',
+    ARRAY['hotels_v2_private.hotel_external_calendar_sync_jobs']::text[],ARRAY[]::text[],
+    $check60$SELECT ((SELECT count(*) FROM hotels_v2_private.hotel_external_calendar_sync_jobs WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND status IN('queued','leased','running')))::text AS actual$check60$),
+  (61,'maintenance','active_leases','0',
+    ARRAY['hotels_v2_private.hotel_external_calendar_sync_jobs']::text[],ARRAY[]::text[],
+    $check61$SELECT ((SELECT count(*) FROM hotels_v2_private.hotel_external_calendar_sync_jobs WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND status IN('leased','running') AND leased_until>statement_timestamp()))::text AS actual$check61$),
+  (62,'maintenance','stale_leases','0',
+    ARRAY['hotels_v2_private.hotel_external_calendar_sync_jobs']::text[],ARRAY[]::text[],
+    $check62$SELECT ((SELECT count(*) FROM hotels_v2_private.hotel_external_calendar_sync_jobs WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND status IN('leased','running') AND (leased_until IS NULL OR leased_until<=statement_timestamp())))::text AS actual$check62$),
+  (63,'maintenance','other_booking_relation_locks','0',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check63$SELECT ((SELECT count(*) FROM pg_locks WHERE relation=to_regclass('public.hotel_bookings') AND pid IS DISTINCT FROM pg_backend_pid()))::text AS actual$check63$),
+  (64,'maintenance','protected_waits_or_write_locks','0',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check64$SELECT ((SELECT count(*) FROM pg_locks l JOIN pg_class c ON c.oid=l.relation JOIN pg_namespace n ON n.oid=c.relnamespace WHERE l.pid IS DISTINCT FROM pg_backend_pid() AND n.nspname IN('public','hotels_v2_private') AND (c.relname='hotels' OR left(c.relname,6)='hotel_') AND (NOT l.granted OR l.mode IN('RowExclusiveLock','ShareUpdateExclusiveLock','ShareLock','ShareRowExclusiveLock','ExclusiveLock','AccessExclusiveLock'))))::text AS actual$check64$),
+  (65,'maintenance','client_transactions_over_five_minutes','0',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check65$SELECT ((SELECT count(*) FROM pg_stat_activity WHERE pid IS DISTINCT FROM pg_backend_pid() AND backend_type='client backend' AND xact_start<statement_timestamp()-interval '5 minutes'))::text AS actual$check65$),
+  (66,'maintenance','inventory_visibility','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check66$SELECT ((SELECT rolsuper OR pg_has_role(current_user,'pg_read_all_stats','MEMBER') FROM pg_roles WHERE rolname=current_user))::text AS actual$check66$),
+  (67,'future','114450_receipt_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check67$SELECT (to_regclass('hotels_v2_private.hotel_external_calendar_provider_evolution_receipts') IS NULL)::text AS actual$check67$),
+  (68,'future','114450_bridge_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check68$SELECT (to_regprocedure('public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()') IS NULL)::text AS actual$check68$),
+  (69,'dependency','booking_relation_exists','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check69$SELECT (to_regclass('public.hotel_bookings') IS NOT NULL)::text AS actual$check69$),
+  (70,'dependency','coupon_signature_exists','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check70$SELECT (to_regprocedure('public.service_coupon_quote(text,text,numeric,timestamptz,uuid,text[],uuid,text)') IS NOT NULL)::text AS actual$check70$),
+  (71,'workspace_contract','canonical_workspace_security_exact','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check71$SELECT (EXISTS(SELECT 1 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure('public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)') AND p.proowner='postgres'::regrole AND p.prosecdef AND p.provolatile='s' AND l.lanname='plpgsql' AND p.proconfig=ARRAY['search_path=pg_catalog, public, auth']::text[] AND has_function_privilege('postgres',p.oid,'EXECUTE') AND has_function_privilege('authenticated',p.oid,'EXECUTE') AND NOT has_function_privilege(0::oid,p.oid,'EXECUTE') AND NOT has_function_privilege('anon',p.oid,'EXECUTE') AND NOT has_function_privilege('service_role',p.oid,'EXECUTE')))::text AS actual$check71$),
+  (72,'history','recorded_114460','0',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check72$SELECT count(*)::text AS actual FROM supabase_migrations.schema_migrations WHERE version::text='20260811446000'$check72$),
+  (73,'history','recorded_114470','0',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check73$SELECT count(*)::text AS actual FROM supabase_migrations.schema_migrations WHERE version::text='20260811447000'$check73$),
+  (74,'history','recorded_114480','0',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check74$SELECT count(*)::text AS actual FROM supabase_migrations.schema_migrations WHERE version::text='20260811448000'$check74$),
+  (75,'maintenance','booking_waiting_writer_count','0',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check75$SELECT count(*)::text AS actual FROM pg_locks WHERE relation=to_regclass('public.hotel_bookings') AND pid IS DISTINCT FROM pg_backend_pid() AND NOT granted AND mode IN('RowExclusiveLock','ShareUpdateExclusiveLock','ShareLock','ShareRowExclusiveLock','ExclusiveLock','AccessExclusiveLock')$check75$),
+  (76,'dependency','booking_relation_identity_exact','true',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check76$SELECT EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass('public.hotel_bookings') AND relkind='r' AND relpersistence='p' AND relowner='postgres'::regrole)::text AS actual$check76$),
+  (77,'flags','public_booking_disabled','true',
+    ARRAY['public.hotels','public.site_settings']::text[],ARRAY[]::text[],
+    $check77$SELECT (EXISTS(SELECT 1 FROM public.hotels WHERE id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid AND architecture_version='legacy') AND EXISTS(SELECT 1 FROM public.site_settings WHERE id=1 AND hotel_rooms_v2_enabled IS FALSE AND hotel_instant_booking_enabled IS FALSE))::text AS actual$check77$),
+  (78,'maintenance','all_booking_related_relation_locks','0',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check78$SELECT count(*)::text AS actual FROM pg_locks l WHERE l.pid IS DISTINCT FROM pg_backend_pid() AND l.relation IN (SELECT oid FROM pg_class WHERE oid=to_regclass('public.hotel_bookings') UNION SELECT indexrelid FROM pg_index WHERE indrelid=to_regclass('public.hotel_bookings') UNION SELECT reltoastrelid FROM pg_class WHERE oid=to_regclass('public.hotel_bookings') AND reltoastrelid<>0)$check78$),
+  (79,'reconciliation','recorded_114416','1',
+    ARRAY['supabase_migrations.schema_migrations']::text[],ARRAY[]::text[],
+    $check79$SELECT count(*)::text AS actual FROM supabase_migrations.schema_migrations WHERE version::text='20260811441600'$check79$),
+  (80,'reconciliation','reconciliation_anchor_exact','true',
+    ARRAY['hotels_lineage_private.reconciliation_receipts']::text[],ARRAY['hotels_lineage_private.current_anchor_is_exact()']::text[],
+    $check80$SELECT hotels_lineage_private.current_anchor_is_exact()::text AS actual$check80$),
+  (81,'reconciliation','successor_certificates_absent','0',
+    ARRAY['hotels_lineage_private.successor_receipts']::text[],ARRAY[]::text[],
+    $check81$SELECT count(*)::text AS actual FROM hotels_lineage_private.successor_receipts$check81$),
+  (82,'bridge_tables','hotel_seven_arches_public_quote_issuances_security','true',
+    ARRAY['public.hotel_seven_arches_public_quote_issuances']::text[],ARRAY[]::text[],
+    $check82$SELECT (SELECT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_public_quote_issuances') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM pg_attribute col CROSS JOIN LATERAL aclexplode(col.attacl) a WHERE col.attrelid=c.oid AND a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name) OR (CASE WHEN priv.name IN('SELECT','INSERT','UPDATE','REFERENCES') THEN has_any_column_privilege(roles.id,c.oid,priv.name) ELSE false END))))::text AS actual$check82$),
+  (83,'bridge_columns','hotel_seven_arches_public_quote_issuances','true',
+    ARRAY['public.hotel_seven_arches_public_quote_issuances']::text[],ARRAY[]::text[],
+    $check83$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'identity',a.attidentity,'generated',a.attgenerated,'collation',CASE WHEN a.attcollation=0 THEN NULL ELSE a.attcollation::regcollation::text END) ORDER BY a.attnum),'[]'::jsonb) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=to_regclass('public.hotel_seven_arches_public_quote_issuances') AND a.attnum>0 AND NOT a.attisdropped) IS NOT DISTINCT FROM '[{"name":"quote_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"hotel_id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"authority_token","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"request_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"quote_payload","type":"jsonb","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"issued_at","type":"timestamp with time zone","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"expires_at","type":"timestamp with time zone","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"issuance_hash","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""}]'::jsonb)::text AS actual$check83$),
+  (84,'bridge_constraints','hotel_seven_arches_public_quote_issuances','true',
+    ARRAY['public.hotel_seven_arches_public_quote_issuances']::text[],ARRAY[]::text[],
+    $check84$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',c.conname,'type',c.contype,'definition',pg_get_constraintdef(c.oid,false),'validated',c.convalidated,'deferrable',c.condeferrable,'deferred',c.condeferred,'no_inherit',c.connoinherit) ORDER BY c.conname),'[]'::jsonb) FROM pg_constraint c WHERE c.conrelid=to_regclass('public.hotel_seven_arches_public_quote_issuances')) IS NOT DISTINCT FROM '[{"name":"hotel_seven_arches_public_quote_issua_request_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((request_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuanc_quote_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((quote_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_authority_token_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((authority_token ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK (((jsonb_typeof(quote_payload) = ''object''::text) AND ((quote_payload ->> ''contract_version''::text) = ''hotels_v2_seven_arches_public_quote_v1''::text) AND ((quote_payload ->> ''quote_fingerprint''::text) = quote_fingerprint) AND ((quote_payload ->> ''hotel_id''::text) = (hotel_id)::text) AND ((quote_payload ->> ''authority_token''::text) = authority_token)))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_check1","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((expires_at = (issued_at + ''00:15:00''::interval)))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_hotel_id_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((hotel_id = ''9b6d99a0-923a-4fbc-be54-c066e856e6ca''::uuid))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_issuance_hash_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((issuance_hash ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_quote_issuances_issuance_hash_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (issuance_hash)","no_inherit":true},{"name":"hotel_seven_arches_public_quote_issuances_pkey","type":"p","deferred":false,"validated":true,"deferrable":false,"definition":"PRIMARY KEY (quote_fingerprint)","no_inherit":true}]'::jsonb)::text AS actual$check84$),
+  (85,'bridge_indexes','hotel_seven_arches_public_quote_issuances','true',
+    ARRAY['public.hotel_seven_arches_public_quote_issuances']::text[],ARRAY[]::text[],
+    $check85$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',idx.relname,'definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'primary',i.indisprimary,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'replica_identity',i.indisreplident) ORDER BY idx.relname),'[]'::jsonb) FROM pg_index i JOIN pg_class idx ON idx.oid=i.indexrelid WHERE i.indrelid=to_regclass('public.hotel_seven_arches_public_quote_issuances')) IS NOT DISTINCT FROM '[{"live":true,"name":"hotel_seven_arches_public_quote_issuances_issuance_hash_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_quote_issuances_issuance_hash_key ON public.hotel_seven_arches_public_quote_issuances USING btree (issuance_hash)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_quote_issuances_pkey","ready":true,"valid":true,"unique":true,"primary":true,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_quote_issuances_pkey ON public.hotel_seven_arches_public_quote_issuances USING btree (quote_fingerprint)","replica_identity":false}]'::jsonb)::text AS actual$check85$),
+  (86,'install_rows','hotel_seven_arches_public_quote_issuances_empty','true',
+    ARRAY['public.hotel_seven_arches_public_quote_issuances']::text[],ARRAY[]::text[],
+    $check86$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_public_quote_issuances)=0)::text AS actual$check86$),
+  (87,'bridge_tables','hotel_seven_arches_public_booking_transaction_context_security','true',
+    ARRAY['public.hotel_seven_arches_public_booking_transaction_context']::text[],ARRAY[]::text[],
+    $check87$SELECT (SELECT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_public_booking_transaction_context') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM pg_attribute col CROSS JOIN LATERAL aclexplode(col.attacl) a WHERE col.attrelid=c.oid AND a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name) OR (CASE WHEN priv.name IN('SELECT','INSERT','UPDATE','REFERENCES') THEN has_any_column_privilege(roles.id,c.oid,priv.name) ELSE false END))))::text AS actual$check87$),
+  (88,'bridge_columns','hotel_seven_arches_public_booking_transaction_context','true',
+    ARRAY['public.hotel_seven_arches_public_booking_transaction_context']::text[],ARRAY[]::text[],
+    $check88$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'identity',a.attidentity,'generated',a.attgenerated,'collation',CASE WHEN a.attcollation=0 THEN NULL ELSE a.attcollation::regcollation::text END) ORDER BY a.attnum),'[]'::jsonb) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=to_regclass('public.hotel_seven_arches_public_booking_transaction_context') AND a.attnum>0 AND NOT a.attisdropped) IS NOT DISTINCT FROM '[{"name":"backend_pid","type":"integer","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"transaction_id","type":"bigint","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"booking_id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"hotel_id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"quote_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"authority_token","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"actor_id","type":"uuid","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"created_at","type":"timestamp with time zone","default":"clock_timestamp()","identity":"","not_null":true,"collation":null,"generated":""}]'::jsonb)::text AS actual$check88$),
+  (89,'bridge_constraints','hotel_seven_arches_public_booking_transaction_context','true',
+    ARRAY['public.hotel_seven_arches_public_booking_transaction_context']::text[],ARRAY[]::text[],
+    $check89$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',c.conname,'type',c.contype,'definition',pg_get_constraintdef(c.oid,false),'validated',c.convalidated,'deferrable',c.condeferrable,'deferred',c.condeferred,'no_inherit',c.connoinherit) ORDER BY c.conname),'[]'::jsonb) FROM pg_constraint c WHERE c.conrelid=to_regclass('public.hotel_seven_arches_public_booking_transaction_context')) IS NOT DISTINCT FROM '[{"name":"hotel_seven_arches_public_booking_trans_quote_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((quote_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_transac_authority_token_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((authority_token ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_transaction_co_booking_id_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (booking_id)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_transaction_co_hotel_id_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((hotel_id = ''9b6d99a0-923a-4fbc-be54-c066e856e6ca''::uuid))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_transaction_context_pkey","type":"p","deferred":false,"validated":true,"deferrable":false,"definition":"PRIMARY KEY (backend_pid, transaction_id)","no_inherit":true}]'::jsonb)::text AS actual$check89$),
+  (90,'bridge_indexes','hotel_seven_arches_public_booking_transaction_context','true',
+    ARRAY['public.hotel_seven_arches_public_booking_transaction_context']::text[],ARRAY[]::text[],
+    $check90$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',idx.relname,'definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'primary',i.indisprimary,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'replica_identity',i.indisreplident) ORDER BY idx.relname),'[]'::jsonb) FROM pg_index i JOIN pg_class idx ON idx.oid=i.indexrelid WHERE i.indrelid=to_regclass('public.hotel_seven_arches_public_booking_transaction_context')) IS NOT DISTINCT FROM '[{"live":true,"name":"hotel_seven_arches_public_booking_transaction_co_booking_id_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_transaction_co_booking_id_key ON public.hotel_seven_arches_public_booking_transaction_context USING btree (booking_id)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_transaction_context_pkey","ready":true,"valid":true,"unique":true,"primary":true,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_transaction_context_pkey ON public.hotel_seven_arches_public_booking_transaction_context USING btree (backend_pid, transaction_id)","replica_identity":false}]'::jsonb)::text AS actual$check90$),
+  (91,'install_rows','hotel_seven_arches_public_booking_transaction_context_empty','true',
+    ARRAY['public.hotel_seven_arches_public_booking_transaction_context']::text[],ARRAY[]::text[],
+    $check91$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_public_booking_transaction_context)=0)::text AS actual$check91$),
+  (92,'bridge_tables','hotel_seven_arches_public_booking_receipts_security','true',
+    ARRAY['public.hotel_seven_arches_public_booking_receipts']::text[],ARRAY[]::text[],
+    $check92$SELECT (SELECT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('public.hotel_seven_arches_public_booking_receipts') AND c.relkind='r' AND c.relpersistence='p' AND c.relowner='postgres'::regrole AND c.relrowsecurity AND NOT c.relforcerowsecurity AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid) AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM pg_attribute col CROSS JOIN LATERAL aclexplode(col.attacl) a WHERE col.attrelid=c.oid AND a.grantee<>c.relowner) AND NOT EXISTS(SELECT 1 FROM (VALUES(0::oid),('anon'::regrole::oid),('authenticated'::regrole::oid),('service_role'::regrole::oid)) roles(id) CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) priv(name) WHERE has_table_privilege(roles.id,c.oid,priv.name) OR (CASE WHEN priv.name IN('SELECT','INSERT','UPDATE','REFERENCES') THEN has_any_column_privilege(roles.id,c.oid,priv.name) ELSE false END))))::text AS actual$check92$),
+  (93,'bridge_columns','hotel_seven_arches_public_booking_receipts','true',
+    ARRAY['public.hotel_seven_arches_public_booking_receipts']::text[],ARRAY[]::text[],
+    $check93$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'identity',a.attidentity,'generated',a.attgenerated,'collation',CASE WHEN a.attcollation=0 THEN NULL ELSE a.attcollation::regcollation::text END) ORDER BY a.attnum),'[]'::jsonb) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=to_regclass('public.hotel_seven_arches_public_booking_receipts') AND a.attnum>0 AND NOT a.attisdropped) IS NOT DISTINCT FROM '[{"name":"sequence_no","type":"bigint","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"contract_version","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"previous_receipt_hash","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"receipt_hash","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"booking_id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"hotel_id","type":"uuid","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"quote_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"authority_token","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"request_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"allocation_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"snapshot_fingerprint","type":"text","default":null,"identity":"","not_null":true,"collation":"\"default\"","generated":""},{"name":"result","type":"jsonb","default":null,"identity":"","not_null":true,"collation":null,"generated":""},{"name":"created_at","type":"timestamp with time zone","default":null,"identity":"","not_null":true,"collation":null,"generated":""}]'::jsonb)::text AS actual$check93$),
+  (94,'bridge_constraints','hotel_seven_arches_public_booking_receipts','true',
+    ARRAY['public.hotel_seven_arches_public_booking_receipts']::text[],ARRAY[]::text[],
+    $check94$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',c.conname,'type',c.contype,'definition',pg_get_constraintdef(c.oid,false),'validated',c.convalidated,'deferrable',c.condeferrable,'deferred',c.condeferred,'no_inherit',c.connoinherit) ORDER BY c.conname),'[]'::jsonb) FROM pg_constraint c WHERE c.conrelid=to_regclass('public.hotel_seven_arches_public_booking_receipts')) IS NOT DISTINCT FROM '[{"name":"hotel_seven_arches_public_boo_quote_fingerprint_request_fin_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (quote_fingerprint, request_fingerprint)","no_inherit":true},{"name":"hotel_seven_arches_public_booking__allocation_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((allocation_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_r_previous_receipt_hash_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((previous_receipt_hash ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_re_snapshot_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((snapshot_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_rec_request_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((request_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_recei_quote_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((quote_fingerprint ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receip_contract_version_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((contract_version = ''hotels_v2_seven_arches_public_booking_receipt_v1''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receip_quote_fingerprint_fkey","type":"f","deferred":false,"validated":true,"deferrable":false,"definition":"FOREIGN KEY (quote_fingerprint) REFERENCES hotel_seven_arches_public_quote_issuances(quote_fingerprint) ON DELETE RESTRICT","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipt_authority_token_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((authority_token ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receipt_quote_fingerprint_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (quote_fingerprint)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_booking_id_fkey","type":"f","deferred":false,"validated":true,"deferrable":false,"definition":"FOREIGN KEY (booking_id) REFERENCES hotel_bookings(id) ON DELETE RESTRICT","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_booking_id_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (booking_id)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_hotel_id_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((hotel_id = ''9b6d99a0-923a-4fbc-be54-c066e856e6ca''::uuid))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receipts_id_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (id)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_pkey","type":"p","deferred":false,"validated":true,"deferrable":false,"definition":"PRIMARY KEY (sequence_no)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_receipt_hash_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((receipt_hash ~ ''^[0-9a-f]{64}$''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receipts_receipt_hash_key","type":"u","deferred":false,"validated":true,"deferrable":false,"definition":"UNIQUE (receipt_hash)","no_inherit":true},{"name":"hotel_seven_arches_public_booking_receipts_result_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((jsonb_typeof(result) = ''object''::text))","no_inherit":false},{"name":"hotel_seven_arches_public_booking_receipts_sequence_no_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK ((sequence_no > 0))","no_inherit":false}]'::jsonb)::text AS actual$check94$),
+  (95,'bridge_indexes','hotel_seven_arches_public_booking_receipts','true',
+    ARRAY['public.hotel_seven_arches_public_booking_receipts']::text[],ARRAY[]::text[],
+    $check95$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',idx.relname,'definition',pg_get_indexdef(i.indexrelid),'unique',i.indisunique,'primary',i.indisprimary,'valid',i.indisvalid,'ready',i.indisready,'live',i.indislive,'replica_identity',i.indisreplident) ORDER BY idx.relname),'[]'::jsonb) FROM pg_index i JOIN pg_class idx ON idx.oid=i.indexrelid WHERE i.indrelid=to_regclass('public.hotel_seven_arches_public_booking_receipts')) IS NOT DISTINCT FROM '[{"live":true,"name":"hotel_seven_arches_public_boo_quote_fingerprint_request_fin_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_boo_quote_fingerprint_request_fin_key ON public.hotel_seven_arches_public_booking_receipts USING btree (quote_fingerprint, request_fingerprint)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_receipt_quote_fingerprint_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_receipt_quote_fingerprint_key ON public.hotel_seven_arches_public_booking_receipts USING btree (quote_fingerprint)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_receipts_booking_id_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_receipts_booking_id_key ON public.hotel_seven_arches_public_booking_receipts USING btree (booking_id)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_receipts_id_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_receipts_id_key ON public.hotel_seven_arches_public_booking_receipts USING btree (id)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_receipts_pkey","ready":true,"valid":true,"unique":true,"primary":true,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_receipts_pkey ON public.hotel_seven_arches_public_booking_receipts USING btree (sequence_no)","replica_identity":false},{"live":true,"name":"hotel_seven_arches_public_booking_receipts_receipt_hash_key","ready":true,"valid":true,"unique":true,"primary":false,"definition":"CREATE UNIQUE INDEX hotel_seven_arches_public_booking_receipts_receipt_hash_key ON public.hotel_seven_arches_public_booking_receipts USING btree (receipt_hash)","replica_identity":false}]'::jsonb)::text AS actual$check95$),
+  (96,'install_rows','hotel_seven_arches_public_booking_receipts_empty','true',
+    ARRAY['public.hotel_seven_arches_public_booking_receipts']::text[],ARRAY[]::text[],
+    $check96$SELECT ((SELECT count(*) FROM public.hotel_seven_arches_public_booking_receipts)=0)::text AS actual$check96$),
+  (97,'booking_columns','eight_pricing_columns_exact','true',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check97$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'identity',a.attidentity,'generated',a.attgenerated,'collation',CASE WHEN a.attcollation=0 THEN NULL ELSE a.attcollation::regcollation::text END) ORDER BY a.attnum),'[]'::jsonb) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=to_regclass('public.hotel_bookings') AND a.attnum>0 AND NOT a.attisdropped AND a.attname LIKE 'pricing_%' AND a.attname=ANY(ARRAY['pricing_room_type_id','pricing_room_rate_id','pricing_schedule_id','pricing_schedule_tier_id','pricing_authority_token','pricing_quote_fingerprint','pricing_quote_expires_at','pricing_allocation']::text[])) IS NOT DISTINCT FROM '[{"name":"pricing_room_type_id","type":"uuid","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"pricing_room_rate_id","type":"uuid","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"pricing_schedule_id","type":"uuid","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"pricing_schedule_tier_id","type":"uuid","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"pricing_authority_token","type":"text","default":null,"identity":"","not_null":false,"collation":"\"default\"","generated":""},{"name":"pricing_quote_fingerprint","type":"text","default":null,"identity":"","not_null":false,"collation":"\"default\"","generated":""},{"name":"pricing_quote_expires_at","type":"timestamp with time zone","default":null,"identity":"","not_null":false,"collation":null,"generated":""},{"name":"pricing_allocation","type":"jsonb","default":null,"identity":"","not_null":false,"collation":null,"generated":""}]'::jsonb)::text AS actual$check97$),
+  (98,'booking_constraints','three_checks_and_no_pricing_fk_drift','true',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check98$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',c.conname,'type',c.contype,'definition',pg_get_constraintdef(c.oid,false),'validated',c.convalidated,'deferrable',c.condeferrable,'deferred',c.condeferred,'no_inherit',c.connoinherit) ORDER BY c.conname),'[]'::jsonb) FROM pg_constraint c WHERE c.conrelid=to_regclass('public.hotel_bookings') AND (c.conname LIKE 'hotel_bookings_7a_%' OR c.conkey && ARRAY(SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname=ANY(ARRAY['pricing_room_type_id','pricing_room_rate_id','pricing_schedule_id','pricing_schedule_tier_id','pricing_authority_token','pricing_quote_fingerprint','pricing_quote_expires_at','pricing_allocation']::text[])))) IS NOT DISTINCT FROM '[{"name":"hotel_bookings_7a_allocation_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK (((pricing_allocation IS NULL) OR (jsonb_typeof(pricing_allocation) = ''array''::text)))","no_inherit":false},{"name":"hotel_bookings_7a_authority_token_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK (((pricing_authority_token IS NULL) OR (pricing_authority_token ~ ''^[0-9a-f]{64}$''::text)))","no_inherit":false},{"name":"hotel_bookings_7a_quote_fingerprint_check","type":"c","deferred":false,"validated":true,"deferrable":false,"definition":"CHECK (((pricing_quote_fingerprint IS NULL) OR (pricing_quote_fingerprint ~ ''^[0-9a-f]{64}$''::text)))","no_inherit":false}]'::jsonb)::text AS actual$check98$),
+  (99,'booking_columns','new_columns_no_nonowner_direct_grants','true',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check99$SELECT (NOT EXISTS(SELECT 1 FROM pg_attribute col JOIN pg_class c ON c.oid=col.attrelid CROSS JOIN LATERAL aclexplode(col.attacl) a WHERE col.attrelid='public.hotel_bookings'::regclass AND col.attname=ANY(ARRAY['pricing_room_type_id','pricing_room_rate_id','pricing_schedule_id','pricing_schedule_tier_id','pricing_authority_token','pricing_quote_fingerprint','pricing_quote_expires_at','pricing_allocation']::text[]) AND a.grantee<>c.relowner))::text AS actual$check99$),
+  (100,'install_rows','no_114420_priced_booking_rows','true',
+    ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+    $check100$SELECT (NOT EXISTS(SELECT 1 FROM public.hotel_bookings WHERE pricing_room_type_id IS NOT NULL OR pricing_room_rate_id IS NOT NULL OR pricing_schedule_id IS NOT NULL OR pricing_schedule_tier_id IS NOT NULL OR pricing_authority_token IS NOT NULL OR pricing_quote_fingerprint IS NOT NULL OR pricing_quote_expires_at IS NOT NULL OR pricing_allocation IS NOT NULL))::text AS actual$check100$),
+  (101,'bridge_functions','public.hotel_v2_seven_arches_public_quote_issuance_immutable()','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check101$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_quote_issuance_immutable') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"trigger","strict":false,"definer":false,"language":"plpgsql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_quote_issuance_immutable()","source_sha":"91e686173d0c19450d3d35b9d62766d38e371e6b37a0e4add6ea0145b3371cec","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog"],"identity_arguments":""}]'::jsonb)::text AS actual$check101$),
+  (102,'bridge_functions','public.hotel_v2_seven_arches_public_booking_immutable()','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check102$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_booking_immutable') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"trigger","strict":false,"definer":false,"language":"plpgsql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_booking_immutable()","source_sha":"a04d5e35449db2d9c22b1821fd9881995645b0e3b59fb9f9dd9edcb3c5561946","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog"],"identity_arguments":""}]'::jsonb)::text AS actual$check102$),
+  (103,'bridge_functions','public.hotel_v2_seven_arches_public_booking_context_guard()','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check103$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_booking_context_guard') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"trigger","strict":false,"definer":true,"language":"plpgsql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_booking_context_guard()","source_sha":"d5471419e036f69bac44bf9e85f735ac6a0a4e0ae55aff56897d53e79f97d29e","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog, public, auth"],"identity_arguments":""}]'::jsonb)::text AS actual$check103$),
+  (104,'bridge_functions','public.hotel_v2_seven_arches_public_booking_snapshot_guard()','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check104$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_booking_snapshot_guard') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"trigger","strict":false,"definer":false,"language":"plpgsql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_booking_snapshot_guard()","source_sha":"0342a4299a5e0218c9cfc644794252aac75dbbdee79b90722d09469ff7476a9e","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog"],"identity_arguments":""}]'::jsonb)::text AS actual$check104$),
+  (105,'bridge_functions','public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check105$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_booking_receipt_chain_is_exact') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"boolean","strict":false,"definer":true,"language":"sql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()","source_sha":"6c6f107b2d90abd7d9216cbd10c5d3817661250cdc35d52858c9ba923cfda258","volatility":"s","returns_set":false,"configuration":["search_path=pg_catalog, public"],"identity_arguments":""}]'::jsonb)::text AS actual$check105$),
+  (106,'bridge_functions','public.hotel_v2_seven_arches_public_quote_fingerprint(jsonb)','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check106$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_seven_arches_public_quote_fingerprint') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"text","strict":false,"definer":true,"language":"sql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_seven_arches_public_quote_fingerprint(jsonb)","source_sha":"564b5390e79fc5f4662442dfe361dc5e86a6e07664d2cd30a604551650abafe2","volatility":"s","returns_set":false,"configuration":["search_path=pg_catalog, public"],"identity_arguments":"p_quote jsonb"}]'::jsonb)::text AS actual$check106$),
+  (107,'bridge_functions','public.hotel_v2_public_quote_seven_arches_core(jsonb)','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check107$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_public_quote_seven_arches_core') IS NOT DISTINCT FROM '[{"acl":[["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"jsonb","strict":false,"definer":true,"language":"plpgsql","parallel":"u","effective":[false,false,false,false],"leakproof":false,"signature":"hotel_v2_public_quote_seven_arches_core(jsonb)","source_sha":"5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog, public"],"identity_arguments":"p_request jsonb"}]'::jsonb)::text AS actual$check107$),
+  (108,'bridge_functions','public.hotel_v2_public_quote_seven_arches(jsonb)','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check108$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_public_quote_seven_arches') IS NOT DISTINCT FROM '[{"acl":[["anon","postgres","EXECUTE",false],["authenticated","postgres","EXECUTE",false],["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"jsonb","strict":false,"definer":true,"language":"plpgsql","parallel":"u","effective":[false,true,true,false],"leakproof":false,"signature":"hotel_v2_public_quote_seven_arches(jsonb)","source_sha":"df28183f1566e5d4a9a234373c3fdd1976935774f58f9b37b69c2361e597e81c","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog, public"],"identity_arguments":"p_request jsonb"}]'::jsonb)::text AS actual$check108$),
+  (109,'bridge_functions','public.hotel_v2_public_create_seven_arches_booking(jsonb)','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check109$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_public_create_seven_arches_booking') IS NOT DISTINCT FROM '[{"acl":[["anon","postgres","EXECUTE",false],["authenticated","postgres","EXECUTE",false],["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"jsonb","strict":false,"definer":true,"language":"plpgsql","parallel":"u","effective":[false,true,true,false],"leakproof":false,"signature":"hotel_v2_public_create_seven_arches_booking(jsonb)","source_sha":"82949643fe6099308f9293a335f27e1d1be9f66c1aa3e0d77925458cdd7142f7","volatility":"v","returns_set":false,"configuration":["search_path=pg_catalog, public, auth"],"identity_arguments":"p_request jsonb"}]'::jsonb)::text AS actual$check109$),
+  (110,'bridge_functions','public.hotel_v2_partner_get_seven_arches_reviewed_pricing(uuid,uuid)','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check110$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE n.nspname='public' AND p.proname='hotel_v2_partner_get_seven_arches_reviewed_pricing') IS NOT DISTINCT FROM '[{"acl":[["authenticated","postgres","EXECUTE",false],["postgres","postgres","EXECUTE",false]],"kind":"f","owner":"postgres","result":"jsonb","strict":false,"definer":true,"language":"plpgsql","parallel":"u","effective":[false,false,true,false],"leakproof":false,"signature":"hotel_v2_partner_get_seven_arches_reviewed_pricing(uuid,uuid)","source_sha":"55e5ffc18a938051f6c819d873b66adcb8ad48f02dbd5854ebe8dc0b16642a4e","volatility":"s","returns_set":false,"configuration":["search_path=pg_catalog, public, auth"],"identity_arguments":"p_partner_id uuid, p_hotel_id uuid"}]'::jsonb)::text AS actual$check110$),
+  (111,'bridge_triggers','four_triggers_exact_no_extra','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check111$SELECT ((SELECT coalesce(jsonb_agg(jsonb_build_object('name',t.tgname,'relation',t.tgrelid::regclass::text,'type',t.tgtype,'enabled',t.tgenabled,'function',t.tgfoid::regprocedure::text,'internal',t.tgisinternal,'attributes',t.tgattr::text,'args',encode(t.tgargs,'hex'),'when',pg_get_expr(t.tgqual,t.tgrelid),'deferrable',t.tgdeferrable,'deferred',t.tginitdeferred,'definition',pg_get_triggerdef(t.oid,false)) ORDER BY t.tgname),'[]'::jsonb) FROM pg_trigger t WHERE NOT t.tgisinternal AND (t.tgrelid=ANY(ARRAY[to_regclass('public.hotel_seven_arches_public_quote_issuances'),to_regclass('public.hotel_seven_arches_public_booking_transaction_context'),to_regclass('public.hotel_seven_arches_public_booking_receipts')]::oid[]) OR (t.tgrelid=to_regclass('public.hotel_bookings') AND t.tgname LIKE '%hotel_7a_public_booking%'))) IS NOT DISTINCT FROM '[{"args":"","name":"aa_hotel_7a_public_booking_rpc_guard","type":7,"when":null,"enabled":"O","deferred":false,"function":"hotel_v2_seven_arches_public_booking_context_guard()","internal":false,"relation":"hotel_bookings","attributes":"","deferrable":false,"definition":"CREATE TRIGGER aa_hotel_7a_public_booking_rpc_guard BEFORE INSERT ON public.hotel_bookings FOR EACH ROW EXECUTE FUNCTION hotel_v2_seven_arches_public_booking_context_guard()"},{"args":"","name":"hotel_7a_public_booking_receipt_immutable","type":27,"when":null,"enabled":"O","deferred":false,"function":"hotel_v2_seven_arches_public_booking_immutable()","internal":false,"relation":"hotel_seven_arches_public_booking_receipts","attributes":"","deferrable":false,"definition":"CREATE TRIGGER hotel_7a_public_booking_receipt_immutable BEFORE DELETE OR UPDATE ON public.hotel_seven_arches_public_booking_receipts FOR EACH ROW EXECUTE FUNCTION hotel_v2_seven_arches_public_booking_immutable()"},{"args":"","name":"hotel_7a_public_quote_issuance_immutable","type":27,"when":null,"enabled":"O","deferred":false,"function":"hotel_v2_seven_arches_public_quote_issuance_immutable()","internal":false,"relation":"hotel_seven_arches_public_quote_issuances","attributes":"","deferrable":false,"definition":"CREATE TRIGGER hotel_7a_public_quote_issuance_immutable BEFORE DELETE OR UPDATE ON public.hotel_seven_arches_public_quote_issuances FOR EACH ROW EXECUTE FUNCTION hotel_v2_seven_arches_public_quote_issuance_immutable()"},{"args":"","name":"zz_hotel_7a_public_booking_snapshot_guard","type":19,"when":null,"enabled":"O","deferred":false,"function":"hotel_v2_seven_arches_public_booking_snapshot_guard()","internal":false,"relation":"hotel_bookings","attributes":"","deferrable":false,"definition":"CREATE TRIGGER zz_hotel_7a_public_booking_snapshot_guard BEFORE UPDATE ON public.hotel_bookings FOR EACH ROW EXECUTE FUNCTION hotel_v2_seven_arches_public_booking_snapshot_guard()"}]'::jsonb)::text AS actual$check111$),
+  (112,'partner_contract','manage_prices_hotel_assignment_composite_token_exact','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check112$SELECT (EXISTS(SELECT 1 FROM pg_proc WHERE oid=to_regprocedure('public.hotel_v2_partner_get_seven_arches_reviewed_pricing(uuid,uuid)') AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='55e5ffc18a938051f6c819d873b66adcb8ad48f02dbd5854ebe8dc0b16642a4e'))::text AS actual$check112$),
+  (113,'public_booking','exact_disabled_gate_before_quote_or_booking_write','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check113$SELECT (NOT EXISTS(SELECT 1 FROM (VALUES ('public.hotel_v2_public_quote_seven_arches(jsonb)','df28183f1566e5d4a9a234373c3fdd1976935774f58f9b37b69c2361e597e81c'),('public.hotel_v2_public_create_seven_arches_booking(jsonb)','82949643fe6099308f9293a335f27e1d1be9f66c1aa3e0d77925458cdd7142f7')) e(signature,sha) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature) WHERE p.oid IS NULL OR encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM e.sha))::text AS actual$check113$),
+  (114,'receipt_chain','public_booking_receipt_chain_exact','true',
+    ARRAY[]::text[],ARRAY['public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()']::text[],
+    $check114$SELECT (public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact() IS TRUE)::text AS actual$check114$),
+  (115,'reconciliation','one_114416_receipt','true',
+    ARRAY['hotels_lineage_private.reconciliation_receipts']::text[],ARRAY[]::text[],
+    $check115$SELECT ((SELECT count(*) FROM hotels_lineage_private.reconciliation_receipts)=1)::text AS actual$check115$),
+  (116,'future','114460_schema_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check116$SELECT (to_regnamespace('hotel_stripe_connect_private') IS NULL)::text AS actual$check116$),
+  (117,'future','114470_authorization_functions_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check117$SELECT (NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN('hotel_v2_admin_set_partner_stripe_onboarding_authorization','hotel_v2_admin_get_partner_stripe_onboarding_authorization')))::text AS actual$check117$),
+  (118,'future','114480_lifecycle_schema_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check118$SELECT (to_regnamespace('hotels_lifecycle_private') IS NULL)::text AS actual$check118$),
+  (119,'future','114480_lifecycle_api_absent','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check119$SELECT (NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='hotel_v2_admin_get_capability_lifecycle'))::text AS actual$check119$),
+  (120,'session','repeatable_read_exact','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check120$SELECT (current_setting('transaction_isolation')='repeatable read')::text AS actual$check120$),
+  (121,'114425_collision','no_relation_or_type_name_collision','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check121$SELECT (NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='hotel_v2_external_calendar_site_settings_fingerprint') AND NOT EXISTS(SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='hotel_v2_external_calendar_site_settings_fingerprint'))::text AS actual$check121$),
+  (122,'114425_collision','function_name_cardinality_exact','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check122$SELECT ((SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='hotel_v2_external_calendar_site_settings_fingerprint')=1)::text AS actual$check122$),
+  (123,'114425_prerequisite','foundation_present','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check123$SELECT (NOT coalesce((to_regclass('public.site_settings') is null
+     or to_regclass(
+       'hotels_v2_private.hotel_external_calendar_activation_receipts') is null
+     or to_regprocedure('public.hotel_v2_external_calendar_worker_hash(jsonb)') is null
+     or to_regprocedure(
+       'public.hotel_v2_external_calendar_activation_function_fingerprints()') is null
+     or to_regprocedure(
+       'public.hotel_v2_partner_workspace_function_lineage_is_exact()') is null
+     or to_regprocedure('public.hotel_v2_h3_2a_reject_immutable_change()') is null),true))::text AS actual$check123$),
+  (124,'114425_prerequisite','cardinality_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY[]::text[],
+    $check124$SELECT (NOT coalesce(((select count(*) from public.site_settings)<>1
+     or not exists(select 1 from public.site_settings where id=1)),true))::text AS actual$check124$),
+  (125,'114425_prerequisite','supported_hotels_lifecycle','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY[]::text[],
+    $check125$SELECT (NOT coalesce((not exists(select 1 from public.site_settings setting where setting.id=1
+       and setting.hotel_rooms_v2_enabled is not distinct from false
+       and (setting.hotel_external_sync_enabled is not distinct from false
+         or setting.hotel_external_sync_enabled is not distinct from true)
+       and setting.hotel_instant_booking_enabled is not distinct from false
+       and setting.hotel_stripe_connect_enabled is not distinct from false)),true))::text AS actual$check125$),
+  (126,'114425_prerequisite','activation_receipt_envelope_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY[]::text[],
+    $check126$SELECT (NOT coalesce(((select count(*)
+      from hotels_v2_private.hotel_external_calendar_activation_receipts)<>1
+     or not exists(select 1
+       from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
+       where receipt.id=1
+         and (receipt.site_settings_without_external_fingerprint
+           ~'^[0-9a-f]{64}$') is not distinct from true
+         and jsonb_typeof(receipt.compatibility_function_fingerprints)
+           is not distinct from 'object'
+         and receipt.created_at is not null
+         and isfinite(receipt.created_at))),true))::text AS actual$check126$),
+  (127,'114425_prerequisite','activation_receipt_integrity_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY[]::text[],
+    $check127$SELECT (NOT coalesce((not exists(select 1
+       from hotels_v2_private.hotel_external_calendar_activation_receipts receipt
+       where receipt.id=1
+         and (select count(*) from jsonb_object_keys(
+           receipt.compatibility_function_fingerprints))=20
+         and (receipt.compatibility_function_fingerprints ?& array[
+           'public.hotel_v2_h3_2a_require_partner_hotel_access(uuid,uuid,text,boolean)',
+           'public.hotel_v2_partner_list_assigned_properties(uuid)',
+           'public.hotel_v2_admin_apply_partner_hotel_permissions(jsonb,uuid,uuid)',
+           'public.hotel_v2_admin_create_property_draft(uuid,jsonb,uuid)',
+           'public.hotel_v2_admin_apply_guest_policy_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_room_control_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_get_content_control(uuid)',
+           'public.hotel_v2_admin_apply_operational_assignment_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_property_control_plan(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)',
+           'public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core(jsonb,uuid)',
+           'public.hotel_v2_h3_2b_flags_off()',
+           'public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)',
+           'public.hotel_v2_admin_create_property_draft_admin_b_core(uuid,jsonb,uuid)',
+           'public.hotel_v2_admin_apply_guest_policy_plan_admin_b_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_workspace_plan_admin_b_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_calendar_plan_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_workspace_plan_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_h3_1_configuration_admin_c_core(jsonb,uuid)',
+           'public.hotel_v2_admin_apply_legacy_pricing_promotion_admin_c_core(jsonb,uuid)'
+         ]::text[]) is not distinct from true
+         and not exists(select 1 from jsonb_each_text(
+           receipt.compatibility_function_fingerprints) fingerprint(signature,value)
+           where (fingerprint.value~'^[0-9a-f]{64}$') is distinct from true))
+     or not exists(select 1 from pg_class relation
+       where relation.oid=
+         'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and relation.relowner='postgres'::regrole)
+     or (select count(*) from pg_attribute attribute
+       where attribute.attrelid=
+         'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and attribute.attnum>0 and not attribute.attisdropped)<>4
+     or exists(select 1 from (values
+        (1::smallint,'id','smallint',true,null::text),
+        (2::smallint,'site_settings_without_external_fingerprint','text',true,null::text),
+        (3::smallint,'compatibility_function_fingerprints','jsonb',true,null::text),
+        (4::smallint,'created_at','timestamp with time zone',true,'clock_timestamp()')
+       ) expected(attnum,attname,type_name,not_null,default_expression)
+       left join pg_attribute attribute on attribute.attrelid=
+         'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and attribute.attnum=expected.attnum and not attribute.attisdropped
+       left join pg_attrdef default_row on default_row.adrelid=attribute.attrelid
+         and default_row.adnum=attribute.attnum
+       where attribute.attrelid is null
+         or attribute.attname is distinct from expected.attname
+         or format_type(attribute.atttypid,attribute.atttypmod)
+           is distinct from expected.type_name
+         or attribute.attnotnull is distinct from expected.not_null
+         or attribute.attidentity is distinct from ''
+         or attribute.attgenerated is distinct from ''
+         or pg_get_expr(default_row.adbin,default_row.adrelid)
+           is distinct from expected.default_expression)
+     or (select count(*) from pg_constraint constraint_row where
+       constraint_row.conrelid=
+         'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass)<>4
+     or (select count(*) from pg_constraint constraint_row
+       join pg_index index_row on index_row.indexrelid=constraint_row.conindid
+       where constraint_row.conrelid=
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and constraint_row.contype='p' and constraint_row.convalidated
+         and constraint_row.conkey=array[1]::smallint[]
+         and pg_get_constraintdef(constraint_row.oid)='PRIMARY KEY (id)'
+         and index_row.indisprimary and index_row.indisunique
+         and index_row.indisvalid and index_row.indisready)<>1
+     or (select count(*) from pg_constraint constraint_row where
+       constraint_row.conrelid=
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and constraint_row.contype='c' and constraint_row.convalidated
+         and not constraint_row.connoinherit
+         and constraint_row.conkey=array[1]::smallint[]
+         and regexp_replace(pg_get_expr(constraint_row.conbin,constraint_row.conrelid),
+           '[[:space:]]+','','g')='(id=1)')<>1
+     or (select count(*) from pg_constraint constraint_row where
+       constraint_row.conrelid=
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and constraint_row.contype='c' and constraint_row.convalidated
+         and not constraint_row.connoinherit
+         and constraint_row.conkey=array[2]::smallint[]
+         and regexp_replace(pg_get_expr(constraint_row.conbin,constraint_row.conrelid),
+           '[[:space:]]+','','g')=
+           '(site_settings_without_external_fingerprint~''^[0-9a-f]{64}$''::text)')<>1
+     or (select count(*) from pg_constraint constraint_row where
+       constraint_row.conrelid=
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and constraint_row.contype='c' and constraint_row.convalidated
+         and not constraint_row.connoinherit
+         and constraint_row.conkey=array[3]::smallint[]
+         and regexp_replace(pg_get_expr(constraint_row.conbin,constraint_row.conrelid),
+           '[[:space:]]+','','g')=
+           '(jsonb_typeof(compatibility_function_fingerprints)=''object''::text)')<>1
+     or exists(select 1 from pg_policy policy where policy.polrelid=
+       'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass)
+     or not exists(select 1 from pg_trigger trigger_row
+       where trigger_row.tgrelid=
+         'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass
+         and trigger_row.tgname='hotel_external_calendar_activation_receipt_immutable'
+         and trigger_row.tgfoid=
+           'public.hotel_v2_h3_2a_reject_immutable_change()'::regprocedure
+         and trigger_row.tgtype=27 and not trigger_row.tgisinternal
+         and trigger_row.tgenabled='O')
+     or exists(select 1
+       from unnest(array[
+         'SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'
+       ]) privilege(name)
+       where has_table_privilege(0::oid,
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('anon',
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('authenticated',
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+           privilege.name)
+         or has_table_privilege('service_role',
+           'hotels_v2_private.hotel_external_calendar_activation_receipts'::regclass,
+           privilege.name))
+     or not exists(select 1 from pg_namespace namespace_row
+       where namespace_row.oid='hotels_v2_private'::regnamespace
+         and namespace_row.nspowner='postgres'::regrole)
+     or has_schema_privilege(0::oid,'hotels_v2_private','USAGE')
+     or has_schema_privilege('anon','hotels_v2_private','USAGE')
+     or has_schema_privilege('service_role','hotels_v2_private','USAGE')
+     or has_schema_privilege(0::oid,'hotels_v2_private','CREATE')
+     or has_schema_privilege('anon','hotels_v2_private','CREATE')
+     or has_schema_privilege('authenticated','hotels_v2_private','CREATE')
+     or has_schema_privilege('service_role','hotels_v2_private','CREATE')),true))::text AS actual$check127$),
+  (128,'114425_prerequisite','frozen_function_security_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY[]::text[],
+    $check128$SELECT (NOT coalesce((exists(select 1 from (values
+      ('public.hotel_v2_external_calendar_worker_hash(jsonb)',true,
+        array['search_path=pg_catalog']::text[],
+        'd60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828'),
+      ('public.hotel_v2_external_calendar_activation_function_fingerprints()',true,
+        array['search_path=pg_catalog, public']::text[],
+        'fa6ae9122ad73f57be91c611177eb562b90b09ca9620b98d9f494abafcf3a914'),
+      ('public.hotel_v2_partner_workspace_function_lineage_is_exact()',true,
+        array['search_path=pg_catalog, public']::text[],
+        'dde4fac2d044a53bb713cced26ca93c8295548c9bde3717d0ea83dc511801a85'),
+      ('public.hotel_v2_h3_2a_reject_immutable_change()',false,
+        array['search_path=pg_catalog, public']::text[],
+        '5ab5f8fec4515a0eb0e4da1a4de9f765618f45feb0dfe581e0f2a0e9d0a9ef6c')
+    ) expected(signature,security_definer,path,source_hash)
+    left join pg_proc procedure_row
+      on procedure_row.oid=to_regprocedure(expected.signature)
+    where procedure_row.oid is null
+      or procedure_row.proowner<>'postgres'::regrole
+      or procedure_row.prosecdef is distinct from expected.security_definer
+      or procedure_row.proconfig is distinct from expected.path
+      or (expected.source_hash is not null and encode(extensions.digest(
+        convert_to(procedure_row.prosrc,'UTF8'),'sha256'),'hex')
+          is distinct from expected.source_hash)
+      or has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
+      or has_function_privilege('anon',procedure_row.oid,'EXECUTE')
+      or has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
+      or has_function_privilege('service_role',procedure_row.oid,'EXECUTE'))),true))::text AS actual$check128$),
+  (129,'114425_prerequisite','current_stage2f_lineage_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY['public.hotel_v2_partner_workspace_function_lineage_is_exact()','public.hotel_v2_external_calendar_worker_hash(jsonb)']::text[],
+    $check129$SELECT (NOT coalesce((public.hotel_v2_partner_workspace_function_lineage_is_exact()
+       is distinct from true),true))::text AS actual$check129$),
+  (130,'114425_prerequisite','expected_fingerprint_present','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY['public.hotel_v2_partner_workspace_function_lineage_is_exact()','public.hotel_v2_external_calendar_worker_hash(jsonb)']::text[],
+    $check130$SELECT (NOT coalesce(((public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false))) is null),true))::text AS actual$check130$),
+  (131,'114425_function','function_identity_security_source_exact','true',
+    ARRAY[]::text[],ARRAY[]::text[],
+    $check131$SELECT (EXISTS(SELECT 1 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure('public.hotel_v2_external_calendar_site_settings_fingerprint()') AND p.pronargs=0 AND p.proargnames IS NULL AND pg_get_function_identity_arguments(p.oid)='' AND pg_get_function_result(p.oid)='text' AND l.lanname='plpgsql' AND p.proowner='postgres'::regrole AND p.provolatile='s' AND p.prosecdef AND p.prokind='f' AND NOT p.proisstrict AND NOT p.proretset AND NOT p.proleakproof AND p.proparallel='u' AND p.proconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog, public']::text[] AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='e297f1b640f544644d695b36b4aca0b2dc90385e83709e8a494044aabc3b95bd' AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee<>p.proowner) AND has_function_privilege('postgres',p.oid,'EXECUTE') AND NOT has_function_privilege(0::oid,p.oid,'EXECUTE') AND NOT has_function_privilege('anon',p.oid,'EXECUTE') AND NOT has_function_privilege('authenticated',p.oid,'EXECUTE') AND NOT has_function_privilege('service_role',p.oid,'EXECUTE')))::text AS actual$check131$),
+  (132,'114425_behavior','canonical_lifecycle_fingerprint_exact','true',
+    ARRAY['public.site_settings','hotels_v2_private.hotel_external_calendar_activation_receipts']::text[],ARRAY['public.hotel_v2_external_calendar_site_settings_fingerprint()','public.hotel_v2_external_calendar_worker_hash(jsonb)']::text[],
+    $check132$SELECT (public.hotel_v2_external_calendar_site_settings_fingerprint() IS NOT NULL AND public.hotel_v2_external_calendar_site_settings_fingerprint() IS NOT DISTINCT FROM (public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false))) AND (public.hotel_v2_external_calendar_worker_hash(jsonb_build_object(
+    'contract_version','hotels_v2_external_calendar_site_settings_lifecycle_v2',
+    'id',1,
+    'hotel_rooms_v2_enabled',false,
+    'hotel_external_sync_enabled_supported_values',jsonb_build_array(false,true),
+    'hotel_instant_booking_enabled',false,
+    'hotel_stripe_connect_enabled',false)))='9d385718586ec03664878d35552e73373bd2e4dca170dc497025fc6780c79bf5')::text AS actual$check132$)
+),
+eligibility AS MATERIALIZED (
+ SELECT s.*,
+  NOT EXISTS(SELECT 1 FROM unnest(s.required_relations) r(name) WHERE to_regclass(r.name) IS NULL)
+  AND NOT EXISTS(SELECT 1 FROM unnest(s.required_functions) f(signature) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(f.signature)
+   WHERE p.oid IS NULL OR p.provolatile NOT IN('s','i') OR p.proowner<>'postgres'::regrole)
+  AND (cardinality(s.required_functions)=0 OR NOT EXISTS(SELECT 1 FROM pin_results WHERE exact IS NOT TRUE)) AS eligible
+ FROM specs s
+),
+measurements AS MATERIALIZED (
+ SELECT e.*,CASE WHEN eligible THEN (xpath('/table/row/actual/text()',query_to_xml(e.read_query,true,false,'')))[1]::text ELSE NULL END AS actual
+ FROM eligibility e
+),
+leaves AS MATERIALIZED (
+ SELECT ordinal,section,leaf_name,expected,actual,eligible AND actual IS NOT NULL AND actual=expected AS pass,
+  CASE WHEN NOT eligible THEN 'REQUIRED_OBJECT_OR_SOURCE_CONTRACT_UNAVAILABLE' WHEN actual IS NULL THEN 'NULL_RESULT_FAIL_CLOSED' ELSE 'SAFE_SCALAR_ONLY' END AS safe_context
+ FROM measurements
+ UNION ALL
+ SELECT 132+row_number() OVER(ORDER BY signature)::integer,'source_security',signature,'true',exact::text,exact IS TRUE,safe_context FROM pin_results
+),
+totals AS (
+ SELECT bool_and(pass IS TRUE) AS ready,coalesce(jsonb_agg(leaf_name ORDER BY ordinal) FILTER(WHERE pass IS NOT TRUE),'[]'::jsonb) AS blockers,
+ count(*) AS required_count,count(*) FILTER(WHERE pass IS TRUE) AS passed_count FROM leaves
+)
+SELECT section,ordinal,leaf_name,expected,actual,pass,safe_context,
+ NULL::boolean AS "POSTINSTALL_READY",NULL::jsonb AS blocker_codes,NULL::bigint AS required_leaf_count,NULL::bigint AS passed_leaf_count
+FROM leaves
+UNION ALL
+SELECT 'final_gate',148,'POSTINSTALL_READY','true',ready::text,ready,
+ '114425_PHYSICAL_POSTINSTALL_BEFORE_REPAIR; NOT_WRITE_AUTHORIZATION; SQL_BACKUP_PROOF=NO',ready,blockers,required_count,passed_count FROM totals
+ORDER BY ordinal;
+ROLLBACK;
