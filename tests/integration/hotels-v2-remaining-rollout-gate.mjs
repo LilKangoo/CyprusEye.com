@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {spawnSync,spawn} from 'node:child_process';
 import {build,loadCatalogs} from './hotels-v2-remaining-rollout-build.mjs';
-import {migration,stages,stageTables,literal,compactFunctionQuery} from './hotels-v2-remaining-rollout-contract.mjs';
+import {migration,stages,stageTables,literal,compactFunctionQuery,captureQuery} from './hotels-v2-remaining-rollout-contract.mjs';
 import {stageMatrix} from './hotels-v2-lineage-stage-matrix.mjs';
 const db=process.env.HOTELS_RECONCILIATION_DB,bin=process.env.HOTELS_RECONCILIATION_PSQL,stage=Number(process.env.HOTELS_REMAINING_STAGE);
 assert.match(db||'',/^hotels_114416_successor_post425_remaining_[a-z0-9_]+$/);assert.ok(stages.includes(stage));assert.ok(bin);
@@ -25,8 +25,19 @@ negative('premature_stage_recording',`INSERT INTO supabase_migrations.schema_mig
 negative('missing_predecessor_receipt','DELETE FROM hotels_lineage_private.reconciliation_receipts','one_114416_receipt');
 negative('wrong_predecessor_hash',"UPDATE hotels_lineage_private.reconciliation_receipts SET evidence=jsonb_set(evidence,'{historical_owner_hash}',to_jsonb(repeat('0',64))),evidence_hash=public.hotel_v2_h3_2b_hash(jsonb_set(evidence,'{historical_owner_hash}',to_jsonb(repeat('0',64))))",'reconciliation_anchor_exact');
 const signature='hotel_v2_external_calendar_site_settings_fingerprint()',qualified='public.'+signature;
+// The same exact catalog membership/equality predicate as the shipped gate.
+// Rolled-back DDL probes do not execute any application mutation RPC.
+const universe=`WITH expected(signature,catalog_sha) AS (VALUES ${gates.preaction.catalog.functions.map(f=>`(${literal(f.signature)},${literal(f.catalog_sha)})`).join(',')}),actual AS (SELECT f->>'signature' signature,f->>'catalog_sha' catalog_sha FROM jsonb_array_elements((${compactFunctionQuery})) f) SELECT NOT EXISTS(SELECT 1 FROM expected e FULL JOIN actual a USING(signature) WHERE e.signature IS NULL OR a.signature IS NULL OR e.catalog_sha IS DISTINCT FROM a.catalog_sha)`;
+function universeProbe(name,ddl,expected=false){assert.equal(sql(`BEGIN;SET LOCAL search_path=pg_catalog,public;${ddl};${universe};ROLLBACK;`),expected?'t':'f',name);results.negatives.push({name,protected_universe_exact:expected,pass:true});}
+universeProbe('missing_protected_function',`ALTER FUNCTION ${qualified} RENAME TO unrelated_missing_protected_sentinel`);
+universeProbe('unexpected_protected_overload',"CREATE FUNCTION public.hotel_v2_future_rollout_collision(integer) RETURNS boolean LANGUAGE sql AS 'SELECT true'");
+universeProbe('unexpected_private_function',"CREATE FUNCTION hotels_lineage_private.unexpected_rollout_function() RETURNS boolean LANGUAGE sql AS 'SELECT true'");
+universeProbe('unrelated_public_application_function_allowed',"CREATE FUNCTION public.hotel_application_unrelated_example() RETURNS boolean LANGUAGE sql AS 'SELECT true'",true);
 const definition=sql(`SELECT pg_get_functiondef('${qualified}'::regprocedure)`).replace(/AS (\$[a-zA-Z0-9_]*\$)/,'AS $1\n-- synthetic source drift\n');
-for(const [name,mutation]of [['source_drift',definition],['security_drift',`ALTER FUNCTION ${qualified} SECURITY INVOKER`],['wrong_acl',`GRANT EXECUTE ON FUNCTION ${qualified} TO authenticated`],['wrong_owner',`ALTER FUNCTION ${qualified} OWNER TO authenticated`],['wrong_search_path',`ALTER FUNCTION ${qualified} SET search_path=public`]])catalogNegative(name,mutation,signature);
+for(const [name,mutation]of [['source_drift',definition],['security_drift',`ALTER FUNCTION ${qualified} SECURITY INVOKER`],['wrong_acl',`GRANT EXECUTE ON FUNCTION ${qualified} TO authenticated`],['wrong_owner',`ALTER FUNCTION ${qualified} OWNER TO authenticated`],['wrong_search_path',`ALTER FUNCTION ${qualified} SET search_path=public`]]){catalogNegative(name,mutation,signature);universeProbe('protected_universe_'+name,mutation);}
+negative('booking_owner_trigger_disabled','ALTER TABLE public.hotel_bookings DISABLE TRIGGER trg_hotel_bookings_assign_authenticated_owner','booking_owner_trigger_exact');
+universeProbe('booking_owner_helper_acl_drift','GRANT EXECUTE ON FUNCTION public.hotel_bookings_assign_authenticated_owner() TO authenticated');
+universeProbe('admin_helper_public_acl_drift','GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO PUBLIC');
 negative('wrong_flag','UPDATE public.site_settings SET hotel_rooms_v2_enabled=true WHERE id=1','hotel_rooms_v2_enabled');
 negative('pricing_drift',"UPDATE public.hotel_room_rates SET base_nightly_rate=101 WHERE id='7e420964-9cbf-4f1b-abd3-09840af5240f'",'upper_rate_exact');
 negative('commission_drift',"UPDATE public.hotel_commission_policies SET amount=11 WHERE hotel_id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'",'commission_EUR10_exact');
@@ -43,7 +54,24 @@ try{for(let i=0;i<100&&!locked.includes('OWNED_LOCK_READY');i++)await new Promis
 const future=stages.find(s=>s>stage);if(future)negative('future_stage_recording',`INSERT INTO supabase_migrations.schema_migrations VALUES('202608${future}00')`,'recorded_'+future);
 {const existing=sql(compactFunctionQuery);const changed=sql(`BEGIN;CREATE FUNCTION public.hotel_v2_future_rollout_collision() RETURNS boolean LANGUAGE sql AS 'SELECT true';${compactFunctionQuery};ROLLBACK;`);assert.notEqual(existing,changed);results.negatives.push({name:'future_function_universe_collision',pass:true});}
 assert.equal(snapshot(),before);results.preaction_after_negatives=run('preaction');
+if(stage===114470){
+ const admin='public.is_current_user_admin()',original=sql(`SELECT pg_get_functiondef('${admin}'::regprocedure)`);
+ const stale="CREATE OR REPLACE FUNCTION public.is_current_user_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,public,auth AS $$\n  select exists (\n    select 1 from public.profiles profile\n    where profile.id = auth.uid() and profile.is_admin\n  )\n$$;";
+ const wrongSource=original.replace(/AS (\$[a-zA-Z0-9_]*\$)/,'AS $1\n-- local source mismatch\n');
+ const prerequisite=migration(stage).sql.split('create table hotel_stripe_connect_private.onboarding_authorizations')[0].replace(/^begin;$/m,'');
+ const cases=[['stale_fixture',stale],['wrong_source',wrongSource],['wrong_language',"CREATE OR REPLACE FUNCTION public.is_current_user_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS 'SELECT false'"],['wrong_search_path',`ALTER FUNCTION ${admin} SET search_path=pg_catalog,public`],['public_acl',`GRANT EXECUTE ON FUNCTION ${admin} TO PUBLIC`],['missing_anon_acl',`REVOKE EXECUTE ON FUNCTION ${admin} FROM anon`],['grant_option_acl',`GRANT EXECUTE ON FUNCTION ${admin} TO authenticated WITH GRANT OPTION`],['wrong_owner',`ALTER FUNCTION ${admin} OWNER TO authenticated`],['wrong_definer',`ALTER FUNCTION ${admin} SECURITY INVOKER`],['wrong_volatility',`ALTER FUNCTION ${admin} VOLATILE`]];
+ results.install_guard_negatives=[];
+ for(const[name,setup]of cases){
+  const r=spawnSync(bin,args,{input:'BEGIN;'+setup+';'+prerequisite+'ROLLBACK;',encoding:'utf8',maxBuffer:4e6});
+  assert.notEqual(r.status,0,name);assert.match(r.stderr,/hotel_stripe_authorization_source_security_drift/,name);
+  assert.equal(sql(`SELECT pg_get_functiondef('${admin}'::regprocedure)`),original,name+' rollback');
+  assert.equal(snapshot(),before,name+' table rollback');results.install_guard_negatives.push({name,pass:true,error:'hotel_stripe_authorization_source_security_drift'});
+ }
+ results.preaction_after_install_guard_negatives=run('preaction');
+}
 const started=performance.now();sql(migration(stage).sql);results.install_ms=+(performance.now()-started).toFixed(3);assert.equal(snapshot(),before,'pre-existing business/receipt tables must be unchanged');
+const recaptured=JSON.parse(sql(captureQuery(stage)));if(stage===114480)recaptured.lifecycle_binding_count=Number(sql('SELECT count(*) FROM hotels_lifecycle_private.bindings'));
+assert.deepEqual(recaptured,catalogs[stage],'fresh authoritative forward catalog must equal the complete offline expectation');results.full_catalog_recapture_exact=true;
 assert.equal(sql(`SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY stage),'[]'::jsonb) FROM hotels_lineage_private.successor_receipts r WHERE stage<>${stage}`),historicalSuccessors);results.historical_successor_rows_preserved=true;
 results.postinstall=run('postinstall');results.integrity=stageMatrix(sql,stage);results.preserved_existing_tables=tables.length;
 const newTable=stageTables[stage][0],relationLeaf=gates.postinstall.specs.find(s=>s.section==='stage_relation_catalog'&&s.name===newTable);

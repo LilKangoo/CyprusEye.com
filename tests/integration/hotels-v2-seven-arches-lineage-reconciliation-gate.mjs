@@ -4,6 +4,7 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {authoritativeFixtureSource} from './hotels-v2-remaining-rollout-authority.mjs';
 const root = new URL('../../', import.meta.url);
 const db = process.env.HOTELS_RECONCILIATION_DB;
 assert.match(db || '', /^hotels_114416_[a-z0-9_]+$/);
@@ -21,6 +22,7 @@ if(['baseline','baseline0','baseline0external'].includes(process.argv[2])){
  function expand(path){
    assert.ok(path.startsWith(fileURLToPath(root)));
    let source=readFileSync(path,'utf8');
+   if(process.env.HOTELS_REMAINING_AUTHORITATIVE_PREDECESSOR==='1')source=authoritativeFixtureSource(path,source);
    if(process.argv[2].startsWith('baseline0') && path.endsWith('hotels-v2-seven-arches-reviewed-pricing-evolution-postgres-gate.sql')){
      source=source.slice(0,source.indexOf('-- Focused PostgreSQL contract gate'));
    }

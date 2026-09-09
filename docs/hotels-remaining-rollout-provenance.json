@@ -1,0 +1,275 @@
+{
+  "checkpoint_before": "83b00502f69c6343ba8750ad2db635b4eed874ad",
+  "classification": "VERIFIER_DEFECT",
+  "production_evidence_source": "Human-reported read-only 114450 root diagnostic; no production access in this task",
+  "historical_gate": "83b00502f69c6343ba8750ad2db635b4eed874ad:supabase/manual/hotels_v2_114450_preaction_readonly.sql",
+  "authorities": {
+    "admin": {
+      "file": "supabase/migrations/042_partner_service_fulfillments.sql",
+      "file_sha": "534b8ceed6d2bea18b1cd6cf19cca96b7a887fd31eaac8f89cae50c50183efcc",
+      "name": "is_current_user_admin",
+      "delimiter": "$$",
+      "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255"
+    },
+    "booking": {
+      "file": "supabase/migrations/20260811180000_hotels_v2_h1a_booking_security_lockdown.sql",
+      "file_sha": "f0af29a53d034a0818892f09c37b3930377810c2213054864c656373e1fd5397",
+      "name": "hotel_bookings_assign_authenticated_owner",
+      "delimiter": "$$",
+      "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e"
+    },
+    "apply": {
+      "file": "supabase/migrations/20260811370000_hotels_v2_pgcrypto_digest_schema_hotfix.sql",
+      "file_sha": "2339ee37962250962af96a0e93e0777f94f402a8f330a5810a76acef8eac8535",
+      "name": "hotel_v2_admin_apply_pricing_control_plan",
+      "delimiter": "$function$",
+      "source_sha": "f279e2690bce3f935fe5f2831a525ed8af5004ec1a0e05fa1f1c6b2943149afb",
+      "after_114350": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752"
+    }
+  },
+  "metadata": [
+    {
+      "acl": [
+        [
+          "postgres",
+          "postgres",
+          "EXECUTE",
+          false
+        ],
+        [
+          "service_role",
+          "postgres",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "kind": "f",
+      "owner": "postgres",
+      "result": "trigger",
+      "strict": false,
+      "definer": false,
+      "language": "plpgsql",
+      "parallel": "u",
+      "effective": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "leakproof": false,
+      "signature": "hotel_bookings_assign_authenticated_owner()",
+      "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+      "volatility": "v",
+      "returns_set": false,
+      "configuration": [
+        "search_path=pg_catalog, public"
+      ],
+      "identity_arguments": ""
+    },
+    {
+      "acl": [
+        [
+          "authenticated",
+          "postgres",
+          "EXECUTE",
+          false
+        ],
+        [
+          "postgres",
+          "postgres",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "kind": "f",
+      "owner": "postgres",
+      "result": "jsonb",
+      "strict": false,
+      "definer": true,
+      "language": "plpgsql",
+      "parallel": "u",
+      "effective": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "leakproof": false,
+      "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
+      "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+      "volatility": "v",
+      "returns_set": false,
+      "configuration": [
+        "search_path=pg_catalog, public, auth"
+      ],
+      "identity_arguments": "p_plan jsonb, p_correlation_id uuid, p_idempotency_key text"
+    },
+    {
+      "acl": [
+        [
+          "anon",
+          "postgres",
+          "EXECUTE",
+          false
+        ],
+        [
+          "authenticated",
+          "postgres",
+          "EXECUTE",
+          false
+        ],
+        [
+          "postgres",
+          "postgres",
+          "EXECUTE",
+          false
+        ],
+        [
+          "service_role",
+          "postgres",
+          "EXECUTE",
+          false
+        ]
+      ],
+      "kind": "f",
+      "owner": "postgres",
+      "result": "boolean",
+      "strict": false,
+      "definer": true,
+      "language": "plpgsql",
+      "parallel": "u",
+      "effective": [
+        false,
+        true,
+        true,
+        true
+      ],
+      "leakproof": false,
+      "signature": "is_current_user_admin()",
+      "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+      "volatility": "s",
+      "returns_set": false,
+      "configuration": [
+        "search_path=public"
+      ],
+      "identity_arguments": ""
+    }
+  ],
+  "explanation": {
+    "generic_apply": "113700 is ancestor 078d3a4, later than 113500; exact body evolves only through the committed 114350 external-sync guard replacement. Production matches both this source and human-reported 114350/114410 historical receipt definition hashes.",
+    "admin": "037 earlier definition is superseded by 042; 153 pins search_path; 164/165/166 retain this explicit policy helper for anon/authenticated/service_role while removing PUBLIC. Standalone setup scripts and integration fixtures are not applied-migration authority.",
+    "extra": "111800 BEFORE INSERT trigger on public.hotel_bookings. It IS a protected Hotels security dependency; explicitly included and its trigger topology checked.",
+    "scope": "All public hotel_v2_ functions plus is_current_user_admin and hotel_bookings_assign_authenticated_owner; all functions in four Hotels private schemas. Other public application functions are excluded. Missing, extra protected and all catalog/source drift fail closed."
+  },
+  "root_fix_simulation": {
+    "failed_before": 20,
+    "direct_catalog": 2,
+    "aggregate": 1,
+    "suppressed": 17,
+    "failed_after": 0,
+    "existing_tables_unchanged": 98
+  },
+  "production_access": false,
+  "package_status": "PASS",
+  "resolved_historical_114470_blocker": {
+    "file": "supabase/migrations/20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql",
+    "line": 22,
+    "error": "hotel_stripe_authorization_source_security_drift",
+    "sqlstate": "P0001",
+    "reason": "Frozen migration requires obsolete fixture is_current_user_admin source/language/search_path; user forbids migration byte changes.",
+    "evidence": {
+      "flags": [
+        false,
+        true,
+        false,
+        false
+      ],
+      "guard_rows": [
+        {
+          "owner": "postgres",
+          "definer": true,
+          "signature": "hotel_stripe_connect_private.scope(uuid,uuid,uuid)",
+          "source_exact": true,
+          "actual_config": [
+            "search_path=pg_catalog, public"
+          ],
+          "actual_source": "38c1f9e1448f6632712ea5e4ba22b2ccc9fd481d784b5b1f586e17a07b71e100",
+          "actual_language": "plpgsql",
+          "expected_config": [
+            "search_path=pg_catalog, public"
+          ],
+          "expected_source": "38c1f9e1448f6632712ea5e4ba22b2ccc9fd481d784b5b1f586e17a07b71e100",
+          "volatility_exact": true,
+          "expected_language": "plpgsql"
+        },
+        {
+          "owner": "postgres",
+          "definer": true,
+          "signature": "public.hotel_v2_h2a_require_admin()",
+          "source_exact": true,
+          "actual_config": [
+            "search_path=pg_catalog, public, auth"
+          ],
+          "actual_source": "2f1cc975916dbc86a63d348135a2ff83de50d9f31c20e70219257d476296fa3d",
+          "actual_language": "plpgsql",
+          "expected_config": [
+            "search_path=pg_catalog, public, auth"
+          ],
+          "expected_source": "2f1cc975916dbc86a63d348135a2ff83de50d9f31c20e70219257d476296fa3d",
+          "volatility_exact": true,
+          "expected_language": "plpgsql"
+        },
+        {
+          "owner": "postgres",
+          "definer": true,
+          "signature": "public.is_current_user_admin()",
+          "source_exact": false,
+          "actual_config": [
+            "search_path=public"
+          ],
+          "actual_source": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+          "actual_language": "plpgsql",
+          "expected_config": [
+            "search_path=pg_catalog, public, auth"
+          ],
+          "expected_source": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
+          "volatility_exact": true,
+          "expected_language": "sql"
+        },
+        {
+          "owner": "postgres",
+          "definer": true,
+          "signature": "public.hotel_v2_stripe_connect_service(text,jsonb)",
+          "source_exact": true,
+          "actual_config": [
+            "search_path=pg_catalog, public, hotel_stripe_connect_private"
+          ],
+          "actual_source": "51edcefdd3a898db8550aff6b290b1d6b3c8f633f3684458ed1fbf17d5558f32",
+          "actual_language": "plpgsql",
+          "expected_config": [
+            "search_path=pg_catalog, public, hotel_stripe_connect_private"
+          ],
+          "expected_source": "51edcefdd3a898db8550aff6b290b1d6b3c8f633f3684458ed1fbf17d5558f32",
+          "volatility_exact": true,
+          "expected_language": "plpgsql"
+        }
+      ],
+      "anchor_exact": true,
+      "pricing_safe": true,
+      "provider_safe": true,
+      "114480_schema_absent": true,
+      "114470_objects_absent": true,
+      "last_recorded_hotels_stage": "20260811446000"
+    }
+  },
+  "guard_correction": {
+    "authorized": true,
+    "scope": "Unapplied 114470 is_current_user_admin prerequisite only",
+    "source_authority": "042 plus 153/164/165/166 security",
+    "new_migration_sha": "4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60",
+    "lines": 279,
+    "runtime_business_body_unchanged": true,
+    "guard_negative_tests": 10,
+    "full_chain": "PASS"
+  }
+}

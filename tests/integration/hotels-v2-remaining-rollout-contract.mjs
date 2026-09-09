@@ -7,7 +7,7 @@ export const stages=[114450,114460,114470,114480];
 export const migrations={
 114450:['20260811445000_hotels_v2_external_calendar_provider_types.sql','6151c12a14022e64f6e30421fca6646bc2a540cc111b399b88ac80934174a5d3'],
 114460:['20260811446000_hotels_v2_partner_stripe_connect.sql','1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14'],
-114470:['20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql','7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0'],
+114470:['20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql','4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60'],
 114480:['20260811448000_hotels_v2_audited_capability_lifecycle.sql','2bce4cc9d2cef073acce9c416a2b6a5cd681cd24e100c5b1501ee276e3a173fa']};
 export function migration(stage){const [name,sha]=migrations[stage],path='supabase/migrations/'+name,sql=readFileSync(path,'utf8');assert.equal(hash(sql),sha);return {path,sha,sql,lines:sql.split('\n').length-1};}
 export const stageTables={
@@ -15,8 +15,11 @@ export const stageTables={
 114460:['accounts','oauth_states','events'].map(n=>'hotel_stripe_connect_private.'+n),
 114470:['hotel_stripe_connect_private.onboarding_authorizations'],
 114480:['bindings','foundation','decisions','context','stripe_readiness'].map(n=>'hotels_lifecycle_private.'+n)};
+// Exact Hotels contract namespaces plus explicit security dependencies from
+// 042 and 111800. Other public application functions are not Hotels authority.
+// New overloads/functions inside this protected universe must fail closed.
 export const functionInventoryQuery=functionQuery.replace(/WHERE n\.nspname='public' AND p\.proname=ANY\([\s\S]*$/,
-"WHERE p.prokind='f' AND p.proname<>'hotels_h2a_fixture_updated_at' AND ((n.nspname='public' AND (p.proname LIKE 'hotel%' OR p.proname='is_current_user_admin')) OR n.nspname IN ('hotels_v2_private','hotels_lineage_private','hotel_stripe_connect_private','hotels_lifecycle_private'))");
+"WHERE p.prokind='f' AND ((n.nspname='public' AND (left(p.proname,9)='hotel_v2_' OR p.proname IN ('is_current_user_admin','hotel_bookings_assign_authenticated_owner'))) OR n.nspname IN ('hotels_v2_private','hotels_lineage_private','hotel_stripe_connect_private','hotels_lifecycle_private'))");
 export function relationQuery(name){
  const table=name.split('.')[1],q=fn=>fn(table).replaceAll('public.'+table,name);
  return `SELECT jsonb_build_object('columns',(${q(columnsQuery)}),'constraints',(${q(constraintsQuery)}),'indexes',(${q(indexesQuery)}),

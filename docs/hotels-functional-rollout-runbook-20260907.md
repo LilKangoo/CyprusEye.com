@@ -18,11 +18,14 @@ No execution, push, deployment or history repair is authorized by this document.
 | supabase/migrations/20260811442500_hotels_v2_external_calendar_site_settings_compatibility.sql | d72c244840bd21a5c5e7e46f654c8b3a7466f80f1d18ebac3ca938ab43163ee5 | 306 |
 | supabase/migrations/20260811445000_hotels_v2_external_calendar_provider_types.sql | 6151c12a14022e64f6e30421fca6646bc2a540cc111b399b88ac80934174a5d3 | 3029 |
 | supabase/migrations/20260811446000_hotels_v2_partner_stripe_connect.sql | 1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14 | 248 |
-| supabase/migrations/20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql | 7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0 | 265 |
+| supabase/migrations/20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql | 4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60 | 279 |
 | supabase/migrations/20260811448000_hotels_v2_audited_capability_lifecycle.sql | 2bce4cc9d2cef073acce9c416a2b6a5cd681cd24e100c5b1501ee276e3a173fa | 420 |
 
-114425, 114460 and 114470 are unchanged from main. All seven are byte-identical
-to the accepted local forward-chain candidate. Never substitute an earlier package hash.
+114425 and 114460 are unchanged from main. The unapplied 114470 has an explicitly
+authorized correction only to the is_current_user_admin prerequisite guard;
+its old SHA 7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0
+is OBSOLETE. No runtime/business body changed. Use the identities above and
+the current validation report; never substitute an earlier package hash.
 
 ## Human recovery-point boundary
 
@@ -120,7 +123,7 @@ POSTINSTALL while the current stage is still UNRECORDED → separately authorize
 history repair → history verification → STOP for the next stage's authorization.
 The production boundary reported by the human is 114425, not 114450.
 Use only the matching `/private/tmp/hotels_v2_prod_<stage>.sql` whose full hash
-matches the unchanged migration table above. Add no wrapper and no later content.
+matches the current migration identity table above. Add no wrapper and no later content.
 
 Full local proof, exact artifact identities, gate row counts, synthetic negative
 results and install scope are recorded in `docs/hotels-remaining-rollout-validation.md`
@@ -170,8 +173,10 @@ failed install applied, remove a receipt, weaken a gate or increase timeouts.
 ## Evidence and freeze interpretation
 
 Accepted runtime evidence is in `docs/hotels-114416-successor-validation-results.json`.
-It is historical local evidence, not a fresh execution. All 25 accepted candidate
-inputs are copied byte-for-byte; only package documentation/verifiers/tests are new.
+It is historical local evidence, not a fresh execution. The current provenance
+correction and fresh complete-chain results supersede fixture-only expectations;
+see hotels-remaining-rollout-validation.md. Applied migrations remain unchanged.
+Only the explicitly authorized guard of unapplied 114470 changes migration bytes.
 No frontend changed, so no rebuild is required.
 
 The 33.705491s install measurement belongs to **114470**, not 114416.

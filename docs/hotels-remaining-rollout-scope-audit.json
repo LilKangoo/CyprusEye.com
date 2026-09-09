@@ -1,5 +1,8 @@
 {
-  "checkpoint": "f8fe3765a431246adae09c8fc30418ba5cd86371",
+  "checkpoint": "83b00502f69c6343ba8750ad2db635b4eed874ad",
+  "status": "PASS",
+  "provenance_supplement": "docs/hotels-remaining-rollout-provenance.json",
+  "migration_scope_unchanged": false,
   "production_access": false,
   "stages": {
     "114450": {
@@ -516,5 +519,14 @@
       "acl_changed": "Private lifecycle schema/tables/functions revoked all nonowners; authenticated EXECUTE Admin Get/Set; service_role EXECUTE readiness attestation; evolved metadata preserved.",
       "config_changed": "New hotels_lifecycle_private schema; new Admin lifecycle Set has function-scoped statement_timeout=60s; no global configuration change"
     }
+  },
+  "migration_business_scope_unchanged": true,
+  "only_migration_changed": "114470",
+  "authorized_guard_correction": {
+    "function": "public.is_current_user_admin()",
+    "sha256": "4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60",
+    "lines": 279,
+    "body_changes": false,
+    "guard_source_language_path_and_acl_exact": true
   }
 }

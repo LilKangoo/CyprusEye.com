@@ -3,6 +3,11 @@
     "stage": 114425,
     "functions": [
       {
+        "signature": "hotel_bookings_assign_authenticated_owner()",
+        "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+        "catalog_sha": "a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f"
+      },
+      {
         "signature": "hotel_v2_7a_pricing_activation_transaction_is_preserved()",
         "source_sha": "1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81",
         "catalog_sha": "fe2d44e49307f79e408dc8c33069bbe9fc895f3af7c24484119ceeb50420dd43"
@@ -99,8 +104,8 @@
       },
       {
         "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
-        "source_sha": "6d133c997515acecf730c61972ceb63bbeac8bb54cf371ff38019920bdd70489",
-        "catalog_sha": "8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21"
+        "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+        "catalog_sha": "2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee"
       },
       {
         "signature": "hotel_v2_admin_apply_property_control_plan(jsonb,uuid)",
@@ -1498,11 +1503,6 @@
         "catalog_sha": "d315fc031ceeb7c20218c168007b90cd17d9575f4bbaf04df227d7b972e5809a"
       },
       {
-        "signature": "hotels_h2a_fixture_updated_at()",
-        "source_sha": "cc24f03b0edafb835940e8b1957bb8fb17b4c933ae5081a8726dc51bb369d6ba",
-        "catalog_sha": "b267ca9ffe9d93d27c435eadee76657b2a3365c2a3c25f9be868447986b64a36"
-      },
-      {
         "signature": "hotels_lineage_private.catalog_fingerprint()",
         "source_sha": "9798b885198ee02fc8b7154ce67d2caba98b885268ae29a8f486894032657084",
         "catalog_sha": "80b422bec1bc629e2b472c8f1fa3ebd0fc47050fa23a99f011ce2996d2efb80a"
@@ -1594,8 +1594,8 @@
       },
       {
         "signature": "is_current_user_admin()",
-        "source_sha": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
-        "catalog_sha": "6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c"
+        "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+        "catalog_sha": "fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c"
       }
     ],
     "relations": {}
@@ -1603,6 +1603,11 @@
   "114450": {
     "stage": 114450,
     "functions": [
+      {
+        "signature": "hotel_bookings_assign_authenticated_owner()",
+        "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+        "catalog_sha": "a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f"
+      },
       {
         "signature": "hotel_v2_7a_pricing_activation_transaction_is_preserved()",
         "source_sha": "1e3c8c0d3383d8ecc384ff1da4e7ddf687bb8ae3f957247e1a63f6196f92ea81",
@@ -1705,8 +1710,8 @@
       },
       {
         "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
-        "source_sha": "6d133c997515acecf730c61972ceb63bbeac8bb54cf371ff38019920bdd70489",
-        "catalog_sha": "8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21"
+        "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+        "catalog_sha": "2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee"
       },
       {
         "signature": "hotel_v2_admin_apply_property_control_plan(jsonb,uuid)",
@@ -3139,11 +3144,6 @@
         "catalog_sha": "5cd659063ad6a00b801067586712114c2df220022346d90118ce14e7ba2392bd"
       },
       {
-        "signature": "hotels_h2a_fixture_updated_at()",
-        "source_sha": "cc24f03b0edafb835940e8b1957bb8fb17b4c933ae5081a8726dc51bb369d6ba",
-        "catalog_sha": "b267ca9ffe9d93d27c435eadee76657b2a3365c2a3c25f9be868447986b64a36"
-      },
-      {
         "signature": "hotels_lineage_private.catalog_fingerprint()",
         "source_sha": "9798b885198ee02fc8b7154ce67d2caba98b885268ae29a8f486894032657084",
         "catalog_sha": "80b422bec1bc629e2b472c8f1fa3ebd0fc47050fa23a99f011ce2996d2efb80a"
@@ -3280,8 +3280,8 @@
       },
       {
         "signature": "is_current_user_admin()",
-        "source_sha": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
-        "catalog_sha": "6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c"
+        "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+        "catalog_sha": "fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c"
       }
     ],
     "relations": {
@@ -4923,6 +4923,11 @@
     "stage": 114460,
     "functions": [
       {
+        "signature": "hotel_bookings_assign_authenticated_owner()",
+        "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+        "catalog_sha": "a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f"
+      },
+      {
         "signature": "hotel_stripe_connect_private.scope(uuid,uuid,uuid)",
         "source_sha": "38c1f9e1448f6632712ea5e4ba22b2ccc9fd481d784b5b1f586e17a07b71e100",
         "catalog_sha": "e6bbfb78bed79ad06177055d63182202f58b2bfdf1e55ba65574582a6bfb2db8"
@@ -5029,8 +5034,8 @@
       },
       {
         "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
-        "source_sha": "6d133c997515acecf730c61972ceb63bbeac8bb54cf371ff38019920bdd70489",
-        "catalog_sha": "8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21"
+        "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+        "catalog_sha": "2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee"
       },
       {
         "signature": "hotel_v2_admin_apply_property_control_plan(jsonb,uuid)",
@@ -6468,11 +6473,6 @@
         "catalog_sha": "d9b6e0e8b3893fa7b0ad37a68870871cfad3d7defd8e93661b5c42547829477a"
       },
       {
-        "signature": "hotels_h2a_fixture_updated_at()",
-        "source_sha": "cc24f03b0edafb835940e8b1957bb8fb17b4c933ae5081a8726dc51bb369d6ba",
-        "catalog_sha": "b267ca9ffe9d93d27c435eadee76657b2a3365c2a3c25f9be868447986b64a36"
-      },
-      {
         "signature": "hotels_lineage_private.catalog_fingerprint()",
         "source_sha": "9798b885198ee02fc8b7154ce67d2caba98b885268ae29a8f486894032657084",
         "catalog_sha": "80b422bec1bc629e2b472c8f1fa3ebd0fc47050fa23a99f011ce2996d2efb80a"
@@ -6609,8 +6609,8 @@
       },
       {
         "signature": "is_current_user_admin()",
-        "source_sha": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
-        "catalog_sha": "6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c"
+        "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+        "catalog_sha": "fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c"
       }
     ],
     "relations": {
@@ -8698,6 +8698,11 @@
     "stage": 114470,
     "functions": [
       {
+        "signature": "hotel_bookings_assign_authenticated_owner()",
+        "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+        "catalog_sha": "a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f"
+      },
+      {
         "signature": "hotel_stripe_connect_private.authorization_receipt_hash(jsonb)",
         "source_sha": "64aef185af0ffbecf4fdf378b36414d6e2f7da32dd70cb25c4ae0a2f8ea9c052",
         "catalog_sha": "cfda60215960f012f948d20573bac2a61ac5be5a0b2d722b072435653fe909e0"
@@ -8819,8 +8824,8 @@
       },
       {
         "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
-        "source_sha": "6d133c997515acecf730c61972ceb63bbeac8bb54cf371ff38019920bdd70489",
-        "catalog_sha": "8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21"
+        "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+        "catalog_sha": "2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee"
       },
       {
         "signature": "hotel_v2_admin_apply_property_control_plan(jsonb,uuid)",
@@ -10268,11 +10273,6 @@
         "catalog_sha": "098ecac492554ae16380fc6050cb5c889a8689f485819a2c2ef6c2828d80cd0c"
       },
       {
-        "signature": "hotels_h2a_fixture_updated_at()",
-        "source_sha": "cc24f03b0edafb835940e8b1957bb8fb17b4c933ae5081a8726dc51bb369d6ba",
-        "catalog_sha": "b267ca9ffe9d93d27c435eadee76657b2a3365c2a3c25f9be868447986b64a36"
-      },
-      {
         "signature": "hotels_lineage_private.catalog_fingerprint()",
         "source_sha": "9798b885198ee02fc8b7154ce67d2caba98b885268ae29a8f486894032657084",
         "catalog_sha": "80b422bec1bc629e2b472c8f1fa3ebd0fc47050fa23a99f011ce2996d2efb80a"
@@ -10409,8 +10409,8 @@
       },
       {
         "signature": "is_current_user_admin()",
-        "source_sha": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
-        "catalog_sha": "6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c"
+        "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+        "catalog_sha": "fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c"
       }
     ],
     "relations": {
@@ -12730,6 +12730,11 @@
     "stage": 114480,
     "functions": [
       {
+        "signature": "hotel_bookings_assign_authenticated_owner()",
+        "source_sha": "4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e",
+        "catalog_sha": "a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f"
+      },
+      {
         "signature": "hotel_stripe_connect_private.authorization_receipt_hash(jsonb)",
         "source_sha": "64aef185af0ffbecf4fdf378b36414d6e2f7da32dd70cb25c4ae0a2f8ea9c052",
         "catalog_sha": "cfda60215960f012f948d20573bac2a61ac5be5a0b2d722b072435653fe909e0"
@@ -12851,8 +12856,8 @@
       },
       {
         "signature": "hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)",
-        "source_sha": "6d133c997515acecf730c61972ceb63bbeac8bb54cf371ff38019920bdd70489",
-        "catalog_sha": "8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21"
+        "source_sha": "775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752",
+        "catalog_sha": "2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee"
       },
       {
         "signature": "hotel_v2_admin_apply_property_control_plan(jsonb,uuid)",
@@ -14315,11 +14320,6 @@
         "catalog_sha": "098ecac492554ae16380fc6050cb5c889a8689f485819a2c2ef6c2828d80cd0c"
       },
       {
-        "signature": "hotels_h2a_fixture_updated_at()",
-        "source_sha": "cc24f03b0edafb835940e8b1957bb8fb17b4c933ae5081a8726dc51bb369d6ba",
-        "catalog_sha": "b267ca9ffe9d93d27c435eadee76657b2a3365c2a3c25f9be868447986b64a36"
-      },
-      {
         "signature": "hotels_lifecycle_private.actual_flags()",
         "source_sha": "ecd751821530611bfe8b925fa5bb73c408def4823acc1d794b70d6e5bb89fb59",
         "catalog_sha": "12b29c35d404acc7198918a21b351d91c330be01b3ff899a6c2d240352a4aa68"
@@ -14526,8 +14526,8 @@
       },
       {
         "signature": "is_current_user_admin()",
-        "source_sha": "9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5",
-        "catalog_sha": "6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c"
+        "source_sha": "581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255",
+        "catalog_sha": "fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c"
       }
     ],
     "relations": {

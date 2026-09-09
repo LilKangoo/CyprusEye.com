@@ -1,247 +1,256 @@
-# Final remaining Hotels rollout validation
+# Final remaining Hotels rollout — authoritative predecessor PASS
 
-Source checkpoint before this supplement: `f8fe3765a431246adae09c8fc30418ba5cd86371`.
+Parent checkpoint: `83b00502f69c6343ba8750ad2db635b4eed874ad`.
 Branch: `feature/hotels-lineage-successor-final`.
+The final local commit identity and current file hashes are in the detached
+`/private/tmp/hotels-lineage-successor-final-manifest.json`.
 
-This is local package readiness, not authorization to execute production writes. Human-reported production remains recorded through **114425**. Production was not accessed. CLI 2.67.1 remains frozen.
+**Full local validation PASS. Next human action: 114450 read-only preaction only.**
+No production access, production SQL, repair, push, merge or deployment occurred.
+Production remains human-reported through 114425. CLI 2.67.1 stays frozen.
+Recovery evidence remains external: 09 Sep 2026 05:37:22 UTC, COMPLETED, PHYSICAL,
+Restore available. No fresh backup status is inferred from local SQL.
 
-The external recovery evidence is human-confirmed: **09 Sep 2026 05:37:22 UTC**, COMPLETED, PHYSICAL, Restore available. No SQL result is used to infer backup status.
+## Provenance and corrected verifier baseline
 
-## Sealed clean forward chain
+The previous 114450 defect comprised two direct function catalog mismatches, one
+overbroad universe mismatch, and 17 guard-suppressed NULL reads. Those 17 were not
+independent production predicate failures.
 
-One fresh owned PostgreSQL 16.13 database was rebuilt from the accepted fixture through 114425. The exact frozen four migrations then ran in order with each preaction, physical install, postinstall, local history simulation and next preaction. Gates were not changed during this final run. No stage was skipped.
+Exact committed provenance (full file/source hashes and metadata are in
+`hotels-remaining-rollout-provenance.json`):
 
-| Stage | Preaction passing leaves / output rows | Postinstall passing leaves / output rows | Negatives | Existing table snapshots preserved | Install ms |
-|---|---|---|---|---|---|
-| 114450 | 451 / 452 | 478 / 479 | 25/25 | 96 | 20900.59 |
-| 114460 | 478 / 479 | 485 / 486 | 29/29 | 100 | 16662.312 |
-| 114470 | 485 / 486 | 492 / 493 | 29/29 | 103 | 35127.864 |
-| 114480 | 492 / 493 | 520 / 521 | 28/28 | 104 | 26029.761 |
+- Generic Apply: 113700 hotfix, ancestor 078d3a4, followed by the exact 114350 external-sync
+  guard evolution gives `775dcbb181fd52e8eba2e5a741beff28ed9c06c5d72cc209ee7bbfb5f74f0752`.
+  Human-reported 114350/114410 historical receipt comparisons independently match.
+- Admin helper: 042 supersedes 037; 153 and 164/165/166 provide search_path and ACL
+  hardening. Exact body `581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255`;
+  PL/pgSQL, STABLE, SECURITY DEFINER, postgres owner, search_path=public,
+  anon/authenticated/postgres/service_role EXECUTE without PUBLIC/grant option.
+  Fixture and standalone setup scripts are not applied-migration authority.
+- Booking ownership helper: exact 111800 source `4bf9032e832df802166f0919ee447099193aad32b1d407e9f75460e31471ab8e`;
+  it is a protected BEFORE INSERT hotel_bookings trigger, **not unrelated functionality**.
 
-Output row counts include one summary row. Every postinstall requires the current stage **unrecorded**. After local recording, each postinstall failed only its current `recorded_<stage>` leaf; those four intentional failures prove the before-repair boundary rather than an installation defect.
+A new disposable PG16.13 fixture restored these authoritative definitions before any
+immutable receipts were created. On the same unchanged post-114425 database, the old
+gate from 83b00502 returned exactly 20 failures; corrected gate returned zero.
+98/98 tables, including history, were unchanged during this comparison.
 
-All old successor-receipt rows were preserved; 114450/114480 append only their authorized certificates. All earlier protected public/auth/private table rows were hash-identical before/after each install, including historical receipts, prices, payment, commission, permissions and flags. Foundation/new table row counts were independently asserted.
+Protected function universe: public hotel_v2_ functions, both explicit security
+dependencies, and all functions in the four Hotels private schemas.
+Unknown protected functions, missing functions, source/ACL/owner/search_path/security
+drift fail closed. An unrelated public application function is allowed.
+The 111800 booking trigger topology is additionally pinned.
 
-## Canonical migration and execution copies
+## Authorized minimal 114470 correction
 
-| Stage | Committed filename under supabase/migrations | SHA-256 | Lines |
-|---|---|---|---|
-| 114450 | 20260811445000_hotels_v2_external_calendar_provider_types.sql | `6151c12a14022e64f6e30421fca6646bc2a540cc111b399b88ac80934174a5d3` | 3029 |
-| 114460 | 20260811446000_hotels_v2_partner_stripe_connect.sql | `1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14` | 248 |
-| 114470 | 20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql | `7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0` | 265 |
-| 114480 | 20260811448000_hotels_v2_audited_capability_lifecycle.sql | `2bce4cc9d2cef073acce9c416a2b6a5cd681cd24e100c5b1501ee276e3a173fa` | 420 |
+The first corrected-predecessor run exposed a real stale fixture pin in the
+**unapplied** 114470 migration. The human separately authorized its correction.
+Only its is_current_user_admin source/security prerequisite changed:
 
-All migration bytes match the source checkpoint. Manual files `/private/tmp/hotels_v2_prod_<stage>.sql` are byte-identical, with no added wrapper or concatenation. These manual files were not executed. Only repository migrations were used on disposable local databases. A stale pre-successor temporary 114450 copy was replaced with the exact final candidate; no repository migration was edited.
+| Field | Obsolete fixture expectation | Authoritative expectation |
+|---|---|---|
+| source | 9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5 | 581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255 |
+| language | sql | plpgsql |
+| search_path | pg_catalog, public, auth | public |
 
-## Canonical read-only gates
+Existing postgres owner, STABLE and SECURITY DEFINER checks remain.
+Exact direct ACL/grantor/grantability and effective PUBLIC/anon/authenticated/service
+execution checks were added for this helper only. No permission is granted by this check.
 
-| Stage | Phase | Repository path | SHA-256 | Lines | Expected rows |
-|---|---|---|---|---|---|
-| 114450 | preaction | supabase/manual/hotels_v2_114450_preaction_readonly.sql | `ead599bc7ddffb657903ee699dc28b0fdc7840f4bc2c9356260a1ba4e2d3fcd6` | 952 | 452 |
-| 114450 | postinstall | supabase/manual/hotels_v2_114450_postinstall_readonly.sql | `5272283ddd3d7d5ed5a1824e0a6f09c3fe181d5cb24b064bcd2524414367f238` | 1027 | 479 |
-| 114460 | preaction | supabase/manual/hotels_v2_114460_preaction_readonly.sql | `f0ae96ef64917e357789d4f83356d164cacff968db65ffba260bec96a6638673` | 1027 | 479 |
-| 114460 | postinstall | supabase/manual/hotels_v2_114460_postinstall_readonly.sql | `892d014ec904fffb20bd0749ddee689af7e582879bc41589fe1b45640ae831c4` | 1065 | 486 |
-| 114470 | preaction | supabase/manual/hotels_v2_114470_preaction_readonly.sql | `2690712af4479fa1bd29884111ad31a146a023ec037239424c1307fa4f62f954` | 1065 | 486 |
-| 114470 | postinstall | supabase/manual/hotels_v2_114470_postinstall_readonly.sql | `c7195f1a65fb4703c4a8e91fa307be7fb4b9ede2b6a7d84a2ea7171767612189` | 1083 | 493 |
-| 114480 | preaction | supabase/manual/hotels_v2_114480_preaction_readonly.sql | `6eff7a76cce1762d99dd073441f5240c609284103f18a3c9493c11be7d2b6e92` | 1083 | 493 |
-| 114480 | postinstall | supabase/manual/hotels_v2_114480_postinstall_readonly.sql | `5064fb3dd47c1d1d0ff6267cb9e75619355d24db08554b9c01027e22fda8d412` | 1168 | 521 |
+Old migration SHA `7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0`
+is **OBSOLETE**.
+New SHA `4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60`, 279 lines.
+`/private/tmp/hotels_v2_prod_114470.sql` is byte-identical.
+Everything from the first CREATE TABLE through the end of 114470 is byte-identical
+to 83b00502. Runtime functions, business logic, timeouts and all other migrations are unchanged.
+114480 requires no source change. Only the two 114470 gate headers needed its new file identity.
 
-Each execution copy has the identical basename under `/private/tmp`, and all eight compare byte-for-byte with the repository files. Offline regeneration also matches 8/8.
+## Fresh complete chain
 
-All gates begin with BEGIN, SET TRANSACTION READ ONLY, and SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, and end with ROLLBACK. They return one consolidated result set and do not override statement_timeout. PostgreSQL parser validation passes for every outer statement and embedded SELECT. No DDL, DML, write lock, Preview, Submit, Apply, cleanup or lifecycle mutation is called. Exact function identities in catalog comparisons are metadata, not invocation.
+A second new database was built from the authoritative predecessor, not reused from
+the failed run. Then every stage ran preaction → install → postinstall → local
+history recording. No gates changed during this run.
 
-## Source and security scope
+| Stage | Preaction leaves / rows | Postinstall leaves / rows | Stage checks | Guard checks | Preserved tables | Install ms |
+|---|---|---|---|---|---|---|
+| 114450 | 453 / 454 | 480 / 481 | 37/37 | 0 | 96 | 19954.427 |
+| 114460 | 480 / 481 | 487 / 488 | 41/41 | 0 | 100 | 16665.372 |
+| 114470 | 487 / 488 | 494 / 495 | 41/41 | 10 | 103 | 33940.002 |
+| 114480 | 494 / 495 | 522 / 523 | 40/40 | 0 | 104 | 21959.759 |
 
-The complete created/replaced function signatures, BEFORE/AFTER source pins, tables, triggers, RLS, ACL and receipt changes are in `hotels-remaining-rollout-scope-audit.json`. The compact catalog fixture contains synthetic schema metadata only, not data, credentials or plans. Unqualified regprocedure signatures in that inventory are public functions. The test-only `hotels_h2a_fixture_updated_at()` is explicitly excluded from production requirements.
+All complete catalogs were independently recaptured and matched the corrected expectations.
+After each local recording, postinstall rejected **only** its current recorded-stage leaf,
+proving that postinstall belongs before repair. No partial installation or mixed pins remain.
 
-- 114450: four new private provider tables; 17 persistent new functions and 24 evolved functions; four triggers; provider foundation receipt and successor certificate. The temporary private evolve_function(text,text,text,integer) installation helper is dropped before commit. Only the new receipt table receives installation seal columns. The four provider tables intentionally have RLS/FORCE RLS false as committed; exact private-schema permissions, revoked table/column/effective ACLs and immutable triggers are enforced. No policy is added.
-- 114460: new private Stripe schema, accounts/oauth_states/events tables and two functions. All three tables have RLS/FORCE RLS; no browser table access. The service RPC is service-role-only. No connected account, OAuth state or event is inserted by installation.
-- 114470: one immutable per-Partner onboarding_authorizations table, five new/two evolved functions and two triggers. Admin Get/Set are explicitly authenticated and Admin-checked. Installation grants nobody onboarding permission and does not rewrite the 114360 permission receipt.
-- 114480: five lifecycle tables, 17 new/31 evolved functions, eight triggers including the public.site_settings transition guard, 31 source bindings, one foundation row and successor certificate. RLS/FORCE RLS and private ACLs are exact. Decisions/context/Stripe readiness remain empty. Only the new Admin lifecycle Set has its committed function-scoped 60s timeout; there is no global configuration change. Public booking remains unsupported/false and no capability is activated.
+## Security and non-recursion
 
-All four installations: FLAGS_MUTATION=NO, PRICING_MUTATION=NO, BOOKING_CREATION=NO, PAYMENT_POLICY_MUTATION=NO, COMMISSION_MUTATION=NO, PERMISSION_MUTATION=NO, STRIPE_EXTERNAL_CALL=NO, EXTERNAL_CALENDAR_RUNTIME_CALL=NO. No policy creation or environment/secret change occurs.
+169/169 stage/guard checks passed: 165 rejection cases plus four unrelated-function
+positive cases. This includes all prior stage negatives and the ten new actual
+114470 install-guard negatives: stale fixture, wrong source/language/search_path,
+PUBLIC grant, missing anon grant, grant option, wrong owner/definer/volatility.
+Each guard rejection rolled back; the original definition and table snapshots remained exact.
 
-## Negative and non-recursion coverage
+Stripe negatives cover unauthorized Partner, global capability without Partner permission,
+Partner permission without global capability, and connected-account mismatch.
+All were local rolled-back tests, with zero Stripe API calls.
 
-111/111 stage negatives passed. Every stage covers history, premature recording, missing/wrong predecessor evidence, source/security/ACL/owner/search_path, flags, pricing, commission, payment lineage, booking/quote/context residue, a real foreign-backend writer lock, future function-universe collision, new-table owner/ACL/RLS/policy and new-schema owner/ACL. Known later ledger versions are tested where present. At 114480, no later authorized ledger version exists; a future function collision remains tested.
+67/67 final successor negatives and 3/3 replay/unknown-stage rejects passed.
+110/110 final protected table snapshots remained unchanged.
+Static reachable graph: 53 functions, zero cycles, zero unresolved dynamic SQL;
+the naive reentry trap is detected.
+Runtime READ ONLY trace: scoped_calls=1, provider_bridge_calls=0.
 
-At each Stripe-capable stage, four additional rolled-back local negatives prove: unauthorized actor fails; global enabled without Partner permission fails; Partner permission without global enabled fails; connected-account mismatch fails. This synthetic testing makes no live Stripe call and leaves all data unchanged. Installation itself never changes a flag or grants permission.
+Owned loopback PostgREST Partner Get/workspace returned HTTP200 and an exact shared
+pricing snapshot token, with 54 pricing items. Anonymous/foreign Hotel/foreign Partner
+requests fail closed. Preview/Submit/Apply/quote/booking calls in this transport smoke=0.
+The ephemeral local PostgREST child was stopped.
 
-67/67 successor source/security negatives and 3/3 replay/unknown-stage rejects pass, preserving 110/110 table snapshots. Static reachable lineage graph: 53 functions, zero scoped cycles, zero unresolved dynamic SQL; the naive recursion trap is detected. Runtime READ ONLY trace: scoped_calls=1, provider_bridge_calls=0; the anchor does not re-enter either composite.
+## Final integrity
 
-## Final read-only Partner transport proof
+Upper=27 and Ground=27 tiers; authority=54; base rates EUR100/EUR100.
+Parity=100/0; guest-one=20/0; allocation exact; commission EUR10 per allocated Room/night;
+payment lineage exact. Reconciliation/bridge/settings fingerprint/provider lineage,
+Stripe foundation, authorization and lifecycle are exact through 114480.
+Flags: rooms=false, external=true, instant=false, stripe=false.
+Architecture legacy; public booking disabled.
 
-Owned loopback PostgREST 12.2.12: reviewed-pricing Get HTTP 200 with 54 items (1865.862 ms), workspace Get HTTP 200 (148.641 ms), exact composite pricing token equality. Anonymous 401/42501, foreign Hotel 500/55000, foreign Partner 403/42501 all fail closed. No tokens or identities are retained in results. Preview=0, Submit=0, Apply=0, quote=0, booking=0. All 110 table snapshots unchanged. The ephemeral local PostgREST child was stopped.
+No existing business or historical receipt rows changed during remaining-stage installation.
+No bookings/quotes created by these migrations; no payment routing or commission mutation.
+No automatic Partner onboarding authorization. New Stripe account/OAuth/event/authorization
+and lifecycle decision/context/readiness inventories remain empty.
 
-## Final integrity and containment
+## Canonical gates
 
-Final local state: Upper 27 / Ground 27 tiers, 54 authority rows, EUR100/EUR100, parity 100/0, guest-one 20/0, allocation exact, commission EUR10 per allocated Room/night exact, payment lineage exact. Reconciliation anchor, reviewed receipt chain, independent topology, activation current-safe, 114420 pricing bridge, 114425 settings fingerprint and provider successor lineage all pass the final gate. Flags remain rooms=false/external=true/instant=false/stripe=false, architecture legacy, public booking disabled. No quotes or bookings were created by these migrations. New Stripe account/OAuth/event/authorization inventories and lifecycle decision/context/readiness inventories remain zero.
+All paths use `supabase/manual/hotels_v2_<stage>_<phase>_readonly.sql`.
+Each temporary execution copy has the same basename under /private/tmp.
 
-Four synthetic databases created for this task were dropped after validation. No existing PostgreSQL server, unrelated fixture, preserved postmaster, Docker, kernel setting or SHM resource was modified. No local test payloads or credentials are packaged.
+| Stage | Phase | SHA-256 | Lines | Expected rows |
+|---|---|---|---|---|
+| 114450 | preaction | 5a9254bcbc55246a89e99462e5583e89d250afea8d3c040ba52b102bd9fc2c91 | 957 | 454 |
+| 114450 | postinstall | f0cc66161bef58168e1a8164816171b582b5577a5374c03916024ba1ab4a215f | 1032 | 481 |
+| 114460 | preaction | f195756ba126df6d6b52f9e9b382c102a5d9e28e7c9140ecdaeb17cc4002d5f0 | 1032 | 481 |
+| 114460 | postinstall | 90028907172c999eb9539c5f64536f91383aac1b8969a5ddefdbdd2303bcfb95 | 1070 | 488 |
+| 114470 | preaction | f0c46271bbd637afe61ecfc550322d5a269b331012de155718c9ca0133876a84 | 1070 | 488 |
+| 114470 | postinstall | a6c0e4e173bd75ba9521c2b37f8a7728105f5da316d314a6f46b51e818c958dd | 1088 | 495 |
+| 114480 | preaction | 17ea983a332a90a3b184253fabd50c48528c0db5bf12689e9245097ef7431571 | 1088 | 495 |
+| 114480 | postinstall | 17985a514c7f459f5681d24ce3c910d45b5251c5e0bb064bc636cb93cd56085e | 1173 | 523 |
 
-## Operator sequence and stop boundary
+8/8 byte-identical copies and deterministic regenerations pass. AST parser validates
+all outer statements and 1176 embedded SELECTs; no DDL/DML, write lock, mutation RPC or
+timeout override. BEGIN, READ ONLY, REPEATABLE READ, final ROLLBACK remain exact.
+Three offline corrupt-provenance-pin negatives pass.
+The old failure-root diagnostic is retained unchanged as historical diagnostic evidence,
+not a final gate or production authority.
 
-For each stage: canonical PREACTION → exact physical install → canonical POSTINSTALL **before recording** → separately authorized history repair → history verify → next stage. Any false leaf, missing row, source/security mismatch or unexpected history state means STOP; do not mark a failed install applied. Gates deliberately enforce the exact inert boundary and are not broad compatibility waivers.
+## Reproduction and containment
 
-Next human action is **114450 preaction only**, not installation authorization. No SQL or CLI operation was executed against production during this task. No push, merge, deployment or flag activation occurred.
+Use owned loopback 127.0.0.1:55479 with HOTELS_REMAINING_AUTHORITATIVE_PREDECESSOR=1:
+reconciliation baseline0external → fixture → successor prelude → reconciliation probe →
+114425 prepare/install/record → remaining-rollout-root-proof →
+remaining-rollout-gate for 114450/114460/114470/114480 →
+successor-security-gate → successor-graph → remaining-rollout-partner-read-gate.
+Offline parser: PYTHONPATH=/private/tmp/hotels-114420-parser.6UlBhb node
+tests/integration/hotels-v2-remaining-rollout-static-gate.mjs.
 
-The rollout plan requires a later separately authorized compatible `hotels-v2-external-calendar-sync` redeploy **after 114450 installation, successful postinstall and history reconciliation**, before approving/enqueuing new provider-type sources. It need not wait for 114480 or enable Rooms/Stripe/Instant. Source supports booking_com, airbnb and ical with the existing worker RPC transport. The deployed worker version was not inspected. No Edge deployment now.
+The database `hotels_114416_successor_post425_remaining_guard_b` was dropped after validation.
+No existing cluster/process was stopped. Owner-preflight file and binary diff remain
+byte-identical and excluded. Only 114470 changes migration bytes.
 
-Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc549b62fab0378e765e304d62`; primary binary-diff SHA `ceaaace06ea57701cb8f99634d3468f851b38c1eaa8b3b41fc08cf8c35b20a54`. It is excluded from the checkpoint.
+This package does not authorize installation or history repair. Human must first run the
+corrected 114450 preaction and obtain all passing leaves. Stop on any discrepancy.
+A later external-calendar Edge redeploy remains separately authorized, after 114450
+installation/postinstall/history verification; no deployment occurred here.
 
 ## Machine-readable local evidence
 
 ```json
 {
-  "checkpoint_before": "f8fe3765a431246adae09c8fc30418ba5cd86371",
-  "postgres": "16.13 Postgres.app aarch64-apple-darwin21.6.0",
-  "postgrest": "12.2.12 loopback only",
-  "sealed_chain": [
+  "status": "PASS",
+  "checkpoint_before": "83b00502f69c6343ba8750ad2db635b4eed874ad",
+  "postgres": "16.13 (Postgres.app)",
+  "fresh_fixture": "hotels_114416_successor_post425_remaining_guard_b",
+  "fresh_fixture_removed": true,
+  "root_fix": {
+    "before": 20,
+    "after": 0,
+    "protected_tables_unchanged": 98
+  },
+  "migration_114470": {
+    "old_sha": "7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0",
+    "new_sha": "4c411a16b84475d465909daad23ceaa0770202b325344978b21b486a31636d60",
+    "lines": 279,
+    "business_runtime_body_unchanged": true,
+    "manual_copy_exact": true,
+    "guard_negatives": 10
+  },
+  "stages": [
     {
       "stage": 114450,
       "local_only": true,
       "negatives": [
-        {
-          "name": "wrong_predecessor_history",
-          "leaf": "recorded_114425",
-          "pass": true
-        },
-        {
-          "name": "premature_stage_recording",
-          "leaf": "recorded_114450",
-          "pass": true
-        },
-        {
-          "name": "missing_predecessor_receipt",
-          "leaf": "one_114416_receipt",
-          "pass": true
-        },
-        {
-          "name": "wrong_predecessor_hash",
-          "leaf": "reconciliation_anchor_exact",
-          "pass": true
-        },
-        {
-          "name": "source_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "security_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_acl",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_owner",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_search_path",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_flag",
-          "leaf": "hotel_rooms_v2_enabled",
-          "pass": true
-        },
-        {
-          "name": "pricing_drift",
-          "leaf": "upper_rate_exact",
-          "pass": true
-        },
-        {
-          "name": "commission_drift",
-          "leaf": "commission_EUR10_exact",
-          "pass": true
-        },
-        {
-          "name": "payment_lineage_drift",
-          "leaf": "hotel_v2_seven_arches_payment_policy_lineage_is_exact()",
-          "pass": true
-        },
-        {
-          "name": "unexpected_booking",
-          "leaf": "no_114420_priced_booking_rows",
-          "pass": true
-        },
-        {
-          "name": "unexpected_quote",
-          "leaf": "hotel_seven_arches_public_quote_issuances_empty",
-          "pass": true
-        },
-        {
-          "name": "unexpected_context",
-          "leaf": "hotel_seven_arches_public_booking_transaction_context_empty",
-          "pass": true
-        },
-        {
-          "name": "dangerous_foreign_writer_lock",
-          "pass": true
-        },
-        {
-          "name": "future_stage_recording",
-          "leaf": "recorded_114460",
-          "pass": true
-        },
-        {
-          "name": "future_function_universe_collision",
-          "pass": true
-        },
-        {
-          "name": "new_table_owner",
-          "pass": true
-        },
-        {
-          "name": "new_table_acl",
-          "pass": true
-        },
-        {
-          "name": "new_table_rls",
-          "pass": true
-        },
-        {
-          "name": "new_table_policy",
-          "pass": true
-        },
-        {
-          "name": "new_schema_owner",
-          "pass": true
-        },
-        {
-          "name": "new_schema_acl",
-          "pass": true
-        }
+        "wrong_predecessor_history",
+        "premature_stage_recording",
+        "missing_predecessor_receipt",
+        "wrong_predecessor_hash",
+        "missing_protected_function",
+        "unexpected_protected_overload",
+        "unexpected_private_function",
+        "unrelated_public_application_function_allowed",
+        "source_drift",
+        "protected_universe_source_drift",
+        "security_drift",
+        "protected_universe_security_drift",
+        "wrong_acl",
+        "protected_universe_wrong_acl",
+        "wrong_owner",
+        "protected_universe_wrong_owner",
+        "wrong_search_path",
+        "protected_universe_wrong_search_path",
+        "booking_owner_trigger_disabled",
+        "booking_owner_helper_acl_drift",
+        "admin_helper_public_acl_drift",
+        "wrong_flag",
+        "pricing_drift",
+        "commission_drift",
+        "payment_lineage_drift",
+        "unexpected_booking",
+        "unexpected_quote",
+        "unexpected_context",
+        "dangerous_foreign_writer_lock",
+        "future_stage_recording",
+        "future_function_universe_collision",
+        "new_table_owner",
+        "new_table_acl",
+        "new_table_rls",
+        "new_table_policy",
+        "new_schema_owner",
+        "new_schema_acl"
       ],
       "production_access": false,
       "preaction": {
-        "rows": 452,
-        "leaves": 451,
-        "passed": 451,
+        "rows": 454,
+        "leaves": 453,
+        "passed": 453,
         "failed": [],
-        "elapsed_ms": 2296.125
+        "elapsed_ms": 1186.15
       },
       "preaction_after_negatives": {
-        "rows": 452,
-        "leaves": 451,
-        "passed": 451,
+        "rows": 454,
+        "leaves": 453,
+        "passed": 453,
         "failed": [],
-        "elapsed_ms": 1260.9
+        "elapsed_ms": 1115.957
       },
-      "install_ms": 20900.59,
+      "install_ms": 19954.427,
+      "full_catalog_recapture_exact": true,
       "historical_successor_rows_preserved": true,
       "postinstall": {
-        "rows": 479,
-        "leaves": 478,
-        "passed": 478,
+        "rows": 481,
+        "leaves": 480,
+        "passed": 480,
         "failed": [],
-        "elapsed_ms": 20673.999
+        "elapsed_ms": 21739.554
       },
       "integrity": {
         "flags": [
@@ -273,184 +282,85 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
       },
       "preserved_existing_tables": 96,
       "after_recording": {
-        "rows": 479,
-        "leaves": 478,
-        "passed": 477,
+        "rows": 481,
+        "leaves": 480,
+        "passed": 479,
         "failed": [
           "recorded_114450"
         ],
-        "elapsed_ms": 21524.646
+        "elapsed_ms": 21341.68
       }
     },
     {
       "stage": 114460,
       "local_only": true,
       "negatives": [
-        {
-          "name": "wrong_predecessor_history",
-          "leaf": "recorded_114450",
-          "pass": true
-        },
-        {
-          "name": "premature_stage_recording",
-          "leaf": "recorded_114460",
-          "pass": true
-        },
-        {
-          "name": "missing_predecessor_receipt",
-          "leaf": "one_114416_receipt",
-          "pass": true
-        },
-        {
-          "name": "wrong_predecessor_hash",
-          "leaf": "reconciliation_anchor_exact",
-          "pass": true
-        },
-        {
-          "name": "source_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "security_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_acl",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_owner",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_search_path",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_flag",
-          "leaf": "hotel_rooms_v2_enabled",
-          "pass": true
-        },
-        {
-          "name": "pricing_drift",
-          "leaf": "upper_rate_exact",
-          "pass": true
-        },
-        {
-          "name": "commission_drift",
-          "leaf": "commission_EUR10_exact",
-          "pass": true
-        },
-        {
-          "name": "payment_lineage_drift",
-          "leaf": "hotel_v2_seven_arches_payment_policy_lineage_is_exact()",
-          "pass": true
-        },
-        {
-          "name": "unexpected_booking",
-          "leaf": "no_114420_priced_booking_rows",
-          "pass": true
-        },
-        {
-          "name": "unexpected_quote",
-          "leaf": "hotel_seven_arches_public_quote_issuances_empty",
-          "pass": true
-        },
-        {
-          "name": "unexpected_context",
-          "leaf": "hotel_seven_arches_public_booking_transaction_context_empty",
-          "pass": true
-        },
-        {
-          "name": "dangerous_foreign_writer_lock",
-          "pass": true
-        },
-        {
-          "name": "future_stage_recording",
-          "leaf": "recorded_114470",
-          "pass": true
-        },
-        {
-          "name": "future_function_universe_collision",
-          "pass": true
-        },
-        {
-          "name": "new_table_owner",
-          "pass": true
-        },
-        {
-          "name": "new_table_acl",
-          "pass": true
-        },
-        {
-          "name": "new_table_rls",
-          "pass": true
-        },
-        {
-          "name": "new_table_policy",
-          "pass": true
-        },
-        {
-          "name": "new_schema_owner",
-          "pass": true
-        },
-        {
-          "name": "new_schema_acl",
-          "pass": true
-        },
-        {
-          "name": "unauthorized_partner_onboarding",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "global_without_partner_permission",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "partner_permission_without_global_capability",
-          "expected_error": "hotel_stripe_connect_disabled",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "connected_account_identity_mismatch",
-          "expected_error": "hotel_stripe_connect_revision_conflict",
-          "pass": true,
-          "external_calls": 0
-        }
+        "wrong_predecessor_history",
+        "premature_stage_recording",
+        "missing_predecessor_receipt",
+        "wrong_predecessor_hash",
+        "missing_protected_function",
+        "unexpected_protected_overload",
+        "unexpected_private_function",
+        "unrelated_public_application_function_allowed",
+        "source_drift",
+        "protected_universe_source_drift",
+        "security_drift",
+        "protected_universe_security_drift",
+        "wrong_acl",
+        "protected_universe_wrong_acl",
+        "wrong_owner",
+        "protected_universe_wrong_owner",
+        "wrong_search_path",
+        "protected_universe_wrong_search_path",
+        "booking_owner_trigger_disabled",
+        "booking_owner_helper_acl_drift",
+        "admin_helper_public_acl_drift",
+        "wrong_flag",
+        "pricing_drift",
+        "commission_drift",
+        "payment_lineage_drift",
+        "unexpected_booking",
+        "unexpected_quote",
+        "unexpected_context",
+        "dangerous_foreign_writer_lock",
+        "future_stage_recording",
+        "future_function_universe_collision",
+        "new_table_owner",
+        "new_table_acl",
+        "new_table_rls",
+        "new_table_policy",
+        "new_schema_owner",
+        "new_schema_acl",
+        "unauthorized_partner_onboarding",
+        "global_without_partner_permission",
+        "partner_permission_without_global_capability",
+        "connected_account_identity_mismatch"
       ],
       "production_access": false,
       "preaction": {
-        "rows": 479,
-        "leaves": 478,
-        "passed": 478,
+        "rows": 481,
+        "leaves": 480,
+        "passed": 480,
         "failed": [],
-        "elapsed_ms": 21688.076
+        "elapsed_ms": 20924.782
       },
       "preaction_after_negatives": {
-        "rows": 479,
-        "leaves": 478,
-        "passed": 478,
+        "rows": 481,
+        "leaves": 480,
+        "passed": 480,
         "failed": [],
-        "elapsed_ms": 20933.316
+        "elapsed_ms": 26961.431
       },
-      "install_ms": 16662.312,
+      "install_ms": 16665.372,
+      "full_catalog_recapture_exact": true,
       "historical_successor_rows_preserved": true,
       "postinstall": {
-        "rows": 486,
-        "leaves": 485,
-        "passed": 485,
+        "rows": 488,
+        "leaves": 487,
+        "passed": 487,
         "failed": [],
-        "elapsed_ms": 21061.077
+        "elapsed_ms": 27915.554
       },
       "integrity": {
         "flags": [
@@ -482,191 +392,151 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
       },
       "preserved_existing_tables": 100,
       "postinstall_after_stripe_negatives": {
-        "rows": 486,
-        "leaves": 485,
-        "passed": 485,
+        "rows": 488,
+        "leaves": 487,
+        "passed": 487,
         "failed": [],
-        "elapsed_ms": 22916.657
+        "elapsed_ms": 21016.769
       },
       "after_recording": {
-        "rows": 486,
-        "leaves": 485,
-        "passed": 484,
+        "rows": 488,
+        "leaves": 487,
+        "passed": 486,
         "failed": [
           "recorded_114460"
         ],
-        "elapsed_ms": 20447.315
+        "elapsed_ms": 21279.891
       }
     },
     {
       "stage": 114470,
       "local_only": true,
       "negatives": [
-        {
-          "name": "wrong_predecessor_history",
-          "leaf": "recorded_114460",
-          "pass": true
-        },
-        {
-          "name": "premature_stage_recording",
-          "leaf": "recorded_114470",
-          "pass": true
-        },
-        {
-          "name": "missing_predecessor_receipt",
-          "leaf": "one_114416_receipt",
-          "pass": true
-        },
-        {
-          "name": "wrong_predecessor_hash",
-          "leaf": "reconciliation_anchor_exact",
-          "pass": true
-        },
-        {
-          "name": "source_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "security_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_acl",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_owner",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_search_path",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_flag",
-          "leaf": "hotel_rooms_v2_enabled",
-          "pass": true
-        },
-        {
-          "name": "pricing_drift",
-          "leaf": "upper_rate_exact",
-          "pass": true
-        },
-        {
-          "name": "commission_drift",
-          "leaf": "commission_EUR10_exact",
-          "pass": true
-        },
-        {
-          "name": "payment_lineage_drift",
-          "leaf": "hotel_v2_seven_arches_payment_policy_lineage_is_exact()",
-          "pass": true
-        },
-        {
-          "name": "unexpected_booking",
-          "leaf": "no_114420_priced_booking_rows",
-          "pass": true
-        },
-        {
-          "name": "unexpected_quote",
-          "leaf": "hotel_seven_arches_public_quote_issuances_empty",
-          "pass": true
-        },
-        {
-          "name": "unexpected_context",
-          "leaf": "hotel_seven_arches_public_booking_transaction_context_empty",
-          "pass": true
-        },
-        {
-          "name": "dangerous_foreign_writer_lock",
-          "pass": true
-        },
-        {
-          "name": "future_stage_recording",
-          "leaf": "recorded_114480",
-          "pass": true
-        },
-        {
-          "name": "future_function_universe_collision",
-          "pass": true
-        },
-        {
-          "name": "new_table_owner",
-          "pass": true
-        },
-        {
-          "name": "new_table_acl",
-          "pass": true
-        },
-        {
-          "name": "new_table_rls",
-          "pass": true
-        },
-        {
-          "name": "new_table_policy",
-          "pass": true
-        },
-        {
-          "name": "new_schema_owner",
-          "pass": true
-        },
-        {
-          "name": "new_schema_acl",
-          "pass": true
-        },
-        {
-          "name": "unauthorized_partner_onboarding",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "global_without_partner_permission",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "partner_permission_without_global_capability",
-          "expected_error": "hotel_stripe_connect_disabled",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "connected_account_identity_mismatch",
-          "expected_error": "hotel_stripe_connect_revision_conflict",
-          "pass": true,
-          "external_calls": 0
-        }
+        "wrong_predecessor_history",
+        "premature_stage_recording",
+        "missing_predecessor_receipt",
+        "wrong_predecessor_hash",
+        "missing_protected_function",
+        "unexpected_protected_overload",
+        "unexpected_private_function",
+        "unrelated_public_application_function_allowed",
+        "source_drift",
+        "protected_universe_source_drift",
+        "security_drift",
+        "protected_universe_security_drift",
+        "wrong_acl",
+        "protected_universe_wrong_acl",
+        "wrong_owner",
+        "protected_universe_wrong_owner",
+        "wrong_search_path",
+        "protected_universe_wrong_search_path",
+        "booking_owner_trigger_disabled",
+        "booking_owner_helper_acl_drift",
+        "admin_helper_public_acl_drift",
+        "wrong_flag",
+        "pricing_drift",
+        "commission_drift",
+        "payment_lineage_drift",
+        "unexpected_booking",
+        "unexpected_quote",
+        "unexpected_context",
+        "dangerous_foreign_writer_lock",
+        "future_stage_recording",
+        "future_function_universe_collision",
+        "new_table_owner",
+        "new_table_acl",
+        "new_table_rls",
+        "new_table_policy",
+        "new_schema_owner",
+        "new_schema_acl",
+        "unauthorized_partner_onboarding",
+        "global_without_partner_permission",
+        "partner_permission_without_global_capability",
+        "connected_account_identity_mismatch"
       ],
       "production_access": false,
       "preaction": {
-        "rows": 486,
-        "leaves": 485,
-        "passed": 485,
+        "rows": 488,
+        "leaves": 487,
+        "passed": 487,
         "failed": [],
-        "elapsed_ms": 20710.564
+        "elapsed_ms": 20533.805
       },
       "preaction_after_negatives": {
-        "rows": 486,
-        "leaves": 485,
-        "passed": 485,
+        "rows": 488,
+        "leaves": 487,
+        "passed": 487,
         "failed": [],
-        "elapsed_ms": 22201.241
+        "elapsed_ms": 23652.154
       },
-      "install_ms": 35127.864,
+      "install_guard_negatives": [
+        {
+          "name": "stale_fixture",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_source",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_language",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_search_path",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "public_acl",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "missing_anon_acl",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "grant_option_acl",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_owner",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_definer",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        },
+        {
+          "name": "wrong_volatility",
+          "pass": true,
+          "error": "hotel_stripe_authorization_source_security_drift"
+        }
+      ],
+      "preaction_after_install_guard_negatives": {
+        "rows": 488,
+        "leaves": 487,
+        "passed": 487,
+        "failed": [],
+        "elapsed_ms": 20675.963
+      },
+      "install_ms": 33940.002,
+      "full_catalog_recapture_exact": true,
       "historical_successor_rows_preserved": true,
       "postinstall": {
-        "rows": 493,
-        "leaves": 492,
-        "passed": 492,
+        "rows": 495,
+        "leaves": 494,
+        "passed": 494,
         "failed": [],
-        "elapsed_ms": 21763.567
+        "elapsed_ms": 22898.109
       },
       "integrity": {
         "flags": [
@@ -698,186 +568,91 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
       },
       "preserved_existing_tables": 103,
       "postinstall_after_stripe_negatives": {
-        "rows": 493,
-        "leaves": 492,
-        "passed": 492,
+        "rows": 495,
+        "leaves": 494,
+        "passed": 494,
         "failed": [],
-        "elapsed_ms": 20522.053
+        "elapsed_ms": 20559.536
       },
       "after_recording": {
-        "rows": 493,
-        "leaves": 492,
-        "passed": 491,
+        "rows": 495,
+        "leaves": 494,
+        "passed": 493,
         "failed": [
           "recorded_114470"
         ],
-        "elapsed_ms": 22441.198
+        "elapsed_ms": 20219.717
       }
     },
     {
       "stage": 114480,
       "local_only": true,
       "negatives": [
-        {
-          "name": "wrong_predecessor_history",
-          "leaf": "recorded_114470",
-          "pass": true
-        },
-        {
-          "name": "premature_stage_recording",
-          "leaf": "recorded_114480",
-          "pass": true
-        },
-        {
-          "name": "missing_predecessor_receipt",
-          "leaf": "one_114416_receipt",
-          "pass": true
-        },
-        {
-          "name": "wrong_predecessor_hash",
-          "leaf": "reconciliation_anchor_exact",
-          "pass": true
-        },
-        {
-          "name": "source_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "security_drift",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_acl",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_owner",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_search_path",
-          "leaf": "hotel_v2_external_calendar_site_settings_fingerprint()",
-          "pass": true
-        },
-        {
-          "name": "wrong_flag",
-          "leaf": "hotel_rooms_v2_enabled",
-          "pass": true
-        },
-        {
-          "name": "pricing_drift",
-          "leaf": "upper_rate_exact",
-          "pass": true
-        },
-        {
-          "name": "commission_drift",
-          "leaf": "commission_EUR10_exact",
-          "pass": true
-        },
-        {
-          "name": "payment_lineage_drift",
-          "leaf": "hotel_v2_seven_arches_payment_policy_lineage_is_exact()",
-          "pass": true
-        },
-        {
-          "name": "unexpected_booking",
-          "leaf": "no_114420_priced_booking_rows",
-          "pass": true
-        },
-        {
-          "name": "unexpected_quote",
-          "leaf": "hotel_seven_arches_public_quote_issuances_empty",
-          "pass": true
-        },
-        {
-          "name": "unexpected_context",
-          "leaf": "hotel_seven_arches_public_booking_transaction_context_empty",
-          "pass": true
-        },
-        {
-          "name": "dangerous_foreign_writer_lock",
-          "pass": true
-        },
-        {
-          "name": "future_function_universe_collision",
-          "pass": true
-        },
-        {
-          "name": "new_table_owner",
-          "pass": true
-        },
-        {
-          "name": "new_table_acl",
-          "pass": true
-        },
-        {
-          "name": "new_table_rls",
-          "pass": true
-        },
-        {
-          "name": "new_table_policy",
-          "pass": true
-        },
-        {
-          "name": "new_schema_owner",
-          "pass": true
-        },
-        {
-          "name": "new_schema_acl",
-          "pass": true
-        },
-        {
-          "name": "unauthorized_partner_onboarding",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "global_without_partner_permission",
-          "expected_error": "hotel_stripe_connect_access_denied",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "partner_permission_without_global_capability",
-          "expected_error": "hotel_stripe_connect_disabled",
-          "pass": true,
-          "external_calls": 0
-        },
-        {
-          "name": "connected_account_identity_mismatch",
-          "expected_error": "hotel_stripe_connect_revision_conflict",
-          "pass": true,
-          "external_calls": 0
-        }
+        "wrong_predecessor_history",
+        "premature_stage_recording",
+        "missing_predecessor_receipt",
+        "wrong_predecessor_hash",
+        "missing_protected_function",
+        "unexpected_protected_overload",
+        "unexpected_private_function",
+        "unrelated_public_application_function_allowed",
+        "source_drift",
+        "protected_universe_source_drift",
+        "security_drift",
+        "protected_universe_security_drift",
+        "wrong_acl",
+        "protected_universe_wrong_acl",
+        "wrong_owner",
+        "protected_universe_wrong_owner",
+        "wrong_search_path",
+        "protected_universe_wrong_search_path",
+        "booking_owner_trigger_disabled",
+        "booking_owner_helper_acl_drift",
+        "admin_helper_public_acl_drift",
+        "wrong_flag",
+        "pricing_drift",
+        "commission_drift",
+        "payment_lineage_drift",
+        "unexpected_booking",
+        "unexpected_quote",
+        "unexpected_context",
+        "dangerous_foreign_writer_lock",
+        "future_function_universe_collision",
+        "new_table_owner",
+        "new_table_acl",
+        "new_table_rls",
+        "new_table_policy",
+        "new_schema_owner",
+        "new_schema_acl",
+        "unauthorized_partner_onboarding",
+        "global_without_partner_permission",
+        "partner_permission_without_global_capability",
+        "connected_account_identity_mismatch"
       ],
       "production_access": false,
       "preaction": {
-        "rows": 493,
-        "leaves": 492,
-        "passed": 492,
+        "rows": 495,
+        "leaves": 494,
+        "passed": 494,
         "failed": [],
-        "elapsed_ms": 21304.049
+        "elapsed_ms": 20338.203
       },
       "preaction_after_negatives": {
-        "rows": 493,
-        "leaves": 492,
-        "passed": 492,
+        "rows": 495,
+        "leaves": 494,
+        "passed": 494,
         "failed": [],
-        "elapsed_ms": 21869.117
+        "elapsed_ms": 21871.354
       },
-      "install_ms": 26029.761,
+      "install_ms": 21959.759,
+      "full_catalog_recapture_exact": true,
       "historical_successor_rows_preserved": true,
       "postinstall": {
-        "rows": 521,
-        "leaves": 520,
-        "passed": 520,
+        "rows": 523,
+        "leaves": 522,
+        "passed": 522,
         "failed": [],
-        "elapsed_ms": 10538.637
+        "elapsed_ms": 10453.215
       },
       "integrity": {
         "flags": [
@@ -909,52 +684,37 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
       },
       "preserved_existing_tables": 104,
       "postinstall_after_stripe_negatives": {
-        "rows": 521,
-        "leaves": 520,
-        "passed": 520,
+        "rows": 523,
+        "leaves": 522,
+        "passed": 522,
         "failed": [],
-        "elapsed_ms": 10614.36
+        "elapsed_ms": 10366.688
       },
       "after_recording": {
-        "rows": 521,
-        "leaves": 520,
-        "passed": 519,
+        "rows": 523,
+        "leaves": 522,
+        "passed": 521,
         "failed": [
           "recorded_114480"
         ],
-        "elapsed_ms": 12175.058
+        "elapsed_ms": 10423.589
       }
     }
   ],
-  "parser": {
-    "gates": 8,
-    "passed": 8,
-    "select_only": true,
-    "result_sets_per_gate": 1,
-    "read_only": true,
-    "repeatable_read": true,
-    "rollback": true,
-    "timeout_overridden": false
-  },
-  "deterministic_regeneration": 8,
-  "gate_temp_cmp": 8,
-  "installation_temp_cmp": 4,
-  "successor_security": {
-    "negatives": 67,
-    "passed": 67,
-    "replay_unknown": 3,
-    "rows_preserved": 110,
-    "runtime_non_recursion": "PASS",
+  "stage_and_guard_checks": 169,
+  "positive_unrelated_function_cases": 4,
+  "successor_security_negatives": 67,
+  "replay_unknown_stage_negatives": 3,
+  "non_recursion": {
+    "cycles": 0,
+    "functions": 53,
+    "unresolved_dynamic_sql": 0,
+    "naive_cycle_trap_detected": true,
     "scoped_calls": 1,
     "provider_bridge_calls": 0,
     "transaction_read_only": "on"
   },
-  "graph": {
-    "scoped_cycles": [],
-    "naive_recursion_trap_detected": true,
-    "unresolved_dynamic_sql": [],
-    "functions": 53
-  },
+  "final_tables_preserved": 110,
   "partner_read": {
     "partner_composite_token_exact": true,
     "results": [
@@ -962,12 +722,12 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
         "rpc": "reviewed_pricing",
         "http": 200,
         "items": 54,
-        "elapsed_ms": 1865.862
+        "elapsed_ms": 1866.202
       },
       {
         "rpc": "workspace",
         "http": 200,
-        "elapsed_ms": 148.641
+        "elapsed_ms": 144.888
       },
       {
         "name": "anonymous",
@@ -996,9 +756,75 @@ Owner-preflight preservation: file SHA `dad6e570779fac4519e3cfe67874357d1ccbf6fc
     "booking_calls": 0,
     "production_access": false
   },
-  "disposable_databases_removed": 4,
-  "owned_databases_remaining": 0,
-  "production_access": false,
-  "migrations_changed": false
+  "static": {
+    "parser_readonly": "PASS",
+    "gates": 8,
+    "embedded_selects": 1176,
+    "source_provenance_negative_tests": 3,
+    "execution_copies_identical": 8,
+    "migration_hashes_exact": 4,
+    "migration_114470_business_body_unchanged": true,
+    "migration_114470_manual_copy_exact": true,
+    "artifacts": [
+      {
+        "stage": 114450,
+        "phase": "preaction",
+        "sha256": "5a9254bcbc55246a89e99462e5583e89d250afea8d3c040ba52b102bd9fc2c91",
+        "lines": 957,
+        "rows": 454
+      },
+      {
+        "stage": 114450,
+        "phase": "postinstall",
+        "sha256": "f0cc66161bef58168e1a8164816171b582b5577a5374c03916024ba1ab4a215f",
+        "lines": 1032,
+        "rows": 481
+      },
+      {
+        "stage": 114460,
+        "phase": "preaction",
+        "sha256": "f195756ba126df6d6b52f9e9b382c102a5d9e28e7c9140ecdaeb17cc4002d5f0",
+        "lines": 1032,
+        "rows": 481
+      },
+      {
+        "stage": 114460,
+        "phase": "postinstall",
+        "sha256": "90028907172c999eb9539c5f64536f91383aac1b8969a5ddefdbdd2303bcfb95",
+        "lines": 1070,
+        "rows": 488
+      },
+      {
+        "stage": 114470,
+        "phase": "preaction",
+        "sha256": "f0c46271bbd637afe61ecfc550322d5a269b331012de155718c9ca0133876a84",
+        "lines": 1070,
+        "rows": 488
+      },
+      {
+        "stage": 114470,
+        "phase": "postinstall",
+        "sha256": "a6c0e4e173bd75ba9521c2b37f8a7728105f5da316d314a6f46b51e818c958dd",
+        "lines": 1088,
+        "rows": 495
+      },
+      {
+        "stage": 114480,
+        "phase": "preaction",
+        "sha256": "17ea983a332a90a3b184253fabd50c48528c0db5bf12689e9245097ef7431571",
+        "lines": 1088,
+        "rows": 495
+      },
+      {
+        "stage": 114480,
+        "phase": "postinstall",
+        "sha256": "17985a514c7f459f5681d24ce3c910d45b5251c5e0bb064bc636cb93cd56085e",
+        "lines": 1173,
+        "rows": 523
+      }
+    ],
+    "production_access": false
+  },
+  "production_access": false
 }
 ```

@@ -2,15 +2,17 @@ BEGIN;
 SET TRANSACTION READ ONLY;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL search_path=pg_catalog,public;
--- Final successor 114460 preaction; checkpoint f8fe3765a431246adae09c8fc30418ba5cd86371.
+-- Final successor 114460 preaction; migration-derived predecessor provenance.
+-- Authority: 042 + security 153/164/165/166; 111800 booking trigger; 113700 + 114350.
 -- Exact migration SHA256 1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14; 248 lines; migration is NOT executed here.
 -- Current stage remains UNRECORDED, including postinstall-before-repair.
--- Expected rows: 479 (478 required leaves and one summary).
+-- Expected rows: 481 (480 required leaves and one summary).
 -- Fixed SELECT-only queries. No timeout override, write lock, DDL, DML, or mutation RPC.
 -- Function identities below are inspected, never invoked by the catalog scan.
 -- Numeric result metadata only; no accounts, users, tokens, plans, secrets or provider URLs.
 -- Backup is an EXTERNAL human gate: 09 Sep 2026 05:37:22 UTC; COMPLETED; PHYSICAL.
 WITH expected_functions(signature,catalog_sha) AS (VALUES
+ ('hotel_bookings_assign_authenticated_owner()','a857fbc60bf94437bb170ecb94b629314dae08c3a297a1a15dd8f771e6ac8d2f'),
  ('hotel_v2_7a_pricing_activation_transaction_is_preserved()','fe2d44e49307f79e408dc8c33069bbe9fc895f3af7c24484119ceeb50420dd43'),
  ('hotel_v2_7a_reviewed_pricing_partner_access_is_current(uuid)','729fa4e1faae64e47622e50956b24e050f19acbe9d862ae32cda5ce2e493c09a'),
  ('hotel_v2_7a_reviewed_pricing_plan_fingerprint(jsonb)','9ed6e11c66ce662cc8c65d485e1e80a410f7eb371d2127106cc405fbc21a98e3'),
@@ -31,7 +33,7 @@ WITH expected_functions(signature,catalog_sha) AS (VALUES
  ('hotel_v2_admin_apply_operational_assignment_plan(jsonb,uuid)','e8d8fed72f4bfed98cb4c29ef5ef52cbb2bb05c86f5c5b14606837b8123a85e7'),
  ('hotel_v2_admin_apply_partner_hotel_permissions(jsonb,uuid,uuid)','71c0fd8c59af642c33e1c2518c0347375e164e1178caf6060cf86c672603a054'),
  ('hotel_v2_admin_apply_partner_property_proposal_plan(jsonb,uuid)','1346c427b327ac8a059c187fe7d94468034a0d4c4c9352a02a5003adf318a22f'),
- ('hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)','8428c0ce503c0f40a28586e86fde42e1050afd0a2592ef54d212e3401db4ca21'),
+ ('hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)','2788895b002f5eacd0080fa29978976556d0a82467ab5617cadf280d2ac69cee'),
  ('hotel_v2_admin_apply_property_control_plan(jsonb,uuid)','06d0cc32cc219d4925f15a5844d1a9fd5ef00e64763c88cef2e19248f122f0d4'),
  ('hotel_v2_admin_apply_room_control_plan(jsonb,uuid)','9887ac3e8f444979861eaea1b2639e345ce77d6a3f0d94080ad0a6a201b59691'),
  ('hotel_v2_admin_apply_room_type_plan(jsonb,uuid)','24d01a91d408d768abebcf7dc3f6ec5d4049b413989b7555523e52897a838bf4'),
@@ -345,9 +347,9 @@ WITH expected_functions(signature,catalog_sha) AS (VALUES
  ('hotels_v2_private.hotel_external_calendar_provider_review_chain_is_exact()','bed4f0c42b19f42ab271409b10a8b9af2ee31628c08c27f39845463c27771792'),
  ('hotels_v2_private.hotel_external_calendar_provider_worker_scheduler_is_ready()','5f156a683920d8420dfe7d119c52c9ba939226d9ccabad74de6ee8334f129520'),
  ('hotels_v2_private.hotel_external_calendar_provider_write_review_receipt(uuid,text,uuid,uuid,uuid,jsonb,text)','e9ec477256b4765da515d3182952966fe2afd37b4c9fa91ce5de0f60d44579ab'),
- ('is_current_user_admin()','6c56ec31c25c2db1d13fa18e320c7a4ccec30864e2774defef87113908ac065c')
+ ('is_current_user_admin()','fe211b59aa9e1233cc992a37157cbbe4e680c3e2755c1d655d44faef8854b82c')
 ), actual_functions AS MATERIALIZED (
- SELECT f->>'signature' signature,f->>'catalog_sha' catalog_sha FROM jsonb_array_elements((SELECT jsonb_agg(jsonb_build_object('signature',f->>'signature','source_sha',f->>'source_sha','catalog_sha',encode(sha256(convert_to(f::text,'UTF8')),'hex')) ORDER BY f->>'signature') FROM jsonb_array_elements((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE p.prokind='f' AND p.proname<>'hotels_h2a_fixture_updated_at' AND ((n.nspname='public' AND (p.proname LIKE 'hotel%' OR p.proname='is_current_user_admin')) OR n.nspname IN ('hotels_v2_private','hotels_lineage_private','hotel_stripe_connect_private','hotels_lifecycle_private')))) f)) f
+ SELECT f->>'signature' signature,f->>'catalog_sha' catalog_sha FROM jsonb_array_elements((SELECT jsonb_agg(jsonb_build_object('signature',f->>'signature','source_sha',f->>'source_sha','catalog_sha',encode(sha256(convert_to(f::text,'UTF8')),'hex')) ORDER BY f->>'signature') FROM jsonb_array_elements((SELECT coalesce(jsonb_agg(jsonb_build_object('signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable) ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,pg_get_userbyid(a.grantor),a.privilege_type) FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),has_function_privilege('service_role',p.oid,'EXECUTE'))) ORDER BY p.proname,pg_get_function_identity_arguments(p.oid)),'[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang WHERE p.prokind='f' AND ((n.nspname='public' AND (left(p.proname,9)='hotel_v2_' OR p.proname IN ('is_current_user_admin','hotel_bookings_assign_authenticated_owner'))) OR n.nspname IN ('hotels_v2_private','hotels_lineage_private','hotel_stripe_connect_private','hotels_lifecycle_private')))) f)) f
 ), function_results AS MATERIALIZED (
  SELECT e.signature,a.catalog_sha IS NOT NULL AND a.catalog_sha=e.catalog_sha AS exact
  FROM expected_functions e LEFT JOIN actual_functions a USING(signature)
@@ -1008,7 +1010,10 @@ WITH expected_functions(signature,catalog_sha) AS (VALUES
  $check141$SELECT (hotels_v2_private.hotel_external_calendar_provider_review_chain_is_exact() IS TRUE)::text AS actual$check141$),
  (142,'stage_current_safe','public.hotel_v2_external_calendar_provider_protected_fingerprints()','true',
  ARRAY[]::text[],ARRAY['public.hotel_v2_external_calendar_provider_protected_fingerprints()']::text[],
- $check142$SELECT (public.hotel_v2_external_calendar_provider_protected_fingerprints() IS NOT NULL)::text AS actual$check142$)
+ $check142$SELECT (public.hotel_v2_external_calendar_provider_protected_fingerprints() IS NOT NULL)::text AS actual$check142$),
+ (143,'protected_security_dependency','booking_owner_trigger_exact','true',
+ ARRAY['public.hotel_bookings']::text[],ARRAY[]::text[],
+ $check143$SELECT (EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid='public.hotel_bookings'::regclass AND t.tgname='trg_hotel_bookings_assign_authenticated_owner' AND t.tgfoid=to_regprocedure('public.hotel_bookings_assign_authenticated_owner()') AND t.tgtype=7 AND t.tgenabled='O' AND NOT t.tgisinternal AND t.tgqual IS NULL AND t.tgnargs=0 AND t.tgattr::text='' AND t.tgargs=''::bytea AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred))::text AS actual$check143$)
 ), eligibility AS MATERIALIZED (
  SELECT s.*,NOT EXISTS(SELECT 1 FROM unnest(required_relations) r(name) WHERE to_regclass(r.name) IS NULL)
  AND NOT EXISTS(SELECT 1 FROM unnest(required_functions) f(signature) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(f.signature) WHERE p.oid IS NULL OR p.provolatile NOT IN('s','i') OR p.proowner<>'postgres'::regrole)
@@ -1017,11 +1022,11 @@ WITH expected_functions(signature,catalog_sha) AS (VALUES
  SELECT e.*,CASE WHEN eligible THEN (xpath('/table/row/actual/text()',query_to_xml(read_query,true,false,'')))[1]::text ELSE NULL END actual FROM eligibility e
 ), leaves AS MATERIALIZED (
  SELECT ordinal,section,leaf_name,expected,actual,eligible AND actual IS NOT NULL AND actual=expected pass FROM measurements
- UNION ALL SELECT 142+row_number() OVER(ORDER BY signature)::integer,'source_security',signature,'true',exact::text,exact IS TRUE FROM function_results
- UNION ALL SELECT 478,'source_security','complete_function_universe_exact','true',exact::text,exact IS TRUE FROM catalog_guard
+ UNION ALL SELECT 143+row_number() OVER(ORDER BY signature)::integer,'source_security',signature,'true',exact::text,exact IS TRUE FROM function_results
+ UNION ALL SELECT 480,'source_security','complete_protected_function_universe_exact','true',exact::text,exact IS TRUE FROM catalog_guard
 ), totals AS (
  SELECT bool_and(pass IS TRUE) ready,coalesce(jsonb_agg(leaf_name ORDER BY ordinal) FILTER(WHERE pass IS NOT TRUE),'[]'::jsonb) blockers,count(*) required_count,count(*) FILTER(WHERE pass IS TRUE) passed_count FROM leaves
 )
 SELECT section,ordinal,leaf_name,expected,actual,pass,NULL::boolean AS "PREACTION_READY",NULL::jsonb blocker_codes,NULL::bigint required_leaf_count,NULL::bigint passed_leaf_count FROM leaves
-UNION ALL SELECT 'final_gate',479,'PREACTION_READY','true',ready::text,ready,ready,blockers,required_count,passed_count FROM totals ORDER BY ordinal;
+UNION ALL SELECT 'final_gate',481,'PREACTION_READY','true',ready::text,ready,ready,blockers,required_count,passed_count FROM totals ORDER BY ordinal;
 ROLLBACK;

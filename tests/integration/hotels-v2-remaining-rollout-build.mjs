@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {build as baselineBuild} from './hotels-v2-114425-rollout-build.mjs';
 import {stages,migration,stageTables,compactFunctionQuery,relationQuery,schemaSecurityExpression,literal,array} from './hotels-v2-remaining-rollout-contract.mjs';
+import {authorities,definition} from './hotels-v2-remaining-rollout-authority.mjs';
 export function build(stage,phase,catalogs){
  assert.ok(stages.includes(stage));assert.ok(['preaction','postinstall'].includes(phase));
  const post=phase==='postinstall',physical=post?stage:([114425,...stages][stages.indexOf(stage)]);
@@ -12,6 +13,11 @@ export function build(stage,phase,catalogs){
  const productionCatalog=c=>({...c,functions:c.functions.filter(f=>f.signature!=='hotels_h2a_fixture_updated_at()')});
  const catalog=productionCatalog(catalogs[physical]),base=productionCatalog(catalogs[114425]);
  assert.equal(catalog.stage,physical);const m=migration(stage);
+ // Catalogs are accepted only with the independently pinned migration bodies.
+ // Never teach the verifier an arbitrary observed production definition.
+ for(const [key,signature] of [['admin','is_current_user_admin()'],['booking','hotel_bookings_assign_authenticated_owner()'],['apply','hotel_v2_admin_apply_pricing_control_plan(jsonb,uuid,text)']]){
+  definition(key);const a=authorities[key];assert.equal(catalog.functions.find(f=>f.signature===signature)?.source_sha,a.after_114350||a.source_sha,signature);
+ }
  const changes=new Map();for(const f of base.functions){const next=catalog.functions.find(n=>n.signature===f.signature);assert.ok(next,f.signature);if(next.source_sha!==f.source_sha)changes.set(f.source_sha,next.source_sha);}
  const evolve=q=>q.replace(/[0-9a-f]{64}/g,h=>changes.get(h)||h);
  const specs=baselineBuild('postinstall').specs.filter(s=>!(s.section==='future'&&Number(s.name.slice(0,6))<=physical)).map(s=>({...s,query:evolve(s.query)}));
@@ -45,6 +51,7 @@ export function build(stage,phase,catalogs){
   safe('hotels_lifecycle_private.public_booking_enabled()','hotels_lifecycle_private.public_booking_enabled() IS FALSE');
   add('lifecycle','historical_receipts_unchanged',`hotels_lifecycle_private.predecessor_receipts() IS NOT DISTINCT FROM (SELECT predecessor_receipts FROM hotels_lifecycle_private.foundation WHERE id=1)`,['hotels_lifecycle_private.foundation'],['hotels_lifecycle_private.predecessor_receipts()']);
  }
+ add('protected_security_dependency','booking_owner_trigger_exact',`EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid='public.hotel_bookings'::regclass AND t.tgname='trg_hotel_bookings_assign_authenticated_owner' AND t.tgfoid=to_regprocedure('public.hotel_bookings_assign_authenticated_owner()') AND t.tgtype=7 AND t.tgenabled='O' AND NOT t.tgisinternal AND t.tgqual IS NULL AND t.tgnargs=0 AND t.tgattr::text='' AND t.tgargs=''::bytea AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred)`,['public.hotel_bookings']);
  const tuples=specs.map((s,i)=>` (${i+1},${literal(s.section)},${literal(s.name)},${literal(s.expected)},\n ${s.requirements},\n $check${i+1}$${s.query}$check${i+1}$)`).join(',\n');
  const fnValues=catalog.functions.map(f=>` (${literal(f.signature)},${literal(f.catalog_sha)})`).join(',\n');
  const n=specs.length+catalog.functions.length+1,ready=post?'POSTINSTALL_READY':'PREACTION_READY';
@@ -52,7 +59,8 @@ export function build(stage,phase,catalogs){
 SET TRANSACTION READ ONLY;
 SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL search_path=pg_catalog,public;
--- Final successor ${stage} ${phase}; checkpoint f8fe3765a431246adae09c8fc30418ba5cd86371.
+-- Final successor ${stage} ${phase}; migration-derived predecessor provenance.
+-- Authority: 042 + security 153/164/165/166; 111800 booking trigger; 113700 + 114350.
 -- Exact migration SHA256 ${m.sha}; ${m.lines} lines; migration is NOT executed here.
 -- Current stage remains UNRECORDED, including postinstall-before-repair.
 -- Expected rows: ${n+1} (${n} required leaves and one summary).
@@ -81,7 +89,7 @@ ${tuples}
 ), leaves AS MATERIALIZED (
  SELECT ordinal,section,leaf_name,expected,actual,eligible AND actual IS NOT NULL AND actual=expected pass FROM measurements
  UNION ALL SELECT ${specs.length}+row_number() OVER(ORDER BY signature)::integer,'source_security',signature,'true',exact::text,exact IS TRUE FROM function_results
- UNION ALL SELECT ${n},'source_security','complete_function_universe_exact','true',exact::text,exact IS TRUE FROM catalog_guard
+ UNION ALL SELECT ${n},'source_security','complete_protected_function_universe_exact','true',exact::text,exact IS TRUE FROM catalog_guard
 ), totals AS (
  SELECT bool_and(pass IS TRUE) ready,coalesce(jsonb_agg(leaf_name ORDER BY ordinal) FILTER(WHERE pass IS NOT TRUE),'[]'::jsonb) blockers,count(*) required_count,count(*) FILTER(WHERE pass IS TRUE) passed_count FROM leaves
 )

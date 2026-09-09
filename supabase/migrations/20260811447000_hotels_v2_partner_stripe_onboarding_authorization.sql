@@ -20,8 +20,8 @@ begin
         '2f1cc975916dbc86a63d348135a2ff83de50d9f31c20e70219257d476296fa3d',
         array['search_path=pg_catalog, public, auth']::text[],'plpgsql','s'::"char"),
       ('public.is_current_user_admin()',
-        '9d9cc165c5d19e4d6d5c4543a91e02e6e83c2fa3e87fc5162b900cf298ef86d5',
-        array['search_path=pg_catalog, public, auth']::text[],'sql','s'::"char"),
+        '581f1801056e5aee65c0144151b41dea41910d2c8e22639873ff659487e8a255',
+        array['search_path=public']::text[],'plpgsql','s'::"char"),
       ('public.hotel_v2_stripe_connect_service(text,jsonb)',
         '51edcefdd3a898db8550aff6b290b1d6b3c8f633f3684458ed1fbf17d5558f32',
         array['search_path=pg_catalog, public, hotel_stripe_connect_private']::text[],'plpgsql','v'::"char")
@@ -31,7 +31,21 @@ begin
       or p.provolatile is distinct from e.volatility or l.lanname is distinct from e.language
       or p.proconfig is distinct from e.path
       or encode(extensions.digest(convert_to(p.prosrc,'UTF8'),'sha256'),'hex')
-         is distinct from e.source_hash) then
+         is distinct from e.source_hash
+      -- 042 body; 153/164/165/166 applied policy-helper security contract.
+      or (e.signature='public.is_current_user_admin()' and (
+        (select jsonb_agg(jsonb_build_array(
+          case when a.grantee=0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end,
+          pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
+          order by case when a.grantee=0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end,
+            pg_get_userbyid(a.grantor),a.privilege_type)
+         from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a)
+          is distinct from '[["anon","postgres","EXECUTE",false],["authenticated","postgres","EXECUTE",false],["postgres","postgres","EXECUTE",false],["service_role","postgres","EXECUTE",false]]'::jsonb
+        or has_function_privilege(0::oid,p.oid,'EXECUTE') is distinct from false
+        or has_function_privilege('anon',p.oid,'EXECUTE') is distinct from true
+        or has_function_privilege('authenticated',p.oid,'EXECUTE') is distinct from true
+        or has_function_privilege('service_role',p.oid,'EXECUTE') is distinct from true
+      ))) then
     raise exception 'hotel_stripe_authorization_source_security_drift';
   end if;
   if (select count(*) from public.site_settings)<>1
