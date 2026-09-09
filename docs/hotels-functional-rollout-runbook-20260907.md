@@ -28,7 +28,7 @@ to the accepted local forward-chain candidate. Never substitute an earlier packa
 
 Current accepted human evidence: **09 Sep 2026 05:37:22 UTC, COMPLETED, PHYSICAL,
 Restore available**. This supersedes the earlier 08 Sep annotation. The human has
-since confirmed 114416 and 114420 installed, verified and recorded. Recovery
+since confirmed 114416, 114420 and 114425 installed, verified and recorded. Recovery
 evidence remains external to SQL; no new remote backup inspection was performed.
 Every future stage requires separate authorization.
 
@@ -55,10 +55,10 @@ All repository paths below are relative to this clean checkout.
    Run AFTER recorded 114416. Expected 127 rows: 126 required leaves PASS plus
    summary ready=true, blockers=[]. Earlier temporary pre-114416 gates are obsolete.
 
-The four newly prepared read-only package verifiers were parser/static validated
-only during checkpointing; no SQL was executed. Their invoked runtime predicates
-are from the unchanged tested candidate. Their first production execution still
-requires human authorization and a fail-closed result.
+The earlier four package verifiers were initially parser/static validated during
+their checkpoint task. Later evidence is recorded per stage below. No package
+document authorizes production execution; every first production run requires
+human authorization and a fail-closed result.
 
 ## Later stage verifier packages
 
@@ -68,10 +68,10 @@ Every listed file is under `supabase/manual/` and included in the detached manif
 |---|---|---|
 | 114420 | hotels_v2_114420_after_lineage_reconciliation_preaction_readonly.sql | hotels_v2_114420_postinstall_readonly.sql (BEFORE history repair) |
 | 114425 | hotels_v2_114425_preaction_readonly.sql | hotels_v2_114425_postinstall_readonly.sql (BEFORE history repair) |
-| 114450 | hotels_v2_external_calendar_provider_types_preflight.sql | hotels_v2_external_calendar_provider_types_verify.sql AND hotels_v2_114450_successor_postinstall_readonly.sql |
-| 114460 | hotels_v2_partner_stripe_connect_prewrite_readonly.sql | hotels_v2_partner_stripe_connect_postinstall_readonly.sql |
-| 114470 | hotels_v2_partner_stripe_authorization_prewrite_readonly.sql | hotels_v2_partner_stripe_authorization_postinstall_readonly.sql |
-| 114480 | hotels_v2_capability_lifecycle_prewrite_readonly.sql | hotels_v2_capability_lifecycle_postinstall_readonly.sql AND hotels_v2_114480_successor_postinstall_readonly.sql |
+| 114450 | hotels_v2_114450_preaction_readonly.sql | hotels_v2_114450_postinstall_readonly.sql (BEFORE history repair) |
+| 114460 | hotels_v2_114460_preaction_readonly.sql | hotels_v2_114460_postinstall_readonly.sql (BEFORE history repair) |
+| 114470 | hotels_v2_114470_preaction_readonly.sql | hotels_v2_114470_postinstall_readonly.sql (BEFORE history repair) |
+| 114480 | hotels_v2_114480_preaction_readonly.sql | hotels_v2_114480_postinstall_readonly.sql (BEFORE history repair) |
 
 114420 embeds atomic installation checks in the unchanged tested migration.
 After physical installation, run the final successor-compatible
@@ -104,6 +104,38 @@ root/predecessor/self hashes, linked provider/lifecycle receipts, and immutable
 receipt topology via the protected accepted predicates. They never call a sealer.
 Replay/unknown-stage rejection is additionally proven by accepted local negative
 tests, not attempted by these read-only files.
+
+## Final remaining-stage package
+
+The eight canonical 114450–114480 gates above supersede the earlier narrow
+preflight/verify/successor supplements as operational handoff files. The older
+files remain historical contract evidence, not substitutes for the complete gates.
+Each final gate returns one result table with named leaves and a readiness row.
+Require every leaf PASS, readiness=true and blocker_codes=[]; a SQL error is FAIL.
+Each requires READ ONLY and REPEATABLE READ and ends with ROLLBACK. No gate
+changes a timeout, creates temporary state, calls a mutation RPC or takes a write lock.
+
+For each separately authorized stage: PREACTION → exact physical install once →
+POSTINSTALL while the current stage is still UNRECORDED → separately authorized
+history repair → history verification → STOP for the next stage's authorization.
+The production boundary reported by the human is 114425, not 114450.
+Use only the matching `/private/tmp/hotels_v2_prod_<stage>.sql` whose full hash
+matches the unchanged migration table above. Add no wrapper and no later content.
+
+Full local proof, exact artifact identities, gate row counts, synthetic negative
+results and install scope are recorded in `docs/hotels-remaining-rollout-validation.md`
+and `docs/hotels-remaining-rollout-scope-audit.json`. The separate catalog fixture
+contains metadata only in the committed audit JSON: no production rows or secrets.
+The test-only `hotels_h2a_fixture_updated_at()` helper is deliberately excluded
+from production gate prerequisites.
+
+The external-calendar worker release must support booking_com/airbnb/ical source
+types. Plan a separately authorized worker redeploy only AFTER 114450 installation,
+postinstall, recording and history verification, and BEFORE approving/enqueuing
+new provider-type sources. There is no need to enable Rooms, Stripe or Instant,
+and 114480 is not a worker-deployment prerequisite. The deployed worker version
+was not inspected in this local task; do not assume a remote redeploy is complete.
+No Edge deployment is authorized here. Supabase CLI v2.67.1 remains frozen.
 
 ## Prepared history commands — NOT executed
 
