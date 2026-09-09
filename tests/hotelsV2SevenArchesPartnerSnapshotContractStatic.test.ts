@@ -188,11 +188,11 @@ describe('114420 canonical Partner workspace snapshot contract (no RPC execution
     expect(migration.trimEnd().endsWith("notify pgrst,'reload schema';\ncommit;")).toBe(true);
   });
 
-  test('114425 and 114450 remain byte-identical; 114450 pins unaffected public helpers only', () => {
+  test('114425 remains frozen; successor-aware 114450 preserves unaffected public helper pins', () => {
     const m425 = read('supabase/migrations/20260811442500_hotels_v2_external_calendar_site_settings_compatibility.sql');
     const m450 = read('supabase/migrations/20260811445000_hotels_v2_external_calendar_provider_types.sql');
     expect(sha(m425)).toBe('d72c244840bd21a5c5e7e46f654c8b3a7466f80f1d18ebac3ca938ab43163ee5');
-    expect(sha(m450)).toBe('b679b8f65200d345ce154ef99343f1488dbb93394b65dab9fbf1d17c16688c84');
+    expect(sha(m450)).toBe('6151c12a14022e64f6e30421fca6646bc2a540cc111b399b88ac80934174a5d3');
     for (const downstream of [m425, m450]) expect(downstream).not.toContain('hotel_v2_partner_get_seven_arches_reviewed_pricing');
     for (const [name, hash] of [
       ['hotel_v2_public_quote_seven_arches_core', '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'],

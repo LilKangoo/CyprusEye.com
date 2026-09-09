@@ -1,0 +1,1421 @@
+{
+  "database": "hotels_114416_successor_exact_final",
+  "scoped_cycles": [],
+  "naive_recursion_trap_detected": true,
+  "unresolved_dynamic_sql": [],
+  "functions": [
+    {
+      "function": "hotel_v2_seven_arches_pricing_scoped_lineage()",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "public.hotel_v2_h3_2a_permissions_snapshot",
+        "public.hotel_v2_h3_1p_parity_snapshot",
+        "hotels_lifecycle_private.predecessor_source",
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_seven_arches_owner_capabilities",
+        "hotels_lineage_private.current_anchor_is_exact",
+        "public.hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact",
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_oracle"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "public.hotel_v2_h3_2a_permissions_snapshot",
+        "public.hotel_v2_h3_1p_parity_snapshot",
+        "hotels_lifecycle_private.predecessor_source",
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_seven_arches_owner_capabilities",
+        "hotels_lineage_private.current_anchor_is_exact",
+        "public.hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact",
+        "hotels_lifecycle_private.predecessor_flag_exact"
+      ],
+      "dynamic_calls": [
+        "public.hotel_v2_seven_arches_reviewed_pricing_oracle"
+      ],
+      "dynamic_sql": [
+        "select count(*) from public.hotel_seven_arches_reviewed_pricing_foundation_receipts",
+        "select public.hotel_v2_seven_arches_reviewed_pricing_oracle()",
+        "select count(*) from public.hotel_seven_arches_pricing_activation_evolution_receipts",
+        "\n        select to_jsonb(receipt)-array['created_at']::text[]\n        from public.hotel_seven_arches_pricing_activation_evolution_receipts receipt\n        where receipt.id=1 and receipt.created_at is not null\n          and isfinite(receipt.created_at)\n      ",
+        "\n          select receipt.historical_activation_lineage->'activation_receipt'\n          from public.hotel_seven_arches_independent_pricing_evolution_receipts receipt\n          where receipt.id=1 and (select count(*) from\n            public.hotel_seven_arches_independent_pricing_evolution_receipts)=1\n        "
+      ],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_2b_hash(jsonb)",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_h3_2b_commission_policy",
+        "public.hotel_v2_h3_2b_guard_review",
+        "public.hotel_v2_h3_2b_store_review",
+        "public.hotel_v2_h3_2b_prepare_apply",
+        "public.hotel_v2_partner_preview_availability_plan",
+        "public.hotel_v2_partner_get_workspace",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact",
+        "public.hotel_v2_seven_arches_property_proposal_review_guard",
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_admin_preview_partner_property_proposal_plan",
+        "public.hotel_v2_admin_apply_partner_property_proposal_plan",
+        "public.hotel_v2_seven_arches_pricing_activation_evolution_insert_guard",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_admin_apply_seven_arches_pricing_activation",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_7a_reviewed_pricing_plan_fingerprint",
+        "public.hotel_v2_seven_arches_independent_pricing_catalog_fingerprint",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint",
+        "hotels_lineage_private.successor_boundary_is_exact",
+        "hotels_lineage_private.seal_successor",
+        "hotels_lineage_private.catalog_fingerprint",
+        "hotels_lineage_private.current_anchor_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_current_state",
+        "public.hotel_v2_seven_arches_reviewed_pricing_proposal_guard",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_guard",
+        "public.hotel_v2_seven_arches_reviewed_pricing_foundation_guard",
+        "public.hotel_v2_7a_reviewed_pricing_partner_access_is_current",
+        "public.hotel_v2_partner_submit_seven_arches_pricing_proposal",
+        "public.hotel_v2_admin_preview_seven_arches_reviewed_pricing",
+        "public.hotel_v2_admin_apply_seven_arches_reviewed_pricing",
+        "hotels_lineage_private.successors_are_exact",
+        "hotels_lineage_private.predecessor",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_public_create_seven_arches_booking",
+        "public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact",
+        "public.hotel_v2_seven_arches_public_quote_fingerprint",
+        "public.hotel_v2_partner_get_seven_arches_reviewed_pricing",
+        "public.hotel_v2_public_quote_seven_arches",
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_external_calendar_worker_hash(jsonb)",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_partner_apply_external_calendar_plan",
+        "public.hotel_v2_external_calendar_worker_fail_sync",
+        "public.hotel_v2_external_calendar_worker_finalize_sync",
+        "public.hotel_v2_external_calendar_provider_sources_are_attributable",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_external_calendar_control_common",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_seven_arches_pricing_activation_evolution_insert_guard",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_admin_apply_seven_arches_pricing_activation",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_external_calendar_preview_common",
+        "public.hotel_v2_external_calendar_apply_common",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "hotels_v2_private.hotel_external_calendar_provider_write_review_receipt",
+        "hotels_v2_private.hotel_external_calendar_provider_review_chain_is_exact",
+        "hotels_v2_private.hotel_external_calendar_provider_expire_pending",
+        "public.hotel_v2_admin_apply_external_calendar_partner_proposal",
+        "public.hotel_v2_admin_reject_external_calendar_partner_proposal",
+        "public.hotel_v2_external_calendar_activation_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_helper_fingerprints"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_2a_permissions_snapshot(uuid)",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_h3_2b_access_snapshot",
+        "public.hotel_v2_h3_2a_effective_partner_permissions",
+        "public.hotel_v2_admin_apply_partner_hotel_permissions",
+        "public.hotel_v2_admin_get_partner_hotel_permissions",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "hotels_lineage_private.permission_evidence",
+        "public.hotel_v2_admin_d_current_foundation_snapshot"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_1p_parity_snapshot(uuid)",
+      "calls": [
+        "public.hotel_v2_h3_1p_allocation_preview"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_h3_1p_pricing_promotion_snapshot_inert_core",
+        "public.hotel_v2_admin_apply_seven_arches_pricing_activation",
+        "public.hotel_v2_seven_arches_pricing_activation_snapshot_shared_core"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_1p_allocation_preview"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_1p_allocation_preview(uuid)",
+      "calls": [
+        "public.hotel_v2_h3_1p_expected_pricing_guest_count"
+      ],
+      "called_by": [
+        "public.hotel_v2_h3_1p_parity_snapshot",
+        "public.hotel_v2_h3_1p_pricing_promotion_snapshot_inert_core",
+        "public.hotel_v2_seven_arches_independent_pricing_oracle",
+        "public.hotel_v2_seven_arches_reviewed_pricing_oracle"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_1p_expected_pricing_guest_count"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_1p_expected_pricing_guest_count(text,uuid)",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_admin_apply_legacy_pricing_promotion_admin_c_core",
+        "public.hotel_v2_h3_1p_allocation_preview",
+        "public.hotel_v2_h3_1p_pricing_promotion_snapshot_inert_core"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.predecessor_source(oid)",
+      "calls": [
+        "hotels_lifecycle_private.metadata"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact",
+        "hotels_v2_private.hotel_external_calendar_provider_function_source_hashes"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.metadata"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.metadata(oid)",
+      "calls": [],
+      "called_by": [
+        "hotels_lifecycle_private.predecessor_source",
+        "hotels_lifecycle_private.catalog_snapshot"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.predecessor_definition(oid)",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "called_by": [
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_admin_apply_seven_arches_pricing_activation",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_external_calendar_activation_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_helper_fingerprints"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_owner_capabilities()",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_admin_d_current_foundation_snapshot"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.current_anchor_is_exact()",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successors_are_exact",
+        "hotels_lineage_private.permission_evidence",
+        "hotels_lineage_private.function_map",
+        "hotels_lineage_private.catalog_fingerprint"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "hotels_lineage_private.seal_successor",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "hotels_lineage_private.lineage_matches_historical"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successors_are_exact",
+        "hotels_lineage_private.permission_evidence",
+        "hotels_lineage_private.function_map",
+        "hotels_lineage_private.catalog_fingerprint"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.successors_are_exact(text)",
+      "calls": [
+        "hotels_lineage_private.successor_binding_pin",
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.predecessor_source_hash",
+        "hotels_lineage_private.predecessor",
+        "hotels_lifecycle_private.catalog_snapshot"
+      ],
+      "called_by": [
+        "hotels_lineage_private.current_anchor_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.successor_binding_pin",
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.predecessor_source_hash",
+        "hotels_lineage_private.predecessor"
+      ],
+      "dynamic_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.catalog_snapshot"
+      ],
+      "dynamic_sql": [
+        "\n    SELECT count(*)=1 AND bool_and(id=1 AND contract_version='hotels_v2_external_calendar_provider_evolution_v1'\n     AND prior_reviewed_pricing_catalog_fingerprint=(SELECT evidence->>'catalog_after'\n       FROM hotels_lineage_private.reconciliation_receipts WHERE id=1)\n     AND NOT EXISTS(SELECT 1 FROM jsonb_each($1) x(signature,pin)\n       WHERE prior_function_source_hashes->>signature IS DISTINCT FROM pin->>'before_source'\n        OR prior_function_fingerprints->>signature IS DISTINCT FROM pin->>'before_definition'))\n    FROM hotels_v2_private.hotel_external_calendar_provider_evolution_receipts\n   ",
+        "\n    SELECT (SELECT count(*)=1 AND bool_and(id=1) FROM hotels_lifecycle_private.foundation)\n     AND (SELECT count(*) FROM hotels_lifecycle_private.bindings)=(SELECT count(*) FROM jsonb_object_keys($1))\n     AND NOT EXISTS(SELECT 1 FROM jsonb_each($1) x(signature,pin)\n      LEFT JOIN hotels_lifecycle_private.bindings b ON b.signature=x.signature\n      WHERE b.signature IS NULL OR b.before_hash IS DISTINCT FROM pin->>'before_source'\n       OR b.after_hash IS DISTINCT FROM pin->>'after_source'\n       OR encode(extensions.digest(convert_to(b.before_source,'UTF8'),'sha256'),'hex') IS DISTINCT FROM pin->>'before_source'\n       OR public.hotel_v2_h3_2b_hash(to_jsonb(b.before_definition)) IS DISTINCT FROM pin->>'before_definition')\n   ",
+        "SELECT catalog IS NOT DISTINCT FROM hotels_lifecycle_private.catalog_snapshot()\n     FROM hotels_lifecycle_private.foundation WHERE id=1"
+      ],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.successor_binding_pin(jsonb)",
+      "calls": [],
+      "called_by": [
+        "hotels_lineage_private.successors_are_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.successor_manifest(integer)",
+      "calls": [],
+      "called_by": [
+        "hotels_lineage_private.successor_boundary_is_exact",
+        "hotels_lineage_private.seal_successor",
+        "hotels_lineage_private.successors_are_exact",
+        "hotels_lineage_private.predecessor"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.predecessor_source_hash(oid)",
+      "calls": [
+        "hotels_lineage_private.predecessor"
+      ],
+      "called_by": [
+        "hotels_lineage_private.function_map",
+        "hotels_lineage_private.successors_are_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.predecessor"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.predecessor(oid)",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successor_metadata",
+        "hotels_lineage_private.successor_manifest"
+      ],
+      "called_by": [
+        "hotels_lineage_private.predecessor_definition_hash",
+        "hotels_lineage_private.predecessor_source_hash",
+        "hotels_lineage_private.successors_are_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successor_metadata",
+        "hotels_lineage_private.successor_manifest"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.successor_metadata(oid)",
+      "calls": [],
+      "called_by": [
+        "hotels_lineage_private.successor_boundary_is_exact",
+        "hotels_lineage_private.predecessor"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.catalog_snapshot()",
+      "calls": [
+        "hotels_lifecycle_private.metadata",
+        "hotels_lifecycle_private.hash"
+      ],
+      "called_by": [
+        "hotels_lineage_private.successors_are_exact",
+        "hotels_lifecycle_private.chain_state"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.metadata",
+        "hotels_lifecycle_private.hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.hash(jsonb)",
+      "calls": [],
+      "called_by": [
+        "hotels_lifecycle_private.catalog_snapshot",
+        "hotels_lifecycle_private.chain_state",
+        "public.hotel_v2_admin_set_capability_lifecycle"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.permission_evidence()",
+      "calls": [
+        "public.hotel_v2_h3_2a_permissions_snapshot"
+      ],
+      "called_by": [
+        "hotels_lineage_private.current_anchor_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2a_permissions_snapshot"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.function_map()",
+      "calls": [
+        "hotels_lineage_private.predecessor_source_hash",
+        "hotels_lineage_private.predecessor_definition_hash"
+      ],
+      "called_by": [
+        "hotels_lineage_private.current_anchor_is_exact",
+        "hotels_lineage_private.lineage_matches_historical"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.predecessor_source_hash",
+        "hotels_lineage_private.predecessor_definition_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.predecessor_definition_hash(oid)",
+      "calls": [
+        "hotels_lineage_private.predecessor"
+      ],
+      "called_by": [
+        "hotels_lineage_private.catalog_fingerprint",
+        "hotels_lineage_private.function_map",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.predecessor"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.catalog_fingerprint()",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.predecessor_definition_hash"
+      ],
+      "called_by": [
+        "hotels_lineage_private.current_anchor_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.predecessor_definition_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_admin_c_seven_kamares_allocation_contract_is_exact()",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_pricing_activation_snapshot_shared_core",
+        "public.hotel_v2_admin_d_current_foundation_snapshot"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_payment_policy_lineage_is_exact()",
+      "calls": [
+        "public.hotel_v2_h3_1_codes_valid",
+        "public.hotel_v2_h3_2b_hash"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_pricing_activation_snapshot_shared_core",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_guard",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_admin_set_capability_lifecycle"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_1_codes_valid",
+        "public.hotel_v2_h3_2b_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_1_codes_valid(text[])",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core",
+        "public.hotel_v2_admin_c_apply_rate_plan_operation",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.predecessor_flag_exact(text,boolean)",
+      "calls": [
+        "hotels_lifecycle_private.safe_state"
+      ],
+      "called_by": [
+        "public.hotel_v2_h3_2b_flags_off",
+        "public.hotel_v2_partner_list_assigned_properties",
+        "public.hotel_v2_admin_c_validate_pricing_graph",
+        "public.hotel_v2_admin_d_snapshot_external_base",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_h3_2a_require_partner_hotel_access",
+        "public.hotel_v2_external_calendar_guard_source"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.safe_state"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.safe_state()",
+      "calls": [
+        "hotels_lifecycle_private.chain_state",
+        "hotels_lifecycle_private.actual_flags"
+      ],
+      "called_by": [
+        "public.hotel_v2_admin_c_pricing_control_snapshot",
+        "public.hotel_v2_partner_get_workspace",
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "hotels_lifecycle_private.public_booking_enabled",
+        "hotels_lifecycle_private.partner_connection",
+        "public.hotel_v2_admin_get_capability_lifecycle",
+        "public.hotel_v2_admin_set_capability_lifecycle"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.chain_state",
+        "hotels_lifecycle_private.actual_flags"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.chain_state()",
+      "calls": [
+        "hotels_lifecycle_private.catalog_snapshot",
+        "hotels_lifecycle_private.hash"
+      ],
+      "called_by": [
+        "hotels_lifecycle_private.safe_state",
+        "public.hotel_v2_admin_set_capability_lifecycle"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.catalog_snapshot",
+        "hotels_lifecycle_private.hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lifecycle_private.actual_flags()",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_partner_get_workspace",
+        "hotels_lifecycle_private.safe_state"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_reviewed_pricing_oracle()",
+      "calls": [
+        "public.hotel_v2_h3_1p_allocation_preview"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_seven_arches_reviewed_pricing_current_state",
+        "public.hotel_v2_public_quote_seven_arches_core"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_1p_allocation_preview"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_independent_pricing_activation_lineage()",
+      "calls": [
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_external_calendar_provider_sources_are_attributable",
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": true,
+      "can_reenter_scoped_lineage": true,
+      "direct_calls": [
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_external_calendar_provider_sources_are_attributable",
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_7a_pricing_activation_transaction_is_preserved()",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_external_calendar_provider_lineage_bridge_is_exact()",
+      "calls": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "hotels_lifecycle_private.predecessor_source",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "hotels_v2_private.hotel_external_calendar_provider_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_function_source_hashes",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact",
+        "hotels_v2_private.hotel_external_calendar_provider_worker_scheduler_is_ready"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": true,
+      "can_reenter_scoped_lineage": true,
+      "direct_calls": [
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "hotels_lifecycle_private.predecessor_source",
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "hotels_v2_private.hotel_external_calendar_provider_function_fingerprints",
+        "hotels_v2_private.hotel_external_calendar_provider_function_source_hashes",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_v2_private.hotel_external_calendar_provider_function_fingerprints()",
+      "calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "called_by": [
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_v2_private.hotel_external_calendar_provider_function_source_hashes()",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "called_by": [
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_external_calendar_site_settings_fingerprint()",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "hotels_lifecycle_private.predecessor_source",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "called_by": [
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_flag_exact",
+        "hotels_lifecycle_private.predecessor_source",
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_partner_workspace_function_lineage_is_exact()",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_external_calendar_activation_function_fingerprints",
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "called_by": [
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_external_calendar_site_settings_fingerprint",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_definition",
+        "public.hotel_v2_external_calendar_activation_function_fingerprints",
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_external_calendar_worker_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_external_calendar_activation_function_fingerprints()",
+      "calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "called_by": [
+        "public.hotel_v2_partner_workspace_function_lineage_is_exact",
+        "public.hotel_v2_admin_d_current_foundation_snapshot"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_external_calendar_provider_sources_are_attributable()",
+      "calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "public.hotel_v2_h2a_keys_allowed"
+      ],
+      "called_by": [
+        "public.hotel_v2_external_calendar_stage2_compatible_fingerprints",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_seven_arches_independent_pricing_legacy_projection",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_external_calendar_worker_hash",
+        "public.hotel_v2_h2a_keys_allowed"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [
+        "select count(*) from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts",
+        "select provider_source_baseline,manual_source_fingerprint from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts where id=1"
+      ],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h2a_keys_allowed(jsonb,text[])",
+      "calls": [],
+      "called_by": [
+        "public.hotel_v2_admin_apply_property_control_plan",
+        "public.hotel_v2_admin_apply_calendar_plan_h2b1_core",
+        "public.hotel_v2_admin_create_property_draft_admin_b_core",
+        "public.hotel_v2_admin_apply_workspace_plan_h2b1_core",
+        "public.hotel_v2_admin_c_apply_rate_rule_operation",
+        "public.hotel_v2_admin_apply_legacy_pricing_promotion_admin_c_core",
+        "public.hotel_v2_admin_apply_h3_1_configuration_h3_1p_core",
+        "public.hotel_v2_admin_apply_room_type_plan",
+        "public.hotel_v2_admin_apply_guest_policy_plan_admin_b_core",
+        "public.hotel_v2_admin_apply_partner_hotel_permissions",
+        "public.hotel_v2_admin_prepare_legacy_shadow_rooms",
+        "public.hotel_v2_admin_create_property_draft",
+        "public.hotel_v2_admin_apply_guest_policy_plan",
+        "public.hotel_v2_admin_apply_room_control_plan",
+        "public.hotel_v2_admin_apply_operational_assignment_plan",
+        "public.hotel_v2_admin_c_apply_exact_price_operation",
+        "public.hotel_v2_admin_c_apply_rate_plan_operation",
+        "public.hotel_v2_admin_c_apply_room_rate_operation",
+        "public.hotel_v2_admin_c_apply_schedule_operation",
+        "public.hotel_v2_admin_c_apply_allocation_operation",
+        "public.hotel_v2_admin_c_apply_property_default_operation",
+        "public.hotel_v2_admin_c_apply_tier_set_operation",
+        "public.hotel_v2_admin_apply_pricing_control_plan",
+        "public.hotel_v2_admin_preview_pricing_quote",
+        "public.hotel_v2_admin_apply_calendar_plan",
+        "public.hotel_v2_h3_2b_pricing_quote_core",
+        "public.hotel_v2_h3_2b_property_content_is_valid",
+        "public.hotel_v2_h3_2b_property_photos_are_valid",
+        "public.hotel_v2_h3_2b_room_content_is_valid",
+        "public.hotel_v2_h3_2b_room_photos_are_valid",
+        "public.hotel_v2_h3_2b_room_structure_is_valid",
+        "public.hotel_v2_h3_2b_room_create_is_valid",
+        "public.hotel_v2_h3_2b_guard_review",
+        "public.hotel_v2_h3_2b_prepare_apply",
+        "public.hotel_v2_partner_preview_content_plan",
+        "public.hotel_v2_partner_preview_commercial_stay",
+        "public.hotel_v2_partner_preview_availability_plan",
+        "public.hotel_v2_external_calendar_worker_begin_sync",
+        "public.hotel_v2_external_calendar_worker_fail_sync",
+        "public.hotel_v2_external_calendar_worker_finalize_sync",
+        "public.hotel_v2_external_calendar_provider_sources_are_attributable",
+        "public.hotel_v2_external_calendar_scheduler_enqueue_internal",
+        "public.hotel_v2_admin_preview_partner_property_proposal_plan",
+        "public.hotel_v2_seven_arches_task2_stage2_canonical_snapshot",
+        "public.hotel_v2_seven_arches_task2_stage2_compatibility_is_exact",
+        "public.hotel_v2_admin_preview_seven_arches_pricing_activation",
+        "public.hotel_v2_admin_apply_seven_arches_pricing_activation",
+        "public.hotel_v2_partner_preview_pricing_plan_legacy_core",
+        "public.hotel_v2_seven_arches_reviewed_pricing_build_plan",
+        "public.hotel_v2_public_quote_seven_arches_core",
+        "public.hotel_v2_partner_preview_seven_arches_pricing_proposal",
+        "public.hotel_v2_partner_submit_seven_arches_pricing_proposal",
+        "public.hotel_v2_admin_preview_seven_arches_reviewed_pricing",
+        "public.hotel_v2_admin_apply_seven_arches_reviewed_pricing",
+        "public.hotel_v2_public_create_seven_arches_booking",
+        "public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact",
+        "public.hotel_v2_external_calendar_preview_common",
+        "public.hotel_v2_external_calendar_guard_source"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.successor_boundary_is_exact(integer,boolean)",
+      "calls": [
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successor_metadata"
+      ],
+      "called_by": [
+        "hotels_lineage_private.seal_successor"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.successor_metadata"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.seal_successor(integer)",
+      "calls": [
+        "hotels_lineage_private.successor_boundary_is_exact",
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.current_anchor_is_exact"
+      ],
+      "called_by": [],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.successor_boundary_is_exact",
+        "hotels_lineage_private.successor_manifest",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lineage_private.current_anchor_is_exact"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()",
+      "calls": [
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "hotels_lifecycle_private.predecessor_source",
+        "hotels_lineage_private.predecessor_definition_hash",
+        "hotels_lineage_private.current_anchor_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_current_state",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact",
+        "public.hotel_v2_h3_2a_jsonb_is_pii_free"
+      ],
+      "called_by": [
+        "public.hotel_v2_public_quote_seven_arches_core",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_property_proposal_protected_fingerprints",
+        "public.hotel_v2_admin_apply_seven_arches_reviewed_pricing",
+        "public.hotel_v2_partner_get_seven_arches_reviewed_pricing",
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": true,
+      "can_reenter_scoped_lineage": true,
+      "direct_calls": [
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint",
+        "public.hotel_v2_seven_arches_pricing_scoped_lineage",
+        "public.hotel_v2_7a_pricing_activation_transaction_is_preserved",
+        "public.hotel_v2_h3_2b_hash",
+        "hotels_lifecycle_private.predecessor_definition",
+        "hotels_lifecycle_private.predecessor_source",
+        "hotels_lineage_private.predecessor_definition_hash",
+        "hotels_lineage_private.current_anchor_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_current_state",
+        "public.hotel_v2_seven_arches_payment_policy_lineage_is_exact",
+        "public.hotel_v2_h3_2a_jsonb_is_pii_free"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_reviewed_pricing_current_state()",
+      "calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_seven_arches_reviewed_pricing_oracle"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_reviewed_pricing_build_plan",
+        "public.hotel_v2_public_quote_seven_arches_core",
+        "public.hotel_v2_admin_get_seven_arches_reviewed_pricing",
+        "public.hotel_v2_admin_apply_seven_arches_reviewed_pricing",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_partner_get_seven_arches_reviewed_pricing"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2b_hash",
+        "public.hotel_v2_seven_arches_reviewed_pricing_oracle"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_h3_2a_jsonb_is_pii_free(jsonb)",
+      "calls": [
+        "public.hotel_v2_h3_2a_jsonb_is_pii_free"
+      ],
+      "called_by": [
+        "public.hotel_v2_h3_2a_jsonb_is_pii_free",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_guard",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "hotels_v2_private.hotel_external_calendar_provider_proposal_guard",
+        "hotels_v2_private.hotel_external_calendar_provider_write_review_receipt"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "public.hotel_v2_h3_2a_jsonb_is_pii_free"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.lineage_matches_historical(jsonb)",
+      "calls": [
+        "hotels_lineage_private.current_anchor_is_exact",
+        "hotels_lineage_private.catalog_is_exact",
+        "hotels_lineage_private.function_map"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.current_anchor_is_exact",
+        "hotels_lineage_private.catalog_is_exact",
+        "hotels_lineage_private.function_map"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.catalog_is_exact(jsonb,jsonb)",
+      "calls": [
+        "hotels_lineage_private.owner_constraint_tokens"
+      ],
+      "called_by": [
+        "hotels_lineage_private.lineage_matches_historical"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lineage_private.owner_constraint_tokens"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotels_lineage_private.owner_constraint_tokens(text)",
+      "calls": [],
+      "called_by": [
+        "hotels_lineage_private.catalog_is_exact"
+      ],
+      "reads_receipt": false,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_seven_arches_independent_pricing_topology_is_exact()",
+      "calls": [
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact",
+        "hotels_lineage_private.lineage_matches_historical",
+        "public.hotel_v2_h3_2b_hash"
+      ],
+      "called_by": [
+        "public.hotel_v2_seven_arches_pricing_activation_receipt_is_exact",
+        "public.hotel_v2_public_quote_seven_arches_core",
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_admin_apply_seven_arches_reviewed_pricing",
+        "public.hotel_v2_partner_get_seven_arches_reviewed_pricing",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": false,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": true,
+      "direct_calls": [
+        "public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact",
+        "public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact",
+        "public.hotel_v2_seven_arches_independent_pricing_activation_lineage",
+        "public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact",
+        "hotels_lineage_private.lineage_matches_historical",
+        "public.hotel_v2_h3_2b_hash"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [
+        "select count(*) from hotels_v2_private.hotel_external_calendar_provider_evolution_receipts"
+      ],
+      "unresolved_dynamic_sql": []
+    },
+    {
+      "function": "hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()",
+      "calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "called_by": [
+        "public.hotel_v2_admin_d_current_foundation_snapshot",
+        "public.hotel_v2_seven_arches_independent_pricing_topology_is_exact",
+        "public.hotel_v2_external_calendar_provider_protected_fingerprints",
+        "public.hotel_v2_external_calendar_provider_evolution_is_safe"
+      ],
+      "reads_receipt": true,
+      "reads_current_catalog": true,
+      "reads_scoped_lineage": false,
+      "can_reenter_scoped_lineage": false,
+      "direct_calls": [
+        "hotels_lifecycle_private.predecessor_source"
+      ],
+      "dynamic_calls": [],
+      "dynamic_sql": [],
+      "unresolved_dynamic_sql": []
+    }
+  ]
+}

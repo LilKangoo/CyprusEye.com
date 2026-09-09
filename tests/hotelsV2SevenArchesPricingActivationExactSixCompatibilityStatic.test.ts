@@ -442,7 +442,7 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     );
   });
 
-  test('uses only the evolved post-114407 source and topology pins downstream', () => {
+  test('preserves post-114407 sources and exact 114416 successor topology pins downstream', () => {
     const evolvedPins = [
       '34a597ce33e7340b4c3779ecf60286abc51aa67661954a9b616a9f2af2eb0e06',
       '17f80cd334cfd5aeeef64b620dcf4785a5a662e1a1a0e64696516f86c778ffe0',
@@ -466,19 +466,19 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
       '06b0d82a98ac9c33bed4121b7719110508dbeba31ce86a258c50e587aa5c1318',
     );
     expect(applicationBridge).toContain(
-      'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650',
+      '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2',
     );
     expect(providerMigration).toContain(
       '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe',
     );
     expect(providerMigration).toContain(
-      '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32',
+      'd5715bd29b456053bb32b0cf26793553617e8082443762091b7643943d5282db',
     );
     expect(providerMigration).toContain(
-      '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b',
+      '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd',
     );
     expect(providerVerifier).toContain(
-      '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32',
+      'd5715bd29b456053bb32b0cf26793553617e8082443762091b7643943d5282db',
     );
 
     const post114406 = [

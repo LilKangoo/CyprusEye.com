@@ -65,7 +65,7 @@ begin
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
            'sha256'),'hex')=
-           '5d8e31185a165c555c2fcfcce2802fe569bb7cc201ddfb7ac91978acfa2e3141'
+           '196c9b7ffa1901cbbafcbd05dadc722546ae1ed07e5a0170e97b4e2b3e5cf2e8'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -126,7 +126,7 @@ begin
            array['search_path=pg_catalog, public']::text[]
          and encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
            'sha256'),'hex')=
-           '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
+           '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd'
          and not has_function_privilege(0::oid,procedure_row.oid,'EXECUTE')
          and not has_function_privilege('anon',procedure_row.oid,'EXECUTE')
          and not has_function_privilege('authenticated',procedure_row.oid,'EXECUTE')
@@ -174,7 +174,7 @@ begin
           from pg_proc procedure_row where procedure_row.oid=
             'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'::regprocedure)
         and receipt.provider_bridge_source_hash=
-          '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32'
+          'd5715bd29b456053bb32b0cf26793553617e8082443762091b7643943d5282db'
         and receipt.original_foundation_fingerprint=foundation.protected_fingerprint
         and receipt.original_protected_fingerprints=foundation.protected_fingerprints
         and receipt.pricing_scoped_lineage_at_install_fingerprint=
@@ -224,10 +224,10 @@ begin
           'e9df9093d67ff5039855a0435174416c2eaca71b67700d4806eb56466e9c4af5'
         and receipt.prior_function_source_hashes->>
           'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
-          'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650'
+          '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2'
         and receipt.evolved_function_source_hashes->>
           'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
-          '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
+          '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd'
         and receipt.evolved_function_source_hashes->>
           'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
           (select encode(extensions.digest(convert_to(procedure_row.prosrc,'UTF8'),
@@ -279,8 +279,8 @@ begin
           to_jsonb(receipt)-'receipt_hash','{created_at}',to_jsonb(
             (extract(epoch from receipt.created_at)*1000000)::bigint),false))
         and receipt.prior_reviewed_pricing_catalog_fingerprint=
-          (select catalog_fingerprint
-           from public.hotel_seven_arches_reviewed_pricing_foundation_receipts where id=1)
+          (select evidence->>'catalog_after'
+           from hotels_lineage_private.reconciliation_receipts where id=1)
         and receipt.evolved_reviewed_pricing_catalog_fingerprint=
           public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()) then
     raise exception using errcode='55000',
@@ -330,11 +330,11 @@ begin
          or receipt.prior_function_source_hashes->>
               'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'
            is distinct from
-              'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650'
+              '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2'
          or receipt.evolved_function_source_hashes->>
               'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'
            is distinct from
-              '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b')) then
+              '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd')) then
     raise exception using errcode='55000',
       message='hotels_v2_external_calendar_provider_verify_site_settings_bridge_drift';
   end if;

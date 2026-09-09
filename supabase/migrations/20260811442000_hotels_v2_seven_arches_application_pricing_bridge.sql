@@ -39,10 +39,10 @@ begin
     select 1
     from (values
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-       'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s',true,
+       '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2','s',true,
        array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-       'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb','s',true,
+       'b3693dead7fbbe9029a9503e361d085e2c21ef0fef025d150149ef013f249873','s',true,
        array['search_path=pg_catalog, public']::text[]),
       ('public.hotel_v2_seven_arches_reviewed_pricing_current_state()',
        '1374c443a68b4eefbfb361021c0a8d24b51a3200a5995d87a8d7aa114f0835d1','s',true,

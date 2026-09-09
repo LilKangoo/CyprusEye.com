@@ -1,0 +1,316 @@
+{
+  "scope": "LOCAL_ONLY",
+  "base_commit": "2d7277fba6edf75107b8a8835561dde260ec157c",
+  "migration_114416": {
+    "sha256": "cc9eb2f619c4c710ea6dd792a86957a6dba41757cc8c0fced1369082b80a3881",
+    "lines": 724
+  },
+  "stages": [
+    {
+      "stage": 114416,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 0
+    },
+    {
+      "stage": 114420,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 0
+    },
+    {
+      "stage": 114425,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 0
+    },
+    {
+      "stage": 114450,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 1
+    },
+    {
+      "stage": 114460,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 1
+    },
+    {
+      "stage": 114470,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 1
+    },
+    {
+      "stage": 114480,
+      "scoped_lineage": true,
+      "reconciliation_anchor": true,
+      "reviewed_receipt_chain": true,
+      "topology": true,
+      "activation_safe": true,
+      "parity": [
+        100,
+        0
+      ],
+      "guest_one": [
+        20,
+        0
+      ],
+      "allocation": true,
+      "commission_eur_per_allocated_room_night": 10,
+      "payment_lineage": true,
+      "authority_rows": 54,
+      "architecture": "legacy",
+      "flags": {
+        "rooms": false,
+        "external": true,
+        "instant": false,
+        "stripe": false
+      },
+      "successor_receipts": 2
+    }
+  ],
+  "preaction": {
+    "required": 126,
+    "passed": 126,
+    "rows": 127,
+    "ready": true,
+    "blockers": [],
+    "transaction_read_only": "on"
+  },
+  "security": {
+    "reconciliation_negatives": [
+      17,
+      17
+    ],
+    "successor_negatives": [
+      67,
+      67
+    ],
+    "replay_unknown_stage": [
+      3,
+      3
+    ],
+    "physical_qualification_positives": [
+      2,
+      2
+    ],
+    "physical_semantic_negative": [
+      1,
+      1
+    ],
+    "initial_relations_preserved": [
+      92,
+      92
+    ],
+    "fault_injection_relations_preserved": [
+      110,
+      110
+    ],
+    "historical_pricing_payment_flags_tables_preserved": [
+      19,
+      19
+    ]
+  },
+  "non_recursion": {
+    "static": "PASS",
+    "functions": 53,
+    "scoped_cycles": 0,
+    "unresolved_dynamic_sql": 0,
+    "naive_trap_detected": true,
+    "runtime": "PASS",
+    "scoped_calls": 1,
+    "provider_bridge_calls": 0
+  },
+  "postgres": "16.13",
+  "postgrest": "12.2.12",
+  "postgrest_reads": [
+    {
+      "rpc": "hotel_v2_admin_get_seven_arches_reviewed_pricing",
+      "http": 200,
+      "ms": 69.458
+    },
+    {
+      "rpc": "hotel_v2_admin_get_capability_lifecycle",
+      "http": 200,
+      "ms": 22.005
+    }
+  ],
+  "postgrest_anonymous_admin": 401,
+  "postgrest_preview_submit_apply_calls": [
+    0,
+    0,
+    0
+  ],
+  "latency_ms": {
+    "install_114450": 19637.03,
+    "install_114460": 16076.205,
+    "install_114470": 33705.491,
+    "install_114480_plus_verify": 27111.789,
+    "worst_readonly_verifier": 38103.684
+  },
+  "timeout_increased": false,
+  "focused_jest": {
+    "passed": 39,
+    "skipped": 1,
+    "skip_reason": "Existing optional legacy artifact audit requires HOTELS_114420_PREFLIGHT; current successor preaction separately executed with all 126 leaves passing."
+  },
+  "build": "PASS",
+  "dist_unchanged": true,
+  "applied_migration_freeze": [
+    231,
+    231
+  ],
+  "unchanged_future_migrations": [
+    114425,
+    114460,
+    114470
+  ],
+  "primary_worktree_unchanged": true,
+  "owner_preflight_unchanged": true,
+  "local_commits": 0,
+  "staged_paths": 0,
+  "push": false,
+  "merge": false,
+  "deployment": false,
+  "production_access": false,
+  "production_sql": false,
+  "production_writes": false,
+  "live_stripe_calls": false,
+  "local_postgrest_children_stopped": true,
+  "disposable_successor_databases_removed": 11,
+  "next_step": "Human review of the final local package and hashes before any separately authorized production write."
+}

@@ -1,60 +1,96 @@
-# Clean functional rollout runbook — prepared only
+# Definitive lineage successor rollout package — prepared only
 
-Baseline: `c439ae465b66184179cf1abc86bc6a4275cc4ca2`.
-Branch: `feature/hotels-functional-rollout-clean`.
-No push, merge, deployment, SQL or history repair is authorized by this document.
+Base main: `2d7277fba6edf75107b8a8835561dde260ec157c`.
+Branch: `feature/hotels-lineage-successor-final`, reconstructed directly from main.
+The final local commit and every package hash are in
+`/private/tmp/hotels-lineage-successor-final-manifest.json`.
+This replaces the earlier six-stage runbook and its obsolete 114420/114450/114480 hashes.
+No execution, push, deployment or history repair is authorized by this document.
 
-User-confirmed recovery point: **08 Sep 2026 05:38:06 UTC, COMPLETED,
-Restore available**. POST_114415_RECOVERY_POINT_CONFIRMED=YES.
-This is user evidence, not a fresh database inspection or write authorization.
+## Exact dependency order and migration identities
 
-## Required order and migration identity
+114416 → 114420 → 114425 → 114450 → 114460 → 114470 → 114480.
 
-| Stage | Filename under supabase/migrations/ | SHA-256 | Lines |
-|---|---|---|---:|
-| 114420 | 20260811442000_hotels_v2_seven_arches_application_pricing_bridge.sql | a047bf49ec88d24684139f2e831dd831de90e86ca53eded0405f5684d80082c4 | 1299 |
-| 114425 | 20260811442500_hotels_v2_external_calendar_site_settings_compatibility.sql | d72c244840bd21a5c5e7e46f654c8b3a7466f80f1d18ebac3ca938ab43163ee5 | 306 |
-| 114450 | 20260811445000_hotels_v2_external_calendar_provider_types.sql | b679b8f65200d345ce154ef99343f1488dbb93394b65dab9fbf1d17c16688c84 | 3016 |
-| 114460 | 20260811446000_hotels_v2_partner_stripe_connect.sql | 1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14 | 248 |
-| 114470 | 20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql | 7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0 | 265 |
-| 114480 | 20260811448000_hotels_v2_audited_capability_lifecycle.sql | 90b7eadeb7486684865a9745b24a4dcb9bfaef8b04f61e1b6b0ddf4814335399 | 416 |
+| Migration path | SHA-256 | Lines |
+|---|---|---:|
+| supabase/migrations/20260811441600_hotels_v2_seven_arches_authorized_lineage_reconciliation.sql | cc9eb2f619c4c710ea6dd792a86957a6dba41757cc8c0fced1369082b80a3881 | 724 |
+| supabase/migrations/20260811442000_hotels_v2_seven_arches_application_pricing_bridge.sql | 7026d08e220887f4f71553c3d7e53384f89b23bbc686ae3bd51a24e7b2aee879 | 1299 |
+| supabase/migrations/20260811442500_hotels_v2_external_calendar_site_settings_compatibility.sql | d72c244840bd21a5c5e7e46f654c8b3a7466f80f1d18ebac3ca938ab43163ee5 | 306 |
+| supabase/migrations/20260811445000_hotels_v2_external_calendar_provider_types.sql | 6151c12a14022e64f6e30421fca6646bc2a540cc111b399b88ac80934174a5d3 | 3029 |
+| supabase/migrations/20260811446000_hotels_v2_partner_stripe_connect.sql | 1e94ad30e9ebdd4d4ca0318ba30c521f3e7e12af5443557f5dfaf06b9f438d14 | 248 |
+| supabase/migrations/20260811447000_hotels_v2_partner_stripe_onboarding_authorization.sql | 7eda4c43fcd4374e30221a0c7d3606090a3414ba4f9d2cf27363474bba1875c0 | 265 |
+| supabase/migrations/20260811448000_hotels_v2_audited_capability_lifecycle.sql | 2bce4cc9d2cef073acce9c416a2b6a5cd681cd24e100c5b1501ee276e3a173fa | 420 |
 
-114470 needs the 114460 Partner account/service contract; 114480 follows the
-provider and Partner permission contracts. None of these stages authorizes
-public booking, Instant, Stripe configuration, account connection or Edge deployment.
+114425, 114460 and 114470 are unchanged from main. All seven are byte-identical
+to the accepted local forward-chain candidate. Never substitute an earlier package hash.
 
-## Verifiers
+## Human recovery-point boundary
 
-114420 uses the separately prepared temporary operator gates:
-`/private/tmp/hotels_v2_114420_prod_prewrite_readonly.sql` and
-`/private/tmp/hotels_v2_114420_prod_postinstall_readonly.sql`.
-These ephemeral files must be rehashed and re-reviewed against the accepted
-release before use; their existence or currency is not asserted by this rebase.
+Accepted human evidence: **08 Sep 2026 05:38:06 UTC, COMPLETED, Restore available**;
+the user reports no subsequent production database writes. The recovery point
+remains valid on that evidence, not on a new remote inspection.
+Before any eventual write, the human must reopen Backups and reconfirm this or a
+newer completed recovery point. Every stage requires separate authorization.
 
-The remaining prewrite/postinstall files are under `supabase/manual/`:
+## 114416 operator handoff
+
+All repository paths below are relative to this clean checkout.
+
+1. Confirm exact release, project `daoohnbnnowmmcizgvrq`, accepted history through
+   114415, recovery point and maintenance clearance.
+2. Run only `supabase/manual/hotels_v2_114416_prewrite_readonly.sql` after separate
+   authorization. It returns one row, sentinel `HOTELS_114416_PREWRITE_OK`, or
+   fails closed. No tokens, private permission evidence or plans are returned.
+3. After explicit install approval, use only `/private/tmp/hotels_v2_prod_114416.sql`.
+   It is byte-identical to the 724-line committed 114416 migration. Add no wrapper;
+   execute once in a new SQL Editor query. Require atomic COMMIT and embedded checks.
+4. Run `supabase/manual/hotels_v2_114416_postinstall_readonly.sql` only with separate
+   permission. Require one `HOTELS_114416_POSTINSTALL_OK` row, one reconciliation
+   receipt, no successor receipts, exact sources/security/catalog and commercial state.
+   It intentionally permits history to be unrecorded or recorded once.
+5. Only after successful install/verification and separate authorization, record the
+   exact 114416 version. Inspect history and STOP.
+6. The ONLY current 114420 preaction gate is
+   `supabase/manual/hotels_v2_114420_after_lineage_reconciliation_preaction_readonly.sql`.
+   Run AFTER recorded 114416. Expected 127 rows: 126 required leaves PASS plus
+   summary ready=true, blockers=[]. Earlier temporary pre-114416 gates are obsolete.
+
+The four newly prepared read-only package verifiers were parser/static validated
+only during checkpointing; no SQL was executed. Their invoked runtime predicates
+are from the unchanged tested candidate. Their first production execution still
+requires human authorization and a fail-closed result.
+
+## Later stage verifier packages
+
+Every listed file is under `supabase/manual/` and included in the detached manifest.
 
 | Stage | Prewrite | Postinstall |
 |---|---|---|
 | 114425 | hotels_v2_external_calendar_site_settings_compatibility_preflight.sql | hotels_v2_external_calendar_site_settings_compatibility_verify.sql |
-| 114450 | hotels_v2_external_calendar_provider_types_preflight.sql | hotels_v2_external_calendar_provider_types_verify.sql |
+| 114450 | hotels_v2_external_calendar_provider_types_preflight.sql | hotels_v2_external_calendar_provider_types_verify.sql AND hotels_v2_114450_successor_postinstall_readonly.sql |
 | 114460 | hotels_v2_partner_stripe_connect_prewrite_readonly.sql | hotels_v2_partner_stripe_connect_postinstall_readonly.sql |
 | 114470 | hotels_v2_partner_stripe_authorization_prewrite_readonly.sql | hotels_v2_partner_stripe_authorization_postinstall_readonly.sql |
-| 114480 | hotels_v2_capability_lifecycle_prewrite_readonly.sql | hotels_v2_capability_lifecycle_postinstall_readonly.sql |
+| 114480 | hotels_v2_capability_lifecycle_prewrite_readonly.sql | hotels_v2_capability_lifecycle_postinstall_readonly.sql AND hotels_v2_114480_successor_postinstall_readonly.sql |
 
-Inspect wrappers and exact source contracts before selecting an SQL Editor-ready
-gate. Do not substitute local mutation fixtures for production read-only checks.
+114420 embeds atomic installation checks in the unchanged tested migration.
+No unversioned old temporary postinstall wrapper is an authoritative package input.
+Any additional 114420 operator-only postinstall query needs separate review.
 
-## Later execution boundary
+The successor supplements each return one safe sentinel row. They pin all 15
+statically defined reconciliation helper bodies, require exact certificate stage
+sets/counts, validate fixed BEFORE/AFTER manifests, current metadata and sources,
+root/predecessor/self hashes, linked provider/lifecycle receipts, and immutable
+receipt topology via the protected accepted predicates. They never call a sealer.
+Replay/unknown-stage rejection is additionally proven by accepted local negative
+tests, not attempted by these read-only files.
 
-After human checkpoint/Preview approval, obtain explicit authorization separately
-for each migration. Verify exact release, project, migration history, source hashes,
-current recovery point, and no blocking operation. Execute only one exact migration
-with its committed transaction wrapper. Require atomic success and embedded checks.
-Then separately authorized history reconciliation and the matching verifier follow.
+## Prepared history commands — NOT executed
 
-Prepared history commands only; do not run as one script:
+Do not run as a batch. Each command is authorized only after that exact migration
+commits, its checks pass, and the human separately approves history reconciliation.
 
 ```sh
+supabase migration repair 20260811441600 --status applied --linked
 supabase migration repair 20260811442000 --status applied --linked
 supabase migration repair 20260811442500 --status applied --linked
 supabase migration repair 20260811445000 --status applied --linked
@@ -63,26 +99,38 @@ supabase migration repair 20260811447000 --status applied --linked
 supabase migration repair 20260811448000 --status applied --linked
 ```
 
-After each authorized repair inspect history and STOP for stage verification.
-Any SQL error, ambiguous result, unexpected history, receipt, permission, payment
-or commission drift means STOP. Never blindly retry or mark failed SQL applied.
+## Invariants and hard stops
 
-## Separate Stripe / public release boundaries
+Immutable historical receipts → immutable 114416 receipt → immutable 114450
+successor receipt → immutable 114480 successor receipt. Never rewrite receipts.
 
-Keep Stripe false during installation. Platform readiness attestation, global
-Stripe enablement, Partner-specific grant and verified account connection are
-separate decisions. Credentials, callbacks and webhook configuration require
-separate authorization; no secret values are included here. No payment routing
-is inferred. Public booking/Instant remain blocked; no customer booking is a
-smoke test. Pricing Preview and proposal submission write Reviews and are not
-read-only checks. Edge releases and live Stripe calls are not part of this checkpoint.
+Require exact stage order, pins, linked certificate chain, 54 authority rows,
+100/0 parity, 20/0 guest-one, EUR10 per allocated Room/night, unchanged payment
+policy, legacy architecture, and flags rooms=false/external=true/instant=false/
+stripe=false. No installation activates public booking, Stripe, onboarding or
+changes a price. Account connection and payment routing remain separate decisions.
 
-## Canonical manifest
+On any unexpected history, source/catalog drift, mutation, blocker, missing
+certificate, ambiguous result or SQL error: STOP. Never retry blindly, mark a
+failed install applied, remove a receipt, weaken a gate or increase timeouts.
 
-The release artifact is the detached JSON manifest at
-`/private/tmp/hotels-functional-rollout-clean-manifest-20260908.json`.
-It enumerates every one of the 60 changed repository files with SHA-256 and line
-count, the exact base and final commit. Keeping it outside its own input set avoids
-an impossible self-referential file hash. Its SHA is supplied with the final report.
-If the artifact is absent, regenerate it from the exact accepted commit and verify
-all 60 paths before release. The old bd382df-based hash manifest is not authoritative.
+## Evidence and freeze interpretation
+
+Accepted runtime evidence is in `docs/hotels-114416-successor-validation-results.json`.
+It is historical local evidence, not a fresh execution. All 25 accepted candidate
+inputs are copied byte-for-byte; only package documentation/verifiers/tests are new.
+No frontend changed, so no rebuild is required.
+
+The 33.705491s install measurement belongs to **114470**, not 114416.
+Worst separate read-only verifier: **38.103684s**. Existing tested timeouts are
+unchanged; this is local margin evidence, not a promise of production latency.
+
+Repository freeze recount includes **235 files / 233 distinct version strings**
+through accepted 114415, including legacy 9991–9994. The earlier local report's
+231-file count omitted those four legacy filenames. All 235 are byte-identical
+to main. No live production migration ledger was queried during checkpointing.
+
+Primary owner-preflight file and its local binary diff remain excluded and intact.
+The canonical detached manifest enumerates every changed path plus unchanged
+migration/verifier dependencies and the physical 114416 install file. Its own
+hash is reported separately to avoid self-reference.

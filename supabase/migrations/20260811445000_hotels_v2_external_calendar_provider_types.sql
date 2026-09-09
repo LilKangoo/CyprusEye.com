@@ -6,6 +6,10 @@ set local statement_timeout='180s';
 
 do $preconditions$
 begin
+  if hotels_lineage_private.successor_boundary_is_exact(114450,false) is not true
+     or hotels_lineage_private.current_anchor_is_exact() is not true then
+    raise exception 'hotels_114450_reconciliation_successor_before_mismatch';
+  end if;
   if to_regclass('hotels_v2_private.hotel_external_calendar_foundation_receipts') is null
      or to_regprocedure('public.hotel_v2_external_calendar_protected_fingerprints()') is null
      or to_regprocedure('public.hotel_v2_external_calendar_preview_common(text,jsonb)') is null
@@ -63,7 +67,10 @@ begin
     raise exception using errcode='55000',message='hotels_v2_external_calendar_provider_activation_drift';
   end if;
   if not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'original_receipt_intact')::boolean,false)
-     or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'seven_arches_owner_preset_exact')::boolean,false)
+     -- The original preset is immutable v1 evidence, not the current audited
+     -- v2 permission row. 114416 validates the exact authorized delta and all
+     -- linked audit/receipt/outbox evidence without rewriting that preset.
+     or hotels_lineage_private.current_anchor_is_exact() is not true
      or not coalesce((public.hotel_v2_admin_d_current_foundation_snapshot()->>'audit_chain_exact')::boolean,false)
      or not public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()
      or not public.hotel_v2_seven_arches_pricing_activation_current_is_safe()
@@ -153,13 +160,13 @@ begin
         '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-        'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650','s'::"char",
+        '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-        'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb','s'::"char",
+        'b3693dead7fbbe9029a9503e361d085e2c21ef0fef025d150149ef013f249873','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_pricing_scoped_lineage()',
-        '5d8e31185a165c555c2fcfcce2802fe569bb7cc201ddfb7ac91978acfa2e3141','s'::"char",
+        '196c9b7ffa1901cbbafcbd05dadc722546ae1ed07e5a0170e97b4e2b3e5cf2e8','s'::"char",
         array['search_path=pg_catalog, public']::text[],false),
       ('public.hotel_v2_seven_arches_payment_policy_lineage_is_exact()',
         '03dbfb03f1219361abe2173ee8e2b079b4191f6ab83d664fece9833926aeba94','s'::"char",
@@ -1289,13 +1296,13 @@ begin
       '04462d1fc2ade7d2c4574e7caef96f323cbb98a31d869c6f02e8f09dffe1dda4'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
-      'c93374ece2a04386ca3b1e6f1168de3ba5162425d977857d1a4b137626ce6650'
+      '8657d02bb8ae500ddfa366a84d1dfee6bf9f425f529cba30269522a8d9485df2'
     and v_receipt.evolved_function_source_hashes->>
       'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'=
-      '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b'
+      '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()'=
-      'e895de1ed9bd868f2aaf8b5b21cf17b1a7fdf5a75de33f943991151012fa89eb'
+      'b3693dead7fbbe9029a9503e361d085e2c21ef0fef025d150149ef013f249873'
     and v_receipt.prior_function_source_hashes->>
       'public.hotel_v2_public_quote_seven_arches_core(jsonb)'=
       '5265e97e8971d06e95e27db72ebc2f5e006eac8cb17779f1cff6ab519f9e6559'
@@ -1303,9 +1310,9 @@ begin
       'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()'=
       '83d47602a08cdcc0db71fe0270a0c5e61ee6ce6d6a33c5d84cd7c78bc7d448fe'
     and v_receipt.prior_reviewed_pricing_catalog_fingerprint is not distinct from
-      (select foundation.catalog_fingerprint
-       from public.hotel_seven_arches_reviewed_pricing_foundation_receipts foundation
-       where foundation.id=1)
+      (select evidence->>'catalog_after'
+       from hotels_lineage_private.reconciliation_receipts
+       where id=1)
     and v_receipt.evolved_reviewed_pricing_catalog_fingerprint is not distinct from
       public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()
     and v_receipt.evolved_function_fingerprints is not distinct from
@@ -1792,7 +1799,7 @@ select hotels_v2_private.hotel_external_calendar_evolve_function(
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_admin_d_current_foundation_snapshot()',
   E'  return jsonb_build_object(\n    ''contract_version'',''hotels_v2_admin_d_current_foundation_v1'',',
-  E'  v_target_foundation_safe:=v_target_foundation_safe or (\n    public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()\n    and public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()\n    and public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()\n    and public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()\n    and public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()\n    and public.hotel_v2_external_calendar_provider_sources_are_attributable()\n    and hotels_v2_private.hotel_external_calendar_provider_review_chain_is_exact());\n  return jsonb_build_object(\n    ''contract_version'',''hotels_v2_admin_d_current_foundation_v1'',',1);
+  E'  v_target_foundation_safe:=v_target_foundation_safe or (\n    public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()\n    and public.hotel_v2_7a_reviewed_pricing_property_lineage_is_exact()\n    and public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()\n    and public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()\n    and public.hotel_v2_seven_arches_public_booking_receipt_chain_is_exact()\n    and public.hotel_v2_external_calendar_provider_sources_are_attributable()\n    and hotels_v2_private.hotel_external_calendar_provider_review_chain_is_exact());\n  -- Successor of the sealed v1 preset: exact audited 114416 permission lineage.\n  v_permission_safe:=hotels_lineage_private.current_anchor_is_exact();\n  return jsonb_build_object(\n    ''contract_version'',''hotels_v2_admin_d_current_foundation_v1'',',1);
 
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_seven_arches_independent_pricing_activation_lineage()',
@@ -1817,20 +1824,18 @@ select hotels_v2_private.hotel_external_calendar_evolve_function(
   E'  v_lineage_normalized jsonb;\n  v_provider_receipt_count integer:=0;\nbegin\n  if to_regclass(''hotels_v2_private.hotel_external_calendar_provider_evolution_receipts'')\n       is not null then\n    execute ''select count(*) from hotels_v2_private.''||\n      ''hotel_external_calendar_provider_evolution_receipts''\n      into v_provider_receipt_count;\n    if v_provider_receipt_count not in(0,1)\n       or (v_provider_receipt_count=1 and not\n         public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()) then\n      return false;\n    end if;\n  end if;',1);
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()',
-  E'  if public.hotel_v2_h3_2b_hash(v_lineage_normalized)\n       is distinct from v_phase1.historical_activation_lineage_fingerprint\n     or (select count(*)',
-  E'  if v_provider_receipt_count=1 then\n    if v_lineage_normalized#>>''{lower_function_sources,provider_attribution}''\n         is distinct from\n         ''78cef0753a71a5bf7304f0a627fdf687b12998b80e84626d59d41884dc522d68'' then\n      return false;\n    end if;\n    v_lineage_normalized:=jsonb_set(v_lineage_normalized,\n      ''{lower_function_sources,provider_attribution}'',\n      to_jsonb(''6aee1bb6d02b999877d6384633dd9eab1e8d533917b24ab25e20c83973a0025f''::text),false);\n    v_lineage_normalized:=jsonb_set(v_lineage_normalized,\n      ''{lower_function_security}'',coalesce((select jsonb_agg(\n        case when entry.value->>''signature''=\n          ''public.hotel_v2_external_calendar_provider_sources_are_attributable()''\n        then jsonb_set(entry.value,''{source_hash}'',\n          to_jsonb(''6aee1bb6d02b999877d6384633dd9eab1e8d533917b24ab25e20c83973a0025f''::text),false)\n        else entry.value end order by entry.ordinality)\n        from jsonb_array_elements(v_lineage_normalized->''lower_function_security'')\n          with ordinality entry(value,ordinality)),''[]''::jsonb),false);\n  end if;\n  if public.hotel_v2_h3_2b_hash(v_lineage_normalized)\n       is distinct from v_phase1.historical_activation_lineage_fingerprint\n     or (select count(*)',1);
+  E'  if hotels_lineage_private.lineage_matches_historical(v_lineage_normalized) is not true\n     or (select count(*)',
+  E'  if v_provider_receipt_count=1 then\n    if v_lineage_normalized#>>''{lower_function_sources,provider_attribution}''\n         is distinct from\n         ''78cef0753a71a5bf7304f0a627fdf687b12998b80e84626d59d41884dc522d68'' then\n      return false;\n    end if;\n    v_lineage_normalized:=jsonb_set(v_lineage_normalized,\n      ''{lower_function_sources,provider_attribution}'',\n      to_jsonb(''6aee1bb6d02b999877d6384633dd9eab1e8d533917b24ab25e20c83973a0025f''::text),false);\n    v_lineage_normalized:=jsonb_set(v_lineage_normalized,\n      ''{lower_function_security}'',coalesce((select jsonb_agg(\n        case when entry.value->>''signature''=\n          ''public.hotel_v2_external_calendar_provider_sources_are_attributable()''\n        then jsonb_set(entry.value,''{source_hash}'',\n          to_jsonb(''6aee1bb6d02b999877d6384633dd9eab1e8d533917b24ab25e20c83973a0025f''::text),false)\n        else entry.value end order by entry.ordinality)\n        from jsonb_array_elements(v_lineage_normalized->''lower_function_security'')\n          with ordinality entry(value,ordinality)),''[]''::jsonb),false);\n  end if;\n  if hotels_lineage_private.lineage_matches_historical(v_lineage_normalized) is not true\n     or (select count(*)',1);
 select hotels_v2_private.hotel_external_calendar_evolve_function(
   'public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
   E'     or v_foundation.external_helper_source_hash is distinct from\n       encode(extensions.digest(convert_to((select procedure_row.prosrc\n         from pg_proc procedure_row where procedure_row.oid=\n           ''public.hotel_v2_external_calendar_protected_fingerprints()''::regprocedure),\n         ''UTF8''),''sha256''),''hex'')',
   E'     or (v_foundation.external_helper_source_hash is distinct from\n       encode(extensions.digest(convert_to((select procedure_row.prosrc\n         from pg_proc procedure_row where procedure_row.oid=\n           ''public.hotel_v2_external_calendar_protected_fingerprints()''::regprocedure),\n         ''UTF8''),''sha256''),''hex'')\n       and not public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact())',1);
-select hotels_v2_private.hotel_external_calendar_evolve_function(
-  'public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-  E'     or v_foundation.catalog_fingerprint is distinct from\n       public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()',
-  E'     or (v_foundation.catalog_fingerprint is distinct from\n       public.hotel_v2_seven_arches_reviewed_pricing_catalog_fingerprint()\n       and not public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact())',1);
-select hotels_v2_private.hotel_external_calendar_evolve_function(
-  'public.hotel_v2_seven_arches_reviewed_pricing_receipt_chain_is_exact()',
-  E'     or v_foundation.topology_source_after_hash is distinct from\n       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(\n         ''public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()''::regprocedure)))',
-  E'     or (v_foundation.topology_source_after_hash is distinct from\n       public.hotel_v2_h3_2b_hash(to_jsonb(pg_get_functiondef(\n         ''public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()''::regprocedure)))\n       and not public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact())',1);
+-- 114416 already validates this boundary through the exact low-level
+-- predecessor projection; no provider-bridge fallback is installed here.
+
+-- 114416 already validates this boundary through the exact low-level
+-- predecessor projection; no provider-bridge fallback is installed here.
+
 
 -- Partner Apply is now submission-only.  It consumes the immutable Partner
 -- review and, for set/rotate, stages the exact reviewed URL in a proposal-only
@@ -2412,6 +2417,14 @@ $function$;
 -- Finalize the exact evolved function/catalog layer before asking any
 -- provider-aware protected projector to traverse ADMIN-D.  The bridge is
 -- deliberately false until these three fields bind the live AFTER state.
+-- Seal only the finite raw AFTER manifest. This cannot call the provider
+-- bridge, scoped lineage or any high-level protected composite.
+-- The new bridge previously received its final private ACL later in this same
+-- transaction. Establish that identical ACL before validating its identity;
+-- the successor must never accept a temporarily PUBLIC-executable helper.
+revoke all on function public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()
+  from public,anon,authenticated,service_role;
+select hotels_lineage_private.seal_successor(114450);
 update hotels_v2_private.hotel_external_calendar_provider_evolution_receipts set
   evolved_function_fingerprints=
     hotels_v2_private.hotel_external_calendar_provider_function_fingerprints(),
@@ -2953,12 +2966,12 @@ begin
         'public.hotel_v2_seven_arches_independent_pricing_topology_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          '598c3510d00ae3b71d15b20906fc6c00eb01f70e11c89eee5bb49bcdeae41d9b')
+          '9c891fee2fa897b4bb10940269d73d107b2e0d718247db0e61d9dc99a4b2b6bd')
       or (expected.signature=
         'public.hotel_v2_external_calendar_provider_lineage_bridge_is_exact()'
         and encode(extensions.digest(convert_to(procedure.prosrc,'UTF8'),
           'sha256'),'hex')<>
-          '0479f3728660aeedcd94c8ca2228c174b778a9df43ccd64449965ff30073fc32')
+          'd5715bd29b456053bb32b0cf26793553617e8082443762091b7643943d5282db')
       or has_function_privilege(0::oid,procedure.oid,'EXECUTE')
       or has_function_privilege('anon',procedure.oid,'EXECUTE')
       or has_function_privilege('authenticated',procedure.oid,'EXECUTE')
