@@ -10146,14 +10146,38 @@
   }
 
   function renderDistributionPanel(panel) {
-    const flags = state.workspace.flags;
-    const flagRows = ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'];
-    const h3 = state.h3Configuration ? Core.normalizeH3Configuration(state.h3Configuration) : null;
-    const manual = h3?.calendar_sources.find((entry) => entry.source_type === 'manual' && entry.is_enabled);
-    panel.innerHTML = `${workspacePanelHeader('Distribution & Sync', 'A manual availability adapter is reviewable in H3.1; external providers remain inert.')}
-      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Availability source</span><h4>${manual ? 'Manual Calendar configured' : 'Manual source not configured'}</h4><p>Future server availability will read through an adapter seam. H3.1 creates no Booking.com, Airbnb or iCal network behavior.</p><button class="btn-secondary" type="button" data-open-h3-distribution-setup>Open Booking setup</button></section>
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">Capability status</span><h4>All Hotels V2 capabilities must remain off</h4><ul class="hotel-simple-list">${flagRows.map((key) => `<li><span>${escapeHtml(key.replaceAll('_', ' '))}</span><strong>${flags[key] === true ? 'ON — unexpected' : 'OFF'}</strong></li>`).join('')}</ul><p>External sync, instant booking and Stripe Connect remain disabled.</p></section></div>`;
-    panel.querySelector('[data-open-h3-distribution-setup]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
+    const flags = Core.asObject(state.workspace?.flags);
+    let lifecycle = null;
+    try {
+      if (!state.capabilityLifecycleError) lifecycle = Core.validateCapabilityLifecycle(state.capabilityLifecycle, flags, true);
+    } catch (_) { /* Missing/inconsistent evidence is not an OFF state. */ }
+    const flagRows = [
+      ['hotel_rooms_v2_enabled', 'Rooms V2 backend capability'],
+      ['hotel_external_sync_enabled', 'External Calendar capability'],
+      ['hotel_instant_booking_enabled', 'Instant booking'],
+      ['hotel_stripe_connect_enabled', 'Stripe Connect'],
+    ];
+    const status = (value) => value === true ? 'ON' : value === false ? 'OFF' : 'UNKNOWN';
+    const control = state.calendar?.external_calendar;
+    const providerAvailable = !state.calendar?.external_calendar_error
+      && control?.hotel_id === state.workspace?.property?.id
+      && control?.provider_capability?.stage === 'provider_types_active';
+    const sources = providerAvailable ? Core.asArray(control.sources) : [];
+    const configured = sources.filter((source) => source.secret_configured === true).length;
+    const enabled = sources.filter((source) => source.is_enabled === true).length;
+    const ready = sources.filter((source) => !source.is_enabled && source.secret_configured === true && source.review_status === 'reviewed').length;
+    const providerMessage = !providerAvailable
+      ? 'Provider source state is unavailable here. Open Calendar to load the current reviewed control.'
+      : !sources.length ? 'No external provider source configured.'
+        : enabled ? 'An external calendar source is enabled. Check Calendar for its latest sync health.'
+          : ready && control.provider_capability.activation_available === true && control.hotel_external_sync_enabled === true
+            ? workspacePresentationText('providerReady')
+            : configured < sources.length ? workspacePresentationText('providerUrlMissing')
+              : 'Sources are disabled. Activation still requires current server readiness and a separate Review.';
+    panel.innerHTML = `${workspacePanelHeader('Distribution & Sync', 'Global capabilities and Room provider configuration are separate. This view changes neither.')}
+      <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card" data-distribution-providers><span class="hotel-workspace-eyebrow">External calendars</span><h4>${escapeHtml(providerMessage)}</h4>${providerAvailable ? `<p>Source rows: ${sources.length} · Private URL bindings configured: ${configured} · Enabled sources: ${enabled}</p>` : ''}<p>Each source maps to one Room. Create source → Review / Save → Set private URL → Review / Save → Enable → Review / Save. URLs are never displayed here.</p><button class="btn-secondary" type="button" data-open-distribution-calendar>Open Calendar provider controls</button></section>
+      <section class="hotel-workspace-card" data-distribution-capabilities><span class="hotel-workspace-eyebrow">${lifecycle ? 'Audited global capabilities' : 'Observed workspace flags · audited lifecycle unavailable'}</span><ul class="hotel-simple-list">${flagRows.map(([key, label]) => `<li><span>${escapeHtml(label)}</span><strong>${status(lifecycle?.feature_flags[key] ?? flags[key])}</strong></li>`).join('')}<li><span>Public booking</span><strong>${status(lifecycle?.public_booking_enabled)}</strong></li></ul><p>Rooms and External Calendar being ON does not publish public booking or configure a provider feed.</p></section></div>`;
+    panel.querySelector('[data-open-distribution-calendar]')?.addEventListener('click', () => { state.activeTab = 'calendar'; renderWorkspace(); });
   }
 
   function renderActivityPanel(panel) {

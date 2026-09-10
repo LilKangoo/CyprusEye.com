@@ -976,6 +976,95 @@ test(
   },
 );
 
+test('Distribution reflects audited ON capabilities without inventing configured providers', async ({ page }) => {
+  await installAvailabilityHarness(page);
+  await page.evaluate(() => {
+    const root=window as any,api=root.HotelsV2Workspace;
+    const flags={hotel_rooms_v2_enabled:true,hotel_external_sync_enabled:true,hotel_instant_booking_enabled:false,hotel_stripe_connect_enabled:false};
+    api.state.workspace.flags=flags;
+    api.state.capabilityLifecycle={contract_version:'hotels_v2_capability_lifecycle_v1',version:1,feature_flags:{...flags},
+      public_booking_enabled:false,architecture:'legacy',expected_public_change:false,audit_chain_exact:true,
+      capabilities:['rooms','external','stripe','instant','public_booking'].map(key=>({key,enabled:['rooms','external'].includes(key),blocked_reasons:['stage_controlled'],requires_confirmation:true}))};
+    api.state.calendar.external_calendar.sources=[];
+    api.state.calendar.external_calendar.hotel_external_sync_enabled=true;
+    api.state.activeTab='distribution';
+    root.__distributionBefore=JSON.stringify(api.state.workspace.flags);
+    api.renderWorkspace();
+  });
+  const card=page.locator('[data-distribution-capabilities]');
+  for(const [label,value] of [['Rooms V2 backend capability','ON'],['External Calendar capability','ON'],['Instant booking','OFF'],['Stripe Connect','OFF'],['Public booking','OFF']]){
+    await expect(card.locator('li').filter({hasText:label}).locator('strong')).toHaveText(value);
+  }
+  await expect(page.locator('[data-distribution-providers]')).toContainText('No external provider source configured.');
+  await expect(card).not.toContainText('unexpected');
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator('[data-open-distribution-calendar]')).toBeVisible();
+  expect(await page.evaluate(()=>{const w=window as any;return JSON.stringify(w.HotelsV2Workspace.state.workspace.flags)===w.__distributionBefore;})).toBe(true);
+  await expectNoBrowserIssues(page);
+});
+
+test('local provider create, private URL, enable, disable and clear require separate Review/Save', async ({ page }) => {
+  await installAvailabilityHarness(page);
+  await page.evaluate(() => {
+    const root=window as any,store=root.__adminD,api=root.HotelsV2Workspace,repo=root.HotelsV2WorkspaceRepository;
+    const clone=(x:any)=>JSON.parse(JSON.stringify(x));
+    const template=clone(store.externalControl.sources[0]);
+    store.externalControl.sources=[];store.externalControl.provider_proposals=[];
+    store.externalControl.hotel_external_sync_enabled=true;
+    store.externalControl.provider_capability.activation_available=true;
+    store.externalControl.provider_capability.manual_sync_available=true;
+    store.workflowReviews=[];store.workflowSaves=[];
+    const used=new WeakSet();
+    repo.previewExternalCalendarPlan=async(draft:any)=>{
+      const op=clone(draft.intent);store.workflowReviews.push({entity:op.entity,action:op.action});
+      if(op.entity==='ical_secret')op.payload={source_id:op.id,secret_configured:op.action!=='clear'};
+      return {changed:true,blocking_reasons:[],reviewed_plan:{plan_fingerprint:'a'.repeat(64),operations:[op]}};
+    };
+    repo.applyExternalCalendarPlan=async(plan:any,_c:any,_i:any,url:any)=>{
+      if(used.has(plan))throw new Error('No replay');used.add(plan);
+      const op=plan.operations[0];store.workflowSaves.push({entity:op.entity,action:op.action,urlProvided:typeof url==='string'});
+      if(op.action==='create')store.externalControl.sources=[{...template,...op.payload,is_enabled:false,secret_configured:false,binding_version:null}];
+      else {const row=store.externalControl.sources[0];
+        if(op.entity==='ical_secret'){row.secret_configured=op.action!=='clear';row.binding_version=op.action==='clear'?null:1;}
+        else {row.is_enabled=op.action==='enable';row.version++;}
+      }
+      return {control:clone(store.externalControl)};
+    };
+    api.state.calendar.external_calendar=store.externalControl;api.renderWorkspace();
+  });
+  await page.locator('[data-external-calendar-create]').click();
+  const form=page.locator('#externalCalendarSourceForm');
+  await form.locator('[name="source_type"]').selectOption('ical');
+  await form.locator('[name="code"]').fill('upper-generic-ical');
+  await form.locator('[name="reason"]').fill('Synthetic local Room source');
+  await expect(form.locator('[name="ical_url"]')).toHaveCount(0);
+  await page.locator('[form="externalCalendarSourceForm"]').click();
+  expect(await page.evaluate(()=>(window as any).__adminD.workflowSaves.length)).toBe(0);
+  await page.locator('[data-external-calendar-confirm]').click();
+  await expect(page.locator('[data-external-calendar-lifecycle="enable"]')).toBeDisabled();
+  const actions=[['set','ical_secret'],['enable','calendar_source'],['disable','calendar_source'],['clear','ical_secret']];
+  for(const [action,entity] of actions){
+    await page.locator(`[data-external-calendar-${entity==='ical_secret'?'secret':'lifecycle'}="${action}"]`).click();
+    if(action==='set')await page.locator('[name="ical_url"]').fill('https://fixture.invalid/room-only.ics');
+    await page.locator('#externalCalendarActionForm [name="reason"]').fill('Synthetic reviewed '+action);
+    const before=await page.evaluate(()=>(window as any).__adminD.workflowSaves.length);
+    await page.locator('[form="externalCalendarActionForm"]').click();
+    await expect(page.locator('[data-external-calendar-confirm]')).toBeVisible();
+    expect(await page.evaluate(()=>(window as any).__adminD.workflowSaves.length)).toBe(before);
+    expect(await page.locator('body').innerHTML()).not.toContain('https://fixture.invalid/room-only.ics');
+    await page.locator('[data-external-calendar-confirm]').click();
+    if(action==='set')await expect(page.locator('[data-external-calendar-lifecycle="enable"]')).toBeEnabled();
+    if(action==='enable')await expect(page.locator('[data-external-calendar-secret="rotate"]')).toBeDisabled();
+  }
+  await expect(page.locator('[data-external-calendar-lifecycle="enable"]')).toBeDisabled();
+  const result=await page.evaluate(()=>{const s=(window as any).__adminD;return {reviews:s.workflowReviews,saves:s.workflowSaves,source:s.externalControl.sources[0]};});
+  expect(result.reviews.map((r:any)=>r.action)).toEqual(['create','set','enable','disable','clear']);
+  expect(result.saves.map((r:any)=>r.action)).toEqual(['create','set','enable','disable','clear']);
+  expect(result.saves.filter((r:any)=>r.urlProvided)).toHaveLength(1);
+  expect(result.source).toMatchObject({is_enabled:false,secret_configured:false,binding_version:null});
+  await expectNoBrowserIssues(page);
+});
+
 test(
   'ADMIN previews and accepts or rejects exact redacted Partner provider proposals',
   async ({ page }) => {
