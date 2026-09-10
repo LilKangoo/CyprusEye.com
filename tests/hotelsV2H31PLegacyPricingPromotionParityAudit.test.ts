@@ -593,7 +593,7 @@ describe('Hotels V2 H3.1P 7 Kamares legacy pricing-promotion parity audit', () =
     const client = {
       async rpc(name: string, payload: any) {
         calls.push({ name, payload });
-        if (name === 'hotel_v2_admin_get_legacy_pricing_promotion_preview') {
+        if (name === 'hotel_v2_admin_get_legacy_pricing_promotion_preview_114483') {
           return { data: preview, error: null };
         }
         if (name === 'hotel_v2_admin_apply_legacy_pricing_promotion') {
@@ -621,7 +621,7 @@ describe('Hotels V2 H3.1P 7 Kamares legacy pricing-promotion parity audit', () =
     });
     expect(calls).toHaveLength(2);
     expect(calls[0]).toEqual({
-      name: 'hotel_v2_admin_get_legacy_pricing_promotion_preview',
+      name: 'hotel_v2_admin_get_legacy_pricing_promotion_preview_114483',
       payload: { p_hotel_id: '9b6d99a0-923a-4fbc-be54-c066e856e6ca' },
     });
     expect(calls[1]).toEqual({
@@ -635,7 +635,7 @@ describe('Hotels V2 H3.1P 7 Kamares legacy pricing-promotion parity audit', () =
     const repository = fs.readFileSync('admin/hotels-v2-workspace-repository.js', 'utf8');
     const core = fs.readFileSync('admin/hotels-v2-workspace-core.js', 'utf8');
 
-    expect(repository).toContain("legacyPricingPromotionPreview: 'hotel_v2_admin_get_legacy_pricing_promotion_preview'");
+    expect(repository).toContain("legacyPricingPromotionPreview: 'hotel_v2_admin_get_legacy_pricing_promotion_preview_114483'");
     expect(repository).toContain("applyLegacyPricingPromotion: 'hotel_v2_admin_apply_legacy_pricing_promotion'");
     expect(core).toContain(`const SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT = '${LEGACY_PRICING_FINGERPRINT}'`);
     expect(ui).toContain('I reviewed the physical allocation and Pricing occupancy mapping.');

@@ -566,7 +566,7 @@ async function installAdminHarness(page: Page, real114415 = false) {
         const responses: any = {
           hotel_v2_admin_get_pricing_control: store.pricing,
           hotel_v2_admin_get_seven_arches_reviewed_pricing: store.reviewed,
-          hotel_v2_admin_get_seven_arches_pricing_activation: activationValue,
+          hotel_v2_admin_get_seven_arches_pricing_activation_114483: activationValue,
         };
         if (!Object.hasOwn(responses, name)) throw new Error(`Unexpected RPC: ${name}`);
         // Transport stub only: the actual repository and Core parser run.

@@ -13,7 +13,7 @@ async function setup(page:any,status:string){
    feature_flags:{hotel_rooms_v2_enabled:false,hotel_external_sync_enabled:true,hotel_instant_booking_enabled:false,hotel_stripe_connect_enabled:false},
    public_booking_enabled:false,mutation_allowed:status==='PRE_H2B1_READY'};
   w.getSupabase=()=>({rpc:async(name:string)=>{w.__calls.push(name);
-   if(name==='hotel_v2_admin_get_shadow_preparation_state')return {data:w.__dto,error:null};
+   if(name==='hotel_v2_admin_get_shadow_preparation_state_114483')return {data:w.__dto,error:null};
    if(name==='hotel_v2_admin_prepare_shadow_rooms_successor')return {data:null,error:{code:'55000',message:'hotels_v2_h2b1_capability_flag_enabled'}};
    throw Error('Unapproved RPC '+name);
   }});
@@ -37,7 +37,7 @@ test('successor-complete Rooms panel has details and no historical preparation o
  await expect(page.locator('[data-shadow-preparation-complete]')).toContainText('Successor configuration verified');
  await expect(page.getByRole('button',{name:'Prepare 2 existing apartments'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Save reviewed changes'})).toHaveCount(0);
- expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state']);
+ expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state_114483']);
 });
 test('partial successor visibly BLOCKED, no preparation mutation controls',async({page})=>{
  await setup(page,'BLOCKED');
@@ -52,7 +52,7 @@ test('stale Review rechecks complete state: no old or successor mutation and mod
  },hotel);
  await page.getByRole('button',{name:'Save reviewed changes'}).click();
  await expect(page.getByRole('button',{name:'Save reviewed changes'})).toHaveCount(0);
- expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state','hotel_v2_admin_get_shadow_preparation_state']);
+ expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state_114483','hotel_v2_admin_get_shadow_preparation_state_114483']);
 });
 test('historical reviewed save error stays visible inside modal; no automatic retry',async({page})=>{
  await setup(page,'PRE_H2B1_READY');
@@ -62,5 +62,5 @@ test('historical reviewed save error stays visible inside modal; no automatic re
  await page.getByRole('button',{name:'Save reviewed changes'}).click();
  await expect(page.locator('[data-shadow-save-error]')).toContainText('current capability state');
  await expect(page.locator('[data-shadow-save-error]')).toHaveAttribute('role','alert');
- expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state','hotel_v2_admin_get_shadow_preparation_state','hotel_v2_admin_prepare_shadow_rooms_successor']);
+ expect(await page.evaluate(()=>(window as any).__calls)).toEqual(['hotel_v2_admin_get_shadow_preparation_state_114483','hotel_v2_admin_get_shadow_preparation_state_114483','hotel_v2_admin_prepare_shadow_rooms_successor']);
 });

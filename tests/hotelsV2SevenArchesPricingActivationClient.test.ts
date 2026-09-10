@@ -450,7 +450,7 @@ describe('7 Arches pricing activation Admin client', () => {
             error: null,
           };
         }
-        if (name === 'hotel_v2_admin_get_seven_arches_pricing_activation') {
+        if (name === 'hotel_v2_admin_get_seven_arches_pricing_activation_114483') {
           return { data: snapshot('active'), error: null };
         }
         if (name === 'hotel_v2_admin_get_property_workspace') {
@@ -499,7 +499,7 @@ describe('7 Arches pricing activation Admin client', () => {
     expect(ui).toContain("requiredActivationI18nFields('rate_plan_description'");
     expect(ui).toContain("requiredActivationI18nFields('schedule_name'");
     expect(ui).toContain('shared 27-tier schedule remains customer-price authoritative');
-    expect(repository).toContain("sevenArchesPricingActivation: 'hotel_v2_admin_get_seven_arches_pricing_activation'");
+    expect(repository).toContain("sevenArchesPricingActivation: 'hotel_v2_admin_get_seven_arches_pricing_activation_114483'");
     expect(repository).toContain('reviewedSevenArchesPricingActivationPlans.delete(fingerprint);');
     expect(partnerFiles).not.toContain('hotel_v2_admin_apply_seven_arches_pricing_activation');
     expect(ui).not.toMatch(/upper_base_nightly_rate\s*[+*\/-]\s*ground_base_nightly_rate/);

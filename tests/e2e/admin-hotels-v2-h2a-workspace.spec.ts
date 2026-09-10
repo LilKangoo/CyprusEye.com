@@ -1106,7 +1106,7 @@ async function prepareSevenKamaresPricingPromotionFixture(page: Page): Promise<v
     });
     (window as any).__installPricingPromotionHandlers = () => {
       const stub = (window as any).__supabaseStub;
-      stub.setRpcHandler('hotel_v2_admin_get_legacy_pricing_promotion_preview', (params: any) => (
+      stub.setRpcHandler('hotel_v2_admin_get_legacy_pricing_promotion_preview_114483', (params: any) => (
         params.p_hotel_id === hotelId
           ? { data: buildPreview(), error: null }
           : { data: null, error: { code: 'P0002', message: 'property_not_found' } }
@@ -3035,7 +3035,7 @@ test('H3.1P reviews exact legacy pricing parity, rebases one stale save, and sta
   await expect(page.locator('[data-legacy-pricing-promotion-preview]')).toHaveCount(0);
   const missingFoundationAudit = await page.evaluate(() => ({
     previewCalls: (window as any).__supabaseStub.getRpcCalls()
-      .filter((call: any) => call.name === 'hotel_v2_admin_get_legacy_pricing_promotion_preview').length,
+      .filter((call: any) => call.name === 'hotel_v2_admin_get_legacy_pricing_promotion_preview_114483').length,
     applyCalls: (window as any).__supabaseStub.getRpcCalls()
       .filter((call: any) => call.name === 'hotel_v2_admin_apply_legacy_pricing_promotion').length,
   }));

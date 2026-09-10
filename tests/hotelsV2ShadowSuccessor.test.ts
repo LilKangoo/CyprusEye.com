@@ -18,7 +18,7 @@ describe('H2B1 successor-aware preparation',()=>{
  test('completed successor is a read-only no-op, including stale modal confirmation',async()=>{
   const {repo,calls}=load(state());
   await expect(repo.prepareShadowRoomsSuccessor(plan)).rejects.toMatchObject({preparationComplete:true});
-  expect(calls.map(c=>c.name)).toEqual(['hotel_v2_admin_get_shadow_preparation_state']);
+  expect(calls.map(c=>c.name)).toEqual(['hotel_v2_admin_get_shadow_preparation_state_114483']);
  });
  test('blocked topology visibly rejects before any mutation',async()=>{
   const {repo,calls}=load(state('BLOCKED'));
@@ -26,11 +26,11 @@ describe('H2B1 successor-aware preparation',()=>{
   expect(calls).toHaveLength(1);
  });
  test('historical PRE path fetches fresh state and calls only successor wrapper exactly once',async()=>{
-  const {repo,calls}=load((name:string)=>name==='hotel_v2_admin_get_shadow_preparation_state'
+  const {repo,calls}=load((name:string)=>name==='hotel_v2_admin_get_shadow_preparation_state_114483'
    ?{data:state('PRE_H2B1_READY'),error:null}
    :{data:null,error:{code:'55000',message:'hotels_v2_h2b1_capability_flag_enabled'}});
   await expect(repo.prepareShadowRoomsSuccessor(plan)).rejects.toMatchObject({userMessage:expect.stringContaining('current capability state')});
-  expect(calls.map(c=>c.name)).toEqual(['hotel_v2_admin_get_shadow_preparation_state','hotel_v2_admin_prepare_shadow_rooms_successor']);
+  expect(calls.map(c=>c.name)).toEqual(['hotel_v2_admin_get_shadow_preparation_state_114483','hotel_v2_admin_prepare_shadow_rooms_successor']);
  });
  for(const [label,change] of [
   ['foreign hotel',(v:any)=>{v.hotel_id=ids[0];}],['extra key',(v:any)=>{v.account_id='private';}],
