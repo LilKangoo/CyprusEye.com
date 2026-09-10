@@ -22,6 +22,8 @@
     applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
     contentControl: 'hotel_v2_admin_get_content_control',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
+    shadowPreparationState: 'hotel_v2_admin_get_shadow_preparation_state',
+    prepareShadowRoomsSuccessor: 'hotel_v2_admin_prepare_shadow_rooms_successor',
     h3Configuration: 'hotel_v2_admin_get_h3_1_configuration',
     applyH3Configuration: 'hotel_v2_admin_apply_h3_1_configuration',
     legacyPricingPromotionPreview: 'hotel_v2_admin_get_legacy_pricing_promotion_preview',
@@ -86,6 +88,12 @@
   }
 
   function reviewedShadowUserMessage(message) {
+    if (message === 'hotels_v2_h2b1_capability_flag_enabled') {
+      return 'Apartment preparation is blocked by the current capability state. Refresh and inspect Rooms V2; no preparation was saved.';
+    }
+    if (message === 'hotels_114482_preparation_already_complete') {
+      return 'The two apartments are already prepared. Refresh to view the verified successor configuration; no preparation was saved.';
+    }
     const key = String(message || '').trim().toLowerCase();
     if (/hotels_v2_seven_arches_reviewed_pricing_(?:proposal_stale|assignment_stale|tier_stale|review_expired|review_consumed)/.test(key)) {
       return 'This reviewed 7 Arches pricing proposal changed or expired. Fresh server values must be loaded and explicitly reviewed again; nothing was retried.';
@@ -1136,7 +1144,45 @@
     };
   }
 
-  async function prepareLegacyShadowRooms(plan, correlationId) {
+  async function getShadowPreparationState(hotelId) {
+    if (hotelId !== Core.SEVEN_ARCHES_PROPERTY_ID) throw new Error('The exact 7 Arches Hotel is required.');
+    const data = await runRpc(RPC.shadowPreparationState, { p_hotel_id: hotelId }, 'Check apartment preparation');
+    const flags = data?.feature_flags;
+    const statuses = ['PRE_H2B1_READY', 'SUCCESSOR_ALREADY_COMPLETE', 'BLOCKED'];
+    const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).sort().join('|') === [...keys].sort().join('|');
+    if (!exactKeys(data, ['contract_version', 'hotel_id', 'status', 'reasons', 'room_type_ids', 'feature_flags', 'public_booking_enabled', 'mutation_allowed'])
+        || data.contract_version !== 'hotels_shadow_preparation_state_v1' || data.hotel_id !== hotelId
+        || !statuses.includes(data.status) || data.public_booking_enabled !== false
+        || data.mutation_allowed !== (data.status === 'PRE_H2B1_READY')
+        || !Array.isArray(data.reasons) || !data.reasons.every((reason) => typeof reason === 'string' && /^[a-z0-9_]{1,120}$/.test(reason))
+        || (data.status === 'BLOCKED' ? !data.reasons.length : data.reasons.length !== 0)
+        || JSON.stringify(data.room_type_ids) !== JSON.stringify(['b4ef504f-cdeb-4e3c-a54d-932146ef4e94', '825c01b7-9f82-492a-9c81-9b1d5cd7acd3'])
+        || !exactKeys(flags, ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'])
+        || !Object.values(flags).every((value) => typeof value === 'boolean')
+        || (data.status !== 'BLOCKED' && (flags.hotel_rooms_v2_enabled || flags.hotel_instant_booking_enabled || flags.hotel_stripe_connect_enabled))) {
+      throw new Error('The server returned an invalid apartment preparation state. Preparation is blocked.');
+    }
+    return Core.clone(data);
+  }
+
+  async function prepareShadowRoomsSuccessor(plan, correlationId) {
+    // A stale browser Review must recheck completion before any mutation. The
+    // server wrapper repeats this decision under locks; never retry a write.
+    const preparation = await getShadowPreparationState(plan?.hotel_id);
+    if (preparation.status !== 'PRE_H2B1_READY') {
+      const error = new Error(preparation.status === 'SUCCESSOR_ALREADY_COMPLETE'
+        ? '2 apartments prepared. Successor configuration verified; no preparation was submitted.'
+        : `Apartment preparation blocked: ${preparation.reasons.join(', ')}.`);
+      error.userMessage = error.message;
+      error.preparationState = preparation;
+      error.preparationComplete = preparation.status === 'SUCCESSOR_ALREADY_COMPLETE';
+      throw error;
+    }
+    return prepareLegacyShadowRooms(plan, correlationId, RPC.prepareShadowRoomsSuccessor);
+  }
+
+  async function prepareLegacyShadowRooms(plan, correlationId, preparationRpc = RPC.prepareLegacyShadowRooms) {
     const reviewedPlan = Core.clone(plan);
     const id = Core.normalizeUuid(reviewedPlan?.hotel_id);
     const exactRoomIds = Core.asArray(reviewedPlan?.rooms).map((room) => Core.normalizeUuid(room?.id)).filter(Boolean);
@@ -1163,7 +1209,7 @@
     };
     let data;
     try {
-      data = await runRpc(RPC.prepareLegacyShadowRooms, {
+      data = await runRpc(preparationRpc, {
         p_plan: reviewedPlan,
         p_correlation_id: correlation,
       }, 'Prepare reviewed 7 Arches shadow apartments');
@@ -1663,6 +1709,8 @@
     applyRoomControlPlan,
     applyOperationalAssignmentPlan,
     prepareLegacyShadowRooms,
+    getShadowPreparationState,
+    prepareShadowRoomsSuccessor,
     getH3Configuration,
     applyH3ConfigurationPlan,
     getLegacyPricingPromotionPreview,

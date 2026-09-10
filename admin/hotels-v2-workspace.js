@@ -15,6 +15,8 @@
     capabilityLifecycle: null,
     capabilityLifecycleError: null,
     capabilityLifecycleBusy: false,
+    shadowPreparation: null,
+    shadowPreparationError: null,
     contentControl: null,
     contentControlError: null,
     partnerPropertyProposals: null,
@@ -1992,7 +1994,7 @@
         </section>
         <section>
           <span class="hotel-workspace-eyebrow">Proposed V2 shadow</span>
-          ${sevenArches ? `<h5>2 confirmed apartments</h5><p><strong>${sevenArches.eligible ? 'Ready for photo selection and Review' : 'Preparation blocked'}</strong></p><small>Upper Floor Apartment · Ground Floor Apartment</small>` : '<h5>Room Type #1</h5><p><strong>Awaiting Admin confirmation</strong></p><small>No Room Type, Rate Plan, Room Rate or Calendar row has been created.</small>'}
+          ${sevenArches ? `<h5>2 confirmed apartments</h5>${shadowPreparationMarkup()}` : '<h5>Room Type #1</h5><p><strong>Awaiting Admin confirmation</strong></p><small>No Room Type, Rate Plan, Room Rate or Calendar row has been created.</small>'}
         </section>
       </div>
       ${renderMigrationFieldClassifications(preview)}
@@ -2005,9 +2007,7 @@
             : `${pricingPreview.rule_count} rules combine ${Core.asArray(pricingPreview.guest_counts).length} guest counts with ${Core.asArray(pricingPreview.stay_thresholds).length} stay thresholds. UUID and 63-rule shape alone do not prove a mismatch or parity; authoritative server Review is still required.`}</p>
         <code>${escapeHtml(pricingPreview.oracle)}</code>
       </div>` : ''}
-      ${sevenArches?.eligible
-        ? '<button class="btn-primary" type="button" data-prepare-seven-arches-apartments>Prepare 2 existing apartments</button>'
-        : preview.can_prepare_existing_accommodation && !sevenArches
+      ${preview.can_prepare_existing_accommodation && !sevenArches
           ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
         : ''}
       ${sevenArches && !sevenArches.eligible ? `<p class="hotel-property-card__blocker">${escapeHtml(sevenArches.blocker)}</p>` : ''}
@@ -2238,6 +2238,12 @@
     workspaceElement.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading Property Workspace…</div>';
     try {
       state.workspace = await Repository.getWorkspace(id);
+      state.shadowPreparation = null;
+      state.shadowPreparationError = null;
+      if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
+        try { state.shadowPreparation = await Repository.getShadowPreparationState(id); }
+        catch (error) { state.shadowPreparationError = error; }
+      }
       state.capabilityLifecycle = null;
       state.capabilityLifecycleError = null;
       try { state.capabilityLifecycle = await Repository.getCapabilityLifecycle(); }
@@ -3673,6 +3679,20 @@
     state.lastFocused = opener || state.lastFocused;
   }
 
+  function shadowPreparationMarkup() {
+    const preparation = state.shadowPreparation;
+    if (preparation?.status === 'SUCCESSOR_ALREADY_COMPLETE') {
+      return '<div data-shadow-preparation-complete><strong>2 apartments prepared</strong><p>Successor configuration verified</p><details><summary>Read-only preparation details</summary><p>Upper Floor Apartment · Ground Floor Apartment</p><p>Exact Room Type and Room Rate links · independent schedules · 27 tiers each · 54 authority rows. Current pricing is preserved; no preparation is submitted.</p></details></div>';
+    }
+    if (preparation?.status === 'PRE_H2B1_READY') {
+      return '<button class="btn-primary" type="button" data-prepare-seven-arches-apartments>Prepare 2 existing apartments</button>';
+    }
+    const reason = state.shadowPreparationError
+      ? 'The server preparation check is unavailable. No preparation can be submitted.'
+      : preparation?.reasons?.join(', ') || 'Server preparation verification is required.';
+    return `<div data-shadow-preparation-blocked role="status"><strong>Apartment preparation blocked</strong><p>${escapeHtml(reason)}</p></div>`;
+  }
+
   function renderRoomsPanel(panel) {
     const workspace = state.workspace;
     const migration = Core.migrationPreview(workspace, { pricingPromotionPreview: state.pricingPromotionPreview, pricingActivation: state.pricingActivation });
@@ -3683,10 +3703,11 @@
     panel.innerHTML = `
       ${workspacePanelHeader('Rooms & Rates', 'Manage Room Types and physical inventory. Pricing products are reviewed in the dedicated Rates & Pricing control plane.', `
         <div class="hotel-workspace-panel-actions"><button class="btn-secondary" type="button" data-open-pricing>Rates & Pricing</button><button class="btn-primary" type="button" data-add-room>${rooms.length ? '+ Another Room Type' : '+ Room Type'}</button></div>`)}
+      ${sevenArches ? `<section class="hotel-workspace-card">${shadowPreparationMarkup()}</section>` : ''}
       ${migration.legacy_product ? `<section class="hotel-workspace-card hotel-legacy-product-banner">
         <div><span class="hotel-workspace-eyebrow">Current live legacy product</span><h4>${migration.legacy_live_product_count} configured accommodation product${migration.legacy_live_product_count === 1 ? '' : 's'}</h4><p>${migration.legacy_pricing_rule_count} legacy pricing rules remain live. Below are ${rooms.length} normalized Room Types in inert V2 preparation.</p></div>
-        ${sevenArches?.eligible
-          ? '<button class="btn-primary" type="button" data-prepare-seven-arches-apartments>Prepare 2 existing apartments</button>'
+        ${sevenArches
+          ? ''
           : migration.can_prepare_existing_accommodation && !sevenArches
             ? '<button class="btn-primary" type="button" data-prepare-legacy-accommodation>Prepare existing accommodation as Room Type</button>'
             : '<span class="hotel-workspace-status hotel-workspace-status--warning">Not migrated</span>'}
@@ -6286,6 +6307,14 @@
             }
           } catch (error) {
             let failure = error;
+            if (failure?.preparationState) state.shadowPreparation = failure.preparationState;
+            if (failure?.preparationComplete) {
+              setModalSaving(overlay, false);
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              toast(failure.userMessage, 'info');
+              return;
+            }
             if (error?.isStale && typeof onStaleReview === 'function') {
               try {
                 const freshReview = await onStaleReview(error);
@@ -6371,6 +6400,16 @@
                   ? 'The reviewed save was rejected safely. Refresh the workspace and review the current configuration; no partial save was kept.'
                   : (failure?.message || 'Reviewed save failed. No database changes were kept.'));
             toast(message, failure?.isAmbiguousOutcome ? 'warning' : 'error');
+            if (entity === 'seven_arches_shadow_package') {
+              let inlineError = overlay.querySelector('[data-shadow-save-error]');
+              if (!inlineError) {
+                inlineError = document.createElement('p');
+                inlineError.dataset.shadowSaveError = '';
+                inlineError.setAttribute('role', 'alert');
+                button.parentElement?.prepend(inlineError);
+              }
+              inlineError.textContent = message;
+            }
           }
         });
       },
@@ -6847,7 +6886,7 @@
       entity: 'seven_arches_shadow_package',
       before,
       after,
-      onConfirm: () => Repository.prepareLegacyShadowRooms(plan),
+      onConfirm: () => Repository.prepareShadowRoomsSuccessor(plan),
       onStaleReview: async () => {
         const freshWorkspace = await Repository.getWorkspace(plan.hotel_id);
         state.workspace = freshWorkspace;
@@ -6869,7 +6908,18 @@
     };
   }
 
-  function openSevenArchesPreparation(options = {}) {
+  async function openSevenArchesPreparation(options = {}) {
+    try {
+      state.shadowPreparation = await Repository.getShadowPreparationState(state.workspace.property.id);
+      state.shadowPreparationError = null;
+    } catch (error) {
+      state.shadowPreparation = null;
+      state.shadowPreparationError = error;
+    }
+    if (state.shadowPreparation?.status !== 'PRE_H2B1_READY') {
+      renderWorkspace();
+      return;
+    }
     const preparationWorkspace = Core.clone(state.workspace);
     const preparation = Core.sevenArchesShadowPreparation(preparationWorkspace);
     if (!preparation.eligible) {
@@ -6943,6 +6993,13 @@
           }
           setModalSaving(overlay, true);
           try {
+            state.shadowPreparation = await Repository.getShadowPreparationState(preparation.hotel_id);
+            if (state.shadowPreparation.status !== 'PRE_H2B1_READY') {
+              setModalSaving(overlay, false);
+              closeModal({ restoreFocus: false, skipCleanup: true, force: true });
+              renderWorkspace();
+              return;
+            }
             const freshWorkspace = await Repository.getWorkspace(preparation.hotel_id);
             // Make recovery paths use the same fresh snapshot being reconciled.
             // Otherwise a removed photo or structural blocker would reopen the
