@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {performance} from 'node:perf_hooks';
-import {roots,hotel,hash,schema,compile,catalogQuery} from './hotels-v2-114483-read-compiler.mjs';
+import {roots,hotel,hash,schema,compile,catalogQuery,aclExpression,lit} from './hotels-v2-114483-read-compiler.mjs';
 const bin=process.env.HOTELS_114483_PSQL;
 assert.ok(bin);const port='55489',db='hotels_114483_profile';
 const run=q=>spawnSync(bin,['-X','-qAt','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-p',port,'-U','postgres','-d',db],{input:q,encoding:'utf8',maxBuffer:64e6});
@@ -14,6 +14,23 @@ const tx=q=>`BEGIN;SET TRANSACTION READ ONLY;${claims}SET LOCAL ROLE authenticat
 const business=()=>sql('SELECT hotels_stripe_dto_private.business_hash()');
 const before=business();let passed=0;const timings=[];
 function pass(name){passed++;console.log('PASS '+name);}
+const aclA='{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}';
+const aclB='{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}';
+const aclEqual=(a,b)=>sql(`SELECT ${aclExpression(a)} IS NOT DISTINCT FROM ${aclExpression(b)}`);
+const aclValue=a=>lit(a)+'::aclitem[]';
+assert.equal(aclEqual(aclValue(aclA),aclValue(aclB)),'t');pass('ACL production ordering equals fixture ordering');
+for(const [name,acl] of [
+ ['missing grantee','{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}'],
+ ['additional PUBLIC grantee','{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres,=X/postgres}'],
+ ['changed privilege','{postgres=X/postgres,service_role=/postgres,anon=X/postgres,authenticated=X/postgres}'],
+ ['changed grantor','{postgres=X/postgres,service_role=X/anon,anon=X/postgres,authenticated=X/postgres}'],
+ ['changed grantability','{postgres=X/postgres,service_role=X*/postgres,anon=X/postgres,authenticated=X/postgres}'],
+ ['duplicate entry','{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres,anon=X/postgres}'],
+]){assert.equal(aclEqual(aclValue(aclA),aclValue(acl)),'f');pass('ACL rejects '+name);}
+assert.equal(aclEqual('NULL::aclitem[]',aclValue('{}')),'f');pass('ACL preserves NULL versus empty');
+const aclBefore=sql(`SELECT ${schema}.metadata('public.is_current_user_admin()'::regprocedure)`);
+const aclReordered=sql(`BEGIN;REVOKE EXECUTE ON FUNCTION public.is_current_user_admin() FROM anon,authenticated;GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO anon,authenticated;SELECT ${schema}.metadata('public.is_current_user_admin()'::regprocedure);SELECT ${schema}.assert_exact();ROLLBACK;`).trim();
+assert.equal(aclReordered,aclBefore);pass('real pg_proc ACL reordered: full metadata and certificate remain exact');
 const generated=compile(JSON.parse(sql(catalogQuery)));
 assert.equal(generated.migration.trimEnd(),readFileSync('supabase/migrations/20260811448300_hotels_v2_successor_admin_reads_once.sql','utf8').trimEnd());pass('compiler deterministic; all original source/security pins exact');
 assert.ok(generated.bindings.every(b=>!b.settings.includes('timeout')));pass('no function timeout override introduced');

@@ -15,9 +15,12 @@ const tokens=s=>s.match(/\$(\w*)\$[\s\S]*?\$\1\$|'(?:''|[^'])*'|--[^\n]*|\/\*[\s
 const literal=t=>t.startsWith("'")||/^\$\w*\$/.test(t)||t.startsWith('--')||t.startsWith('/*');
 const executable=s=>tokens(s).map(t=>literal(t)?' '.repeat(t.length):t).join('');
 const pattern=n=>'(?<![\\w.])'+n.replaceAll('.','\\.')+'\\s*\\(';
+// Preserve each complete aclitem (grantee, privileges/grantability and grantor),
+// including multiplicity and NULL versus empty ACL. Only array order is ignored.
+export const aclExpression=value=>`(CASE WHEN ${value} IS NULL THEN NULL ELSE ARRAY(SELECT entry::text FROM unnest(${value}) AS acl(entry) ORDER BY entry::text COLLATE "C") END)::text`;
 export const metadataBody=`SELECT jsonb_build_array(encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),
  encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex'),
- pg_get_userbyid(p.proowner),p.proacl::text,p.proconfig,p.provolatile,p.prosecdef,
+ pg_get_userbyid(p.proowner),${aclExpression('p.proacl')},p.proconfig,p.provolatile,p.prosecdef,
  p.proleakproof,p.proisstrict,p.proretset,l.lanname)
  FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=p_oid`;
 export const catalogQuery=`SELECT jsonb_agg(jsonb_build_object('id',p.oid,'name',n.nspname||'.'||p.proname,
