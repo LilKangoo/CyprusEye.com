@@ -439,7 +439,7 @@
     };
   }
 
-  function validatePartnerHotelPermissions(value, expectedHotelId = '') {
+  function validatePartnerHotelPermissions(value, expectedHotelId = '', options = {}) {
     const normalized = normalizePartnerHotelPermissions(value);
     const expected = normalizeUuid(expectedHotelId);
     if (normalized.contract_version !== H3_2A_PARTNER_PERMISSIONS_CONTRACT) {
@@ -461,7 +461,8 @@
       'hotel_stripe_connect_enabled',
     ];
     if (typeof normalized.feature_flags.hotel_external_sync_enabled !== 'boolean'
-        || requiredOffFlags.some((key) => normalized.feature_flags[key] !== false)) {
+        || requiredOffFlags.some((key) => key === 'hotel_rooms_v2_enabled' && options.contentReadOnly === true
+          ? typeof normalized.feature_flags[key] !== 'boolean' : normalized.feature_flags[key] !== false)) {
       throw new Error('Partner permissions require Rooms, Instant Booking and Stripe flags OFF plus an exact External Calendar boolean.');
     }
     const assignmentIds = new Set();

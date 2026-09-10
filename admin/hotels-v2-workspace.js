@@ -2993,8 +2993,13 @@
 
   function partnerPropertyProposalDiff(proposal, property = state.workspace?.property) {
     const patch = partnerPropertyProposalPatch(proposal);
+    // Amenities are an unordered code set. Normalize only comparison copies;
+    // retain the exact canonical/proposed arrays for display and reviewed plans.
+    const comparisonValue = (field, value) => canonicalReviewValue(
+      field === 'amenities' && Array.isArray(value) ? [...new Set(value)].sort() : value,
+    );
     return Object.keys(patch).sort().filter((field) => (
-      canonicalReviewValue(property?.[field] ?? null) !== canonicalReviewValue(patch[field])
+      comparisonValue(field, property?.[field] ?? null) !== comparisonValue(field, patch[field])
     )).map((field) => ({ field, before: Core.clone(property?.[field] ?? null), after: Core.clone(patch[field]) }));
   }
 

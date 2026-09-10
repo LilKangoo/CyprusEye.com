@@ -20,7 +20,7 @@
     applyPropertyControl: 'hotel_v2_admin_apply_property_control_plan',
     applyRoomControl: 'hotel_v2_admin_apply_room_control_plan',
     applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
-    contentControl: 'hotel_v2_admin_get_content_control',
+    contentControl: 'hotel_v2_admin_get_content_control_114485',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
     shadowPreparationState: 'hotel_v2_admin_get_shadow_preparation_state_114483',
     prepareShadowRoomsSuccessor: 'hotel_v2_admin_prepare_shadow_rooms_successor',
@@ -597,7 +597,8 @@
         || !String(payload.property_updated_at || '').trim()
         || !['legacy', 'rooms_v2'].includes(architectureVersion)
         || JSON.stringify(Object.keys(featureFlags).sort()) !== JSON.stringify(requiredOffFlags)
-        || requiredOffFlags.some((key) => featureFlags[key] !== false)
+        || requiredOffFlags.some((key) => ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled'].includes(key)
+          ? typeof featureFlags[key] !== 'boolean' : featureFlags[key] !== false)
         || (commercialOwner != null && (
           JSON.stringify(Object.keys(commercialOwner).sort()) !== JSON.stringify(ownerKeys)
           || !Core.normalizeUuid(commercialOwner.partner_id)
@@ -618,7 +619,9 @@
           && (typeof profile.internal_operational_notes !== 'string' || profile.internal_operational_notes.length > 5000))) {
       throw new Error('Admin content control returned an unsupported or cross-property snapshot.');
     }
-    const assignmentSnapshot = Core.validatePartnerHotelPermissions(payload.assignment_snapshot, id);
+    // This successor is read-only. Permission mutation builders retain their
+    // original fail-closed flag validation; no write capability is granted here.
+    const assignmentSnapshot = Core.validatePartnerHotelPermissions(payload.assignment_snapshot, id, { contentReadOnly: true });
     if (assignmentSnapshot.property.architecture_version !== architectureVersion
         || assignmentSnapshot.property.updated_at !== String(payload.property_updated_at)
         || requiredOffFlags.some((key) => assignmentSnapshot.feature_flags[key] !== featureFlags[key])) {
