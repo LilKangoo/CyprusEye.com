@@ -1349,6 +1349,58 @@
       'Load audited Hotels capability lifecycle'), null, true);
   }
 
+  function validatePartnerStripeAuthorization(value, partnerId) {
+    const keys = value && Object.keys(value).sort().join();
+    const accountPresent = keys === 'account_exists,account_status,contract_version,enabled,partner_id,platform_enabled,version';
+    if (!value || (!accountPresent && keys !== 'contract_version,enabled,partner_id,platform_enabled,version')
+        || value.contract_version !== 'hotels_v2_partner_stripe_authorization_control_v1'
+        || value.partner_id !== partnerId || !Number.isSafeInteger(value.version) || value.version < 0
+        || typeof value.enabled !== 'boolean' || typeof value.platform_enabled !== 'boolean') {
+      throw new Error('Partner Stripe authorization could not be verified. No decision is available.');
+    }
+    if (accountPresent && (typeof value.account_exists !== 'boolean'
+        || !['NOT_CONNECTED', 'ONBOARDING_INCOMPLETE', 'CONNECTED', 'RESTRICTED', 'ACTION_REQUIRED', 'DISABLED'].includes(value.account_status)
+        || value.account_exists !== (value.account_status !== 'NOT_CONNECTED'))) {
+      throw new Error('Partner Stripe account state could not be verified.');
+    }
+    return value;
+  }
+
+  async function getPartnerStripeAuthorization(partnerId) {
+    if (!Core.normalizeUuid(partnerId) || Core.normalizeUuid(partnerId) !== partnerId) throw new Error('An exact Partner UUID is required.');
+    return validatePartnerStripeAuthorization(await runRpc('hotel_v2_admin_get_partner_stripe_onboarding_authorization',
+      { p_partner_id: partnerId }, 'Load audited Partner Stripe authorization'), partnerId);
+  }
+
+  const submittedStripeDecisions = new WeakSet();
+  async function setPartnerStripeAuthorization(draft) {
+    if (!draft || typeof draft !== 'object' || submittedStripeDecisions.has(draft)
+        || Core.normalizeUuid(draft.partnerId) !== draft.partnerId || !draft.partnerId
+        || typeof draft.enabled !== 'boolean' || !Number.isSafeInteger(draft.expectedVersion) || draft.expectedVersion < 0
+        || typeof draft.reason !== 'string' || draft.reason !== draft.reason.trim()
+        || draft.reason.length < 10 || draft.reason.length > 1000 || draft.confirmed !== true) {
+      throw new Error('An exact Partner, version, reason and separate confirmation are required. Never reuse a submitted decision.');
+    }
+    // Claim this intent before awaiting so a double submission cannot issue two writes.
+    submittedStripeDecisions.add(draft);
+    const fresh = await getPartnerStripeAuthorization(draft.partnerId);
+    if (fresh.version !== draft.expectedVersion || fresh.enabled === draft.enabled) {
+      throw new Error('Partner authorization changed or is unchanged. Nothing was submitted; load and review fresh state.');
+    }
+    const result = await runRpc('hotel_v2_admin_set_partner_stripe_onboarding_authorization', {
+      p_partner_id: draft.partnerId, p_enabled: draft.enabled, p_expected_version: draft.expectedVersion,
+      p_request_id: Core.newUuid(), p_reason: draft.reason,
+    }, 'Explicit Partner Stripe authorization decision');
+    if (!result || Object.keys(result).sort().join() !== 'contract_version,current_enabled,current_version,enabled,partner_id,replayed,version'
+        || result.contract_version !== 'hotels_v2_partner_stripe_authorization_result_v1'
+        || result.partner_id !== draft.partnerId || result.version !== draft.expectedVersion + 1
+        || result.current_version !== result.version || result.enabled !== draft.enabled
+        || result.current_enabled !== draft.enabled || result.replayed !== false) {
+      throw new Error('Authorization result is unverified. Do not retry the decision; inspect fresh read-only state.');
+    }
+    return result;
+  }
+
   async function setCapabilityLifecycle(draft) {
     if (!draft || !['rooms', 'stripe'].includes(draft.capability) || typeof draft.enabled !== 'boolean'
         || !Number.isSafeInteger(draft.expectedVersion) || draft.expectedVersion < 0
@@ -1572,6 +1624,8 @@
     RPC,
     getClient,
     getCapabilityLifecycle,
+    getPartnerStripeAuthorization,
+    setPartnerStripeAuthorization,
     setCapabilityLifecycle,
     listProperties,
     getWorkspace,

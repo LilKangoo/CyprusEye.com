@@ -516,8 +516,14 @@
     if (Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle')) {
       AdminCore.validateCapabilityLifecycle(value.capability_lifecycle, value.feature_flags);
       const connection = value.stripe_connection;
+      const readinessPresent = Object.prototype.hasOwnProperty.call(connection || {}, 'platform_ready')
+        || Object.prototype.hasOwnProperty.call(connection || {}, 'attestation_status');
       requireExactKeys(connection, ['contract_version', 'partner_id', 'hotel_id', 'platform_enabled',
-        'onboarding_authorized', 'account_status', 'checked_at', 'can_connect'], 'Partner Stripe lifecycle');
+        'onboarding_authorized', 'account_status', 'checked_at', 'can_connect',
+        ...(readinessPresent ? ['platform_ready', 'attestation_status'] : [])], 'Partner Stripe lifecycle');
+      if (readinessPresent && (typeof connection.platform_ready !== 'boolean'
+          || !['MISSING', 'NOT_READY', 'STALE', 'READY'].includes(connection.attestation_status)
+          || connection.platform_ready !== (connection.attestation_status === 'READY'))) fail('Partner Stripe attestation is inconsistent.');
       if (connection.contract_version !== 'hotels_partner_stripe_capability_v1'
           || connection.partner_id !== partnerId || connection.hotel_id !== hotelId
           || connection.platform_enabled !== value.feature_flags.hotel_stripe_connect_enabled
@@ -1350,7 +1356,32 @@
     return requireExternalCalendarCore('validateExternalCalendarPartnerProposalSubmit')(value, expected);
   }
 
+  function stripeConnectionPresentation(connection) {
+    if (!connection) return { state: 'UNAVAILABLE', label: 'Stripe state unavailable', canConnect: false };
+    const account = connection.account_status;
+    const readinessKnown = typeof connection.platform_ready === 'boolean'
+      && ['MISSING', 'NOT_READY', 'STALE', 'READY'].includes(connection.attestation_status)
+      && connection.platform_ready === (connection.attestation_status === 'READY');
+    let state; let label;
+    if (account === 'CONNECTED') { state = 'CONNECTED'; label = 'Connected — server verified'; }
+    else if (['RESTRICTED', 'ACTION_REQUIRED', 'DISABLED'].includes(account)) {
+      state = account; label = account === 'DISABLED' ? 'Account connection disabled' : 'Account requires attention';
+    } else if (!connection.onboarding_authorized) { state = 'NOT_AUTHORIZED'; label = 'Partner onboarding is not authorized'; }
+    else if (!connection.platform_enabled) { state = 'PLATFORM_DISABLED'; label = 'Partner authorized — global Stripe capability is disabled'; }
+    else if (!readinessKnown) { state = 'UNAVAILABLE'; label = 'Platform readiness unavailable'; }
+    else if (!connection.platform_ready) { state = 'PLATFORM_NOT_READY'; label = 'Partner authorized — platform is not ready'; }
+    else if (connection.can_connect === true) {
+      state = account === 'ONBOARDING_INCOMPLETE' ? 'ONBOARDING_INCOMPLETE' : 'READY_TO_CONNECT';
+      label = account === 'ONBOARDING_INCOMPLETE' ? 'Onboarding incomplete — continue setup' : 'Ready to connect — server scope authorized';
+    } else { state = 'UNAVAILABLE'; label = 'Connection readiness could not be verified'; }
+    return { state, label, canConnect: readinessKnown && connection.platform_ready === true
+      && connection.platform_enabled === true && connection.onboarding_authorized === true
+      && ['NOT_CONNECTED', 'ONBOARDING_INCOMPLETE'].includes(account) && connection.can_connect === true,
+      readiness: readinessKnown ? connection.attestation_status : 'UNKNOWN' };
+  }
+
   return Object.freeze({
+    stripeConnectionPresentation,
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING,
     hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,

@@ -884,14 +884,8 @@
   function renderPayments() {
     const presentation = state.presentation;
     const connection = state.workspace.stripe_connection;
-    const connectionCopy = !connection ? 'Stripe capability status unavailable'
-      : !connection.platform_enabled ? 'Stripe platform capability disabled'
-      : !connection.onboarding_authorized ? 'Contact Admin: Partner onboarding approval required'
-      : connection.account_status === 'CONNECTED' ? 'Connected — server verified'
-      : connection.account_status === 'NOT_CONNECTED' ? 'Not connected'
-      : connection.account_status === 'ONBOARDING_INCOMPLETE' ? 'Onboarding incomplete'
-      : connection.account_status === 'DISABLED' ? 'Connection disabled' : 'Action required';
-    const connectLink = `<article class="partner-hotel-workspace__card" data-phw-stripe-lifecycle><h3>Stripe Connect</h3><p>${html(connectionCopy)}</p><p>One Partner account serves all assigned Hotels. Connection does not change payment routing.</p>${connection?.can_connect === true
+    const stripeView = Core.stripeConnectionPresentation(connection);
+    const connectLink = `<article class="partner-hotel-workspace__card" data-phw-stripe-lifecycle data-stripe-state="${html(stripeView.state)}"><h3>Stripe Connect</h3><p>${html(stripeView.label)}</p>${connection ? `<dl><dt>Partner onboarding authorization</dt><dd>${connection.onboarding_authorized ? 'Authorized' : 'Not authorized'}</dd><dt>Global Stripe capability</dt><dd>${connection.platform_enabled ? 'ON' : 'OFF'}</dd><dt>Account state</dt><dd>${html(connection.account_status)}</dd><dt>Platform readiness</dt><dd>${html(stripeView.readiness || 'UNKNOWN')}</dd></dl>` : ''}<p>One Partner-owned Standard account serves all assigned Hotels. Connection does not change payment routing or the EUR10 commission per allocated Room/night.</p>${stripeView.canConnect
       ? `<p><a data-phw-stripe-connection href="/partners/stripe-connect.html?partner=${encodeURIComponent(state.partnerId)}&amp;hotel=${encodeURIComponent(state.workspace.hotel_id)}&amp;lang=${encodeURIComponent(state.language)}">${connection.account_status === 'ONBOARDING_INCOMPLETE' ? 'Continue setup' : 'Connect Stripe'}</a></p>` : ''}</article>`;
     const visible = presentation?.capabilities.payments_visible === true;
     const canOpen = visible ? presentation.capabilities.full_payment_management : state.workspace?.sections?.payments?.available === true;

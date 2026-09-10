@@ -9996,6 +9996,51 @@
     }
   }
 
+  function stripePartnerCards(assignments) {
+    const ids = [...new Set(assignments.map((entry) => entry.partner_id).filter((id) => Core.normalizeUuid(id) === id))];
+    return `<section class="hotel-workspace-card hotel-workspace-card--wide" data-stripe-authorization><h4>Audited Partner Stripe authorization</h4><p>Separate from Hotel permissions, platform activation, server readiness and account connection. One Partner-owned Standard account serves all assigned Hotels. No grant is automatic.</p>${ids.map((id) => `<article class="hotel-workspace-card" data-stripe-partner="${escapeAttr(id)}"><strong>Partner ${escapeHtml(id)}</strong><p><button type="button" class="btn-secondary" data-stripe-authorization-load>Load current Stripe authorization</button></p><div data-stripe-authorization-state aria-live="polite"></div></article>`).join('') || '<p>No verified Partner assignment is available.</p>'}</section>`;
+  }
+
+  function bindStripePartnerCards(panel) {
+    panel.querySelectorAll('[data-stripe-authorization-load]').forEach((button) => button.addEventListener('click', async () => {
+      const card = button.closest('[data-stripe-partner]');
+      const partnerId = card.dataset.stripePartner;
+      const slot = card.querySelector('[data-stripe-authorization-state]');
+      if (button.disabled) return;
+      button.disabled = true;
+      slot.textContent = 'Loading authoritative Partner and platform state…';
+      try {
+        const [authorization, lifecycle] = await Promise.all([
+          Repository.getPartnerStripeAuthorization(partnerId), Repository.getCapabilityLifecycle(),
+        ]);
+        if (!card.isConnected) return;
+        if (authorization.platform_enabled !== lifecycle.feature_flags.hotel_stripe_connect_enabled) throw new Error('Platform state changed during load. Reload read-only state.');
+        const stripe = lifecycle.capabilities.find((entry) => entry.key === 'stripe');
+        const ready = stripe.blocked_reasons.length === 0;
+        slot.innerHTML = `<dl class="hotel-workspace-key-values"><div><dt>Partner onboarding authorization</dt><dd>${authorization.enabled ? 'AUTHORIZED' : 'NOT AUTHORIZED'}</dd></div><div><dt>Authorization version</dt><dd>${authorization.version}</dd></div><div><dt>Global Stripe capability</dt><dd>${authorization.platform_enabled ? 'ON' : 'OFF'}</dd></div><div><dt>Platform readiness at this read</dt><dd>${ready ? 'Server attestation accepted' : 'Not ready / fresh server verification required'}</dd></div><div><dt>Connected account exists</dt><dd>${typeof authorization.account_exists === 'boolean' ? (authorization.account_exists ? 'YES' : 'NO') : 'UNKNOWN — DTO extension unavailable'}</dd></div><div><dt>Account status</dt><dd>${escapeHtml(authorization.account_status || 'UNKNOWN')}</dd></div></dl><p>Readiness can expire. This decision changes only this Partner’s onboarding authorization. It does not connect an account, enable Stripe/public booking, change prices, EUR10 commission or payment routing.</p><form data-stripe-authorization-decision><p>Target: ${authorization.enabled ? 'REVOKE' : 'GRANT'} onboarding authorization for Partner ${escapeHtml(partnerId)} across its assigned Hotels.</p><label>Reason<textarea name="reason" required minlength="10" maxlength="1000"></textarea></label><label><input type="checkbox" name="confirmation" required> I explicitly confirm this separate Partner authorization decision.</label><button class="btn-primary" type="submit">Confirm ${authorization.enabled ? 'revocation' : 'authorization'}</button></form>`;
+        slot.querySelector('form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          if (form.dataset.submitted || !form.reportValidity()) return;
+          const draft = { partnerId, enabled: !authorization.enabled, expectedVersion: authorization.version,
+            reason: form.elements.reason.value.trim(), confirmed: form.elements.confirmation.checked };
+          if (draft.reason.length < 10 || draft.reason.length > 1000) return;
+          form.dataset.submitted = 'true';
+          button.disabled = true;
+          slot.textContent = 'Submitting one explicit Partner authorization decision…';
+          try {
+            const result = await Repository.setPartnerStripeAuthorization(draft);
+            if (card.isConnected) slot.textContent = `Audited Partner authorization ${result.enabled ? 'granted' : 'revoked'} at version ${result.version}. No platform or account activation was performed. Load current state to inspect.`;
+          } catch (_) {
+            if (card.isConnected) slot.textContent = 'Decision not confirmed. It may have been rejected or its response lost. Do not retry; load fresh read-only state and inspect the audit.';
+          } finally { button.disabled = false; }
+        });
+      } catch (_) {
+        if (card.isConnected) slot.textContent = 'Stripe authorization unavailable or inconsistent. No grant form is available. Reload verified state; no mutation was attempted.';
+      } finally { button.disabled = false; }
+    }));
+  }
+
   function renderPartnerPanel(panel) {
     const property = state.workspace.property;
     const owner = Core.asObject(property.owner_partner);
@@ -10024,7 +10069,8 @@
         const partner = operationalAssignmentPartner(entry.partner_id, entry);
         return `<article><div><strong>${escapeHtml(partner.name)}</strong><small>${escapeHtml(partner.status)} · ${Number(entry.staff_scope_count || 0)} staff Hotel scope${Number(entry.staff_scope_count || 0) === 1 ? '' : 's'} · ${entry.permission_exists ? 'Capability row present' : 'All capabilities default OFF'}</small></div><button class="btn-secondary" type="button" data-remove-operational-assignment="${escapeAttr(entry.assignment_id)}">Review removal</button><details class="hotel-review-diagnostics"><summary>Assignment diagnostics</summary><code>${escapeHtml(entry.assignment_id)}</code><code>${escapeHtml(entry.partner_id)}</code></details></article>`;
       }).join('')}</div>` : '<div class="hotel-property-empty"><p>No operational Partner assignment.</p></div>') : `<p class="hotel-workspace-safety-note">${escapeHtml(state.contentControlError?.message || 'Apply the reviewed ADMIN-B content-control foundation before assignments can be managed.')}</p>`}<small>Commercial ownership is separate. Assignment saves are future-routing only and never rewrite historical fulfillment rows.</small></section>
-      ${permissionSection}</div>`;
+      ${permissionSection}${stripePartnerCards(permissionSnapshot?.assignments || [])}</div>`;
+    bindStripePartnerCards(panel);
     panel.querySelector('[data-retry-partner-permissions]')?.addEventListener('click', () => {
       void refreshPartnerPermissions().catch((error) => toast(error?.userMessage || error?.message, 'error'));
     });

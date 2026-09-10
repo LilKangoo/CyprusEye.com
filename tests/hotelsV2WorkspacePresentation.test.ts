@@ -301,7 +301,37 @@ describe('Hotels V2 centralized contextual help and presentation contract', () =
     expect(admin).not.toMatch(/name=["'](?:commission|cypruseye_commission|partner_net|customer_total|paid|remaining)["']/);
     expect(partner).toMatch(/CustomEvent\(['"]ce:partner-hotel-bookings['"]/);
     expect(admin).toMatch(/openCentralHotelDepositSettings|data-tab=["']bookings["']/);
-    expect(partner).toContain("booking.guest_count == null ? html(text('unavailableValue'))");
+    // Test the real approved renderer, including missing values and zero. This
+    // test-only exposure changes neither production code nor backend contracts.
+    const marker = '  function renderBookings() {';
+    expect(partner.split(marker)).toHaveLength(2);
+    const context: any = {
+      console, Intl,
+      document: { readyState: 'loading', addEventListener: () => {} },
+      HotelsV2PartnerWorkspaceCore: {
+        localized: (value: any, language: string, fallback: string) => value?.[language] || value?.en || fallback,
+      },
+    };
+    context.globalThis = context;
+    vm.runInNewContext(partner.replace(marker,
+      `  root.__testBookings = (value, language) => {
+        state.presentation = value; state.language = language;
+        return { table: renderBookings(), card: bookingCardMarkup(value.bookings[0]) };
+      };\n${marker}`), context);
+    for (const [language, missing, guests] of [
+      ['en', 'Not provided', 'Guests'], ['pl', 'Nie podano', 'Goście'], ['he', 'לא נמסר', 'אורחים'],
+    ]) {
+      for (const count of [null, undefined, 0, 6]) {
+        const value: any = presentation(); value.bookings[0].guest_count = count;
+        const rendered = context.__testBookings(value, language);
+        const row = rendered.table.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1];
+        expect(row).toBeDefined();
+        const cells = [...row.matchAll(/<td>([\s\S]*?)<\/td>/g)].map((match: any) => match[1]);
+        expect(cells[2]).toBe(count == null ? missing : String(count));
+        if (count == null) expect(rendered.card).not.toContain(`<dt>${guests}</dt>`);
+        else expect(rendered.card).toContain(`<dt>${guests}</dt><dd>${count}</dd>`);
+      }
+    }
     expect(admin).toContain("booking.guest_count == null ? escapeHtml(workspacePresentationText('unavailable'))");
   });
 

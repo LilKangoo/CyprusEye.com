@@ -370,13 +370,15 @@ export async function navigatePartner(page: Page, section: string): Promise<void
 
 test.describe('Audited capability lifecycle: Partner separation', () => {
   for (const scenario of [
-    { rooms: false, stripe: false, permission: false, status: 'NOT_CONNECTED', label: 'Stripe platform capability disabled', connect: false },
-    { rooms: true, stripe: false, permission: true, status: 'NOT_CONNECTED', label: 'Stripe platform capability disabled', connect: false },
-    { rooms: true, stripe: true, permission: false, status: 'NOT_CONNECTED', label: 'Contact Admin', connect: false },
-    { rooms: true, stripe: true, permission: true, status: 'NOT_CONNECTED', label: 'Not connected', connect: true },
+    { rooms: false, stripe: false, permission: false, status: 'NOT_CONNECTED', label: 'Partner onboarding is not authorized', connect: false },
+    { rooms: true, stripe: false, permission: true, status: 'NOT_CONNECTED', label: 'Partner authorized — global Stripe capability is disabled', connect: false },
+    { rooms: true, stripe: true, permission: false, status: 'NOT_CONNECTED', label: 'Partner onboarding is not authorized', connect: false },
+    { rooms: true, stripe: true, permission: true, status: 'NOT_CONNECTED', label: 'Ready to connect — server scope authorized', connect: true },
     { rooms: false, stripe: true, permission: true, status: 'ONBOARDING_INCOMPLETE', label: 'Onboarding incomplete', connect: true },
     { rooms: false, stripe: true, permission: true, status: 'CONNECTED', label: 'Connected — server verified', connect: false },
-    { rooms: true, stripe: true, permission: true, status: 'RESTRICTED', label: 'Action required', connect: false },
+    { rooms: true, stripe: true, permission: true, status: 'RESTRICTED', label: 'Account requires attention', connect: false },
+    ...['MISSING', 'NOT_READY', 'STALE'].map(attestation => ({ rooms:false,stripe:true,permission:true,status:'NOT_CONNECTED',label:'Partner authorized — platform is not ready',connect:false,attestation })),
+    { rooms:false,stripe:true,permission:true,status:'NOT_CONNECTED',label:'Platform readiness unavailable',connect:false,attestation:'LEGACY' },
   ]) test(`capabilities ${JSON.stringify(scenario)}`, async ({ page }) => {
     await installHarness(page, { width: 1280, height: 900 }, 'en', { commercialOwnerPreset: true });
     await page.evaluate(async ({ scenario, partnerId, hotelId, assignmentId }) => {
@@ -388,13 +390,18 @@ test.describe('Audited capability lifecycle: Partner separation', () => {
         expected_public_change: false, audit_chain_exact: true };
       w.stripe_connection = { contract_version: 'hotels_partner_stripe_capability_v1', partner_id: partnerId,
         hotel_id: hotelId, platform_enabled: scenario.stripe, onboarding_authorized: scenario.permission,
-        account_status: scenario.status, checked_at: scenario.status === 'NOT_CONNECTED' ? null : '2026-09-07T10:00:00Z', can_connect: scenario.connect };
+        account_status: scenario.status, checked_at: scenario.status === 'NOT_CONNECTED' ? null : '2026-09-07T10:00:00Z',
+        can_connect: scenario.stripe && scenario.permission && ['NOT_CONNECTED','ONBOARDING_INCOMPLETE'].includes(scenario.status) };
+      const attestation = 'attestation' in scenario ? scenario.attestation : 'READY';
+      if (attestation !== 'LEGACY') Object.assign(w.stripe_connection, { platform_ready: attestation === 'READY', attestation_status: attestation });
       await root.HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
     }, { scenario, partnerId: PARTNER_ID, hotelId: HOTEL_ID, assignmentId: ASSIGNMENT_ID });
     await navigatePartner(page, 'rooms');
     await expect(page.locator('[data-phw-panel="rooms"]')).toBeVisible();
     await navigatePartner(page, 'payments');
     await expect(page.locator('[data-phw-stripe-lifecycle]')).toContainText(scenario.label);
+    const attestation = 'attestation' in scenario ? scenario.attestation : 'READY';
+    await expect(page.locator('[data-phw-stripe-lifecycle]')).toContainText(attestation === 'LEGACY' ? 'UNKNOWN' : attestation);
     await expect(page.locator('[data-phw-stripe-connection]')).toHaveCount(scenario.connect ? 1 : 0);
     const report = await page.evaluate(() => ({ calls: (window as any).__h32b.rpcCalls,
       publicBooking: (window as any).__h32b.workspace.capability_lifecycle.public_booking_enabled }));

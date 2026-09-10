@@ -65,6 +65,26 @@ function emptyWorkspace(enabled: string[] = []): any {
 }
 
 describe('Hotels V2 H3.2B Partner workspace client', () => {
+  test('114481 requires complete, boolean, consistent readiness and rejects leaked fields', () => {
+    const Core=loadCore(), workspace=emptyWorkspace();
+    workspace.capability_lifecycle={contract_version:'hotels_v2_capability_lifecycle_v1',version:0,feature_flags:{...workspace.feature_flags},public_booking_enabled:false,architecture:'legacy',expected_public_change:false,audit_chain_exact:true};
+    workspace.stripe_connection={contract_version:'hotels_partner_stripe_capability_v1',partner_id:PARTNER,hotel_id:HOTEL,platform_enabled:false,onboarding_authorized:false,account_status:'NOT_CONNECTED',checked_at:null,can_connect:false,platform_ready:false,attestation_status:'MISSING'};
+    expect(Core.validateWorkspace(workspace,{partnerId:PARTNER,hotelId:HOTEL}).stripe_connection.attestation_status).toBe('MISSING');
+    for(const mutate of [
+      (c:any)=>delete c.platform_ready,
+      (c:any)=>delete c.attestation_status,
+      (c:any)=>c.platform_ready='false',
+      (c:any)=>c.platform_ready=null,
+      (c:any)=>c.attestation_status='UNKNOWN',
+      (c:any)=>c.attestation_status='READY',
+      (c:any)=>c.account_id='must-not-leak',
+      (c:any)=>c.partner_id=HOTEL,
+      (c:any)=>c.hotel_id=PARTNER,
+    ]){
+      const changed=JSON.parse(JSON.stringify(workspace));mutate(changed.stripe_connection);
+      expect(()=>Core.validateWorkspace(changed,{partnerId:PARTNER,hotelId:HOTEL})).toThrow();
+    }
+  });
   const Core = loadCore();
 
   test('accepts the exact inert no-capability workspace and rejects unexpected envelopes', () => {

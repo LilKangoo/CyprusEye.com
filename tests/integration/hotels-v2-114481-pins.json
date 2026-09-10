@@ -1,0 +1,412 @@
+{
+  "before": {
+    "hotels_lineage_private.predecessor(oid)": {
+      "source_hash": "36e662d92c41f3b3474f41fc0094c33ba049006769c6403254d0f185a2f1d087",
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    },
+    "hotels_lifecycle_private.catalog_snapshot()": {
+      "source_hash": "ef46235b2ad39502b4d4787b34b817e7dee986a5ea0bd526c76690cb2f6b2a71",
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "sql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    },
+    "hotels_lifecycle_private.predecessor_source(oid)": {
+      "source_hash": "e18f68f4948e3030079ae9c765fd27515a234b8d1d18079588a6c2dd32f9a1b5",
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": true,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    },
+    "hotels_lineage_private.successors_are_exact(text)": {
+      "source_hash": "c9b0de4a528547f1555d29e96530c552f8a827c83b50c65985d4dd75e415ce07",
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    },
+    "hotels_lifecycle_private.partner_connection(uuid,uuid)": {
+      "source_hash": "e47e5f9c1101cc829a7b263080b7b2b3d046be4103016d1da3298f0714145793",
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public, auth"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    },
+    "public.hotel_v2_admin_get_partner_stripe_onboarding_authorization(uuid)": {
+      "source_hash": "45dc3a00c73a0f031298523cf41e9ffeac90e1e46c50c532b796a231276de473",
+      "metadata": {
+        "acl": [
+          [
+            "authenticated",
+            "EXECUTE",
+            false
+          ],
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public, auth"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      }
+    }
+  },
+  "after": {
+    "hotels_lineage_private.predecessor(oid)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "f7371ac466fa1b3b95480d13e2447cd1817ae8a7bd76c439dd8673795d1f764c"
+    },
+    "hotels_stripe_dto_private.assert_exact()": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "cca811474be9abaaeb966273073c81df4377f245b9a8702c3342f638bef9bccf"
+    },
+    "hotels_stripe_dto_private.business_hash()": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "3a236f4c31c6ecdce9b172330f86d2681f2eb0eaa2f63b2bab09203d39206ef8"
+    },
+    "hotels_stripe_dto_private.helper_catalog()": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "sql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "1762100fee5e72a4a349d8789adac731880eec19c0592316bd597f56e7256e20"
+    },
+    "hotels_lifecycle_private.catalog_snapshot()": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "sql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "a9daaad29c3561c8191707fcef258d3fb734705058c4b15ec857ef2e554f5aa7"
+    },
+    "hotels_stripe_dto_private.relation_catalog()": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "sql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "d7955b8131b837f37fece6afa3dc8e9e8b2a91aed90f787b1e4e10db2fed1b44"
+    },
+    "hotels_lifecycle_private.predecessor_source(oid)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": true,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "983d1c22792ce60fcd73e71d1e5f3bfe6869f3b2ba734e92a4364f924741819f"
+    },
+    "hotels_lineage_private.successors_are_exact(text)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "fcf5478ea42f47e6aa45ef2d7aa1a94828a92b3ba763e784b95efbba34fe4139"
+    },
+    "hotels_stripe_dto_private.predecessor_source(oid)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": true,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "00f2c5353e95fb8f6f2ea54bff7233223524f3deb8b01e34a022f6cdd174e3aa"
+    },
+    "hotels_stripe_dto_private.predecessor_definition(oid)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public"
+        ],
+        "strict": true,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "b984e232655a089475b6c223f729d21561a78e1cdf1b3ec5783aacfdddf23d71"
+    },
+    "hotels_lifecycle_private.partner_connection(uuid,uuid)": {
+      "metadata": {
+        "acl": [
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public, auth"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "f46e6a3fb6e534739c91a61abeec102c32b67500b7d597d954ea01e57a3dedbc"
+    },
+    "public.hotel_v2_admin_get_partner_stripe_onboarding_authorization(uuid)": {
+      "metadata": {
+        "acl": [
+          [
+            "authenticated",
+            "EXECUTE",
+            false
+          ],
+          [
+            "postgres",
+            "EXECUTE",
+            false
+          ]
+        ],
+        "owner": "postgres",
+        "config": [
+          "search_path=pg_catalog, public, auth"
+        ],
+        "strict": false,
+        "language": "plpgsql",
+        "leakproof": false,
+        "volatility": "s",
+        "returns_set": false,
+        "security_definer": true
+      },
+      "source_hash": "0515e9b4ce45815ab3d55585d47c1027f914e4b8b48dcda760386147f53e6fdd"
+    }
+  }
+}
