@@ -9513,6 +9513,39 @@
     toast('Deposit Settings handoff is unavailable. Reload Admin and try again.', 'error');
   }
 
+  function stripePlatformReadinessCard() {
+    return `<section class="hotel-workspace-card" data-stripe-platform-readiness><h4>Platform server readiness</h4><div data-stripe-platform-state aria-live="polite">Loading authoritative readiness…</div><p>This verifies server configuration only, not live Stripe credentials. Attestations last 15 minutes. Stripe capability activation and Partner authorization require separate confirmed decisions.</p><button type="button" class="btn-secondary" data-stripe-platform-reload>Reload readiness</button> <button type="button" class="btn-primary" data-stripe-platform-verify disabled>Verify platform configuration</button></section>`;
+  }
+
+  function bindStripePlatformReadiness(panel) {
+    const card = panel.querySelector('[data-stripe-platform-readiness]');
+    if (!card) return;
+    const slot = card.querySelector('[data-stripe-platform-state]');
+    const verify = card.querySelector('[data-stripe-platform-verify]');
+    const reload = card.querySelector('[data-stripe-platform-reload]');
+    let busy = false;
+    const show = (dto) => {
+      slot.innerHTML = `<strong>${escapeHtml(dto.state)}</strong><dl class="hotel-workspace-key-values"><div><dt>Observed at</dt><dd>${escapeHtml(dto.observed_at)}</dd></div>${dto.checked_at ? `<div><dt>Checked at</dt><dd>${escapeHtml(dto.checked_at)}</dd></div><div><dt>Expires at</dt><dd>${escapeHtml(dto.expires_at)}</dd></div>` : ''}</dl><p>No account connection, capability grant or payment change is performed here.</p>`;
+    };
+    const run = async (mutation) => {
+      if (busy) return;
+      busy = true; verify.disabled = true; reload.disabled = true;
+      slot.textContent = mutation ? 'Verifying server configuration once…' : 'Loading authoritative readiness…';
+      let valid = false;
+      try {
+        const result = mutation ? await Repository.verifyStripePlatformConfiguration() : { readiness: await Repository.getStripePlatformReadiness() };
+        if (!card.isConnected) return;
+        show(result.readiness);
+        valid = true;
+      } catch (_) {
+        if (card.isConnected) slot.textContent = 'Platform readiness unavailable or verification failed. No automatic retry. Reload authoritative state; no capability or Partner permission was changed by this control.';
+      } finally { busy = false; reload.disabled = false; verify.disabled = !valid; }
+    };
+    reload.addEventListener('click', () => run(false));
+    verify.addEventListener('click', () => run(true));
+    run(false);
+  }
+
   function renderPaymentsPanel(panel) {
     const payment = Core.asObject(state.workspace.payment_due);
     const exact = Core.asObject(payment.exact_override);
@@ -9531,6 +9564,8 @@
       <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('shadowPaymentTerms'))}</span><h4>${h3Payment ? escapeHtml(workspacePresentationText(h3Payment.terms.length === 1 ? 'reviewedStep' : 'reviewedSteps', { count: h3Payment.terms.length })) : escapeHtml(workspacePresentationText('notConfigured'))}</h4><p>${escapeHtml(workspacePresentationText('shadowTermsInert'))}</p><button class="btn-secondary" type="button" data-open-h3-payment-setup>${escapeHtml(workspacePresentationText('openBookingSetup'))}</button></section>
       <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('platformCommission'))}</span><h4>${escapeHtml(h3CommissionLabel(h3Commission))}</h4><p>${escapeHtml(workspacePresentationText('commissionSeparate'))}</p></section>
       <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('partnerPayoutStripe'))}</span><h4>${escapeHtml(workspacePresentationText('capabilityDisabled'))}</h4><p>${escapeHtml(workspacePresentationText('stripeDisabled'))}</p></section></div>`;
+    panel.insertAdjacentHTML('beforeend', stripePlatformReadinessCard());
+    bindStripePlatformReadiness(panel);
     panel.querySelector('[data-open-hotel-deposit]')?.addEventListener('click', openCentralHotelDepositSettings);
     panel.querySelector('[data-open-h3-payment-setup]')?.addEventListener('click', () => { state.activeTab = 'booking_setup'; renderWorkspace(); });
   }

@@ -47,3 +47,8 @@ verify_jwt = true
 
 [functions.process-admin-notifications]
 verify_jwt = false
+
+# This mixed-route handler authenticates users internally and verifies Stripe
+# signatures on /webhook. Other functions retain their existing JWT policy.
+[functions.hotels-stripe-connect]
+verify_jwt = false

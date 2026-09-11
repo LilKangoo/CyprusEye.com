@@ -1398,6 +1398,54 @@
       'Load audited Hotels capability lifecycle'), null, true);
   }
 
+  function validateStripePlatformReadiness(value) {
+    const keys = 'blocked_reason,checked_at,contract_version,expires_at,observed_at,ready,request_id,state';
+    const states = ['MISSING', 'NOT_READY', 'STALE', 'READY'];
+    const timestamp = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(s) && Number.isFinite(Date.parse(s));
+    if (!value || Object.keys(value).sort().join() !== keys
+        || value.contract_version !== 'hotels_stripe_platform_readiness_admin_v1'
+        || !states.includes(value.state) || value.ready !== (value.state === 'READY')
+        || !timestamp(value.observed_at)) throw new Error('Stripe platform readiness response is invalid.');
+    const reasons = { MISSING: 'attestation_missing', NOT_READY: 'attestation_invalid', STALE: 'attestation_expired', READY: null };
+    if (value.blocked_reason !== reasons[value.state]) throw new Error('Stripe readiness reason is inconsistent.');
+    if (value.state === 'MISSING') {
+      if ([value.request_id, value.checked_at, value.expires_at].some(v => v !== null)) throw new Error('Missing attestation contains unexpected metadata.');
+    } else {
+      if (!value.request_id || Core.normalizeUuid(value.request_id) !== value.request_id) throw new Error('Stripe attestation identity is invalid.');
+      const invalidTime = value.state === 'NOT_READY' && value.checked_at === null && value.expires_at === null;
+      if (!invalidTime && (!timestamp(value.checked_at) || !timestamp(value.expires_at)
+          || Date.parse(value.expires_at) - Date.parse(value.checked_at) !== 900000)) throw new Error('Stripe attestation TTL is invalid.');
+      if ((value.state === 'READY' && Date.parse(value.expires_at) <= Date.parse(value.observed_at))
+          || (value.state === 'STALE' && Date.parse(value.expires_at) > Date.parse(value.observed_at))) throw new Error('Stripe attestation age is inconsistent.');
+    }
+    return value;
+  }
+
+  async function getStripePlatformReadiness() {
+    return validateStripePlatformReadiness(await runRpc('hotel_v2_admin_get_stripe_platform_readiness_114486', {}, 'Load Stripe platform readiness'));
+  }
+
+  let stripeVerificationPending = false;
+  async function verifyStripePlatformConfiguration() {
+    if (stripeVerificationPending) throw new Error('Stripe configuration verification is already pending.');
+    stripeVerificationPending = true;
+    try {
+      const client = await getClient();
+      const { data, error } = await client.functions.invoke('hotels-stripe-connect', { body: { action: 'verify_platform_configuration' } });
+      if (error || !data || Object.keys(data).sort().join() !== 'account_connected,capability_enabled_by_this_request,configuration_verified,contract_version'
+          || data.contract_version !== 'hotels_standard_connect_server_v1' || data.configuration_verified !== true
+          || data.account_connected !== false || data.capability_enabled_by_this_request !== false) throw new Error('Configuration verification was not confirmed.');
+      // Independent authoritative reads, never an inferred local READY state.
+      const readiness = await getStripePlatformReadiness();
+      const lifecycle = await getCapabilityLifecycle();
+      const stripe = lifecycle.capabilities.find(row => row.key === 'stripe');
+      if (!readiness.ready || stripe.blocked_reasons.length !== 0) throw new Error('Fresh platform readiness was not confirmed.');
+      return { readiness, lifecycle };
+    } catch (_) {
+      throw new Error('Configuration verification or refresh failed. No automatic retry. Reload authoritative state before another decision.');
+    } finally { stripeVerificationPending = false; }
+  }
+
   function validatePartnerStripeAuthorization(value, partnerId) {
     const keys = value && Object.keys(value).sort().join();
     const accountPresent = keys === 'account_exists,account_status,contract_version,enabled,partner_id,platform_enabled,version';
@@ -1673,6 +1721,8 @@
     RPC,
     getClient,
     getCapabilityLifecycle,
+    getStripePlatformReadiness,
+    verifyStripePlatformConfiguration,
     getPartnerStripeAuthorization,
     setPartnerStripeAuthorization,
     setCapabilityLifecycle,
