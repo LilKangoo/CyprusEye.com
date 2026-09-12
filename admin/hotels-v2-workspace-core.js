@@ -460,7 +460,36 @@
       'hotel_instant_booking_enabled',
       'hotel_stripe_connect_enabled',
     ];
-    if (typeof normalized.feature_flags.hotel_external_sync_enabled !== 'boolean'
+    // 114487 is an explicitly selected read-only contract, never an inferred
+    // relaxation of the legacy permission editor/writer contract.
+    if (options.postStripeContentReadOnly === true) {
+      const source = asObject(value);
+      const expectedFlags = {
+        hotel_rooms_v2_enabled: true,
+        hotel_external_sync_enabled: true,
+        hotel_instant_booking_enabled: false,
+        hotel_stripe_connect_enabled: true,
+      };
+      if (options.contentReadOnly === true
+          || JSON.stringify(Object.keys(asObject(source.feature_flags)).sort()) !== JSON.stringify(Object.keys(expectedFlags).sort())
+          || Object.keys(expectedFlags).some((key) => source.feature_flags[key] !== expectedFlags[key])) {
+        throw new Error('Post-Stripe content read requires exact Rooms and External Calendar and Stripe ON, Instant Booking OFF.');
+      }
+      if (source.property?.id !== normalized.property.id
+          || !Array.isArray(source.assignments)
+          || ['snapshot_token', 'assignment_fingerprint', 'permissions_fingerprint'].some((key) => (
+            typeof source[key] !== 'string' || !/^[0-9a-f]{32}$/.test(source[key])
+          ))
+          || source.assignments.some((assignment) => (
+            !assignment || typeof assignment !== 'object' || Array.isArray(assignment)
+            || !normalizeUuid(assignment.assignment_id)
+            || assignment.hotel_id !== normalized.property.id
+            || !normalizeUuid(assignment.partner_id)
+            || assignment.partner?.id !== assignment.partner_id
+          ))) {
+        throw new Error('Post-Stripe content read requires exact assignment identities and fingerprint metadata.');
+      }
+    } else if (typeof normalized.feature_flags.hotel_external_sync_enabled !== 'boolean'
         || requiredOffFlags.some((key) => key === 'hotel_rooms_v2_enabled' && options.contentReadOnly === true
           ? typeof normalized.feature_flags[key] !== 'boolean' : normalized.feature_flags[key] !== false)) {
       throw new Error('Partner permissions require Rooms, Instant Booking and Stripe flags OFF plus an exact External Calendar boolean.');

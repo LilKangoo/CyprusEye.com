@@ -16,10 +16,11 @@ function functionBody(source: string, name: string, nextName: string): string {
 }
 
 describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
-  test('loads the frozen content-control client with a new cache generation', () => {
-    expect(repository).toContain("contentControl: 'hotel_v2_admin_get_content_control'");
+  test('loads the versioned post-Stripe content read while keeping legacy writers unchanged', () => {
+    expect(repository).toContain("contentControl: 'hotel_v2_admin_get_content_control_114487'");
     expect(repository).toContain("'architecture_version', 'assignment_snapshot', 'commercial_owner', 'contract_version'");
-    expect(repository).toContain("requiredOffFlags.some((key) => featureFlags[key] !== false)");
+    expect(repository).toContain("? featureFlags[key] !== (key !== 'hotel_instant_booking_enabled')");
+    expect(repository).toContain('postStripeRead ? { postStripeContentReadOnly: true } : { contentReadOnly: true }');
     expect(repository).toContain("applyPropertyControl: 'hotel_v2_admin_apply_property_control_plan'");
     expect(repository).toContain("applyRoomControl: 'hotel_v2_admin_apply_room_control_plan'");
     expect(repository).toContain("applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan'");

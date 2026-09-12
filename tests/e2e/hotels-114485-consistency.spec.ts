@@ -13,7 +13,13 @@ test('Admin successor content DTO and amenities Review stay read-only in Chromiu
   await page.evaluate(async({dto,id})=>{
     const w=window as any;w.calls=[];
     w.getSupabase=()=>({rpc:async(name:string)=>{w.calls.push(name);return{data:dto,error:null};}});
-    w.result=await w.HotelsV2WorkspaceRepository.getContentControl(id);
+    // 114485 is the frozen PRE-Stripe read contract; current Repository targets
+    // 114487 and must not silently accept an old DTO as its successor response.
+    w.result=w.HotelsV2WorkspaceCore.validatePartnerHotelPermissions(dto.assignment_snapshot,id,{contentReadOnly:true});
+    const stripeOn=structuredClone(dto.assignment_snapshot);
+    stripeOn.feature_flags.hotel_stripe_connect_enabled=true;
+    try { w.HotelsV2WorkspaceCore.validatePartnerHotelPermissions(stripeOn,id,{contentReadOnly:true}); throw Error('old contract accepted Stripe ON'); }
+    catch(error:any) { if(!error.message.includes('flags OFF')) throw error; }
     const property={id,title_i18n:{en:'7 Arches'},amenities:Array.from({length:19},(_,i)=>'amenity_'+i)};
     const proposal={id:'85000000-0000-4000-8000-000000000001',version:1,source_property_updated_at:dto.property_updated_at,
       content:{title_i18n:{en:'7 Arches TEST'},amenities:[...property.amenities].reverse()},photos:{}};
@@ -33,6 +39,6 @@ test('Admin successor content DTO and amenities Review stay read-only in Chromiu
     await expect(page.locator('tbody tr')).toHaveCount(2);
   }
   expect(await page.evaluate(()=>{const w=window as any;return{calls:w.calls,unchanged:JSON.stringify(w.property)===w.original,flags:w.result.feature_flags};})).toEqual({
-    calls:['hotel_v2_admin_get_content_control_114485'],unchanged:true,flags:dto.feature_flags,
+    calls:[],unchanged:true,flags:dto.feature_flags,
   });
 });

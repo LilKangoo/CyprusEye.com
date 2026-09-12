@@ -20,7 +20,7 @@
     applyPropertyControl: 'hotel_v2_admin_apply_property_control_plan',
     applyRoomControl: 'hotel_v2_admin_apply_room_control_plan',
     applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
-    contentControl: 'hotel_v2_admin_get_content_control_114485',
+    contentControl: 'hotel_v2_admin_get_content_control_114487',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
     shadowPreparationState: 'hotel_v2_admin_get_shadow_preparation_state_114483',
     prepareShadowRoomsSuccessor: 'hotel_v2_admin_prepare_shadow_rooms_successor',
@@ -565,7 +565,7 @@
     }
   }
 
-  function normalizeContentControl(payloadValue, hotelId) {
+  function normalizeContentControl(payloadValue, hotelId, options = {}) {
     const id = Core.normalizeUuid(hotelId);
     const payload = Core.asObject(payloadValue);
     const profile = Core.asObject(payload.operational_profile);
@@ -585,10 +585,11 @@
     const featureFlags = Core.asObject(payload.feature_flags);
     const commercialOwner = payload.commercial_owner == null ? null : Core.asObject(payload.commercial_owner);
     const ownerKeys = ['can_manage_hotels', 'name', 'partner_id', 'status'];
-    const requiredOffFlags = [
+    const requiredFlags = [
       'hotel_external_sync_enabled', 'hotel_instant_booking_enabled',
       'hotel_rooms_v2_enabled', 'hotel_stripe_connect_enabled',
     ];
+    const postStripeRead = options.postStripeContentReadOnly === true;
     const i18nFields = ['guest_instructions_i18n', 'check_in_instructions_i18n', 'check_out_instructions_i18n'];
     if (JSON.stringify(Object.keys(payload).sort()) !== JSON.stringify(envelopeKeys)
         || JSON.stringify(Object.keys(profile).sort()) !== JSON.stringify(profileKeys)
@@ -596,9 +597,11 @@
         || Core.normalizeUuid(payload.hotel_id) !== id
         || !String(payload.property_updated_at || '').trim()
         || !['legacy', 'rooms_v2'].includes(architectureVersion)
-        || JSON.stringify(Object.keys(featureFlags).sort()) !== JSON.stringify(requiredOffFlags)
-        || requiredOffFlags.some((key) => ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled'].includes(key)
-          ? typeof featureFlags[key] !== 'boolean' : featureFlags[key] !== false)
+        || JSON.stringify(Object.keys(featureFlags).sort()) !== JSON.stringify(requiredFlags)
+        || requiredFlags.some((key) => postStripeRead
+          ? featureFlags[key] !== (key !== 'hotel_instant_booking_enabled')
+          : ['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled'].includes(key)
+            ? typeof featureFlags[key] !== 'boolean' : featureFlags[key] !== false)
         || (commercialOwner != null && (
           JSON.stringify(Object.keys(commercialOwner).sort()) !== JSON.stringify(ownerKeys)
           || !Core.normalizeUuid(commercialOwner.partner_id)
@@ -621,11 +624,15 @@
     }
     // This successor is read-only. Permission mutation builders retain their
     // original fail-closed flag validation; no write capability is granted here.
-    const assignmentSnapshot = Core.validatePartnerHotelPermissions(payload.assignment_snapshot, id, { contentReadOnly: true });
+    const assignmentSnapshot = Core.validatePartnerHotelPermissions(payload.assignment_snapshot, id,
+      postStripeRead ? { postStripeContentReadOnly: true } : { contentReadOnly: true });
     if (assignmentSnapshot.property.architecture_version !== architectureVersion
         || assignmentSnapshot.property.updated_at !== String(payload.property_updated_at)
-        || requiredOffFlags.some((key) => assignmentSnapshot.feature_flags[key] !== featureFlags[key])) {
+        || requiredFlags.some((key) => assignmentSnapshot.feature_flags[key] !== featureFlags[key])) {
       throw new Error('Admin content control returned inconsistent architecture, flags or property snapshot values.');
+    }
+    if (postStripeRead) {
+      Core.normalizeOperationalAssignmentSnapshot({ ...payload, assignment_snapshot: assignmentSnapshot }, id);
     }
     return {
       ...Core.clone(payload),
@@ -654,7 +661,7 @@
     if (!id) throw new Error('A valid property ID is required.');
     return normalizeContentControl(await runRpc(RPC.contentControl, {
       p_hotel_id: id,
-    }, 'Load Admin property content control'), id);
+    }, 'Load Admin property content control'), id, { postStripeContentReadOnly: true });
   }
 
   async function applyWorkspacePlan(plan, correlationId) {

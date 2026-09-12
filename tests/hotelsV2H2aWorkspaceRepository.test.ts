@@ -85,12 +85,12 @@ describe('Hotels V2 H2A Property Workspace repository', () => {
         is_published: false, status: 'active',
       },
       feature_flags: {
-        hotel_rooms_v2_enabled: false, hotel_external_sync_enabled: false,
-        hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: false,
+        hotel_rooms_v2_enabled: true, hotel_external_sync_enabled: true,
+        hotel_instant_booking_enabled: false, hotel_stripe_connect_enabled: true,
       },
       capability_catalog: [...Core.HOTEL_PARTNER_CAPABILITIES],
-      assignment_fingerprint: 'assignment-fingerprint', permissions_fingerprint: 'permissions-fingerprint',
-      snapshot_token: 'snapshot-token', assignments: [],
+      assignment_fingerprint: 'a'.repeat(32), permissions_fingerprint: 'b'.repeat(32),
+      snapshot_token: 'c'.repeat(32), assignments: [],
     };
     const valid = {
       contract_version: 'hotels_v2_admin_b_content_control_v1', hotel_id: HOTEL_ID,

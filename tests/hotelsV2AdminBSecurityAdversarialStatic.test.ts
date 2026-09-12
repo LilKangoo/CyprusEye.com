@@ -89,7 +89,10 @@ describe('Hotels V2 ADMIN-B independent adversarial security contract', () => {
     expect(repository).toContain("JSON.stringify(Object.keys(payload).sort()) !== JSON.stringify(envelopeKeys)");
     expect(repository).toContain("JSON.stringify(Object.keys(profile).sort()) !== JSON.stringify(profileKeys)");
     expect(repository).toContain("payload.contract_version !== 'hotels_v2_admin_b_content_control_v1'");
-    expect(repository).toContain("requiredOffFlags.some((key) => featureFlags[key] !== false)");
+    expect(repository).toContain('const postStripeRead = options.postStripeContentReadOnly === true;');
+    expect(repository).toContain("? featureFlags[key] !== (key !== 'hotel_instant_booking_enabled')");
+    expect(repository).toContain('postStripeRead ? { postStripeContentReadOnly: true } : { contentReadOnly: true }');
+    expect(core).toContain('const snapshot = validatePartnerHotelPermissions(snapshotValue, options.hotelId);');
     expect(repository).toContain('assignmentSnapshot.property.updated_at !== String(payload.property_updated_at)');
     expect(repository).toContain('assignmentSnapshot.property.architecture_version !== architectureVersion');
   });

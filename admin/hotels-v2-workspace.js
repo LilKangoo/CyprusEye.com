@@ -10152,7 +10152,18 @@
     const assignments = assignmentControl?.assignments || [];
     const permissionSnapshot = state.partnerPermissions;
     const permissionsError = state.partnerPermissionsError;
-    const permissionSection = permissionsError
+    let postStripePermissionsLocked = false;
+    try {
+      if (assignmentControl && !state.capabilityLifecycleError) {
+        const lifecycle = Core.validateCapabilityLifecycle(state.capabilityLifecycle, state.contentControl.feature_flags, true);
+        postStripePermissionsLocked = lifecycle.feature_flags.hotel_rooms_v2_enabled === true
+          && lifecycle.feature_flags.hotel_external_sync_enabled === true
+          && lifecycle.feature_flags.hotel_stripe_connect_enabled === true;
+      }
+    } catch (_) { /* Unverified lifecycle evidence must not hide a load error. */ }
+    const permissionSection = postStripePermissionsLocked
+      ? '<section class="hotel-workspace-card" data-partner-permissions-locked><span class="hotel-workspace-eyebrow">Partner capabilities</span><h4>Partner capabilities locked after Stripe platform activation.</h4><p>Existing permissions remain unchanged. This legacy permission editor is not available in the active Stripe lifecycle.</p></section>'
+      : permissionsError
       ? `<section class="hotel-workspace-card hotel-placeholder-card hotel-property-empty--error"><span class="hotel-workspace-eyebrow">Partner capabilities</span><h4>Secure permission snapshot unavailable</h4><p>${escapeHtml(permissionsError.userMessage || permissionsError.message || 'Partner permissions could not be loaded.')}</p><button class="btn-secondary" type="button" data-retry-partner-permissions>Retry secure load</button></section>`
       : permissionSnapshot
         ? `<section class="hotel-workspace-card hotel-workspace-card--wide"><span class="hotel-workspace-eyebrow">Reviewed exact-assignment capabilities</span><h4>${permissionSnapshot.assignments.length} exact assignment${permissionSnapshot.assignments.length === 1 ? '' : 's'}</h4><p>Capabilities are denied by default and attach only to the selected existing assignment. They never create or reroute an assignment.</p>${permissionSnapshot.assignments.length ? `<div class="hotel-partner-permission-list">${permissionSnapshot.assignments.map((assignment) => {
@@ -10166,7 +10177,7 @@
         const partner = operationalAssignmentPartner(entry.partner_id, entry);
         return `<article><div><strong>${escapeHtml(partner.name)}</strong><small>${escapeHtml(partner.status)} · ${Number(entry.staff_scope_count || 0)} staff Hotel scope${Number(entry.staff_scope_count || 0) === 1 ? '' : 's'} · ${entry.permission_exists ? 'Capability row present' : 'All capabilities default OFF'}</small></div><button class="btn-secondary" type="button" data-remove-operational-assignment="${escapeAttr(entry.assignment_id)}">Review removal</button><details class="hotel-review-diagnostics"><summary>Assignment diagnostics</summary><code>${escapeHtml(entry.assignment_id)}</code><code>${escapeHtml(entry.partner_id)}</code></details></article>`;
       }).join('')}</div>` : '<div class="hotel-property-empty"><p>No operational Partner assignment.</p></div>') : `<p class="hotel-workspace-safety-note">${escapeHtml(state.contentControlError?.message || 'Apply the reviewed ADMIN-B content-control foundation before assignments can be managed.')}</p>`}<small>Commercial ownership is separate. Assignment saves are future-routing only and never rewrite historical fulfillment rows.</small></section>
-      ${permissionSection}${stripePartnerCards(permissionSnapshot?.assignments || [])}</div>`;
+      ${permissionSection}${stripePartnerCards(assignmentControl?.assignments || [])}</div>`;
     bindStripePartnerCards(panel);
     panel.querySelector('[data-retry-partner-permissions]')?.addEventListener('click', () => {
       void refreshPartnerPermissions().catch((error) => toast(error?.userMessage || error?.message, 'error'));
