@@ -17,6 +17,36 @@ const migration=readFileSync(new URL('../../supabase/migrations/20260811448700_h
 const pre=migration.match(/DO \$pre\$[\s\S]*?END \$pre\$;/)[0];
 const post=migration.match(/DO \$post\$[\s\S]*?END \$post\$;/)[0];
 let count=0;const pass=s=>{count++;console.log('PASS '+s);};
+const permissionsSourceSha='5800d0f35b7b4f289353946177e07daee7f6ce050009d457ba5fbac4f585d2ab';
+const permissionsCatalogSha='328994f274b80eec25d8e558915abf8f673ad560a459b54c99ef75682f41619e';
+// Exact catalog projection used by the accepted 114480/completion manuals.
+// A catalog SHA includes source/security metadata; it is never a prosrc SHA.
+const permissionsHashes=()=>JSON.parse(sql(`BEGIN;SET TRANSACTION READ ONLY;SET LOCAL search_path=pg_catalog,public;
+WITH metadata AS (
+ SELECT jsonb_build_object(
+  'signature',p.oid::regprocedure::text,'identity_arguments',pg_get_function_identity_arguments(p.oid),
+  'result',pg_get_function_result(p.oid),'language',l.lanname,'volatility',p.provolatile,
+  'definer',p.prosecdef,'owner',pg_get_userbyid(p.proowner),'configuration',p.proconfig,
+  'strict',p.proisstrict,'parallel',p.proparallel,'leakproof',p.proleakproof,'kind',p.prokind,
+  'returns_set',p.proretset,'source_sha',encode(sha256(convert_to(p.prosrc,'UTF8')),'hex'),
+  'acl',coalesce((SELECT jsonb_agg(jsonb_build_array(
+    CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
+    pg_get_userbyid(a.grantor),a.privilege_type,a.is_grantable)
+    ORDER BY CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,
+    pg_get_userbyid(a.grantor),a.privilege_type)
+    FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),
+  'effective',jsonb_build_array(has_function_privilege(0::oid,p.oid,'EXECUTE'),
+    has_function_privilege('anon',p.oid,'EXECUTE'),has_function_privilege('authenticated',p.oid,'EXECUTE'),
+    has_function_privilege('service_role',p.oid,'EXECUTE'))) AS value
+ FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
+ WHERE p.oid=to_regprocedure('public.hotel_v2_admin_get_partner_hotel_permissions(uuid)')
+)
+SELECT jsonb_build_object('source_sha',value->>'source_sha',
+ 'catalog_sha',encode(sha256(convert_to(value::text,'UTF8')),'hex')) FROM metadata;
+ROLLBACK;`));
+const expectedPermissionsHashes={source_sha:permissionsSourceSha,catalog_sha:permissionsCatalogSha};
+assert.deepEqual(permissionsHashes(),expectedPermissionsHashes);
+pass('real PostgreSQL proves permissions source 5800 and distinct metadata catalog 328994');
 const before=sql('SELECT hotels_stripe_dto_private.business_hash()');
 const allFunctions=sql("SELECT coalesce(jsonb_object_agg(p.oid::regprocedure::text,jsonb_build_array(pg_get_functiondef(p.oid),p.proacl::text) ORDER BY p.oid::regprocedure::text),'{}') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('public','hotels_lifecycle_private','hotel_stripe_connect_private') AND p.prokind='f'");
 const unchangedInventory=()=>sql(`SELECT jsonb_build_object('lifecycle', (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY version),'[]') FROM hotels_lifecycle_private.decisions d),'authorization',hotel_stripe_connect_private.authorization_state('0a321bfe-da6b-43f6-8e0b-7c68546a8b18'),'flags',hotels_lifecycle_private.safe_state())`);
@@ -24,6 +54,10 @@ const inventory=unchangedInventory();
 assert.equal(JSON.parse(inventory).flags.version,6,'exact production-shaped audited version6 fixture');
 assert.equal(JSON.parse(inventory).authorization.enabled,false,'Partner authorization remains OFF');
 const fail=(label,q,pattern)=>{const r=run('BEGIN;'+q+';ROLLBACK;');assert.notEqual(r.status,0,label);assert.match(r.stderr,pattern,label);assert.equal(sql('SELECT hotels_stripe_dto_private.business_hash()'),before,label+' rollback');pass(label);};
+assert.equal(pre.split(permissionsSourceSha).length-1,1);
+fail('catalog hash substituted for expected prosrc fails closed',
+ pre.replace(permissionsSourceSha,permissionsCatalogSha),/hotels_114487_predecessor_source_security_mismatch/);
+assert.deepEqual(permissionsHashes(),expectedPermissionsHashes,'failed guard never changes predecessor');
 fail('114486 history required',"DELETE FROM supabase_migrations.schema_migrations WHERE version='20260811448600';"+pre,/hotels_114487_boundary_mismatch/);
 fail('later history fails closed',"INSERT INTO supabase_migrations.schema_migrations VALUES('20260811448800');"+pre,/hotels_114487_boundary_mismatch/);
 for(const signature of ['public.hotel_v2_admin_get_content_control_114485(uuid)','public.hotel_v2_admin_get_stripe_platform_readiness_114486()']){
@@ -32,6 +66,8 @@ for(const signature of ['public.hotel_v2_admin_get_content_control_114485(uuid)'
  fail(signature+' volatility drift rejected',`ALTER FUNCTION ${signature} VOLATILE;`+pre,/hotels_114487_predecessor_source_security_mismatch/);
 }
 sql(migration);pass('114487 install passes exact real predecessor sources/security');
+assert.deepEqual(permissionsHashes(),expectedPermissionsHashes);
+pass('114487 installation preserves exact permissions source and metadata catalog hashes');
 assert.equal(sql('SELECT hotels_stripe_dto_private.business_hash()'),before);assert.equal(unchangedInventory(),inventory);pass('install zero business, lifecycle, authorization, account, permission mutation');
 assert.equal(sql(`SELECT coalesce(jsonb_object_agg(p.oid::regprocedure::text,jsonb_build_array(pg_get_functiondef(p.oid),p.proacl::text) ORDER BY p.oid::regprocedure::text),'{}') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('public','hotels_lifecycle_private','hotel_stripe_connect_private') AND p.prokind='f' AND p.oid<>'${rpc}(uuid)'::regprocedure`),allFunctions);pass('every predecessor function/writer body, configuration and ACL unchanged');
 fail('migration replay rejected',pre,/hotels_114487_boundary_mismatch/);
