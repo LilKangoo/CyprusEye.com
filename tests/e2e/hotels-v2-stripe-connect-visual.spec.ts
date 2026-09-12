@@ -212,7 +212,14 @@ test('begin navigates exactly once to an entirely mocked Stripe destination', as
   expect(navigations).toEqual([authorizationUrl]);
 });
 
-type PartnerGate = { authorized: boolean; platform: boolean; ready: boolean; status?: StripeState };
+type Attestation = 'MISSING' | 'NOT_READY' | 'STALE' | 'READY';
+type PartnerGate = { authorized: boolean; platform: boolean; ready: boolean; status?: StripeState; attestation?: Attestation };
+const partnerStripeCopy = {
+  en: { open: 'Open Stripe Connect', stale: 'Platform verification expired' },
+  pl: { open: 'Otwórz Stripe Connect', stale: 'Weryfikacja platformy wygasła' },
+  he: { open: 'פתיחת Stripe Connect', stale: 'תוקף אימות הפלטפורמה פג' },
+};
+
 async function setPartnerStripeGate(page: Page, gate: PartnerGate) {
   await page.evaluate(async ({ gate, partnerId, hotelId, assignmentId }) => {
     const root = window as any;
@@ -226,52 +233,234 @@ async function setPartnerStripeGate(page: Page, gate: PartnerGate) {
     workspace.stripe_connection = { contract_version: 'hotels_partner_stripe_capability_v1', partner_id: partnerId,
       hotel_id: hotelId, platform_enabled: gate.platform, onboarding_authorized: gate.authorized,
       account_status: status, checked_at: status === 'NOT_CONNECTED' ? null : '2026-09-07T10:00:00Z',
-      platform_ready: gate.ready, attestation_status: gate.ready ? 'READY' : 'NOT_READY',
+      platform_ready: gate.ready, attestation_status: gate.attestation || (gate.ready ? 'READY' : 'NOT_READY'),
       can_connect: gate.platform && gate.authorized && ['NOT_CONNECTED', 'ONBOARDING_INCOMPLETE'].includes(status) };
     await root.HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
   }, { gate, partnerId: PARTNER_ID, hotelId: HOTEL_ID, assignmentId: ASSIGNMENT_ID });
   await navigatePartner(page, 'payments');
 }
 
-for (const [size, viewport, language] of [['desktop', DESKTOP, 'en'], ['mobile', MOBILE, 'he']] as const) {
-  test(`Partner purple Stripe tile preserves the original scoped URL ${size}`, async ({ page, baseURL }, testInfo) => {
-    await installOfflineRoutes(page, baseURL!);
-    await installPartnerHarness(page, viewport, language, { commercialOwnerPreset: true });
-    await setPartnerStripeGate(page, { authorized: true, platform: true, ready: true });
-    const link = page.locator('[data-phw-stripe-connection]');
-    await expect(link).toBeVisible();
-    await expect(link).toHaveClass(/\bpartner-stripe-tile\b/);
-    await expect(link).toHaveAttribute('href', `/partners/stripe-connect.html?${SCOPE}&lang=${language}`);
-    const styles = await link.evaluate(node => {
-      const style = getComputedStyle(node);
-      return { background: style.backgroundColor, image: style.backgroundImage, height: node.getBoundingClientRect().height };
-    });
-    expect(styles.background !== 'rgba(0, 0, 0, 0)' || styles.image !== 'none', 'Stripe tile has a visible colored surface').toBe(true);
-    expect(styles.height).toBeGreaterThanOrEqual(44);
-    await link.focus();
-    await expect(link).toBeFocused();
-    await expectNoHorizontalOverflow(page);
-    expect(await page.evaluate(() => (window as any).__h32b.rpcCalls.some((call: any) => /preview|apply|submit|create_booking/.test(call.name)))).toBe(false);
-    await page.screenshot({ path: testInfo.outputPath(`partner-stripe-tile-${size}.png`), fullPage: true });
-  });
+async function expectPartnerStripeReadOnly(page: Page) {
+  expect(await page.evaluate(() => (window as any).__h32b.rpcCalls
+    .filter((call: any) => /preview|apply|submit|create_booking/.test(call.name)))).toEqual([]);
+  await expect(page.locator('[data-phw-existing-flow="payments"]')).toHaveCount(0);
+  await expect(page.locator('a[href*="connect.stripe.com"], a[href*="oauth"]')).toHaveCount(0);
 }
 
-test('Partner Stripe tile stays absent for authorization, global, readiness and account gates', async ({ page, baseURL }) => {
+for (const [size, viewport] of Object.entries({ desktop: DESKTOP, mobile: MOBILE })) {
+  for (const language of ['en', 'pl', 'he'] as Language[]) {
+    for (const attestation of ['STALE', 'READY'] as const) {
+      test(`Partner Payments Stripe card ${attestation} ${size} ${language} preserves evidence and action gates`, async ({ page, baseURL }, testInfo) => {
+        await installOfflineRoutes(page, baseURL!);
+        await installPartnerHarness(page, viewport, language, { commercialOwnerPreset: true });
+        await setPartnerStripeGate(page, { authorized: true, platform: true, ready: attestation === 'READY', attestation });
+        const card = page.locator('article[data-phw-stripe-lifecycle]');
+        await expect(card).toBeVisible();
+        await expect(card).toHaveClass(/\bpartner-stripe-tile\b/);
+        await expect(card.getByRole('heading', { level: 3 })).toHaveText('Stripe Connect');
+        await expect(card.locator('dl dd')).toHaveText(['Authorized', 'ON', 'NOT_CONNECTED', attestation]);
+        await expect(card).toHaveAttribute('data-stripe-state', attestation === 'READY' ? 'READY_TO_CONNECT' : 'PLATFORM_NOT_READY');
+        const logo = card.locator('img.partner-stripe-logo');
+        await expect(logo).toBeVisible();
+        await expect(logo).toHaveAttribute('src', '/assets/stripe-wordmark.svg');
+        await expect(logo).toHaveAttribute('alt', 'Stripe');
+        await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+        const styles = await card.evaluate(node => {
+          const style = getComputedStyle(node);
+          return { image: style.backgroundImage, direction: style.direction, fits: node.scrollWidth <= node.clientWidth + 1 };
+        });
+        expect(styles.image).toContain('linear-gradient(');
+        expect(styles.image).toContain('rgb(99, 91, 255)');
+        expect(styles.direction).toBe(language === 'he' ? 'rtl' : 'ltr');
+        expect(styles.fits, 'The entire lifecycle card fits without clipped evidence').toBe(true);
+        const active = card.locator('a[data-phw-stripe-connection]');
+        const disabled = card.locator('button[data-phw-stripe-connection-disabled]');
+        const action = attestation === 'READY' ? active : disabled;
+        await expect(action).toHaveClass(/\bpartner-stripe-tile__action\b/);
+        await expect(action).toHaveAccessibleName(partnerStripeCopy[language].open);
+        if (attestation === 'READY') {
+          await expect(active).toHaveAttribute('href', `/partners/stripe-connect?${SCOPE}&lang=${language}`);
+          await expect(disabled).toHaveCount(0);
+          await active.focus();
+          await expect(active).toBeFocused();
+        } else {
+          await expect(card).toContainText(partnerStripeCopy[language].stale);
+          await expect(active).toHaveCount(0);
+          await expect(disabled).toBeDisabled();
+          await expect(disabled).not.toHaveAttribute('href');
+          // Native disabled activation cannot navigate or dispatch the legacy flow.
+          const beforeUrl = page.url();
+          await disabled.evaluate((button: HTMLButtonElement) => button.click());
+          expect(page.url()).toBe(beforeUrl);
+          expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(0);
+        }
+        if (size === 'mobile') {
+          // Locator screenshots can place the crop behind fixed navigation.
+          // Scroll the real page, retaining the footer and all production CSS.
+          await card.evaluate(node => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+          const footerBox = await page.locator('.phw-mobile-nav:visible').boundingBox();
+          const cardBox = await card.boundingBox();
+          expect(cardBox!.y, 'The full card is in the visible viewport').toBeGreaterThanOrEqual(0);
+          expect(cardBox!.y + cardBox!.height, 'The full card clears the fixed mobile navigation').toBeLessThanOrEqual(footerBox!.y);
+          expect(await action.evaluate(node => {
+            const rect = node.getBoundingClientRect();
+            return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+          }), 'The mobile CTA is not covered by another element').toBe(true);
+          if (attestation === 'READY') await active.click({ trial: true });
+        }
+        const box = await action.boundingBox();
+        expect(box!.height, 'The single explicit CTA remains a usable touch target').toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+        await expectNoHorizontalOverflow(page);
+        await expectPartnerStripeReadOnly(page);
+        await card.screenshot({ path: testInfo.outputPath(`partner-payments-stripe-${attestation.toLowerCase()}-${size}-${language}.png`) });
+      });
+    }
+  }
+}
+
+test('Partner Stripe branding follows authorization and platform gates while readiness and account gates keep actions unavailable', async ({ page, baseURL }) => {
   await installOfflineRoutes(page, baseURL!);
   await installPartnerHarness(page, DESKTOP, 'en', { commercialOwnerPreset: true });
   for (const gate of [
     { authorized: false, platform: true, ready: true },
     { authorized: true, platform: false, ready: true },
-    { authorized: true, platform: true, ready: false },
+    ...(['MISSING', 'NOT_READY', 'STALE'] as Attestation[]).map(attestation => ({ authorized: true, platform: true, ready: false, attestation })),
     ...(['CONNECTED', 'RESTRICTED', 'ACTION_REQUIRED', 'DISABLED'] as StripeState[]).map(status => ({ authorized: true, platform: true, ready: true, status })),
-  ]) {
+  ] satisfies PartnerGate[]) {
     await setPartnerStripeGate(page, gate);
-    await expect(page.locator('[data-phw-stripe-lifecycle]')).toBeVisible();
+    const card = page.locator('article[data-phw-stripe-lifecycle]');
+    await expect(card).toBeVisible();
     await expect(page.locator('[data-phw-stripe-connection]')).toHaveCount(0);
-    await expect(page.locator('.partner-stripe-tile')).toHaveCount(0);
+    if (gate.authorized && gate.platform) {
+      await expect(card).toHaveClass(/\bpartner-stripe-tile\b/);
+      await expect(card.locator('img.partner-stripe-logo')).toBeVisible();
+      await expect(card.locator('[data-phw-stripe-connection-disabled]')).toBeDisabled();
+    } else {
+      await expect(card).not.toHaveClass(/\bpartner-stripe-tile\b/);
+      await expect(card.locator('[data-phw-stripe-connection-disabled]')).toHaveCount(0);
+    }
+    await expectPartnerStripeReadOnly(page);
   }
   await setPartnerStripeGate(page, { authorized: true, platform: true, ready: true, status: 'ONBOARDING_INCOMPLETE' });
   await expect(page.locator('[data-phw-stripe-connection]')).toBeVisible();
-  await expect(page.locator('[data-phw-stripe-connection]')).toHaveAttribute('href', `/partners/stripe-connect.html?${SCOPE}&lang=en`);
-  expect(await page.evaluate(() => (window as any).__h32b.rpcCalls.some((call: any) => /preview|apply|submit|create_booking/.test(call.name)))).toBe(false);
+  await expect(page.locator('[data-phw-stripe-connection]')).toHaveAttribute('href', `/partners/stripe-connect?${SCOPE}&lang=en`);
+  await expectPartnerStripeReadOnly(page);
+});
+
+test('READY Payments CTA opens the dark Stripe page with verified workspace scope and a mocked status read only', async ({ page, baseURL }) => {
+  const { calls } = await mockConnect(page, 'NOT_CONNECTED', baseURL!);
+  await installPartnerHarness(page, DESKTOP, 'en', { commercialOwnerPreset: true });
+  // URL identifiers are untrusted: the CTA must use the validated workspace.
+  await page.evaluate(() => history.replaceState(null, '', `${location.pathname}?partner=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&hotel=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`));
+  await setPartnerStripeGate(page, { authorized: true, platform: true, ready: true, attestation: 'READY' });
+  const link = page.locator('article.partner-stripe-tile a[data-phw-stripe-connection]');
+  await expect(link).toHaveAttribute('href', `/partners/stripe-connect?${SCOPE}&lang=en`);
+  expect(calls).toEqual([]);
+  await expectPartnerStripeReadOnly(page);
+  await link.click();
+  await expect(page).toHaveURL(`${new URL(baseURL!).origin}/partners/stripe-connect?${SCOPE}&lang=en`);
+  await expect(page.locator('body')).toHaveClass(/\bpartner-stripe-page\b/);
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(9, 13, 24)');
+  await expect(page.locator('[data-stripe-status]')).toHaveAttribute('data-state', 'NOT_CONNECTED');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Stripe connection');
+  expect(calls).toEqual([{ action: 'status', partner_id: PARTNER_ID, hotel_id: HOTEL_ID }]);
+});
+
+for (const withPaymentRow of [false, true]) {
+  test(`Payments never exposes the generic legacy placeholder when full management is advertised, rows=${withPaymentRow}`, async ({ page, baseURL }) => {
+    await installOfflineRoutes(page, baseURL!);
+    await installPartnerHarness(page, DESKTOP, 'en', { commercialOwnerPreset: true });
+    await page.evaluate(({ withPaymentRow }) => {
+      const root = window as any;
+      const help = root.HotelsV2WorkspaceHelp;
+      // Inject only the read-presentation boundary, retaining its real validator.
+      // This covers a future payment-row response without enabling real payments.
+      root.HotelsV2WorkspaceHelp = { ...help, presentationFromAvailability: (options: any) => {
+        const presentation = help.validatePresentation({
+          contract_version: help.PRESENTATION_CONTRACT, scope: 'partner', hotel_id: options.hotelId,
+          generated_at: '2026-09-07T10:00:00Z',
+          capabilities: { bookings_visible: true, payments_visible: true, full_booking_management: true, full_payment_management: true },
+          summary: { total_bookings: withPaymentRow ? 1 : 0, upcoming_bookings: null, current_recent_bookings: null },
+          bookings: withPaymentRow ? [{
+            booking_id: '77777777-7777-4777-8777-777777777777', reference: 'OFFLINE-PAYMENT-1', status: 'confirmed',
+            arrival_date: '2026-09-20', departure_date: '2026-09-22', guest_count: 2,
+            allocation: [], customer_total: 240, currency: 'EUR',
+            payment: { state: 'paid', paid: 240, remaining: 0, cypruseye_commission: 20, partner_net: 220, currency: 'EUR' },
+          }] : [],
+        }, { hotelId: options.hotelId, scope: 'partner' });
+        root.__h32b.paymentPresentation = presentation;
+        return presentation;
+      } };
+    }, { withPaymentRow });
+    await setPartnerStripeGate(page, { authorized: true, platform: true, ready: false, attestation: 'STALE' });
+    const payments = page.locator('[data-phw-panel="payments"]');
+    await expect(payments).toBeVisible();
+    await expect(payments.locator('[data-booking-id]')).toHaveCount(withPaymentRow ? 1 : 0);
+    if (withPaymentRow) await expect(payments).toContainText('OFFLINE-PAYMENT-1');
+    else await expect(payments.locator('.phw-module-empty')).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__h32b.paymentPresentation.capabilities.full_payment_management)).toBe(true);
+    await expect(payments.locator('[data-phw-stripe-connection-disabled]')).toBeDisabled();
+    await expectPartnerStripeReadOnly(page);
+    // The unrelated legacy Bookings action remains intact.
+    await navigatePartner(page, 'bookings');
+    await page.locator('[data-phw-panel="bookings"] [data-phw-existing-flow="bookings"]').click();
+    expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(1);
+    await expectPartnerStripeReadOnly(page);
+  });
+}
+
+test('optional reviewed-pricing RPC timeout 57014 does not prevent the STALE Stripe Payments card rendering', async ({ page, baseURL }) => {
+  await installOfflineRoutes(page, baseURL!);
+  await installPartnerHarness(page, DESKTOP, 'en', { commercialOwnerPreset: true });
+  await page.evaluate(() => {
+    const root = window as any;
+    const workspace = root.__h32b.workspace;
+    const room = workspace.rooms[0];
+    const rate = workspace.pricing.room_rates[0];
+    const schedule = workspace.pricing.schedules[0];
+    const identities = [
+      { room: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94', rate: '7e420964-9cbf-4f1b-abd3-09840af5240f', schedule: 'aec20731-7a56-35f0-334e-92b363351f02' },
+      { room: '825c01b7-9f82-492a-9c81-9b1d5cd7acd3', rate: '3320590d-632d-423f-80d0-fd021cba7293', schedule: '9d109336-64f3-3c57-4684-968b59c94c3b' },
+    ];
+    // A complete validated target is required to reach the real optional RPC;
+    // no Core readiness or workspace validation is bypassed for this regression.
+    workspace.rooms = identities.map((identity, index) => ({ ...room, id: identity.room, code: `reviewed-room-${index}` }));
+    workspace.pricing.room_rates = identities.map(identity => ({ ...rate, id: identity.rate, room_type_id: identity.room,
+      pricing_schedule_id: identity.schedule, pricing_source: 'schedule', base_nightly_rate_authoritative: false, is_active: true }));
+    workspace.pricing.schedules = identities.map((identity, index) => ({ ...schedule, id: identity.schedule,
+      code: `reviewed-schedule-${index}`, application_scope: 'room_occupancy', sharing_mode: 'independent',
+      maximum_party_size: 4, minimum_billable_occupancy: 2, is_active: true, review_status: 'reviewed' }));
+    let sequence = 1;
+    workspace.pricing.schedule_tiers = identities.flatMap(identity => [2, 3, 4].flatMap(guestCount =>
+      Array.from({ length: 9 }, (_, index) => ({
+        id: `10000000-0000-4000-8000-${String(sequence++).padStart(12, '0')}`, schedule_id: identity.schedule,
+        guest_count: guestCount, threshold_nights: index + 2, nightly_rate: 100 + guestCount + index,
+        is_active: true, version: 1, updated_at: '2026-09-07T10:00:00Z',
+      }))));
+    workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
+    const getClient = root.getSupabase;
+    root.getSupabase = () => ({ ...getClient(), rpc: async (name: string, params: any) => {
+      if (name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing') {
+        root.__h32b.rpcCalls.push({ name, params });
+        return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout private-timeout-detail' } };
+      }
+      return getClient().rpc(name, params);
+    } });
+  });
+  await setPartnerStripeGate(page, { authorized: true, platform: true, ready: false, attestation: 'STALE' });
+  await expect(page.locator('[data-phw-panel="payments"]')).toBeVisible();
+  const card = page.locator('article.partner-stripe-tile[data-phw-stripe-lifecycle]');
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Platform verification expired');
+  await expect(card.locator('dl dd')).toHaveText(['Authorized', 'ON', 'NOT_CONNECTED', 'STALE']);
+  await expect(card.locator('[data-phw-stripe-connection-disabled]')).toBeDisabled();
+  await expect(card.locator('[data-phw-stripe-connection]')).toHaveCount(0);
+  await expect(page.locator('#partnerHotelWorkspaceView')).not.toContainText('private-timeout-detail');
+  await expect(page.locator('[data-phw-lifecycle]')).toContainText('Exact reviewed pricing control is unavailable');
+  const pricingCalls = await page.evaluate(() => (window as any).__h32b.rpcCalls
+    .filter((call: any) => call.name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing'));
+  expect(pricingCalls).toEqual([{ name: 'hotel_v2_partner_get_seven_arches_reviewed_pricing', params: { p_partner_id: PARTNER_ID, p_hotel_id: HOTEL_ID } }]);
+  await expectPartnerStripeReadOnly(page);
 });
