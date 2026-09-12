@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { JWT_SECRET, TOKENS } from './hotels-v2-h3-2a-partner-access-auth.mjs';
 
 // Real local PostgREST, no SQL-only timeout emulation. Two preinstalled,
@@ -60,6 +60,66 @@ function prepareHistoricalReview(db) {
     end$$;
     reset role; ${saved} commit;`);
 }
+function canonicalForwardChain() {
+  // Separate evidence: the historical browser databases above are NOT the
+  // canonical successor fixture. Its sealed receipts require the authoritative
+  // predecessor, qualified snapshot seam and audited permission v1 -> v2.
+  const endpoint = new URL(databases[1]);
+  assert.equal(endpoint.port, '55507');
+  assert.equal(endpoint.searchParams.get('host'), '/private/tmp/hotels-114407-isolated-socket');
+  const maintenance = new URL(endpoint); maintenance.pathname = '/postgres';
+  const database = `hotels_114416_successor_timeout_${process.pid}`;
+  endpoint.pathname = `/${database}`;
+  assert.equal(sql(maintenance.href, `select count(*) from pg_database where datname='${database}';`), '0');
+  assert.equal(sql(maintenance.href, "select current_setting('port');"), '55507');
+  const runCanonical = (filename, mode) => {
+    const gateUrl = new URL(filename, import.meta.url);
+    let source = readFileSync(gateUrl, 'utf8');
+    // These existing gates assert 55479. Adapt only their local endpoint and
+    // module location in memory; never edit the canonical fixture or migrations.
+    assert.equal(source.split('55479').length - 1, 2, 'Canonical local port assertions changed');
+    source = source.replaceAll('55479', '55507')
+      .replaceAll('import.meta.url', JSON.stringify(gateUrl.href))
+      .replace(/from '(\.\/[^']+)'/g, (_, path) => `from '${new URL(path, gateUrl).href}'`);
+    if (filename === 'hotels-v2-lineage-successor-forward-gate.mjs') {
+      const read = "const original=readFileSync(path,'utf8');";
+      assert.equal(source.split(read).length - 1, 1);
+      source = source.replace(read, `const fixtureSource=readFileSync(path,'utf8');
+assert.equal(fixtureSource.split('inet_server_port()<>55479').length-1,1);
+const original=fixtureSource.replace('inet_server_port()<>55479','inet_server_port()<>55507');`);
+    }
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+      `process.argv=[process.execPath,${JSON.stringify(gateUrl.pathname)},${JSON.stringify(mode)}];\n${source}`],
+      { env: { ...process.env, HOTELS_REMAINING_AUTHORITATIVE_PREDECESSOR: '1',
+        HOTELS_RECONCILIATION_DB: database, HOTELS_RECONCILIATION_PSQL: psql,
+        HOTELS_SUCCESSOR_EXACT_MATRIX: '1' }, encoding: 'utf8', maxBuffer: 32e6 });
+    assert.equal(result.status, 0, `${filename}:${mode}\n${result.stderr}\n${result.stdout}`);
+    const matrices = result.stdout.split('\n').filter(line => line.startsWith('STAGE_MATRIX='))
+      .map(line => JSON.parse(line.slice('STAGE_MATRIX='.length)));
+    return { gate: filename, mode, result: 'PASS', matrices };
+  };
+  const reconciliation = 'hotels-v2-seven-arches-lineage-reconciliation-gate.mjs';
+  const successor = 'hotels-v2-lineage-successor-forward-gate.mjs';
+  sql(maintenance.href, `create database ${database} template template0;`);
+  try {
+    const sequence = [];
+    sequence.push(runCanonical(reconciliation, 'baseline0external'));
+    sequence.push(runCanonical(reconciliation, 'fixture'));
+    sequence.push(runCanonical(successor, 'prelude'));
+    sequence.push(runCanonical(reconciliation, 'probe'));
+    sequence.push(runCanonical(successor, 'matrix416'));
+    sequence.push(runCanonical(successor, 'afterPrelude'));
+    sequence.push(runCanonical(successor, '450'));
+    const matrices = sequence.flatMap(step => step.matrices);
+    assert.deepEqual(matrices.map(matrix => matrix.stage), [114416, 114420, 114425, 114450]);
+    sql(endpoint.href, readFileSync('supabase/manual/hotels_v2_external_calendar_provider_types_verify.sql', 'utf8'));
+    return { fixture: 'separate_canonical_successor_database', historical_browser_database: false,
+      database, sequence, final_provider_verifier: 'PASS' };
+  } finally {
+    // Only this newly created database; no FORCE and no session termination.
+    sql(maintenance.href, `drop database ${database};`);
+  }
+}
 try {
   for (let i = 0; i < databases.length; i++) {
     const db = databases[i];
@@ -116,35 +176,17 @@ try {
       const closed=once(server,'close'); server.kill('SIGTERM'); await closed;
       sql(db,'drop schema timeout_probe cascade;');
     }
-    if (i===1 && process.env.HOTELS_114407_FORWARD_CHAIN==='1') {
-      const forward=[];
-      for (const version of ['114410','114415','114420','114425','114450']) {
-        if(version==='114420') {
-          // The reduced base fixture omits general booking/coupon infrastructure.
-          // Reuse its column expansion, but install the REAL committed coupon
-          // function, not the existing gate's unrelated coupon-test stand-in.
-          const fixture=readFileSync('tests/integration/hotels-v2-seven-arches-application-pricing-bridge-postgres-gate.sql','utf8');
-          sql(db,fixture.slice(fixture.indexOf('alter table public.hotel_bookings'),
-            fixture.indexOf('-- The focused accepted-chain fixture')));
-          const source=readFileSync('supabase/migrations/124_service_coupon_quote_and_booking_enforcement.sql','utf8');
-          const start=source.indexOf('CREATE OR REPLACE FUNCTION public.service_coupon_quote(');
-          sql(db,source.slice(start,source.indexOf('$$;',start)+3));
-        }
-        const files=readdirSync('supabase/migrations').filter(f=>f.startsWith(`202608${version}00_`));
-        assert.equal(files.length,1);
-        sql(db,readFileSync(`supabase/migrations/${files[0]}`,'utf8'));
-        assert.equal(sql(db,'select public.hotel_v2_seven_arches_pricing_activation_current_is_safe();'),'t');
-        forward.push({version,current_safe:true,embedded_installation_checks:'PASS'});
-      }
-      sql(db,readFileSync('supabase/manual/hotels_v2_external_calendar_provider_types_verify.sql','utf8'));
-      results[i].forward_chain=forward;
-      results[i].final_provider_verifier='PASS';
-    }
   }
+  // Finish the historical API timeout experiment before running the independent
+  // canonical successor gates, which must see the pristine fixture role state.
+  sql(databases[0], 'alter role authenticated reset statement_timeout;');
+  assert.equal(sql(databases[0], "select coalesce(rolconfig::text,'NULL') from pg_roles where rolname='authenticated';"), roleBefore);
+  const forward_chain = process.env.HOTELS_114407_FORWARD_CHAIN === '1' ? canonicalForwardChain() : null;
+  assert.equal(sql(databases[0], "select coalesce(rolconfig::text,'NULL') from pg_roles where rolname='authenticated';"), roleBefore);
   console.log(JSON.stringify({postgrest:spawnSync(postgrest,['--version'],{encoding:'utf8'}).stdout.trim(),
     db_hoisted_tx_settings:'statement_timeout,plan_filter.statement_cost_limit,default_transaction_isolation',
     function_only_timeout_effective:true,global_auth_timeout_unchanged:true,
-    real_apply_baseline_timeout_reproduced:false,results},null,2));
+    real_apply_baseline_timeout_reproduced:false,results,forward_chain},null,2));
 } finally {
   // The pre-existing fixture has no role settings; don't generalize restoration.
   sql(databases[0],'alter role authenticated reset statement_timeout;');

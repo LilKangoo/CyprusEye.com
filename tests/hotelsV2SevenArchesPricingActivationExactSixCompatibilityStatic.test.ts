@@ -44,6 +44,9 @@ const forwardChain = read(
 const browserRoundTrip = read(
   'tests/integration/hotels-v2-seven-arches-pricing-activation-browser-roundtrip-postgrest-gate.mjs',
 );
+const timeoutGate = read(
+  'tests/integration/hotels-v2-seven-arches-pricing-activation-timeout-postgrest-gate.mjs',
+);
 const independentPricing = read(
   'supabase/migrations/20260811441000_hotels_v2_seven_arches_independent_pricing_evolution.sql',
 );
@@ -320,6 +323,52 @@ describe('Hotels V2 7 Arches scoped live-baseline pricing compatibility', () => 
     expect(migration114405).not.toContain(
       'hotel_v2_seven_arches_pricing_activation_canonical_json',
     );
+  });
+
+  test('uses the canonical successor fixture separately from historical browser timeout experiments', () => {
+    const steps = [
+      "runCanonical(reconciliation, 'baseline0external')",
+      "runCanonical(reconciliation, 'fixture')",
+      "runCanonical(successor, 'prelude')",
+      "runCanonical(reconciliation, 'probe')",
+      "runCanonical(successor, 'matrix416')",
+      "runCanonical(successor, 'afterPrelude')",
+      "runCanonical(successor, '450')",
+    ];
+    let previous = -1;
+    for (const step of steps) {
+      expect(timeoutGate.split(step)).toHaveLength(2);
+      const position = timeoutGate.indexOf(step);
+      expect(position).toBeGreaterThan(previous);
+      previous = position;
+    }
+    for (const marker of [
+      "HOTELS_REMAINING_AUTHORITATIVE_PREDECESSOR: '1'",
+      "HOTELS_SUCCESSOR_EXACT_MATRIX: '1'",
+      'HOTELS_RECONCILIATION_DB: database',
+      "assert.equal(endpoint.port, '55507')",
+      "fixtureSource.split('inet_server_port()<>55479').length-1,1",
+      "fixtureSource.replace('inet_server_port()<>55479','inet_server_port()<>55507')",
+      "source.split('55479').length - 1, 2",
+      "JSON.stringify(gateUrl.href)",
+      "new URL(path, gateUrl).href",
+      "process.argv=[process.execPath,",
+      'create database ${database} template template0;',
+      'drop database ${database};',
+      'historical_browser_database: false',
+      'assert.deepEqual(matrices.map(matrix => matrix.stage), [114416, 114420, 114425, 114450])',
+      'hotels_v2_external_calendar_provider_types_verify.sql',
+      "['control','exempt','control']",
+      "assert.equal(body.code,'57014')",
+      "assert.equal(body,'1min')",
+      'hotels-v2-seven-arches-pricing-activation-browser-roundtrip-postgrest-gate.mjs',
+      'alter role authenticated reset statement_timeout;',
+      "server.kill('SIGTERM')",
+      'real_apply_baseline_timeout_reproduced:false',
+    ]) expect(timeoutGate).toContain(marker);
+    expect(timeoutGate).not.toContain("['114410','114415','114420','114425','114450']");
+    expect(timeoutGate).not.toContain('124_service_coupon_quote_and_booking_enforcement.sql');
+    expect(timeoutGate).not.toMatch(/drop database.*(?:force|if exists)/i);
   });
 
   test('installs one exact Apply-only timeout exemption without changing the Apply body or global roles', () => {
