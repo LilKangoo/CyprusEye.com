@@ -1,10 +1,58 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer"><title>Stripe connection · CyprusEye Partner</title>
-<link rel="stylesheet" href="/partners/hotels-v2-workspace.css">
-</head><body><main class="partner-hotel-workspace__panel" data-stripe-connect>
-<h1>Stripe connection</h1><p data-copy="explanation"></p><p role="status" data-stripe-status>—</p>
-<button type="button" data-stripe-begin hidden>Connect Stripe</button>
-<button type="button" data-stripe-refresh hidden>Refresh status</button>
-<p data-copy="routing"></p><a href="/partners/">Back to Partner portal</a>
-</main><script type="module" src="/js/hotels-stripe-connect-page.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#090d18">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Stripe connection · CyprusEye Partner</title>
+  <link rel="icon" href="/assets/cyprus_logo-128.png" type="image/png">
+  <link rel="stylesheet" href="/partners/hotels-v2-workspace.css">
+</head>
+<body class="partner-stripe-page">
+  <header class="partner-stripe-topbar">
+    <div class="phw-brand"><span class="phw-brand-mark" aria-hidden="true">C</span><span>CyprusEye<small data-copy="portal">Partner portal</small></span></div>
+    <a class="partner-stripe-back" href="/partners/">Back to Partner portal</a>
+  </header>
+  <main class="partner-stripe-main" data-stripe-connect>
+    <header class="partner-stripe-heading">
+      <p class="partner-stripe-eyebrow" data-copy="payments">Payments · Stripe Connect</p>
+      <h1>Stripe connection</h1>
+      <p data-copy="explanation">Connect your own Stripe account with full Stripe Dashboard access. One account is shared by all Hotels of your Partner business.</p>
+    </header>
+    <div class="partner-stripe-grid">
+      <section class="partner-stripe-account" aria-labelledby="stripe-account-title">
+        <div class="partner-stripe-account__brand">
+          <img class="partner-stripe-logo" src="/assets/stripe-wordmark.svg" width="100" height="42" alt="Stripe">
+          <span data-copy="accountType">Partner account</span>
+        </div>
+        <div class="partner-stripe-account__body">
+          <h2 id="stripe-account-title" data-copy="accountTitle">Your Stripe connection</h2>
+          <p class="partner-stripe-status-label" data-copy="statusLabel">Current account status</p>
+          <p class="partner-stripe-status" role="status" aria-live="polite" aria-atomic="true" data-stripe-status>—</p>
+          <p class="partner-stripe-status-note" data-copy="statusNote">Connection status is verified by the server. Use refresh to check for updates.</p>
+          <div class="partner-stripe-actions">
+            <button class="partner-stripe-button partner-stripe-button--primary" type="button" data-stripe-begin hidden>Connect Stripe</button>
+            <button class="partner-stripe-button" type="button" data-stripe-refresh hidden>Refresh status</button>
+          </div>
+        </div>
+      </section>
+      <aside class="partner-stripe-info" aria-labelledby="stripe-info-title">
+        <span class="partner-stripe-eyebrow" data-copy="connectionOnly">Account connection</span>
+        <h2 id="stripe-info-title" data-copy="ownershipTitle">Your account. Your control.</h2>
+        <ul class="partner-stripe-benefits">
+          <li><span class="partner-stripe-benefits__icon" aria-hidden="true">01</span><div><h3 data-copy="ownAccount">Your own Stripe account</h3><p data-copy="ownAccountNote">Connect an existing account or complete setup on Stripe.</p></div></li>
+          <li><span class="partner-stripe-benefits__icon" aria-hidden="true">02</span><div><h3 data-copy="allHotels">One account, all your Hotels</h3><p data-copy="allHotelsNote">The connection belongs to your Partner business, not an individual Hotel.</p></div></li>
+          <li><span class="partner-stripe-benefits__icon" aria-hidden="true">03</span><div><h3 data-copy="dashboard">Full Dashboard access</h3><p data-copy="dashboardNote">You remain the owner and operator of your Stripe account.</p></div></li>
+        </ul>
+      </aside>
+    </div>
+    <aside class="partner-stripe-notice">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 4 6v6c0 4 8 9 8 9s8-5 8-9V6l-8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+      <div><h2 data-copy="unchangedTitle">Your payment settings stay unchanged</h2><p data-copy="routing">Account connection does not enable payments or change settlement, deposits or commission.</p></div>
+    </aside>
+  </main>
+  <script type="module" src="/js/hotels-stripe-connect-page.js"></script>
+</body>
+</html>

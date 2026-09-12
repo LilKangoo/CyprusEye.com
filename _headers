@@ -1,14 +1,6 @@
 # Security & Performance Headers for Cloudflare Pages
 # https://developers.cloudflare.com/pages/configuration/headers/
 
-/partners/stripe-connect-return.html
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-
-/partners/stripe-connect.html
-  Cache-Control: no-store
-  Referrer-Policy: no-referrer
-
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
@@ -73,3 +65,29 @@
 # Don't cache HTML (always fresh)
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
+
+# OAuth routes must not inherit comma-joined generic cache/referrer policies.
+# Keep these exact overrides after the broader rules above.
+/partners/stripe-connect-return.html
+  ! Cache-Control
+  ! Referrer-Policy
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
+/partners/stripe-connect-return
+  ! Cache-Control
+  ! Referrer-Policy
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
+/partners/stripe-connect.html
+  ! Cache-Control
+  ! Referrer-Policy
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+
+/partners/stripe-connect
+  ! Cache-Control
+  ! Referrer-Policy
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer

@@ -1,5 +1,5 @@
 const params = new URL(location.href).searchParams;
-const callback = location.pathname.endsWith('/stripe-connect-return.html');
+const callback = ['/partners/stripe-connect-return.html', '/partners/stripe-connect-return'].includes(location.pathname);
 const code = params.get('code'); const nonce = params.get('state');
 const callbackError = params.has('error');
 // Do this before importing the Supabase SDK. Never persist code/state or expose
@@ -9,11 +9,17 @@ const lang = ['pl', 'he'].includes(params.get('lang')) ? params.get('lang') : 'e
 document.documentElement.lang = lang;
 document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
 const copy = {
-  en: { explanation: 'Connect your own Stripe account with full Stripe Dashboard access. One account is shared by all Hotels of your Partner business.', routing: 'Account connection does not enable payments or change settlement, deposits or commission.',
+  en: {
+    portal: 'Partner portal', payments: 'Payments · Stripe Connect', accountType: 'Partner account', accountTitle: 'Your Stripe connection', statusLabel: 'Current account status', statusNote: 'Connection status is verified by the server. Use refresh to check for updates.', connectionOnly: 'Account connection', ownershipTitle: 'Your account. Your control.', ownAccount: 'Your own Stripe account', ownAccountNote: 'Connect an existing account or complete setup on Stripe.', allHotels: 'One account, all your Hotels', allHotelsNote: 'The connection belongs to your Partner business, not an individual Hotel.', dashboard: 'Full Dashboard access', dashboardNote: 'You remain the owner and operator of your Stripe account.', unchangedTitle: 'Your payment settings stay unchanged',
+    explanation: 'Connect your own Stripe account with full Stripe Dashboard access. One account is shared by all Hotels of your Partner business.', routing: 'Account connection does not enable payments or change settlement, deposits or commission.',
     NOT_CONNECTED: 'Not connected', ONBOARDING_INCOMPLETE: 'Stripe setup incomplete', CONNECTED: 'Connected — verified by server', RESTRICTED: 'Restricted', ACTION_REQUIRED: 'Action required in Stripe', DISABLED: 'Stripe connection is not enabled', unavailable: 'Connection could not be verified. Nothing was retried automatically.', begin: 'Connect Stripe', refresh: 'Refresh status' },
-  pl: { explanation: 'Połącz własne konto Stripe z pełnym panelem Stripe. Jedno konto obsługuje wszystkie Hotele podmiotu Partnera.', routing: 'Połączenie konta nie uruchamia płatności ani nie zmienia rozliczeń, zaliczek i prowizji.',
+  pl: {
+    portal: 'Portal Partnera', payments: 'Płatności · Stripe Connect', accountType: 'Konto Partnera', accountTitle: 'Twoje połączenie ze Stripe', statusLabel: 'Aktualny stan konta', statusNote: 'Stan połączenia jest weryfikowany przez serwer. Odśwież, aby sprawdzić aktualizacje.', connectionOnly: 'Połączenie konta', ownershipTitle: 'Twoje konto. Twoja kontrola.', ownAccount: 'Twoje własne konto Stripe', ownAccountNote: 'Połącz istniejące konto lub dokończ konfigurację w Stripe.', allHotels: 'Jedno konto, wszystkie Hotele', allHotelsNote: 'Połączenie należy do podmiotu Partnera, nie do pojedynczego Hotelu.', dashboard: 'Pełny dostęp do panelu', dashboardNote: 'Pozostajesz właścicielem i operatorem swojego konta Stripe.', unchangedTitle: 'Ustawienia płatności pozostają bez zmian',
+    explanation: 'Połącz własne konto Stripe z pełnym panelem Stripe. Jedno konto obsługuje wszystkie Hotele podmiotu Partnera.', routing: 'Połączenie konta nie uruchamia płatności ani nie zmienia rozliczeń, zaliczek i prowizji.',
     NOT_CONNECTED: 'Niepołączone', ONBOARDING_INCOMPLETE: 'Konfiguracja Stripe nieukończona', CONNECTED: 'Połączone — potwierdzone przez serwer', RESTRICTED: 'Ograniczone', ACTION_REQUIRED: 'Wymagane działanie w Stripe', DISABLED: 'Połączenie Stripe nie jest włączone', unavailable: 'Nie udało się zweryfikować połączenia. Operacji nie ponowiono automatycznie.', begin: 'Połącz Stripe', refresh: 'Odśwież stan' },
-  he: { explanation: 'חברו חשבון Stripe משלכם עם גישה מלאה ללוח הבקרה. חשבון אחד משותף לכל המלונות של עסק השותף.', routing: 'חיבור החשבון אינו מפעיל תשלומים ואינו משנה הסדרי תשלום, מקדמות או עמלות.',
+  he: {
+    portal: 'פורטל השותף', payments: 'תשלומים · Stripe Connect', accountType: 'חשבון שותף', accountTitle: 'החיבור שלכם ל־Stripe', statusLabel: 'מצב החשבון הנוכחי', statusNote: 'מצב החיבור מאומת בשרת. רעננו כדי לבדוק עדכונים.', connectionOnly: 'חיבור חשבון', ownershipTitle: 'החשבון שלכם. השליטה שלכם.', ownAccount: 'חשבון Stripe משלכם', ownAccountNote: 'חברו חשבון קיים או השלימו את ההגדרה ב־Stripe.', allHotels: 'חשבון אחד לכל המלונות', allHotelsNote: 'החיבור שייך לעסק השותף, ולא למלון בודד.', dashboard: 'גישה מלאה ללוח הבקרה', dashboardNote: 'הבעלות והניהול של חשבון Stripe נשארים בידיכם.', unchangedTitle: 'הגדרות התשלום נשארות ללא שינוי',
+    explanation: 'חברו חשבון Stripe משלכם עם גישה מלאה ללוח הבקרה. חשבון אחד משותף לכל המלונות של עסק השותף.', routing: 'חיבור החשבון אינו מפעיל תשלומים ואינו משנה הסדרי תשלום, מקדמות או עמלות.',
     NOT_CONNECTED: 'לא מחובר', ONBOARDING_INCOMPLETE: 'הגדרת Stripe לא הושלמה', CONNECTED: 'מחובר — אומת בשרת', RESTRICTED: 'מוגבל', ACTION_REQUIRED: 'נדרשת פעולה ב־Stripe', DISABLED: 'חיבור Stripe אינו מופעל', unavailable: 'לא ניתן לאמת את החיבור. הפעולה לא נוסתה שוב אוטומטית.', begin: 'חיבור Stripe', refresh: 'רענון מצב' },
 }[lang];
 document.querySelectorAll('[data-copy]').forEach(el => { el.textContent = copy[el.dataset.copy]; });
@@ -27,7 +33,7 @@ if (refresh) refresh.textContent = copy.refresh;
 let busy = false;
 const scope = { partner_id: params.get('partner'), hotel_id: params.get('hotel') };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-try {
+async function connectOnCurrentOrigin() {
   const { supabase } = await import('./supabaseClient.js');
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new Error('authentication_required');
@@ -73,5 +79,20 @@ try {
     display(await invoke({ action: 'status', ...scope }));
     begin.addEventListener('click', () => { void run('begin'); });
     refresh.addEventListener('click', () => { void run('refresh'); });
+  }
+}
+try {
+  // Connect-only origin contract, aligned with js/config.js URLS.base. Do not
+  // change SEO/auth origins or move browser sessions between hosts. Normalize
+  // entry BEFORE importing the SDK; never forward OAuth credentials to a host.
+  if (location.origin === 'https://www.cypruseye.com') {
+    if (callback) throw new Error('noncanonical_callback');
+    if (!['/partners/stripe-connect.html', '/partners/stripe-connect'].includes(location.pathname)
+      || !UUID.test(scope.partner_id || '') || !UUID.test(scope.hotel_id || '')) throw new Error('invalid_scope');
+    const target = new URL('/partners/stripe-connect.html', 'https://cypruseye.com');
+    target.search = new URLSearchParams({ partner: scope.partner_id, hotel: scope.hotel_id, lang }).toString();
+    location.replace(target.href);
+  } else {
+    await connectOnCurrentOrigin();
   }
 } catch (_) { status.textContent = copy.unavailable; }
