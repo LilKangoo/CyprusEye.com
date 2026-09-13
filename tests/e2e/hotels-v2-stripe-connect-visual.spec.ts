@@ -215,9 +215,15 @@ test('begin navigates exactly once to an entirely mocked Stripe destination', as
 type Attestation = 'MISSING' | 'NOT_READY' | 'STALE' | 'READY';
 type PartnerGate = { authorized: boolean; platform: boolean; ready: boolean; status?: StripeState; attestation?: Attestation };
 const partnerStripeCopy = {
-  en: { open: 'Open Stripe Connect', stale: 'Platform verification expired' },
-  pl: { open: 'Otwórz Stripe Connect', stale: 'Weryfikacja platformy wygasła' },
-  he: { open: 'פתיחת Stripe Connect', stale: 'תוקף אימות הפלטפורמה פג' },
+  en: { open: 'Open Stripe Connect', stale: 'Platform verification expired', commission: 'CyprusEye commission policy',
+    perRoomNight: 'per allocated Room per rental night', readOnly: 'Commission is server-derived and read-only.',
+    unavailable: 'Payment details are unavailable from the secure read contract.' },
+  pl: { open: 'Otwórz Stripe Connect', stale: 'Weryfikacja platformy wygasła', commission: 'Zasada prowizji CyprusEye',
+    perRoomNight: 'za przydzielony pokój za noc pobytu', readOnly: 'Prowizja jest wyliczana przez serwer i tylko do odczytu.',
+    unavailable: 'Szczegóły płatności są niedostępne w bezpiecznym kontrakcie odczytu.' },
+  he: { open: 'פתיחת Stripe Connect', stale: 'תוקף אימות הפלטפורמה פג', commission: 'מדיניות עמלת CyprusEye',
+    perRoomNight: 'לכל חדר מוקצה לכל ליל שכירות', readOnly: 'העמלה מחושבת בשרת ומוצגת לקריאה בלבד.',
+    unavailable: 'פרטי התשלום אינם זמינים מחוזה הקריאה המאובטח.' },
 };
 
 async function setPartnerStripeGate(page: Page, gate: PartnerGate) {
@@ -253,7 +259,24 @@ for (const [size, viewport] of Object.entries({ desktop: DESKTOP, mobile: MOBILE
       test(`Partner Payments Stripe card ${attestation} ${size} ${language} preserves evidence and action gates`, async ({ page, baseURL }, testInfo) => {
         await installOfflineRoutes(page, baseURL!);
         await installPartnerHarness(page, viewport, language, { commercialOwnerPreset: true });
+        await page.evaluate(() => {
+          // Match the existing EUR10 policy using only the local read fixture.
+          (window as any).__h32b.workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
+        });
         await setPartnerStripeGate(page, { authorized: true, platform: true, ready: attestation === 'READY', attestation });
+        const payments = page.locator('[data-phw-panel="payments"]');
+        await expect(payments.locator('.phw-module-empty')).toHaveCount(0);
+        await expect(payments).not.toContainText(partnerStripeCopy[language].unavailable);
+        await expect(payments.locator('.phw-module-main > article')).toHaveCount(1);
+        await expect(payments.locator('[data-booking-id]')).toHaveCount(0);
+        const policy = payments.locator('.phw-payment-policy');
+        await expect(policy).toBeVisible();
+        await expect(policy.getByRole('heading', { level: 3 })).toHaveText(partnerStripeCopy[language].commission);
+        await expect(policy.locator('strong')).toContainText('10');
+        await expect(policy.locator('strong')).toContainText('€');
+        await expect(policy.locator('strong')).toContainText(partnerStripeCopy[language].perRoomNight);
+        await expect(policy.locator('strong')).not.toContainText('%');
+        await expect(policy).toContainText(partnerStripeCopy[language].readOnly);
         const card = page.locator('article[data-phw-stripe-lifecycle]');
         await expect(card).toBeVisible();
         await expect(card).toHaveClass(/\bpartner-stripe-tile\b/);
@@ -399,7 +422,11 @@ for (const withPaymentRow of [false, true]) {
     await expect(payments).toBeVisible();
     await expect(payments.locator('[data-booking-id]')).toHaveCount(withPaymentRow ? 1 : 0);
     if (withPaymentRow) await expect(payments).toContainText('OFFLINE-PAYMENT-1');
-    else await expect(payments.locator('.phw-module-empty')).toBeVisible();
+    await expect(payments.locator('.phw-module-empty')).toHaveCount(0);
+    await expect(payments).not.toContainText(partnerStripeCopy.en.unavailable);
+    await expect(payments).not.toContainText('No authorized payment summaries are currently available.');
+    await expect(payments.locator('.phw-module-main > article')).toHaveCount(withPaymentRow ? 2 : 1);
+    await expect(payments.locator('.phw-payment-policy')).toBeVisible();
     expect(await page.evaluate(() => (window as any).__h32b.paymentPresentation.capabilities.full_payment_management)).toBe(true);
     await expect(payments.locator('[data-phw-stripe-connection-disabled]')).toBeDisabled();
     await expectPartnerStripeReadOnly(page);

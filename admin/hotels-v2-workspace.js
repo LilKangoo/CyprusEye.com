@@ -1591,7 +1591,11 @@
       manageDepositSettings: 'Manage in Deposit Settings', shadowPaymentTerms: 'H3 shadow payment terms', reviewedStep: '{count} reviewed step', reviewedSteps: '{count} reviewed steps', notConfigured: 'Not configured',
       shadowTermsInert: 'These request-confirmation terms are inert and do not replace the current central deposit rule.', openBookingSetup: 'Open Booking setup',
       platformCommission: 'Platform commission', commissionSeparate: 'Commission is a separate commercial calculation; it is never treated as customer prepayment or Partner payout.',
-      partnerPayoutStripe: 'Partner payout / Stripe Connect', capabilityDisabled: 'Capability disabled', stripeDisabled: 'No connected-account or payout behavior is exposed in this stage.',
+      partnerPayoutStripe: 'Partner payout / Stripe Connect', capabilityDisabled: 'Capability disabled', capabilityEnabled: 'Capability enabled', capabilityUnavailable: 'Capability state unavailable',
+      stripeConnectionSeparate: 'Account connection does not by itself enable payment routing, payouts, settlement or public booking.',
+      stripePartnerAuthorization: 'Partner authorization', stripeAuthorized: 'Authorized', stripeNotAuthorized: 'Not authorized', stripeAuthorizationVersion: 'Authorization version',
+      stripeAccount: 'Account', stripeNotConnected: 'Not connected', stripePublicBooking: 'Public booking', stripeOn: 'ON', stripeOff: 'OFF',
+      stripeStateLoading: 'Loading verified Partner account state…', stripeStateUnavailable: 'Partner authorization and account state are unavailable or inconsistent. No change was attempted.', stripeNoAssignment: 'No verified operational Partner assignment is available.',
     }),
     pl: Object.freeze({
       lifecycle: 'Bieżący stan panelu', pricingUnavailable: 'Ceny pozostają tylko do odczytu, dopóki dokładny serwerowy panel weryfikacji nie jest dostępny.',
@@ -1617,7 +1621,11 @@
       manageDepositSettings: 'Zarządzaj w Ustawieniach depozytu', shadowPaymentTerms: 'Testowe warunki płatności H3', reviewedStep: '{count} zatwierdzony etap', reviewedSteps: '{count} zatwierdzone etapy', notConfigured: 'Nie skonfigurowano',
       shadowTermsInert: 'Te warunki procesu „prośba–potwierdzenie” są nieaktywne i nie zastępują bieżącej centralnej reguły depozytu.', openBookingSetup: 'Otwórz ustawienia rezerwacji',
       platformCommission: 'Prowizja platformy', commissionSeparate: 'Prowizja jest oddzielnym wyliczeniem handlowym; nigdy nie jest traktowana jako przedpłata klienta ani wypłata dla Partnera.',
-      partnerPayoutStripe: 'Wypłata dla Partnera / Stripe Connect', capabilityDisabled: 'Funkcja wyłączona', stripeDisabled: 'Na tym etapie nie są dostępne połączone konta ani wypłaty.',
+      partnerPayoutStripe: 'Wypłata dla Partnera / Stripe Connect', capabilityDisabled: 'Funkcja wyłączona', capabilityEnabled: 'Funkcja włączona', capabilityUnavailable: 'Stan funkcji niedostępny',
+      stripeConnectionSeparate: 'Samo połączenie konta nie włącza kierowania płatności, wypłat, rozliczeń ani rezerwacji publicznych.',
+      stripePartnerAuthorization: 'Autoryzacja Partnera', stripeAuthorized: 'Autoryzowany', stripeNotAuthorized: 'Nieautoryzowany', stripeAuthorizationVersion: 'Wersja autoryzacji',
+      stripeAccount: 'Konto', stripeNotConnected: 'Niepołączone', stripePublicBooking: 'Rezerwacje publiczne', stripeOn: 'WŁ.', stripeOff: 'WYŁ.',
+      stripeStateLoading: 'Wczytywanie zweryfikowanego stanu konta Partnera…', stripeStateUnavailable: 'Stan autoryzacji i konta Partnera jest niedostępny lub niespójny. Nie podjęto żadnej zmiany.', stripeNoAssignment: 'Brak zweryfikowanego przypisania operacyjnego Partnera.',
     }),
     he: Object.freeze({
       lifecycle: 'מצב סביבת העבודה הנוכחי', pricingUnavailable: 'התמחור נשאר לקריאה בלבד עד שבקרת השרת המדויקת זמינה.',
@@ -1643,7 +1651,11 @@
       manageDepositSettings: 'ניהול בהגדרות הפיקדון', shadowPaymentTerms: 'תנאי התשלום הניסיוניים של H3', reviewedStep: 'שלב אחד שנבדק', reviewedSteps: '{count} שלבים שנבדקו', notConfigured: 'לא הוגדר',
       shadowTermsInert: 'תנאי הבקשה והאישור האלה אינם פעילים ואינם מחליפים את כלל הפיקדון המרכזי הנוכחי.', openBookingSetup: 'פתיחת הגדרות ההזמנה',
       platformCommission: 'עמלת הפלטפורמה', commissionSeparate: 'העמלה היא חישוב מסחרי נפרד; היא לעולם אינה נחשבת למקדמת לקוח או להעברה לשותף.',
-      partnerPayoutStripe: 'העברה לשותף / Stripe Connect', capabilityDisabled: 'היכולת מושבתת', stripeDisabled: 'בשלב זה לא נחשפת התנהגות של חשבון מקושר או העברת כספים.',
+      partnerPayoutStripe: 'העברה לשותף / Stripe Connect', capabilityDisabled: 'היכולת מושבתת', capabilityEnabled: 'היכולת מופעלת', capabilityUnavailable: 'מצב היכולת אינו זמין',
+      stripeConnectionSeparate: 'חיבור החשבון כשלעצמו אינו מפעיל ניתוב תשלומים, העברות כספים, סליקה או הזמנות ציבוריות.',
+      stripePartnerAuthorization: 'הרשאת השותף', stripeAuthorized: 'מורשה', stripeNotAuthorized: 'לא מורשה', stripeAuthorizationVersion: 'גרסת ההרשאה',
+      stripeAccount: 'חשבון', stripeNotConnected: 'לא מחובר', stripePublicBooking: 'הזמנות ציבוריות', stripeOn: 'פעיל', stripeOff: 'כבוי',
+      stripeStateLoading: 'טוען מצב חשבון שותף מאומת…', stripeStateUnavailable: 'מצב הרשאת השותף והחשבון אינו זמין או אינו עקבי. לא נעשה ניסיון לשינוי.', stripeNoAssignment: 'אין שיוך תפעולי מאומת לשותף.',
     }),
   });
 
@@ -9546,6 +9558,51 @@
     run(false);
   }
 
+  function stripePaymentsView() {
+    let lifecycle = null;
+    let assignments = null;
+    try {
+      if (!state.capabilityLifecycleError) lifecycle = Core.validateCapabilityLifecycle(state.capabilityLifecycle, null, true);
+    } catch (_) { /* Missing evidence is unknown, not capability OFF. */ }
+    try {
+      if (state.contentControl && !state.contentControlError) {
+        assignments = Core.normalizeOperationalAssignmentSnapshot(state.contentControl, state.workspace.property.id).assignments;
+      }
+    } catch (_) { /* Never infer operational routing from commercial ownership. */ }
+    const partners = [...new Map((assignments || []).map((entry) => [entry.partner_id, entry])).values()];
+    return { lifecycle, partners };
+  }
+
+  function stripePaymentsCard(view) {
+    const lifecycle = view.lifecycle;
+    const capability = lifecycle ? (lifecycle.feature_flags.hotel_stripe_connect_enabled ? 'capabilityEnabled' : 'capabilityDisabled') : 'capabilityUnavailable';
+    return `<section class="hotel-workspace-card" data-payments-stripe><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('partnerPayoutStripe'))}</span>
+      <h4 data-payments-stripe-capability>${escapeHtml(workspacePresentationText(capability))}</h4>
+      <dl><div><dt>${escapeHtml(workspacePresentationText('stripePublicBooking'))}</dt><dd data-payments-public-booking>${escapeHtml(workspacePresentationText(lifecycle ? (lifecycle.public_booking_enabled ? 'stripeOn' : 'stripeOff') : 'unavailable'))}</dd></div></dl>
+      ${view.partners.map((entry) => `<div data-payments-stripe-partner="${escapeAttr(entry.partner_id)}"><strong>${escapeHtml(entry.partner?.name || entry.partner_id)}</strong><div data-payments-stripe-state aria-live="polite">${escapeHtml(workspacePresentationText(lifecycle ? 'stripeStateLoading' : 'stripeStateUnavailable'))}</div></div>`).join('') || `<p>${escapeHtml(workspacePresentationText('stripeNoAssignment'))}</p>`}
+      <p>${escapeHtml(workspacePresentationText('stripeConnectionSeparate'))}</p></section>`;
+  }
+
+  function bindStripePaymentsState(panel, view) {
+    if (!view.lifecycle) return;
+    // Presentation reads only. Authorization decisions remain in Partner & Access;
+    // account actions remain in the existing Partner Stripe flow.
+    panel.querySelectorAll('[data-payments-stripe-partner]').forEach(async (card) => {
+      const slot = card.querySelector('[data-payments-stripe-state]');
+      try {
+        const authorization = await Repository.getPartnerStripeAuthorization(card.dataset.paymentsStripePartner);
+        if (!card.isConnected) return;
+        if (authorization.platform_enabled !== view.lifecycle.feature_flags.hotel_stripe_connect_enabled) throw new Error('Inconsistent platform state');
+        const account = authorization.account_status === 'NOT_CONNECTED'
+          ? workspacePresentationText('stripeNotConnected')
+          : authorization.account_status || workspacePresentationText('unavailable');
+        slot.innerHTML = `<dl><div><dt>${escapeHtml(workspacePresentationText('stripePartnerAuthorization'))}</dt><dd data-payments-stripe-authorization>${escapeHtml(workspacePresentationText(authorization.enabled ? 'stripeAuthorized' : 'stripeNotAuthorized'))}</dd></div><div><dt>${escapeHtml(workspacePresentationText('stripeAuthorizationVersion'))}</dt><dd>${authorization.version}</dd></div><div><dt>${escapeHtml(workspacePresentationText('stripeAccount'))}</dt><dd data-payments-stripe-account>${escapeHtml(account)}</dd></div></dl>`;
+      } catch (_) {
+        if (card.isConnected) slot.textContent = workspacePresentationText('stripeStateUnavailable');
+      }
+    });
+  }
+
   function renderPaymentsPanel(panel) {
     const payment = Core.asObject(state.workspace.payment_due);
     const exact = Core.asObject(payment.exact_override);
@@ -9555,6 +9612,7 @@
     const h3Payment = h3?.payment_policies.find((entry) => entry.is_active);
     const h3Commission = h3?.commission_policies.find((entry) => entry.is_active);
     const presentation = state.presentation;
+    const stripeView = stripePaymentsView();
     const paymentRows = presentation?.capabilities.payments_visible
       ? presentation.bookings.filter((booking) => booking.payment !== null)
       : [];
@@ -9563,7 +9621,8 @@
       <div class="hotel-workspace-summary-grid"><section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('legacyPaymentDue'))}</span><h4>${escapeHtml(depositRuleLabel(effective))}</h4><p>${escapeHtml(workspacePresentationText(Object.keys(exact).length ? 'exactPropertyOverrideSource' : 'defaultHotelRuleSource'))}</p><button class="btn-primary" type="button" data-open-hotel-deposit>${escapeHtml(workspacePresentationText('manageDepositSettings'))}</button></section>
       <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('shadowPaymentTerms'))}</span><h4>${h3Payment ? escapeHtml(workspacePresentationText(h3Payment.terms.length === 1 ? 'reviewedStep' : 'reviewedSteps', { count: h3Payment.terms.length })) : escapeHtml(workspacePresentationText('notConfigured'))}</h4><p>${escapeHtml(workspacePresentationText('shadowTermsInert'))}</p><button class="btn-secondary" type="button" data-open-h3-payment-setup>${escapeHtml(workspacePresentationText('openBookingSetup'))}</button></section>
       <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('platformCommission'))}</span><h4>${escapeHtml(h3CommissionLabel(h3Commission))}</h4><p>${escapeHtml(workspacePresentationText('commissionSeparate'))}</p></section>
-      <section class="hotel-workspace-card hotel-placeholder-card"><span class="hotel-workspace-eyebrow">${escapeHtml(workspacePresentationText('partnerPayoutStripe'))}</span><h4>${escapeHtml(workspacePresentationText('capabilityDisabled'))}</h4><p>${escapeHtml(workspacePresentationText('stripeDisabled'))}</p></section></div>`;
+      ${stripePaymentsCard(stripeView)}</div>`;
+    bindStripePaymentsState(panel, stripeView);
     panel.insertAdjacentHTML('beforeend', stripePlatformReadinessCard());
     bindStripePlatformReadiness(panel);
     panel.querySelector('[data-open-hotel-deposit]')?.addEventListener('click', openCentralHotelDepositSettings);
