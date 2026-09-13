@@ -1103,7 +1103,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
           root.__optionalRpcCalls.push(name);
           if (code === 'TRANSPORT') throw new Error('fetch failed private-response-marker');
           return { data: null, status: code === 'PGRST202' ? 404 : code === '42501' ? 403 : 500,
-            error: { code, message: 'Could not find the function public.hotel_v2_partner_get_seven_arches_reviewed_pricing in the schema cache private-response-marker' } };
+            error: { code, message: 'Could not find the function public.hotel_v2_partner_get_seven_arches_reviewed_pricing_114488 in the schema cache private-response-marker' } };
         } });
         await realWorkspaceGet(workspace.partner.id, workspace.hotel_id, '2026-09-01', '2026-09-30');
         // Exercise the real repository RPC/error path while the workspace itself stays a local fixture.
@@ -1121,7 +1121,7 @@ test.describe('7 Arches reviewed pricing UI integration', () => {
       await page.locator('[data-phw-section="overview"]:visible').first().click();
       await expect(page.locator('[data-phw-panel="overview"]')).toBeVisible();
       await page.waitForTimeout(300);
-      expect(await page.evaluate(() => (window as any).__optionalRpcCalls)).toEqual(['hotel_v2_partner_get_seven_arches_reviewed_pricing']);
+      expect(await page.evaluate(() => (window as any).__optionalRpcCalls)).toEqual(['hotel_v2_partner_get_seven_arches_reviewed_pricing_114488']);
       const store = await page.evaluate(() => (window as any).__reviewedPartner);
       expect(store.calls.filter((entry: any) => ['preview', 'submit'].includes(entry.name))).toHaveLength(0);
       expect(store.genericCalls).toBe(0);

@@ -442,7 +442,7 @@ test('optional reviewed-pricing RPC timeout 57014 does not prevent the STALE Str
     workspace.pricing.commission_policy.commission_mode = 'per_allocated_room_per_night';
     const getClient = root.getSupabase;
     root.getSupabase = () => ({ ...getClient(), rpc: async (name: string, params: any) => {
-      if (name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing') {
+      if (name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488') {
         root.__h32b.rpcCalls.push({ name, params });
         return { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout private-timeout-detail' } };
       }
@@ -460,7 +460,7 @@ test('optional reviewed-pricing RPC timeout 57014 does not prevent the STALE Str
   await expect(page.locator('#partnerHotelWorkspaceView')).not.toContainText('private-timeout-detail');
   await expect(page.locator('[data-phw-lifecycle]')).toContainText('Exact reviewed pricing control is unavailable');
   const pricingCalls = await page.evaluate(() => (window as any).__h32b.rpcCalls
-    .filter((call: any) => call.name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing'));
-  expect(pricingCalls).toEqual([{ name: 'hotel_v2_partner_get_seven_arches_reviewed_pricing', params: { p_partner_id: PARTNER_ID, p_hotel_id: HOTEL_ID } }]);
+    .filter((call: any) => call.name === 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488'));
+  expect(pricingCalls).toEqual([{ name: 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488', params: { p_partner_id: PARTNER_ID, p_hotel_id: HOTEL_ID } }]);
   await expectPartnerStripeReadOnly(page);
 });

@@ -15,7 +15,7 @@
     applyPricing: 'hotel_v2_partner_apply_pricing_plan',
     previewSevenArchesPricingProposal: 'hotel_v2_partner_preview_seven_arches_pricing_proposal',
     submitSevenArchesPricingProposal: 'hotel_v2_partner_submit_seven_arches_pricing_proposal',
-    sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing',
+    sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488',
     previewCommercialStay: 'hotel_v2_partner_preview_commercial_stay',
     previewAvailability: 'hotel_v2_partner_preview_availability_plan',
     applyAvailability: 'hotel_v2_partner_apply_availability_plan',

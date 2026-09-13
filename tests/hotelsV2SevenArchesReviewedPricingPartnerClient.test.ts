@@ -6,6 +6,7 @@ const HOTEL = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
 const PARTNER = '22222222-2222-4222-8222-222222222222';
 const ASSIGNMENT = '33333333-3333-4333-8333-333333333333';
 const TOKEN = 'a'.repeat(64);
+const PRICING_CONTROL_RPC = 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488';
 
 function loadCore(): any {
   const context: Record<string, any> = { console, TextEncoder };
@@ -182,7 +183,7 @@ describe('7 Arches reviewed Partner pricing client', () => {
     const ui = fs.readFileSync(path.join(process.cwd(), 'js/hotels-v2-partner-workspace.js'), 'utf8');
     expect(repository).toContain("previewSevenArchesPricingProposal: 'hotel_v2_partner_preview_seven_arches_pricing_proposal'");
     expect(repository).toContain("submitSevenArchesPricingProposal: 'hotel_v2_partner_submit_seven_arches_pricing_proposal'");
-    expect(repository).toContain("sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing'");
+    expect(repository).toContain("sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488'");
     expect(repository).toContain('Core.validateSevenArchesReviewedPricingPreview');
     expect(repository).toContain('Core.validateSevenArchesReviewedPricingSubmit');
     expect(ui).toContain('data-phw-seven-arches-pricing');
@@ -190,6 +191,62 @@ describe('7 Arches reviewed Partner pricing client', () => {
     expect(ui).toContain('Repository.submitSevenArchesPricingProposal');
     expect(ui).toContain('commissionReadOnly');
     expect(ui).toContain('proposalSubmitted');
+  });
+
+  test('uses exactly one 114488 optional read with the exact Partner and Hotel, never the legacy read', async () => {
+    const workspace = reviewedWorkspace();
+    // DTO validation is covered above; this isolated repository harness checks routing only.
+    const control = { partner_id: PARTNER, hotel_id: HOTEL, pricing_snapshot_token: TOKEN };
+    const calls: Array<{ name: string; payload: any }> = [];
+    const repository = loadRepository({
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        if (name === 'hotel_v2_partner_get_workspace') return { data: workspace, error: null };
+        if (name === PRICING_CONTROL_RPC) return { data: control, error: null };
+        throw new Error(`unexpected RPC ${name}`);
+      },
+    });
+    await repository.getWorkspace(PARTNER, HOTEL, '2026-08-30', '2026-09-29');
+    await expect(repository.getSevenArchesPricingControl(PARTNER, HOTEL)).resolves.toBe(control);
+    expect(calls).toEqual([
+      { name: 'hotel_v2_partner_get_workspace', payload: { p_partner_id: PARTNER, p_hotel_id: HOTEL, p_from: '2026-08-30', p_to: '2026-09-29' } },
+      { name: PRICING_CONTROL_RPC, payload: { p_partner_id: PARTNER, p_hotel_id: HOTEL } },
+    ]);
+  });
+
+  test.each([
+    { label: 'PGRST202', code: 'PGRST202', status: 404, message: 'Could not find the 114488 function in the schema cache' },
+    { label: '42501', code: '42501', status: 403, message: 'permission denied for exact Partner Hotel' },
+    { label: '57014', code: '57014', status: 500, message: 'canceling statement due to statement timeout' },
+    { label: 'HTTP 500', code: '500', status: 500, message: 'internal server error' },
+    { label: 'transport', code: 'TRANSPORT', status: 0, message: 'fetch failed' },
+  ])('114488 $label failure is preserved without retries or legacy fallback', async ({ code, status, message }) => {
+    const calls: Array<{ name: string; payload: any }> = [];
+    const transportError = new Error(message);
+    const repository = loadRepository({
+      async rpc(name: string, payload: any) {
+        calls.push({ name, payload });
+        if (name === 'hotel_v2_partner_get_workspace') return { data: reviewedWorkspace(), error: null };
+        if (code === 'TRANSPORT') throw transportError;
+        return { data: null, status, error: { code, message } };
+      },
+    });
+    await repository.getWorkspace(PARTNER, HOTEL, '2026-08-30', '2026-09-29');
+    const result = repository.getSevenArchesPricingControl(PARTNER, HOTEL);
+    if (code === 'TRANSPORT') {
+      await expect(result).rejects.toBe(transportError);
+    } else {
+      await expect(result).rejects.toMatchObject({
+        code,
+        domain: 'seven_arches_pricing',
+        isAmbiguousOutcome: code === '57014',
+        isDefinitiveFailure: code !== '57014',
+      });
+    }
+    expect(calls).toEqual([
+      { name: 'hotel_v2_partner_get_workspace', payload: { p_partner_id: PARTNER, p_hotel_id: HOTEL, p_from: '2026-08-30', p_to: '2026-09-29' } },
+      { name: PRICING_CONTROL_RPC, payload: { p_partner_id: PARTNER, p_hotel_id: HOTEL } },
+    ]);
   });
 
   test('uses one dedicated Preview and one Submit request, then burns the transient reviewed plan', async () => {
