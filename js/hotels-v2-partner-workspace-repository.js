@@ -9,6 +9,7 @@
 
   const RPC = Object.freeze({
     workspace: 'hotel_v2_partner_get_workspace',
+    workspace114489: 'hotel_v2_partner_get_workspace_114489',
     previewContent: 'hotel_v2_partner_preview_content_plan',
     applyContent: 'hotel_v2_partner_apply_content_plan',
     previewPricing: 'hotel_v2_partner_preview_pricing_plan',
@@ -70,12 +71,19 @@
     return [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(' ').trim();
   }
 
-  function toPartnerError(error, domain) {
+  function toPartnerError(error, domain, context = {}) {
     const raw = errorText(error) || 'Partner Hotel request failed.';
     const key = raw.toLowerCase();
     const wrapped = new Error(raw);
     wrapped.code = String(error?.code || 'PARTNER_HOTEL_ERROR');
     wrapped.domain = domain;
+    wrapped.rpcName = context.rpcName || null;
+    wrapped.httpStatus = Number.isInteger(context.httpStatus) ? context.httpStatus : null;
+    wrapped.isWorkspace114489NotInstalled = context.rpcName === RPC.workspace114489
+      && context.httpStatus === 404 && error?.code === 'PGRST202'
+      && /could not find the function|function[^.]*not found/i.test(raw)
+      && /schema cache/i.test(raw)
+      && /(?:^|[^a-zA-Z0-9_])(?:public\.)?hotel_v2_partner_get_workspace_114489(?=[^a-zA-Z0-9_]|$)/.test(raw);
     wrapped.isStale = /(?:stale|snapshot|version|review_expired|permission_changed|assignment_changed)/.test(key);
     wrapped.isAmbiguousOutcome = /(?:timeout|network|fetch|connection|gateway|econn|abort)/.test(key)
       && !/(?:invalid|denied|forbidden|unauthorized|stale|conflict)/.test(key);
@@ -96,8 +104,8 @@
 
   async function call(name, payload, domain) {
     // Deliberately one request only. Mutations are never automatically retried.
-    const { data, error } = await getClient().rpc(name, payload);
-    if (error) throw toPartnerError(error, domain);
+    const { data, error, status } = await getClient().rpc(name, payload);
+    if (error) throw toPartnerError(error, domain, { rpcName: name, httpStatus: status });
     return Array.isArray(data) && data.length === 1 ? data[0] : data;
   }
 
@@ -106,13 +114,28 @@
     const expectedHotelId = exactUuid(hotelId, 'hotel_id');
     const start = exactDate(from, 'from');
     const end = exactDate(to, 'to');
-    const value = await call(RPC.workspace, {
+    const payload = {
       p_partner_id: expectedPartnerId,
       p_hotel_id: expectedHotelId,
       p_from: start,
       p_to: end,
-    }, 'workspace');
-    const workspace = Core.validateWorkspace(value, { partnerId: expectedPartnerId, hotelId: expectedHotelId, from: start, to: end });
+    };
+    const expected = { partnerId: expectedPartnerId, hotelId: expectedHotelId, from: start, to: end };
+    let workspace;
+    if (expectedHotelId === Core.PUBLISHED_ARCHITECTURE_TARGET) {
+      let value;
+      try {
+        value = await call(RPC.workspace114489, payload, 'workspace');
+      } catch (error) {
+        // Compatibility is only for an exactly identified, not-installed READ
+        // successor. Permissions, drift, timeouts and malformed DTOs fail closed.
+        if (!error.isWorkspace114489NotInstalled) throw error;
+        workspace = Core.validateWorkspace(await call(RPC.workspace, payload, 'workspace'), expected);
+      }
+      if (!workspace) workspace = Core.validateWorkspace114489(value, expected);
+    } else {
+      workspace = Core.validateWorkspace(await call(RPC.workspace, payload, 'workspace'), expected);
+    }
     const workspaceKey = `${expectedPartnerId}:${expectedHotelId}`;
     workspaceRanges.set(workspaceKey, { from: start, to: end });
     currentWorkspaces.set(workspaceKey, workspace);

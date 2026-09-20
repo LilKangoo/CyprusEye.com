@@ -3188,7 +3188,7 @@
             ${renderLegacyRoomSummary(legacySummary)}
             <p class="hotel-workspace-safety-note">This is the current legacy configuration. Rooms V2 preparation below is separate and cannot overwrite it.</p>
           </section>` : ''}
-          ${renderReadinessCard(readiness)}
+          ${property.id === '9b6d99a0-923a-4fbc-be54-c066e856e6ca' ? renderPublishedConversionCard() : renderReadinessCard(readiness)}
           <section class="hotel-workspace-card hotel-migration-preview">
             <span class="hotel-workspace-eyebrow">Migration preview · read only</span>
             <h4>${escapeHtml(preview.property_name)}</h4>
@@ -3201,6 +3201,7 @@
       </div>`;
     const overviewForm = byId('hotelWorkspaceOverviewForm');
     overviewForm?.addEventListener('submit', handleOverviewReview);
+    bindPublishedConversionCard(panel, property.id);
     overviewForm?.querySelector('[data-amenity-search]')?.addEventListener('input', (event) => {
       const term = event.currentTarget.value.trim().toLowerCase();
       overviewForm.querySelectorAll('.hotel-amenity-group').forEach((group) => { group.hidden = term && !group.textContent.toLowerCase().includes(term); });
@@ -3212,6 +3213,50 @@
     panel.querySelectorAll('[data-partner-proposal-action]').forEach((button) => button.addEventListener('click', () => {
       openPartnerPropertyProposalAction(button.dataset.proposalId, button.dataset.partnerProposalAction, button);
     }));
+  }
+
+  function renderPublishedConversionCard() {
+    return `<section class="hotel-workspace-card" data-published-conversion>
+      <span class="hotel-workspace-eyebrow">Published Rooms V2 successor</span>
+      <h4>7 Kamares architecture</h4>
+      <p>Publication stays ON. Public booking and instant booking stay OFF. Existing independent prices and room allocation are preserved.</p>
+      <p data-conversion-status role="status">Load authoritative conversion readiness. Local configuration is not conversion authorization.</p>
+      <button type="button" class="btn-secondary" data-conversion-read>Read current readiness</button>
+      <button type="button" class="btn-primary" data-conversion-apply hidden>Confirm published architecture conversion</button>
+    </section>`;
+  }
+
+  function bindPublishedConversionCard(panel, hotelId) {
+    const card = panel.querySelector('[data-published-conversion]');
+    if (!card) return;
+    const read = card.querySelector('[data-conversion-read]');
+    const apply = card.querySelector('[data-conversion-apply]');
+    const status = card.querySelector('[data-conversion-status]');
+    let reviewed = null;
+    read.addEventListener('click', async () => {
+      reviewed = null; apply.hidden = true; read.disabled = true;
+      try {
+        const result = await Repository.getPublishedArchitectureConversion(hotelId);
+        status.textContent = result.status === 'READY'
+          ? 'READY · one explicit conversion confirmation is available. Publication remains ON.'
+          : result.status === 'ALREADY_CONVERTED' ? 'ALREADY CONVERTED · Rooms V2; public booking remains OFF.'
+            : 'BLOCKED · ' + result.blocking_reasons.join(', ');
+        reviewed = result.plan; apply.hidden = result.status !== 'READY';
+      } catch (error) { status.textContent = error.userMessage || error.message; }
+      finally { read.disabled = false; }
+    });
+    apply.addEventListener('click', async () => {
+      if (!reviewed || apply.disabled) return;
+      const confirmation = window.prompt('This converts only the published 7 Kamares architecture. Type CONVERT 7 KAMARES TO ROOMS_V2 to confirm.');
+      if (confirmation !== 'CONVERT 7 KAMARES TO ROOMS_V2') return;
+      const plan = reviewed; reviewed = null; apply.disabled = true; read.disabled = true;
+      try {
+        await Repository.applyPublishedArchitectureConversion(plan, Core.newUuid(), confirmation);
+        status.textContent = 'Converted · publication remains ON; public booking remains OFF. Refresh the workspace to read current state.';
+      } catch (error) {
+        status.textContent = (error.userMessage || error.message) + ' This plan will not be retried. Read current state before any further action.';
+      } finally { apply.hidden = true; read.disabled = false; }
+    });
   }
 
   function renderReadinessCard(readiness) {

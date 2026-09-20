@@ -18,6 +18,9 @@
     applyGuestPolicy: 'hotel_v2_admin_apply_guest_policy_plan',
     applyRoomType: 'hotel_v2_admin_apply_room_type_plan',
     applyPropertyControl: 'hotel_v2_admin_apply_property_control_plan',
+    applyPropertyControl114489: 'hotel_v2_admin_apply_property_control_plan_114489',
+    publishedConversionReadiness: 'hotel_v2_admin_get_published_architecture_conversion_114489',
+    publishedConversionApply: 'hotel_v2_admin_convert_legacy_hotel_to_v2_114489',
     applyRoomControl: 'hotel_v2_admin_apply_room_control_plan',
     applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
     contentControl: 'hotel_v2_admin_get_content_control_114487',
@@ -47,6 +50,7 @@
     partnerPropertyProposals: 'hotel_v2_admin_get_partner_property_proposals',
     previewPartnerPropertyProposalPlan: 'hotel_v2_admin_preview_partner_property_proposal_plan',
     applyPartnerPropertyProposalPlan: 'hotel_v2_admin_apply_partner_property_proposal_plan',
+    applyPartnerPropertyProposalPlan114489: 'hotel_v2_admin_apply_partner_property_proposal_plan_114489',
     sevenArchesPricingActivation: 'hotel_v2_admin_get_seven_arches_pricing_activation_114483',
     previewSevenArchesPricingActivation: 'hotel_v2_admin_preview_seven_arches_pricing_activation',
     applySevenArchesPricingActivation: 'hotel_v2_admin_apply_seven_arches_pricing_activation',
@@ -62,6 +66,71 @@
   const reviewedPartnerPropertyProposalPlans = new Map();
   const reviewedSevenArchesPricingActivationPlans = new Map();
   const reviewedSevenArchesReviewedPricingPlans = new Map();
+  const publishedConversionPlans = new Map();
+  const PUBLISHED_CONVERSION_HOTEL = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  const PUBLISHED_CONVERSION_CONFIRMATION = 'CONVERT 7 KAMARES TO ROOMS_V2';
+
+  function validatePublishedConversionReadiness(value) {
+    const keys = ['blocking_reasons', 'contract_version', 'conversion_allowed', 'hotel_id', 'plan', 'status'];
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || stableJson(Object.keys(value).sort()) !== stableJson(keys)
+        || value.contract_version !== 'hotels_v2_published_conversion_readiness_v1'
+        || value.hotel_id !== PUBLISHED_CONVERSION_HOTEL
+        || !['READY', 'BLOCKED', 'ALREADY_CONVERTED'].includes(value.status)
+        || !Array.isArray(value.blocking_reasons) || value.blocking_reasons.some((x) => typeof x !== 'string' || !x)
+        || value.conversion_allowed !== (value.status === 'READY')
+        || (value.status === 'BLOCKED') !== (value.blocking_reasons.length > 0)) {
+      throw new Error('Published conversion readiness is invalid. No conversion is available.');
+    }
+    const plan = value.plan;
+    if (value.status === 'READY') {
+      const planKeys = ['actor_id', 'contract_version', 'expires_at', 'from', 'hotel_id', 'is_published', 'issued_at', 'public_booking_enabled', 'signature', 'snapshot_hash', 'to'];
+      if (!plan || stableJson(Object.keys(plan).sort()) !== stableJson(planKeys)
+          || plan.contract_version !== 'hotels_v2_published_conversion_plan_v1'
+          || plan.hotel_id !== PUBLISHED_CONVERSION_HOTEL || !Core.normalizeUuid(plan.actor_id)
+          || plan.from !== 'legacy' || plan.to !== 'rooms_v2' || plan.is_published !== true
+          || plan.public_booking_enabled !== false || !/^[0-9a-f]{64}$/.test(plan.signature)
+          || !/^[0-9a-f]{64}$/.test(plan.snapshot_hash)
+          || !Number.isFinite(Date.parse(plan.issued_at)) || !Number.isFinite(Date.parse(plan.expires_at))
+          || Date.parse(plan.expires_at) <= Date.parse(plan.issued_at)) {
+        throw new Error('The server conversion plan is invalid.');
+      }
+    } else if (plan !== null) throw new Error('Blocked conversion must not contain an executable plan.');
+    return Core.clone(value);
+  }
+
+  async function getPublishedArchitectureConversion(hotelId) {
+    if (hotelId !== PUBLISHED_CONVERSION_HOTEL) throw new Error('Published conversion is restricted to 7 Kamares.');
+    publishedConversionPlans.clear();
+    const value = validatePublishedConversionReadiness(await runRpc(RPC.publishedConversionReadiness,
+      { p_hotel_id: hotelId }, 'Read published architecture conversion readiness'));
+    if (value.status === 'READY') publishedConversionPlans.set(value.plan.signature, stableJson(value.plan));
+    return value;
+  }
+
+  async function applyPublishedArchitectureConversion(planValue, requestId, confirmation) {
+    const plan = Core.clone(planValue);
+    const request = Core.normalizeUuid(requestId);
+    if (!request || confirmation !== PUBLISHED_CONVERSION_CONFIRMATION
+        || !plan || publishedConversionPlans.get(plan.signature) !== stableJson(plan)) {
+      throw new Error('A fresh server-held conversion plan and separate explicit confirmation are required.');
+    }
+    // Consume locally before transport, including timeout/ambiguous failures.
+    // No automatic retry, fallback writer or implicit second readiness call.
+    publishedConversionPlans.delete(plan.signature);
+    const result = await runRpc(RPC.publishedConversionApply,
+      { p_plan: plan, p_request_id: request, p_confirmation: confirmation }, 'Convert published 7 Kamares architecture');
+    if (!result || stableJson(Object.keys(result).sort()) !== stableJson(['architecture_version', 'contract_version', 'hotel_id', 'is_published', 'public_booking_enabled', 'replayed', 'request_id'])
+        || result.contract_version !== 'hotels_v2_published_conversion_result_v1'
+        || result.hotel_id !== PUBLISHED_CONVERSION_HOTEL || result.request_id !== request
+        || result.architecture_version !== 'rooms_v2' || result.is_published !== true
+        || result.public_booking_enabled !== false || typeof result.replayed !== 'boolean') {
+      const error = new Error('Conversion outcome could not be validated. Refresh current state; do not retry this plan.');
+      error.isAmbiguousOutcome = true;
+      throw error;
+    }
+    return Core.clone(result);
+  }
 
   function stableJson(value) {
     if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
@@ -390,7 +459,7 @@
     }
     let receipt;
     try {
-      receipt = await runRpc(RPC.applyPartnerPropertyProposalPlan, {
+      receipt = await runRpc(plan.hotel_id === PUBLISHED_CONVERSION_HOTEL ? RPC.applyPartnerPropertyProposalPlan114489 : RPC.applyPartnerPropertyProposalPlan, {
         p_reviewed_plan: plan,
         p_correlation_id: correlation,
       }, 'Save reviewed Partner property proposal');
@@ -1068,7 +1137,7 @@
       throw new Error('A reviewed exact-property Admin control plan is required.');
     }
     const correlation = Core.normalizeUuid(correlationId) || Core.newUuid();
-    const data = await runRpc(RPC.applyPropertyControl, {
+    const data = await runRpc(id === PUBLISHED_CONVERSION_HOTEL ? RPC.applyPropertyControl114489 : RPC.applyPropertyControl, {
       p_plan: reviewedPlan,
       p_correlation_id: correlation,
     }, 'Save reviewed property control changes');
@@ -1079,7 +1148,7 @@
     }
     const workspace = Core.normalizeWorkspace(payload.workspace || payload);
     if (workspace.property.id !== id) throw new Error('Saved property control returned a different property ID.');
-    const contentControl = normalizeContentControl(payload.content_control, id);
+    const contentControl = normalizeContentControl(payload.content_control, id, { postStripeContentReadOnly: id === PUBLISHED_CONVERSION_HOTEL });
     return {
       ...payload,
       correlation_id: payload.correlation_id || correlation,
@@ -1725,6 +1794,9 @@
   }
 
   return Object.freeze({
+    getPublishedArchitectureConversion,
+    applyPublishedArchitectureConversion,
+    validatePublishedConversionReadiness,
     RPC,
     getClient,
     getCapabilityLifecycle,

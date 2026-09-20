@@ -25,7 +25,7 @@
   <script type="module" src="/js/authUi.js?v=4"></script>
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
-  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260830_1"></script>
+  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260913_114489"></script>
   <script src="/js/footer-referral.js" defer></script>
   <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
 </head>
@@ -752,6 +752,22 @@
 
     const hotelPageBookingUi = window.CE_HOTEL_BOOKING_UI || null;
 
+    function isHotelPageDisplayOnly(entry = hotel) {
+      return String(entry?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+    }
+
+    function renderHotelPageDisplayOnly() {
+      if (!isHotelPageDisplayOnly()) return false;
+      const form = $('#bookForm');
+      if (form) form.hidden = true;
+      hotelPageBookingUi?.renderPublicDisplayOnly?.(hotel, form);
+      setNodeText('#hotelHeroCtaLabel', pageText('Zobacz apartamenty', 'View apartments'));
+      setNodeText('#hotelHeroCtaMeta', pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      setNodeText('#hotelBookingTitle', pageText('Informacje o apartamentach', 'Apartment information'));
+      setNodeText('#priceLive', pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      return true;
+    }
+
     function pageText(pl, en){
       const lang = String(hotelPageBookingUi?.getLanguage?.() || getHotelPageLanguage()).toLowerCase();
       return lang.startsWith('pl') ? pl : en;
@@ -805,6 +821,7 @@
       setNodeText('#hotelSosWhatsAppDetail', hotelT('sos.quick.whatsappDetail', 'Natychmiastowa pomoc', 'Immediate help'));
       setNodeText('#hotelSosAmbulanceLabel', hotelT('sos.quick.ambulance', 'Pogotowie', 'Ambulance'));
       setNodeText('#hotelSosFireLabel', hotelT('sos.quick.fireBrigade', 'Straż pożarna', 'Fire brigade'));
+      renderHotelPageDisplayOnly();
 
       if (!hotel) {
         const statusText = hotelLoadState === 'missing-slug'
@@ -834,6 +851,10 @@
 
     function getHotelPreviewLabel(entry = hotel){
       if (!entry) return '';
+      if (isHotelPageDisplayOnly(entry)) {
+        const min = window.HotelsV2SevenArchesPublicPricing?.getDisplay(entry)?.min_nightly_rate;
+        return Number.isFinite(min) ? pageText(`Od ${min.toFixed(2)} € / noc`, `From ${min.toFixed(2)} € / night`) : '';
+      }
       if (hotelPricing?.getHotelMinPricePerNight) {
         const min = hotelPricing.getHotelMinPricePerNight(entry, { preferredPersons: 2 });
         if (Number.isFinite(min)) {
@@ -951,6 +972,12 @@
         })
         : false;
       const hasLocation = hotelPageBookingUi.renderLocationSummary(document.getElementById('hotelPageLocationSummary'), hotel, { form });
+      if (renderHotelPageDisplayOnly()) {
+        document.getElementById('hotelAmenitiesCard').hidden = !hasAmenities;
+        document.getElementById('hotelLocationCard').hidden = !hasLocation;
+        document.getElementById('hotelPolicyCard').hidden = true;
+        return;
+      }
       hotelPageBookingUi.renderRoomTypeOptions(document.getElementById('hotelPageRoomTypeOptions'), hotel, {
         form,
         roomInputName: 'hotel_room_type_id',
@@ -1068,6 +1095,7 @@
     }
 
     async function applyCoupon(){
+      if (renderHotelPageDisplayOnly()) return false;
       if (!hotel) return false;
       const code = normalizeCouponCode($('#couponCode')?.value || '');
       if (!code){
@@ -1208,6 +1236,7 @@
 
     function updateLive(){
       if(!hotel) return;
+      if (renderHotelPageDisplayOnly()) return;
       const a=$('#arrival').value, d=$('#departure').value;
       const adults=Number($('#adults').value||0), children=Number($('#children').value||0);
       let nights=0;
@@ -1276,6 +1305,7 @@
     }
 
     async function updateSevenArchesAuthoritativeQuote(){
+      if (renderHotelPageDisplayOnly()) return null;
       const bridge = window.HotelsV2SevenArchesPublicPricing;
       const form = $('#bookForm');
       if (!bridge?.isSevenArches?.(hotel) || !form) return null;
@@ -1350,6 +1380,11 @@
       });
       renderHotelHeroSummary(hotel);
       renderHotelPageBookingUi({ selectedExtraIds: [] });
+      await hotelPageBookingUi?.loadPublicDisplayOnly?.(hotel, $('#bookForm'), (await import('/js/supabaseClient.js')).supabase);
+      if (isHotelPageDisplayOnly()) {
+        renderHotelHeroSummary(hotel);
+        renderHotelPageDisplayOnly();
+      }
       void setupHotelPagePhoneInput();
       hotelPageBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelPageLocationSummary'));
       const bookMsg = $('#bookMsg');
@@ -1394,6 +1429,7 @@
 
     async function submitBooking(e){
       e.preventDefault();
+      if (renderHotelPageDisplayOnly()) return;
       $('#bookMsg').hidden = true;
       $('#bookMsg').textContent='';
       $('#bookMsg').className = 'offer-form-message offer-span-full';

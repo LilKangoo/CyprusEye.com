@@ -21,12 +21,14 @@
     }),
   });
   const CONTRACTS = Object.freeze({
+    display: 'hotels_v2_seven_arches_public_display_v1',
     quoteRequest: 'hotels_v2_seven_arches_public_quote_request_v1',
     quote: 'hotels_v2_seven_arches_public_quote_v1',
     bookingRequest: 'hotels_v2_seven_arches_public_booking_request_v1',
     booking: 'hotels_v2_seven_arches_public_booking_result_v1',
   });
   const RPC = Object.freeze({
+    display: 'hotel_v2_public_get_seven_arches_display_114489',
     quote: 'hotel_v2_public_quote_seven_arches',
     booking: 'hotel_v2_public_create_seven_arches_booking',
   });
@@ -37,6 +39,137 @@
   const EXTRA_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
   const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
   const MAX_GUESTS = 8;
+  let displaySnapshot = null;
+  let displayPending = null;
+  let displayError = null;
+
+  function displayMessage(language = 'en', unavailable = false) {
+    const messages = {
+      en: unavailable ? 'Accommodation details are temporarily unavailable. Online booking is not enabled.' : 'Accommodation information only. Online booking is not enabled.',
+      pl: unavailable ? 'Szczegóły apartamentów są chwilowo niedostępne. Rezerwacja online nie jest włączona.' : 'Informacje o zakwaterowaniu. Rezerwacja online nie jest włączona.',
+      he: unavailable ? 'פרטי האירוח אינם זמינים כרגע. הזמנה מקוונת אינה מופעלת.' : 'מידע על מקום האירוח בלבד. הזמנה מקוונת אינה מופעלת.',
+    };
+    return messages[String(language).slice(0, 2)] || messages.en;
+  }
+
+  function assertBookingAllowed(hotel) {
+    // This versioned rollout is display-only, including old cached legacy rows.
+    // A later public-booking release needs its own explicitly reviewed contract.
+    if (isSevenArches(hotel)) {
+      throw Object.assign(new Error(displayMessage()), { code: 'hotels_v2_public_booking_disabled' });
+    }
+  }
+
+  function displayI18n(value, label, required = false) {
+    object(value, label);
+    if (Object.keys(value).some((key) => !['pl', 'en', 'he'].includes(key)
+        || typeof value[key] !== 'string' || value[key].length > 12000)
+        || (required && !Object.values(value).some((text) => text.trim()))) fail(`${label} is invalid.`);
+  }
+
+  function validateDisplay(value) {
+    const row = exactKeys(value, ['contract_version', 'hotel_id', 'architecture_version', 'is_published',
+      'public_booking_enabled', 'instant_booking_enabled', 'room_types', 'currency', 'min_nightly_rate', 'display_only'], 'Public display');
+    if (row.contract_version !== CONTRACTS.display || row.hotel_id !== HOTEL_ID
+        || !['legacy', 'rooms_v2'].includes(row.architecture_version) || row.is_published !== true
+        || row.public_booking_enabled !== false || row.instant_booking_enabled !== false
+        || row.display_only !== true || row.currency !== 'EUR'
+        || typeof row.min_nightly_rate !== 'number' || !Number.isFinite(row.min_nightly_rate)
+        || row.min_nightly_rate < 0.01 || row.min_nightly_rate > 1000000
+        || !Array.isArray(row.room_types) || row.room_types.length !== 2
+        || new Set(row.room_types.map((room) => room?.id)).size !== 2) fail('Public display identity or eligibility is invalid.');
+    row.room_types.forEach((room) => {
+      exactKeys(room, ['id', 'name_i18n', 'description_i18n', 'max_occupancy', 'inventory_count', 'beds', 'bathrooms', 'photos'], 'Public Room');
+      if (!roomFor(room.id) || room.max_occupancy !== 4 || room.inventory_count !== 1
+          || !Array.isArray(room.beds) || room.beds.length > 20
+          || !(room.bathrooms === null || (typeof room.bathrooms === 'number' && Number.isFinite(room.bathrooms) && room.bathrooms >= 0 && room.bathrooms <= 100))
+          || !Array.isArray(room.photos) || room.photos.length > 100
+          || room.photos.some((photo) => typeof photo !== 'string' || !/^(?:https:\/\/|\/(?!\/))/.test(photo)
+            || /[\\\u0000-\u001f\u007f]/.test(photo) || photo.length > 2048)) fail('Public Room details are invalid.');
+      displayI18n(room.name_i18n, 'Room name', true);
+      displayI18n(room.description_i18n, 'Room description');
+      room.beds.forEach((bed) => {
+        exactKeys(bed, ['type', 'count'], 'Room bed');
+        if (typeof bed.type !== 'string' || !/^[a-z_]{1,40}$/.test(bed.type)
+            || !Number.isInteger(bed.count) || bed.count < 1 || bed.count > 50) fail('Room bed is invalid.');
+      });
+    });
+    return Object.freeze(JSON.parse(JSON.stringify(row)));
+  }
+
+  async function loadDisplay(hotel, suppliedClient) {
+    if (!isSevenArches(hotel)) return null;
+    if (displayPending) return displayPending;
+    displaySnapshot = null;
+    displayError = null;
+    displayPending = Promise.resolve().then(async () => {
+      try {
+        const { data, error } = await client(suppliedClient).rpc(RPC.display, {});
+        if (error) throw new Error('Accommodation display could not be verified.');
+        displaySnapshot = validateDisplay(data);
+        return displaySnapshot;
+      } catch (error) {
+        displayError = error;
+        throw error;
+      } finally { displayPending = null; }
+    });
+    return displayPending;
+  }
+
+  function getDisplay(hotel) {
+    return isSevenArches(hotel) && displaySnapshot ? JSON.parse(JSON.stringify(displaySnapshot)) : null;
+  }
+
+  function renderDisplayOnly(hotel, form, options = {}) {
+    if (!isSevenArches(hotel) || !form || typeof document === 'undefined') return false;
+    const language = String(options.language || document.documentElement.lang || 'en').slice(0, 2);
+    form.hidden = true;
+    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((button) => { button.disabled = true; });
+    let panel = form.parentElement.querySelector('[data-seven-arches-public-display]');
+    if (!panel) {
+      panel = document.createElement('section');
+      panel.dataset.sevenArchesPublicDisplay = '';
+      panel.setAttribute('role', 'status');
+      form.before(panel);
+    }
+    panel.replaceChildren();
+    const notice = document.createElement('p');
+    notice.textContent = displayMessage(language, Boolean(displayError));
+    panel.append(notice);
+    if (displaySnapshot) {
+      panel.dataset.architecture = displaySnapshot.architecture_version;
+      const title = document.createElement('h3');
+      title.textContent = ({ pl: '2 apartamenty', he: '2 דירות', en: '2 apartments' })[language] || '2 apartments';
+      panel.append(title);
+      displaySnapshot.room_types.forEach((room) => {
+        const article = document.createElement('article');
+        article.dataset.roomTypeId = room.id;
+        const heading = document.createElement('h4');
+        heading.textContent = room.name_i18n[language] || room.name_i18n.en || Object.values(room.name_i18n)[0];
+        const description = document.createElement('p');
+        description.textContent = room.description_i18n[language] || room.description_i18n.en || '';
+        const capacity = document.createElement('p');
+        capacity.textContent = language === 'pl' ? `Do ${room.max_occupancy} gości · ${room.inventory_count} apartament`
+          : language === 'he' ? `עד ${room.max_occupancy} אורחים · דירה ${room.inventory_count}`
+            : `Up to ${room.max_occupancy} guests · ${room.inventory_count} apartment`;
+        article.append(heading, description, capacity);
+        room.photos.forEach((src) => {
+          const photo = document.createElement('img'); photo.src = src; photo.alt = heading.textContent;
+          photo.loading = 'lazy'; photo.style.cssText = 'max-width:100%;width:240px;height:160px;object-fit:cover;margin:4px;';
+          article.append(photo);
+        });
+        panel.append(article);
+      });
+      const price = document.createElement('p');
+      price.textContent = language === 'pl' ? `Od ${displaySnapshot.min_nightly_rate} EUR / noc · informacja, nie oferta rezerwacji`
+        : language === 'he' ? `החל מ-${displaySnapshot.min_nightly_rate} EUR ללילה · מידע בלבד, לא הצעת הזמנה`
+          : `From ${displaySnapshot.min_nightly_rate} EUR / night · information, not a booking quote`;
+      panel.append(price);
+    } else {
+      delete panel.dataset.architecture;
+    }
+    return true;
+  }
 
   function fail(message) {
     throw new Error(message);
@@ -434,6 +567,7 @@
 
   async function quote(request, suppliedClient) {
     const clean = validateQuoteRequest(request);
+    assertBookingAllowed({ id: clean.hotel_id });
     const { data, error } = await client(suppliedClient).rpc(RPC.quote, { p_request: clean });
     if (error) throw Object.assign(new Error(error.message || 'Authoritative quote failed.'), { code: error.code || null });
     return validateQuote(Array.isArray(data) && data.length === 1 ? data[0] : data, clean);
@@ -441,6 +575,7 @@
 
   async function createBooking(request, suppliedClient) {
     const clean = validateBookingRequest(request);
+    assertBookingAllowed({ id: clean.quote.hotel_id });
     const { data, error } = await client(suppliedClient).rpc(RPC.booking, { p_request: clean });
     if (error) throw Object.assign(new Error(error.message || 'Authoritative booking failed.'), { code: error.code || null });
     return validateBookingResult(Array.isArray(data) && data.length === 1 ? data[0] : data, clean);
@@ -456,6 +591,7 @@
       get current() { return current; },
       clear() { key = ''; pending = null; current = null; bookingKey = ''; bookingPending = null; },
       async refresh(hotel, form) {
+        assertBookingAllowed(hotel);
         const request = buildQuoteRequest(hotel, form);
         const nextKey = JSON.stringify(request);
         if (nextKey === key && current && Date.parse(current.expires_at) > Date.now()) return current;
@@ -469,6 +605,7 @@
         return pending;
       },
       async submit(hotel, form, options) {
+        assertBookingAllowed(hotel);
         const fresh = await this.refresh(hotel, form);
         const request = buildBookingRequest(form, fresh, options);
         const nextBookingKey = JSON.stringify(request);
@@ -493,6 +630,7 @@
   }
 
   return Object.freeze({
+    validateDisplay, loadDisplay, getDisplay, renderDisplayOnly, displayMessage, assertBookingAllowed,
     HOTEL_ID, ROOMS, CONTRACTS, RPC, MAX_GUESTS, isSevenArches, roomFor, getGuestCapacity, syncRoomSelectionUi,
     validateQuoteRequest, buildQuoteRequest, validateQuote,
     validateBookingRequest, buildBookingRequest, validateBookingResult,

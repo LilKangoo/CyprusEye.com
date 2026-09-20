@@ -81,31 +81,43 @@ describe('7 Arches public Room-aware pricing bridge', () => {
     expect(settings).toContain('hotel_external_sync_enabled is distinct from true');
   });
 
-  test('disabled public quote rejects safely with no automatic retry or booking fallback', async () => {
+  test('display-only public quote and session refresh reject before transport with no retry or booking fallback', async () => {
     const bridge = api();
-    const client = { rpc: jest.fn().mockResolvedValue({ data: null, error: {
-      code: '42501', message: 'hotels_v2_public_booking_disabled',
-    } }) };
+    const client = { rpc: jest.fn(() => { throw new Error('Unexpected public transport'); }) };
     await expect(bridge.quote(request(), client)).rejects.toMatchObject({
-      code: '42501', message: 'hotels_v2_public_booking_disabled',
+      code: 'hotels_v2_public_booking_disabled',
     });
+    const session = bridge.createQuoteSession(client);
+    for (const architecture_version of ['legacy', 'rooms_v2']) {
+      // Even stale cached flags cannot authorize booking for the display-only target.
+      const hotel = { id: HOTEL, architecture_version, is_published: true,
+        public_booking_enabled: true, hotel_instant_booking_enabled: true };
+      await expect(session.refresh(hotel, null)).rejects.toMatchObject({ code: 'hotels_v2_public_booking_disabled' });
+      expect(session.current).toBeNull();
+    }
     await Promise.resolve();
-    expect(client.rpc).toHaveBeenCalledTimes(1);
-    expect(client.rpc.mock.calls[0][0]).toBe(bridge.RPC.quote);
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  test('disabled booking rejects safely once, including a previously issued quote', async () => {
+  test('display-only booking and session submit reject before transport, including a cached quote and repeated submission', async () => {
     const bridge = api();
-    const client = { rpc: jest.fn().mockResolvedValue({ data: null, error: {
-      code: '42501', message: 'hotels_v2_public_booking_disabled',
-    } }) };
-    await expect(bridge.createBooking({
+    const client = { rpc: jest.fn(() => { throw new Error('Unexpected public transport'); }) };
+    const bookingRequest = {
       contract_version: bridge.CONTRACTS.bookingRequest, quote: quote(),
       customer: { name: 'Fixture', email: 'fixture@example.invalid', phone: null, notes: null, language: 'en' },
       coupon_code: null, referral: null,
-    }, client)).rejects.toMatchObject({ code: '42501', message: 'hotels_v2_public_booking_disabled' });
+    };
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await expect(bridge.createBooking(bookingRequest, client)).rejects.toMatchObject({ code: 'hotels_v2_public_booking_disabled' });
+    }
+    const session = bridge.createQuoteSession(client);
+    for (const architecture_version of ['legacy', 'rooms_v2']) {
+      await expect(session.submit({ id: HOTEL, architecture_version, is_published: true }, null, {}))
+        .rejects.toMatchObject({ code: 'hotels_v2_public_booking_disabled' });
+      expect(session.current).toBeNull();
+    }
     await Promise.resolve();
-    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   test('requires exact Room identity for one-to-four guests and exposes total capacity eight for bundles', () => {
@@ -224,15 +236,22 @@ describe('7 Arches public Room-aware pricing bridge', () => {
     }
   });
 
-  test('pins the Room-aware bridge and authoritative quote/booking wiring on all three public entry surfaces', () => {
+  test('pins the reviewed display-only adapter on all four public surfaces and preserves guarded booking wiring', () => {
     const detail = fs.readFileSync('hotel.html', 'utf8');
     const listing = fs.readFileSync('hotels.html', 'utf8');
     const home = fs.readFileSync('index.html', 'utf8');
+    const plan = fs.readFileSync('plan.html', 'utf8');
     const homeController = fs.readFileSync('js/home-hotels.js', 'utf8');
     const bookingUi = fs.readFileSync('js/hotel-booking-ui.js', 'utf8');
-    const bridgeScript = 'hotels-v2-seven-arches-public-pricing.js?v=20260830_1';
+    // Reviewed 114489 asset version already present on every application surface.
+    const bridgeScript = '/js/hotels-v2-seven-arches-public-pricing.js?v=20260913_114489';
 
-    for (const markup of [detail, listing, home]) expect(markup).toContain(bridgeScript);
+    for (const markup of [detail, listing, home, plan]) {
+      const scripts = [...markup.matchAll(/<script\b[^>]*\bsrc=["']([^"']*hotels-v2-seven-arches-public-pricing\.js[^"']*)["'][^>]*>/gi)]
+        .map((match) => new URL(match[1], 'https://fixture.example.invalid/'));
+      expect(scripts.map((url) => url.origin)).toEqual(['https://fixture.example.invalid']);
+      expect(scripts.map((url) => url.pathname + url.search)).toEqual([bridgeScript]);
+    }
     expect(detail).toContain('updateSevenArchesAuthoritativeQuote');
     expect(detail).toContain('sevenArchesQuoteSession.submit(hotel, f');
     expect(listing).toContain('updateSevenArchesAuthoritativeQuote');
@@ -243,9 +262,8 @@ describe('7 Arches public Room-aware pricing bridge', () => {
     expect(bookingUi).toContain('exactRoomRequired');
   });
 
-  test('validates the nested booking quote and binds first/replayed results to exact totals', async () => {
+  test('pure validators retain nested quote and first/replayed result schema coverage without enabling booking transport', () => {
     const bridge = api();
-    const calls: Array<{ name: string; payload: any }> = [];
     const bookingRequest = {
       contract_version: bridge.CONTRACTS.bookingRequest,
       quote: quote(),
@@ -253,25 +271,18 @@ describe('7 Arches public Room-aware pricing bridge', () => {
       coupon_code: null,
       referral: null,
     };
-    const client = {
-      async rpc(name: string, payload: any) {
-        calls.push({ name, payload });
-        if (name === bridge.RPC.quote) return { data: quote(), error: null };
-        return {
-          data: {
-            contract_version: bridge.CONTRACTS.booking, booking_id: BOOKING,
-            status: 'pending', currency: 'EUR', room_total: 300, extras_total: 0,
-            coupon_discount: 0, customer_total: 300, quote_fingerprint: HASH,
-            created_at: '2099-09-01T10:01:00.000000Z', replayed: calls.length > 2,
-          },
-          error: null,
-        };
-      },
-    };
-    await expect(bridge.quote(request(), client)).resolves.toMatchObject({ room_type_id: UPPER_ROOM });
-    await expect(bridge.createBooking(bookingRequest, client)).resolves.toMatchObject({ booking_id: BOOKING, replayed: false });
-    await expect(bridge.createBooking(bookingRequest, client)).resolves.toMatchObject({ booking_id: BOOKING, replayed: true });
-    expect(calls.map((entry) => entry.name)).toEqual([bridge.RPC.quote, bridge.RPC.booking, bridge.RPC.booking]);
+    const cleanRequest = bridge.validateQuoteRequest(request());
+    expect(bridge.validateQuote(quote(), cleanRequest)).toMatchObject({ room_type_id: UPPER_ROOM });
+    expect(bridge.validateBookingRequest(bookingRequest).quote.quote_fingerprint).toBe(HASH);
+    // Historical result DTOs remain validatable; this is not a reachable public replay flow.
+    for (const replayed of [false, true]) {
+      expect(bridge.validateBookingResult({
+        contract_version: bridge.CONTRACTS.booking, booking_id: BOOKING,
+        status: 'pending', currency: 'EUR', room_total: 300, extras_total: 0,
+        coupon_discount: 0, customer_total: 300, quote_fingerprint: HASH,
+        created_at: '2099-09-01T10:01:00.000000Z', replayed,
+      }, bookingRequest)).toMatchObject({ booking_id: BOOKING, replayed });
+    }
     expect(() => bridge.validateBookingRequest({ ...bookingRequest, total_price: 1 })).toThrow('unsupported');
     expect(() => bridge.validateBookingRequest({ ...bookingRequest, quote: {} })).toThrow();
     expect(() => bridge.validateBookingRequest({

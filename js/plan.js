@@ -3,6 +3,10 @@ import { showToast } from './toast.js';
 let sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
 const hotelPricingEngine = typeof window !== 'undefined' ? (window.CE_HOTEL_PRICING || null) : null;
 
+function isPlannerHotelDisplayOnly(hotel) {
+  return String(hotel?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+}
+
 let catalogData = {
   trips: [],
   hotels: [],
@@ -2331,7 +2335,7 @@ function resolveItemDisplay(it) {
   if (itemType === 'hotel' && src) {
     const nights = Math.max(1, rangeDays - 1);
     const arrivalDate = getPlanDateByDayIndex(rangeStart);
-    const res = hotelPricingEngine?.calculateHotelPrice
+    const res = isPlannerHotelDisplayOnly(src) ? null : hotelPricingEngine?.calculateHotelPrice
       ? hotelPricingEngine.calculateHotelPrice(src || {}, people, nights, { arrivalDate })
       : calculateHotelPrice(src || {}, people, nights);
     const total = Number(res?.total || 0) || 0;
@@ -2342,7 +2346,7 @@ function resolveItemDisplay(it) {
       subtitle: getHotelCity(src),
       description: getHotelDescriptionText(src),
       url: String(d.url || urlFallback).trim(),
-      price: total ? String(formatMoney(total, currency)).trim() : '',
+      price: isPlannerHotelDisplayOnly(src) ? 'Online booking is not enabled; price not quoted.' : total ? String(formatMoney(total, currency)).trim() : '',
       image: String(d.image || getServiceImageUrl('hotel', src) || '').trim(),
     };
   }
@@ -2830,6 +2834,7 @@ function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } =
 }
 
 function calculateHotelPrice(hotel, persons, nights) {
+  if (isPlannerHotelDisplayOnly(hotel)) return { total: null, displayOnly: true };
   if (hotelPricingEngine?.calculateHotelPrice) {
     return hotelPricingEngine.calculateHotelPrice(hotel, persons, nights);
   }
@@ -2928,6 +2933,7 @@ function calcCarTotal(carOffer, { location, days } = {}) {
 }
 
 function getHotelMinPricePerNight(hotel) {
+  if (isPlannerHotelDisplayOnly(hotel)) return window.HotelsV2SevenArchesPublicPricing?.getDisplay(hotel)?.min_nightly_rate ?? null;
   if (hotelPricingEngine?.getHotelMinPricePerNight) {
     return hotelPricingEngine.getHotelMinPricePerNight(hotel, { preferredPersons: 2 });
   }
@@ -2996,6 +3002,7 @@ function computePlanCostSummary() {
 
     if (it.item_type === 'hotel') {
       const ref = catalogData.hotels.find((h) => String(h?.id) === String(it.ref_id)) || null;
+      if (isPlannerHotelDisplayOnly(ref || { id: it.ref_id })) return;
       const nights = Math.max(1, days - 1);
       const arrivalDate = getPlanDateByDayIndex(start);
       const res = hotelPricingEngine?.calculateHotelPrice
@@ -3152,6 +3159,11 @@ async function loadServiceCatalog(planId) {
         alt = await sb.from('hotels').select('*').order('created_at', { ascending: false }).range(0, 99);
       }
       if (!alt?.error && Array.isArray(alt?.data)) res = alt;
+    }
+    const displayHotel = res?.data?.find(isPlannerHotelDisplayOnly);
+    if (displayHotel) {
+      try { await window.HotelsV2SevenArchesPublicPricing?.loadDisplay(displayHotel, sb); }
+      catch (_) { /* Keep the published catalog row; booking stays off. */ }
     }
     return res;
   };
@@ -5533,6 +5545,9 @@ async function renderPlannerBookingForm() {
     .map((x, i) => {
       const h = x.hotel || {};
       const title = x.item?.data?.title || (window.getHotelName ? window.getHotelName(h) : (h?.title?.pl || h?.title?.en || h?.slug)) || 'Hotel';
+      if (isPlannerHotelDisplayOnly(h) || isPlannerHotelDisplayOnly({ id: x.item?.ref_id })) {
+        return `<div class="card" data-seven-arches-public-display><strong>${escapeHtml(title)}</strong><p>Accommodation information only. Online booking is not enabled. Remove this accommodation from the booking selection to request other services.</p></div>`;
+      }
       const arrival = x.startDate || '';
       const departure = x.endDate || '';
       return `
@@ -5696,6 +5711,9 @@ async function renderPlannerBookingForm() {
     <input type="hidden" name="count_hotels" value="${escapeHtml(String(selected.hotels.length))}" />
     <input type="hidden" name="count_cars" value="${escapeHtml(String(selected.cars.length))}" />
   `;
+  const hasDisplayOnlyHotel = selected.hotels.some((x) => isPlannerHotelDisplayOnly(x.hotel) || isPlannerHotelDisplayOnly({ id: x.item?.ref_id }));
+  const submitButton = bookingSubmitBtnEl();
+  if (submitButton) submitButton.disabled = hasDisplayOnlyHotel;
 }
 
 async function submitPlannerBookingForm(event) {
@@ -5709,6 +5727,13 @@ async function submitPlannerBookingForm(event) {
   const statusEl = bookingFormStatusEl();
   const btn = bookingSubmitBtnEl();
   setStatus(statusEl, '', null);
+
+  const selected = getSelectedServicesForBooking();
+  if (selected.hotels.some((x, i) => [x.hotel?.id, x.item?.ref_id, fd.get(`hotel_ref_id_${i}`)]
+    .some((id) => isPlannerHotelDisplayOnly({ id })))) {
+    setStatus(statusEl, 'Online booking is not enabled for this accommodation. No booking was created.', 'error');
+    return;
+  }
 
   const customerName = String(fd.get('customer_name') || '').trim();
   const customerEmail = String(fd.get('customer_email') || '').trim();
@@ -5730,8 +5755,6 @@ async function submitPlannerBookingForm(event) {
 
   const user = await getCurrentUser();
   const createdBy = user?.id || null;
-
-  const selected = getSelectedServicesForBooking();
 
   if (btn instanceof HTMLButtonElement) {
     btn.disabled = true;

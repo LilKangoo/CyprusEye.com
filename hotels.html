@@ -219,7 +219,7 @@
   <meta name="ce-auth" content="on" />
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
-  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260830_1"></script>
+  <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260913_114489"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js?v=8"></script>
@@ -924,11 +924,26 @@
     })();
 
     function priceSummary(h){
-      const p = hotelPricing?.getHotelMinPricePerNight
+      const p = isHotelPublicDisplayOnly(h)
+        ? window.HotelsV2SevenArchesPublicPricing?.getDisplay(h)?.min_nightly_rate
+        : hotelPricing?.getHotelMinPricePerNight
         ? hotelPricing.getHotelMinPricePerNight(h, { preferredPersons: 2 })
         : null;
       const perNight = t('hotels.card.perNight', '/ noc');
-      return isFinite(p)? `${p.toFixed(2)} € ${perNight}` : '';
+      return Number.isFinite(p)? `${p.toFixed(2)} € ${perNight}` : '';
+    }
+
+    function isHotelPublicDisplayOnly(entry = currentHotel) {
+      return String(entry?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+    }
+
+    function renderHotelPublicDisplayOnly() {
+      if (!isHotelPublicDisplayOnly()) return false;
+      const form = document.getElementById('hotelBookingForm');
+      if (form) form.hidden = true;
+      hotelBookingUi?.renderPublicDisplayOnly?.(currentHotel, form);
+      document.getElementById('modalHotelPrice').textContent = 'Online booking is not enabled.';
+      return true;
     }
 
     function renderHotels(){
@@ -1077,6 +1092,7 @@
         ? options.selectedExtraIds
         : hotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
       hotelBookingUi.renderLocationSummary(document.getElementById('hotelLocationSummary'), currentHotel, { form });
+      if (hotelBookingUi.renderPublicDisplayOnly?.(currentHotel, form)) return;
       hotelBookingUi.renderRoomTypeOptions(document.getElementById('hotelRoomTypeOptions'), currentHotel, {
         form,
         roomInputName: 'hotel_room_type_id',
@@ -1238,6 +1254,7 @@
     }
 
     async function applyHotelCoupon() {
+      if (renderHotelPublicDisplayOnly()) return false;
       if (!currentHotel) return false;
       const code = normalizeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
       if (!code) {
@@ -1308,6 +1325,7 @@
     }
 
     function updateLivePrice(){
+      if (renderHotelPublicDisplayOnly()) return;
       if(!currentHotel) return;
       const a = document.getElementById('arrivalDate').value;
       const d = document.getElementById('departureDate').value;
@@ -1379,6 +1397,7 @@
     }
 
     async function updateSevenArchesAuthoritativeQuote(){
+      if (renderHotelPublicDisplayOnly()) return null;
       const bridge = window.HotelsV2SevenArchesPublicPricing;
       const form = document.getElementById('hotelBookingForm');
       if (!bridge?.isSevenArches?.(currentHotel) || !form) return null;
@@ -1484,6 +1503,9 @@
       ensureHotelCouponUi();
       clearHotelCouponState({ clearInput: true });
       renderHotelBookingUiSections({ selectedExtraIds: [] });
+      void hotelBookingUi?.loadPublicDisplayOnly?.(h, document.getElementById('hotelBookingForm'), supabase).then(() => {
+        if (currentHotel === h) renderHotelPublicDisplayOnly();
+      });
       hotelBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelLocationSummary'));
       
       // Prefill form with user data if logged in
@@ -1561,6 +1583,7 @@
 
     document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
+      if (renderHotelPublicDisplayOnly()) return;
       const msg = document.getElementById('hotelBookingMessage');
       const btn = e.target.querySelector('.booking-submit');
       const submitText = t('hotels.booking.submit', 'Zarezerwuj');
@@ -1698,6 +1721,11 @@
         .order('created_at', { ascending: false });
       if(error){ console.error(error); return; }
       allHotels = data || [];
+      const displayHotel = allHotels.find(isHotelPublicDisplayOnly);
+      if (displayHotel) {
+        try { await window.HotelsV2SevenArchesPublicPricing?.loadDisplay(displayHotel, supabase); }
+        catch (_) { /* Preserve the published listing on read failure. */ }
+      }
       await loadHotelAmenitiesForDisplay();
       renderTabs();
       renderHotels();

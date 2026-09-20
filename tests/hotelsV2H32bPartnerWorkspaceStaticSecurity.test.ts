@@ -46,7 +46,10 @@ describe('Hotels V2 H3.2B independent Partner workspace static security', () => 
     expect(workspace).toContain("state.workspace?.sections?.property_content?.visible || state.workspace?.sections?.property_photos?.visible");
     expect(core).toContain("'commercial_owner', 'owner_partner_id'");
     expect(browserSource).not.toMatch(/commercialOwnerPartner|(?:assignment|membership|partner)\??\.role\s*===\s*['\"]owner['\"]/);
-    expect(browserSource).not.toContain('9b6d99a0-923a-4fbc-be54-c066e856e6ca');
+    // 114489 scopes architecture-read evolution to the reviewed Hotel; it never
+    // grants capabilities, substitutes the owner role, or routes a mutation.
+    expect(core).toContain("const PUBLISHED_ARCHITECTURE_TARGET = '9b6d99a0-923a-4fbc-be54-c066e856e6ca'");
+    expect(repository).toContain('expectedHotelId === Core.PUBLISHED_ARCHITECTURE_TARGET');
   });
 
   test('leaves the accepted fulfillment mutation source byte-exact and uses bookings/payments as existing-flow visibility only', () => {
