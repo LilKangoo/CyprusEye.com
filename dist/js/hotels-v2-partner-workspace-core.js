@@ -7,6 +7,7 @@
 
   const CONTRACTS = Object.freeze({
     workspace: 'hotels_v2_h3_2b_partner_workspace_v1',
+    workspace114489: 'hotels_v2_h3_2b_partner_workspace_114489_v1',
     contentDraft: 'hotels_v2_h3_2b_content_draft_v1',
     contentPreview: 'hotels_v2_h3_2b_content_preview_v1',
     contentPlan: 'hotels_v2_h3_2b_content_plan_v1',
@@ -55,6 +56,7 @@
   const SHA256 = /^[0-9a-f]{64}$/;
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const POSTGRES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const PUBLISHED_ARCHITECTURE_TARGET = '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
   const SEVEN_ARCHES_REVIEWED_PRICING = Object.freeze({
     upper: Object.freeze({
       roomTypeId: 'b4ef504f-cdeb-4e3c-a54d-932146ef4e94',
@@ -231,7 +233,7 @@
     return requireInteger(value, label, minimum, maximum, true);
   }
 
-  function validateProperty(row, hotelId) {
+  function validateProperty(row, hotelId, architecture = 'legacy') {
     requireExactKeys(row, [
       'id', 'slug', 'title_i18n', 'description_i18n', 'city', 'address_line', 'district',
       'postal_code', 'country', 'latitude', 'longitude', 'google_maps_url', 'amenities',
@@ -251,7 +253,7 @@
     [row.check_in_from, row.check_out_until].forEach((value) => { if (value !== null && !isClockTime(value)) fail('Property check-in/check-out time is invalid.'); });
     requireNullableUrl(row.cover_image_url, 'property.cover_image_url');
     requireStringArray(row.photos, 'property.photos', 250);
-    if (row.architecture_version !== 'legacy' || typeof row.is_published !== 'boolean') fail('Partner Hotel legacy/public property guard failed.');
+    if (row.architecture_version !== architecture || typeof row.is_published !== 'boolean') fail('Partner Hotel legacy/public property guard failed.');
     requireString(row.status, 'property.status', { minimum: 1, maximum: 40 });
     requireTimestamp(row.updated_at, 'property.updated_at');
   }
@@ -494,18 +496,35 @@
     AdminCore.normalizeAvailabilityControl(value, hotelId);
   }
 
-  function validateWorkspace(value, expected = {}) {
+  function validateWorkspaceEnvelope(value, expected, successor) {
     requireExactKeys(value, [
       'contract_version', 'partner', 'hotel_id', 'assignment', 'feature_flags', 'content_snapshot_token',
       'property', 'property_draft', 'rooms', 'units', 'pricing', 'availability', 'sections', 'recent_activity',
       'legacy_authoritative', 'public_change',
+      ...(successor ? ['architecture_successor'] : []),
       ...(Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle') ? ['capability_lifecycle', 'stripe_connection'] : []),
     ], 'Partner Hotel workspace');
-    if (value.contract_version !== CONTRACTS.workspace) fail('Unsupported Partner Hotel workspace contract.');
+    if (value.contract_version !== (successor ? CONTRACTS.workspace114489 : CONTRACTS.workspace)) fail('Unsupported Partner Hotel workspace contract.');
     requireExactKeys(value.partner, ['id', 'role'], 'Partner identity');
     const partnerId = requireCanonicalUuid(value.partner.id, 'partner.id');
     const hotelId = requireCanonicalUuid(value.hotel_id, 'hotel_id');
     if ((expected.partnerId && partnerId !== expected.partnerId) || (expected.hotelId && hotelId !== expected.hotelId)) fail('Partner Hotel workspace identity is mismatched.');
+    if (successor) {
+      const architecture = value.architecture_successor;
+      requireExactKeys(architecture, ['contract_version', 'hotel_id', 'architecture_version',
+        'is_published', 'public_booking_enabled', 'conversion_receipt_present'], 'Published architecture successor');
+      if (hotelId !== PUBLISHED_ARCHITECTURE_TARGET
+          || architecture.contract_version !== 'hotels_v2_published_architecture_v1'
+          || architecture.hotel_id !== hotelId
+          || !['legacy', 'rooms_v2'].includes(architecture.architecture_version)
+          || architecture.architecture_version !== value.property?.architecture_version
+          || architecture.is_published !== true || value.property?.is_published !== true
+          || architecture.public_booking_enabled !== false
+          || architecture.conversion_receipt_present !== (architecture.architecture_version === 'rooms_v2')
+          || !Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle')) {
+        fail('Published architecture successor evidence is missing or inconsistent.');
+      }
+    }
     requireString(value.partner.role, 'partner.role', { minimum: 1, maximum: 80 });
     requireExactKeys(value.assignment, ['id', 'permission_version', 'capabilities', 'access_snapshot_token'], 'Partner assignment');
     requireCanonicalUuid(value.assignment.id, 'assignment.id'); requireInteger(value.assignment.permission_version, 'assignment.permission_version', 0); requireSnapshot(value.assignment.access_snapshot_token, 'assignment.access_snapshot_token');
@@ -538,7 +557,7 @@
       if (value.feature_flags[key] !== false) fail('Public Hotels V2 feature flags must remain OFF in the Partner workspace.');
     });
     requireSnapshot(value.content_snapshot_token, 'content_snapshot_token');
-    validateProperty(value.property, hotelId);
+    validateProperty(value.property, hotelId, successor ? value.architecture_successor.architecture_version : 'legacy');
     validatePropertyDraft(value.property_draft);
     const rooms = requireArray(value.rooms, 'rooms', 1000); rooms.forEach((row) => validateRoom(row, hotelId)); requireUniqueIds(rooms, 'Rooms');
     const roomIds = new Set(rooms.map((row) => row.id));
@@ -575,9 +594,27 @@
     if (value.sections.bookings.available !== capabilities.process_bookings || value.sections.payments.available !== capabilities.view_payment_status
         || value.sections.booking_changes.available !== false || value.sections.stripe_onboarding.available !== false) fail('Existing/deferred section availability is inconsistent.');
     requireArray(value.recent_activity, 'recent_activity', 100).forEach((row) => validateActivity(row, hotelId));
-    if (value.legacy_authoritative !== true || value.public_change !== false || value.property.architecture_version !== 'legacy') fail('Partner Hotel legacy/public guard failed.');
+    if (successor) {
+      if (value.legacy_authoritative !== (value.property.architecture_version === 'legacy')
+          || value.public_change !== false
+          || value.capability_lifecycle.public_booking_enabled !== false
+          || (value.property.architecture_version === 'rooms_v2' && value.feature_flags.hotel_rooms_v2_enabled !== true)
+          || (value.availability !== null && value.availability.property.architecture_version !== value.property.architecture_version)) {
+        fail('Partner Hotel published architecture/public booking guard failed.');
+      }
+    } else if (value.legacy_authoritative !== true || value.public_change !== false || value.property.architecture_version !== 'legacy') fail('Partner Hotel legacy/public guard failed.');
     if (jsonBytes(value) > 25 * 1024 * 1024) fail('Partner Hotel workspace exceeds its safe byte limit.');
     return clone(value);
+  }
+
+  function validateWorkspace(value, expected = {}) {
+    return validateWorkspaceEnvelope(value, expected, false);
+  }
+
+  function validateWorkspace114489(value, expected = {}) {
+    // Only this explicit successor contract can expose the property's real V2
+    // architecture. The audited global lifecycle remains its own legacy DTO.
+    return validateWorkspaceEnvelope(value, expected, true);
   }
 
   function reasonIsValid(value) {
@@ -1382,8 +1419,8 @@
 
   return Object.freeze({
     stripeConnectionPresentation,
-    CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING,
-    hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateDraft,
+    CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING, PUBLISHED_ARCHITECTURE_TARGET,
+    hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateWorkspace114489, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
     sevenArchesReviewedPricingTargets, isSevenArchesReviewedPricingWorkspace,

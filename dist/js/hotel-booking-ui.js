@@ -5,6 +5,45 @@
     return globalScope.CE_HOTEL_PRICING || null;
   }
 
+  function isPublicDisplayOnly(hotel) {
+    // Independent of optional scripts and stale cached architecture values.
+    return String(hotel?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+  }
+
+  function renderPublicDisplayOnly(hotel, form) {
+    if (!form) return false;
+    if (!isPublicDisplayOnly(hotel)) {
+      if (form.dataset.publicDisplayOnly === 'true') {
+        delete form.dataset.publicDisplayOnly;
+        form.hidden = false;
+        form.querySelectorAll('[type="submit"]').forEach((button) => { button.disabled = false; });
+        form.parentElement.querySelector('[data-seven-arches-public-display]')?.remove();
+      }
+      return false;
+    }
+    form.dataset.publicDisplayOnly = 'true';
+    const bridge = globalScope.HotelsV2SevenArchesPublicPricing;
+    if (bridge?.renderDisplayOnly) return bridge.renderDisplayOnly(hotel, form, { language: getLanguage() });
+    form.hidden = true;
+    form.querySelectorAll('[type="submit"]').forEach((button) => { button.disabled = true; });
+    if (!form.parentElement.querySelector('[data-seven-arches-public-display]')) {
+      const notice = document.createElement('p');
+      notice.dataset.sevenArchesPublicDisplay = '';
+      notice.setAttribute('role', 'status');
+      notice.textContent = 'Accommodation details are temporarily unavailable. Online booking is not enabled.';
+      form.before(notice);
+    }
+    return true;
+  }
+
+  async function loadPublicDisplayOnly(hotel, form, suppliedClient) {
+    if (!renderPublicDisplayOnly(hotel, form)) return false;
+    try { await globalScope.HotelsV2SevenArchesPublicPricing?.loadDisplay(hotel, suppliedClient); }
+    catch (_) { /* Keep the read failure visible; never fall back to booking. */ }
+    if (form.dataset.publicDisplayOnly === 'true') renderPublicDisplayOnly(hotel, form);
+    return true;
+  }
+
   function isFormElement(value) {
     if (!value || typeof value !== 'object') return false;
     if (typeof globalScope.HTMLFormElement === 'function') {
@@ -1160,6 +1199,9 @@
   }
 
   globalScope.CE_HOTEL_BOOKING_UI = {
+    isPublicDisplayOnly,
+    renderPublicDisplayOnly,
+    loadPublicDisplayOnly,
     getLanguage,
     formatMoney,
     localizeText,

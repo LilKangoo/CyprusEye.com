@@ -2249,7 +2249,11 @@
     workspaceElement.hidden = false;
     workspaceElement.innerHTML = '<div class="hotel-property-empty"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading Property Workspace…</div>';
     try {
+      Repository.setPostConversionWorkspace(false);
       state.workspace = await Repository.getWorkspace(id);
+      Repository.setPostConversionWorkspace(
+        state.workspace?.property?.architecture_version === 'rooms_v2',
+      );
       state.shadowPreparation = null;
       state.shadowPreparationError = null;
       if (id === Core.SEVEN_ARCHES_PROPERTY_ID) {
@@ -2392,6 +2396,7 @@
   }
 
   function closeWorkspace() {
+    Repository.setPostConversionWorkspace(false);
     const directory = byId('hotelPropertyDirectory');
     const workspaceElement = byId('hotelPropertyWorkspace');
     state.workspace = null;
@@ -3614,6 +3619,7 @@
   }
 
   function pricingPromotionCardMarkup() {
+    if (state.workspace?.property?.architecture_version === 'rooms_v2') return '';
     const pricingState = pricingPromotionWorkspaceState();
     if (!pricingState) return '';
     if (!pricingState.available) {
@@ -3641,6 +3647,7 @@
   }
 
   function sevenArchesPricingActivationCardMarkup() {
+    if (state.workspace?.property?.architecture_version === 'rooms_v2') return '';
     if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
     if (state.pricingActivationError || !state.pricingActivation) {
       return `<section class="hotel-workspace-card hotel-pricing-activation-blockers" data-seven-arches-pricing-activation><span class="hotel-workspace-eyebrow">7 Arches pricing activation</span><h4>Activation control unavailable</h4><p>${escapeHtml(state.pricingActivationError?.userMessage || state.pricingActivationError?.message || 'The exact server activation snapshot could not be loaded.')}</p></section>`;
@@ -3742,6 +3749,7 @@
   }
 
   function shadowPreparationMarkup() {
+    if (state.workspace?.property?.architecture_version === 'rooms_v2') return '';
     const preparation = state.shadowPreparation;
     if (preparation?.status === 'SUCCESSOR_ALREADY_COMPLETE') {
       return '<div data-shadow-preparation-complete><strong>2 apartments prepared</strong><p>Successor configuration verified</p><details><summary>Read-only preparation details</summary><p>Upper Floor Apartment · Ground Floor Apartment</p><p>Exact Room Type and Room Rate links · independent schedules · 27 tiers each · 54 authority rows. Current pricing is preserved; no preparation is submitted.</p></details></div>';
@@ -4221,6 +4229,7 @@
   }
 
   function renderSevenArchesReviewedPricingPanel() {
+    if (state.workspace?.property?.architecture_version === 'rooms_v2') return '';
     if (state.workspace?.property?.id !== Core.SEVEN_ARCHES_PROPERTY_ID) return '';
     if (state.reviewedPricingLoading) return '<section class="hotel-workspace-card hotel-reviewed-pricing-control"><span class="hotel-workspace-spinner" aria-hidden="true"></span> Loading reviewed independent pricing…</section>';
     if (state.reviewedPricingError || !state.reviewedPricingControl) {
@@ -9454,7 +9463,10 @@
       return;
     }
     const configuration = Core.normalizeH3Configuration(state.h3Configuration);
-    const readiness = Core.deriveH3Readiness(configuration, state.workspace);
+    const roomsV2Authoritative = state.workspace.property.architecture_version === 'rooms_v2';
+    const readiness = roomsV2Authoritative
+      ? null
+      : Core.deriveH3Readiness(configuration, state.workspace);
     const activeRules = configuration.allocation_rules.filter((rule) => rule.is_active);
     const payment = configuration.payment_policies.find((entry) => entry.is_active);
     const commission = configuration.commission_policies.find((entry) => entry.is_active);
@@ -9470,9 +9482,19 @@
         <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Payment terms</span><h4>${payment ? `${payment.terms.length} reviewed step${payment.terms.length === 1 ? '' : 's'}` : 'Not configured'}</h4>${payment ? `<ul class="hotel-simple-list">${payment.terms.map((term) => `<li><span>${escapeHtml(term.due_event.replaceAll('_', ' '))}</span><strong>${term.amount_mode === 'remaining_balance' ? 'Remaining balance' : term.amount_mode === 'percent_total' ? `${term.amount_value}%` : formatMoney(term.amount_value, payment.currency)}</strong></li>`).join('')}</ul>` : '<p>Customer payment and partner settlement remain separate.</p>'}</section>
         <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Platform commission</span><h4>${escapeHtml(h3CommissionLabel(commission))}</h4><p>Calculated separately from customer payment due and partner payout.</p></section>
         <section class="hotel-workspace-card"><span class="hotel-workspace-eyebrow">Availability source</span><h4>${manual ? 'Manual Calendar' : 'Not configured'}</h4><p>Booking.com, Airbnb and iCal remain disabled future capabilities.</p></section>
-        ${renderH3Readiness(readiness)}
+        ${readiness
+          ? renderH3Readiness(readiness)
+          : `<section class="hotel-workspace-card hotel-h3-readiness">
+              <div class="hotel-readiness-card__header">
+                <div><span class="hotel-workspace-eyebrow">Rooms V2 active</span><h4>Post-conversion configuration</h4></div>
+                <span class="hotel-workspace-status hotel-workspace-status--success">ACTIVE</span>
+              </div>
+              <p>Pre-activation H3 shadow readiness no longer applies to this converted property.</p>
+            </section>`}
       </div>
-      <section class="hotel-workspace-card hotel-workspace-safety-note"><strong>Shadow/request-confirmation only</strong><p>Architecture is ${escapeHtml(state.workspace.property.architecture_version)}. Public Hotels V2 flags stay OFF. This cannot publish, change legacy prices, create a booking, collect payment or accept for a partner.</p></section>`;
+      ${roomsV2Authoritative
+        ? `<section class="hotel-workspace-card hotel-workspace-safety-note"><strong>Rooms V2 authoritative</strong><p>Architecture is ${escapeHtml(state.workspace.property.architecture_version)}. The old H3 shadow activation gate is retired for this converted property. Configuration changes still require their normal Review and Save flow.</p></section>`
+        : `<section class="hotel-workspace-card hotel-workspace-safety-note"><strong>Shadow/request-confirmation only</strong><p>Architecture is ${escapeHtml(state.workspace.property.architecture_version)}. Public Hotels V2 flags stay OFF. This cannot publish, change legacy prices, create a booking, collect payment or accept for a partner.</p></section>`}`;
     panel.querySelector('[data-edit-h3-configuration]')?.addEventListener('click', () => openH3ConfigurationEditor());
     panel.querySelector('[data-apply-seven-kamares-h3-template]')?.addEventListener('click', () => openH3ConfigurationEditor({ forceTemplate: true }));
     panel.querySelector('[data-review-seven-kamares-pricing]')?.addEventListener('click', openLegacyPricingPromotionPreparation);

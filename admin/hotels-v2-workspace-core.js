@@ -4973,13 +4973,22 @@
       'hotel_stripe_connect_enabled',
     ];
     const architecture = asText(normalized.property?.architecture_version);
+    const lifecycleBackedRoomsV2 = architecture === 'rooms_v2'
+      && Boolean(raw.capability_lifecycle)
+      && normalized.feature_flags.hotel_rooms_v2_enabled === true
+      && normalized.feature_flags.hotel_external_sync_enabled === true
+      && normalized.feature_flags.hotel_instant_booking_enabled === false
+      && normalized.feature_flags.hotel_stripe_connect_enabled === true;
     if (typeof normalized.feature_flags.hotel_external_sync_enabled !== 'boolean'
         || (!raw.capability_lifecycle && requiredOffFlags.some((key) => normalized.feature_flags[key] !== false))
         || !['legacy', 'rooms_v2'].includes(architecture)
-        || (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID && architecture !== 'legacy')) {
+        || (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID
+          && architecture !== 'legacy'
+          && !lifecycleBackedRoomsV2)) {
       throw new Error('Pricing control requires a supported inert Hotel architecture, public Hotels V2 flags OFF, an exact External Calendar flag and the exact 7 Kamares legacy lock.');
     }
     if (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID
+        && !lifecycleBackedRoomsV2
         && (raw.legacy_safety.legacy_pricing_rule_count !== 63
           || raw.legacy_safety.legacy_pricing_fingerprint !== SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT
           || raw.legacy_safety.legacy_pricing_authoritative !== true)) {

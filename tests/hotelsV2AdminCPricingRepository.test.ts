@@ -113,7 +113,7 @@ describe('Hotels V2 ADMIN-C pricing repository boundary', () => {
       after_state: { nightly_rate: 100, currency: 'EUR', lifecycle_status: 'draft' },
     };
     const { Repository, calls } = loadRepository((name: string) => {
-      if (name === 'hotel_v2_admin_get_pricing_control') return { data: freshControl, error: null };
+      if (name === 'hotel_v2_admin_get_pricing_control_114490') return { data: freshControl, error: null };
       return { data: {
         contract_version: 'hotels_v2_admin_c_pricing_plan_v1', hotel_id: HOTEL_ID,
         correlation_id: correlationId, idempotency_key: idempotencyKey,
@@ -127,8 +127,8 @@ describe('Hotels V2 ADMIN-C pricing repository boundary', () => {
     expect(result.replayed).toBe(true);
     expect(result.pricing_control.snapshot_token).toBe('c'.repeat(64));
     expect(calls.map((call) => call.name)).toEqual([
-      'hotel_v2_admin_apply_pricing_control_plan',
-      'hotel_v2_admin_get_pricing_control',
+      'hotel_v2_admin_apply_pricing_control_plan_114490',
+      'hotel_v2_admin_get_pricing_control_114490',
     ]);
   });
 
@@ -147,7 +147,7 @@ describe('Hotels V2 ADMIN-C pricing repository boundary', () => {
       source: 'hotels_v2_admin_c_pricing_control', created_at: REVIEWED_AT,
       before_state: null, after_state: { nightly_rate: 100, currency: 'EUR', lifecycle_status: 'draft' } };
     const { Repository, calls } = loadRepository((name: string) => (
-      name === 'hotel_v2_admin_get_pricing_control'
+      name === 'hotel_v2_admin_get_pricing_control_114490'
         ? { data: null, error: { code: 'PGRST000', message: 'read unavailable' } }
         : { data: { contract_version: 'hotels_v2_admin_c_pricing_plan_v1', hotel_id: HOTEL_ID,
           correlation_id: correlationId, idempotency_key: idempotencyKey,
@@ -157,7 +157,7 @@ describe('Hotels V2 ADMIN-C pricing repository boundary', () => {
     await expect(Repository.applyPricingControlPlan(reviewedPlan(), correlationId, idempotencyKey))
       .rejects.toMatchObject({ isAmbiguousOutcome: true,
         userMessage: expect.stringMatching(/will not be retried/i) });
-    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_pricing_control_plan')).toHaveLength(1);
-    expect(calls.filter((call) => call.name === 'hotel_v2_admin_get_pricing_control')).toHaveLength(1);
+    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_pricing_control_plan_114490')).toHaveLength(1);
+    expect(calls.filter((call) => call.name === 'hotel_v2_admin_get_pricing_control_114490')).toHaveLength(1);
   });
 });

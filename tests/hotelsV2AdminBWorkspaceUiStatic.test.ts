@@ -17,7 +17,7 @@ function functionBody(source: string, name: string, nextName: string): string {
 
 describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
   test('loads the versioned post-Stripe content read while keeping legacy writers unchanged', () => {
-    expect(repository).toContain("contentControl: 'hotel_v2_admin_get_content_control_114487'");
+    expect(repository).toContain("contentControl: 'hotel_v2_admin_get_content_control_114490'");
     expect(repository).toContain("'architecture_version', 'assignment_snapshot', 'commercial_owner', 'contract_version'");
     expect(repository).toContain("? featureFlags[key] !== (key !== 'hotel_instant_booking_enabled')");
     expect(repository).toContain('postStripeRead ? { postStripeContentReadOnly: true } : { contentReadOnly: true }');
@@ -25,10 +25,10 @@ describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
     expect(repository).toContain("applyRoomControl: 'hotel_v2_admin_apply_room_control_plan'");
     expect(repository).toContain("applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan'");
     for (const asset of [
-      '/admin/admin.css?v=20260821_1',
-      '/admin/hotels-v2-workspace-core.js?v=20260826_1',
-      '/admin/hotels-v2-workspace-repository.js?v=20260826_1',
-      '/admin/hotels-v2-workspace.js?v=20260826_1',
+      '/admin/admin.css?v=20260831_2',
+      '/admin/hotels-v2-workspace-core.js?v=20260922_1',
+      '/admin/hotels-v2-workspace-repository.js?v=20260922_1',
+      '/admin/hotels-v2-workspace.js?v=20260922_1',
       '/admin/admin.js?v=20260821_1',
     ]) expect(dashboard).toContain(asset);
   });

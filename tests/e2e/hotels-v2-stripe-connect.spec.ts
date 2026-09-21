@@ -95,7 +95,7 @@ for (const path of ['/partners/stripe-connect.html','/partners/stripe-connect'])
     const url = new URL(page.url());
     expect(url.origin).toBe('https://cypruseye.com');
     expect(url.pathname).toBe('/partners/stripe-connect.html');
-    expect([...url.searchParams.keys()].sort()).toEqual(['hotel','lang','partner']);
+    expect(Array.from(url.searchParams.keys()).sort()).toEqual(['hotel','lang','partner']);
     expect(url.searchParams.get('lang')).toBe('he');
     expect(url.hash).toBe('');
     expect(imports).toEqual(['https://cypruseye.com']);

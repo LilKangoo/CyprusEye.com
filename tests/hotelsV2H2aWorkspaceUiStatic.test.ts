@@ -338,7 +338,8 @@ describe('Hotels V2 H2A Property Workspace UI/static contract', () => {
     expect(ui).toContain('This is Admin readiness only. It never means the property is publicly live.');
     expect(ui).toContain('Migration preview · read only');
     expect(ui).toContain('Not migrated');
-    expect(repository).toContain("requiredOffFlags.some((key) => featureFlags[key] !== false)");
+    expect(repository).toContain("publishedConversionReadiness: 'hotel_v2_admin_get_published_architecture_conversion_114489'");
+    expect(repository).toContain("publishedConversionApply: 'hotel_v2_admin_convert_legacy_hotel_to_v2_114489'");
     expect(repository).not.toMatch(/hotel_rooms_v2_enabled\s*:\s*true/);
     expect(repository).not.toContain('site_settings');
     expect(repository).not.toContain('is_published: true');

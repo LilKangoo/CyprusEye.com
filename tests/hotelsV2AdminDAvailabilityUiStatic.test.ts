@@ -16,9 +16,9 @@ describe('Hotels V2 ADMIN-D availability UI static boundary', () => {
     expect(workspace).toContain('Repository.previewAvailabilityPlan(');
     expect(workspace).toContain('Repository.applyAvailabilityControlPlan(');
     expect(workspace).toContain('Repository.previewAvailabilityStay(');
-    expect(repository).toContain("availabilityControl: 'hotel_v2_admin_get_availability_control'");
-    expect(repository).toContain("previewAvailabilityPlan: 'hotel_v2_admin_preview_availability_plan'");
-    expect(repository).toContain("applyAvailabilityControl: 'hotel_v2_admin_apply_availability_control_plan'");
+    expect(repository).toContain("availabilityControl: 'hotel_v2_admin_get_availability_control_114490'");
+    expect(repository).toContain("previewAvailabilityPlan: 'hotel_v2_admin_preview_availability_plan_114490'");
+    expect(repository).toContain("applyAvailabilityControl: 'hotel_v2_admin_apply_availability_control_plan_114490'");
   });
 
   test('renders hierarchical Room inventory, product restrictions, Units, holds and booking blockers', () => {

@@ -27,7 +27,7 @@ test('114485 SQL remains immutable and current read no longer accepts its pre-St
     .toBe('8c8475ce00ab0ad0145d0b95a17d0914da6c0ac335c0ae0eec0e7fd6d6834fa3');
   const c=harness();
   await expect(c.HotelsV2WorkspaceRepository.getContentControl(HOTEL_114485)).rejects.toThrow();
-  expect(c.calls).toEqual(['hotel_v2_admin_get_content_control_114487']);
+  expect(c.calls).toEqual(['hotel_v2_admin_get_content_control_114490']);
 });
 for(const field of ['hotel_rooms_v2_enabled','hotel_external_sync_enabled','hotel_instant_booking_enabled','hotel_stripe_connect_enabled']){
   for(const value of [null,'false',undefined])test(`${field} rejects ${String(value)}`,async()=>{

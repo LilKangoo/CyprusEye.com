@@ -274,9 +274,9 @@ describe('Hotels V2 H3.2A exact-assignment Partner permissions client', () => {
     expect(partner).toContain('data-assigned-hotel-workspace');
     // Match the approved source/build release, not the pre-redesign pins.
     expect(dashboard).toContain('/admin/admin.css?v=20260831_2');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260826_1');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260831_2');
-    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260831_2');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-core.js?v=20260922_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace-repository.js?v=20260922_1');
+    expect(dashboard).toContain('/admin/hotels-v2-workspace.js?v=20260922_1');
     expect(fs.readFileSync(path.join(process.cwd(), 'dist/admin/dashboard.html'), 'utf8')).toBe(dashboard);
     expect(html).toContain('/js/hotels-v2-partner-workspace-core.js?v=20260830_1');
     expect(html).toContain('/js/partners.js?v=20260825_1');

@@ -111,9 +111,10 @@ async function preparePortal(context: BrowserContext, page: Page, origin: string
     document.addEventListener('DOMContentLoaded', () => {
       if (location.pathname !== '/partners/stripe-connect') return;
       const href = new URL('/partners/hotels-v2-workspace.css', location.origin).href;
-      const sheet = [...document.styleSheets].find(s => s.href === href);
+      const sheet = Array.from(document.styleSheets).find(s => s.href === href);
+      const resource = performance.getEntriesByName(href).filter((entry): entry is PerformanceResourceTiming => entry instanceof PerformanceResourceTiming).at(-1);
       root.__stripeFirstDom = { background:getComputedStyle(document.body).backgroundColor,
-        cssRules:sheet?.cssRules.length || 0, cssEnd:performance.getEntriesByName(href).at(-1)?.responseEnd || 0,
+        cssRules:sheet?.cssRules.length || 0, cssEnd:resource?.responseEnd || 0,
         dcl:performance.now(), grid:getComputedStyle(document.querySelector('.partner-stripe-grid')!).display };
     }, {once:true});
   });
@@ -156,7 +157,7 @@ async function cacheEvidence(page: Page) {
         if (!/stripe-connect|hotels-v2-workspace\.css/.test(request.url)) continue;
         const response=await cache.match(request);
         const digest=await crypto.subtle.digest('SHA-256',await response!.arrayBuffer());
-        rows.push({cache:key,url:request.url,sha:[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('')});
+        rows.push({cache:key,url:request.url,sha:Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('')});
       }
     }
     return rows;

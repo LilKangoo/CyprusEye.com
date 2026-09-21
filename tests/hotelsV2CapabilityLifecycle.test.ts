@@ -65,12 +65,12 @@ describe('Audited capability lifecycle', () => {
     const calls: string[] = [];
     const context = runtime(async (name: string) => {
       calls.push(name);
-      if (name === 'hotel_v2_admin_get_capability_lifecycle') return { data: lifecycle(false, false, true), error: null };
+      if (name === 'hotel_v2_admin_get_capability_lifecycle_114490') return { data: lifecycle(false, false, true), error: null };
       throw Error('simulated lost response');
     });
     const draft = { capability: 'rooms', enabled: true, expectedVersion: 0, reason: 'Explicit synthetic test decision', confirmed: true };
     await expect(context.HotelsV2WorkspaceRepository.setCapabilityLifecycle(draft)).rejects.toThrow();
-    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle', 'hotel_v2_admin_set_capability_lifecycle']);
+    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle_114490', 'hotel_v2_admin_set_capability_lifecycle']);
   });
   test('no confirmation and stale version never call mutation', async () => {
     const calls: string[] = [];
@@ -79,7 +79,7 @@ describe('Audited capability lifecycle', () => {
     await expect(context.HotelsV2WorkspaceRepository.setCapabilityLifecycle(draft)).rejects.toThrow();
     expect(calls).toHaveLength(0);
     await expect(context.HotelsV2WorkspaceRepository.setCapabilityLifecycle({ ...draft, confirmed: true })).rejects.toThrow();
-    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle']);
+    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle_114490']);
   });
   test.each(['wrong target', 'another flag changed', 'wrong version'])('rejects valid-shaped but wrong decision response: %s', async (fault) => {
     const calls: string[] = [];
@@ -92,6 +92,6 @@ describe('Audited capability lifecycle', () => {
     });
     await expect(context.HotelsV2WorkspaceRepository.setCapabilityLifecycle({ capability: 'rooms', enabled: true,
       expectedVersion: 0, reason: 'Explicit synthetic test decision', confirmed: true })).rejects.toThrow();
-    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle', 'hotel_v2_admin_set_capability_lifecycle']);
+    expect(calls).toEqual(['hotel_v2_admin_get_capability_lifecycle_114490', 'hotel_v2_admin_set_capability_lifecycle']);
   });
 });

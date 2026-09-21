@@ -23,7 +23,7 @@
     publishedConversionApply: 'hotel_v2_admin_convert_legacy_hotel_to_v2_114489',
     applyRoomControl: 'hotel_v2_admin_apply_room_control_plan',
     applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan',
-    contentControl: 'hotel_v2_admin_get_content_control_114487',
+    contentControl: 'hotel_v2_admin_get_content_control_114490',
     prepareLegacyShadowRooms: 'hotel_v2_admin_prepare_legacy_shadow_rooms',
     shadowPreparationState: 'hotel_v2_admin_get_shadow_preparation_state_114483',
     prepareShadowRoomsSuccessor: 'hotel_v2_admin_prepare_shadow_rooms_successor',
@@ -33,19 +33,19 @@
     applyLegacyPricingPromotion: 'hotel_v2_admin_apply_legacy_pricing_promotion',
     partnerHotelPermissions: 'hotel_v2_admin_get_partner_hotel_permissions',
     applyPartnerHotelPermissions: 'hotel_v2_admin_apply_partner_hotel_permissions',
-    pricingControl: 'hotel_v2_admin_get_pricing_control',
-    applyPricingControl: 'hotel_v2_admin_apply_pricing_control_plan',
-    previewPricingQuote: 'hotel_v2_admin_preview_pricing_quote',
-    availabilityControl: 'hotel_v2_admin_get_availability_control',
-    previewAvailabilityPlan: 'hotel_v2_admin_preview_availability_plan',
-    applyAvailabilityControl: 'hotel_v2_admin_apply_availability_control_plan',
-    previewAvailabilityStay: 'hotel_v2_admin_preview_stay',
-    externalCalendarControl: 'hotel_v2_admin_get_external_calendar_control',
-    previewExternalCalendarPlan: 'hotel_v2_admin_preview_external_calendar_plan',
-    applyExternalCalendarPlan: 'hotel_v2_admin_apply_external_calendar_plan',
-    externalCalendarProviderReviews: 'hotel_v2_admin_get_external_calendar_provider_reviews',
-    previewExternalCalendarPartnerProposal: 'hotel_v2_admin_preview_external_calendar_partner_proposal',
-    applyExternalCalendarPartnerProposal: 'hotel_v2_admin_apply_external_calendar_partner_proposal',
+    pricingControl: 'hotel_v2_admin_get_pricing_control_114490',
+    applyPricingControl: 'hotel_v2_admin_apply_pricing_control_plan_114490',
+    previewPricingQuote: 'hotel_v2_admin_preview_pricing_quote_114490',
+    availabilityControl: 'hotel_v2_admin_get_availability_control_114490',
+    previewAvailabilityPlan: 'hotel_v2_admin_preview_availability_plan_114490',
+    applyAvailabilityControl: 'hotel_v2_admin_apply_availability_control_plan_114490',
+    previewAvailabilityStay: 'hotel_v2_admin_preview_stay_114490',
+    externalCalendarControl: 'hotel_v2_admin_get_external_calendar_control_114490',
+    previewExternalCalendarPlan: 'hotel_v2_admin_preview_external_calendar_plan_114490',
+    applyExternalCalendarPlan: 'hotel_v2_admin_apply_external_calendar_plan_114490',
+    externalCalendarProviderReviews: 'hotel_v2_admin_get_external_calendar_provider_reviews_114490',
+    previewExternalCalendarPartnerProposal: 'hotel_v2_admin_preview_extcal_partner_proposal_114490',
+    applyExternalCalendarPartnerProposal: 'hotel_v2_admin_apply_external_calendar_partner_proposal_114490',
     rejectExternalCalendarPartnerProposal: 'hotel_v2_admin_reject_external_calendar_partner_proposal',
     partnerPropertyProposals: 'hotel_v2_admin_get_partner_property_proposals',
     previewPartnerPropertyProposalPlan: 'hotel_v2_admin_preview_partner_property_proposal_plan',
@@ -58,6 +58,12 @@
     previewSevenArchesReviewedPricing: 'hotel_v2_admin_preview_seven_arches_reviewed_pricing',
     applySevenArchesReviewedPricing: 'hotel_v2_admin_apply_seven_arches_reviewed_pricing',
   });
+
+  let postConversionWorkspace = false;
+
+  function setPostConversionWorkspace(enabled) {
+    postConversionWorkspace = enabled === true;
+  }
 
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const reviewedAvailabilityPlans = new Map();
@@ -489,6 +495,7 @@
   }
 
   async function getSevenArchesPricingActivation() {
+    if (postConversionWorkspace) return null;
     return Core.validateSevenArchesPricingActivationSnapshot(await runRpc(
       RPC.sevenArchesPricingActivation, {}, 'Load exact 7 Arches pricing activation',
     ));
@@ -566,6 +573,7 @@
   }
 
   async function getSevenArchesReviewedPricing(hotelId = Core.SEVEN_ARCHES_PROPERTY_ID) {
+    if (postConversionWorkspace) return null;
     const id = Core.normalizeUuid(hotelId);
     if (id !== Core.SEVEN_ARCHES_PROPERTY_ID) {
       throw new Error('Reviewed independent pricing is available only for the exact 7 Arches Hotel.');
@@ -1224,6 +1232,7 @@
   }
 
   async function getShadowPreparationState(hotelId) {
+    if (postConversionWorkspace) return null;
     if (hotelId !== Core.SEVEN_ARCHES_PROPERTY_ID) throw new Error('The exact 7 Arches Hotel is required.');
     const data = await runRpc(RPC.shadowPreparationState, { p_hotel_id: hotelId }, 'Check apartment preparation');
     const flags = data?.feature_flags;
@@ -1358,6 +1367,7 @@
   }
 
   async function getLegacyPricingPromotionPreview(hotelId) {
+    if (postConversionWorkspace) return null;
     const id = Core.normalizeUuid(hotelId);
     if (!id) throw new Error('A valid property ID is required.');
     const data = await runRpc(RPC.legacyPricingPromotionPreview, {
@@ -1470,7 +1480,7 @@
   }
 
   async function getCapabilityLifecycle() {
-    return Core.validateCapabilityLifecycle(await runRpc('hotel_v2_admin_get_capability_lifecycle', {},
+    return Core.validateCapabilityLifecycle(await runRpc('hotel_v2_admin_get_capability_lifecycle_114490', {},
       'Load audited Hotels capability lifecycle'), null, true);
   }
 
@@ -1794,6 +1804,7 @@
   }
 
   return Object.freeze({
+    setPostConversionWorkspace,
     getPublishedArchitectureConversion,
     applyPublishedArchitectureConversion,
     validatePublishedConversionReadiness,

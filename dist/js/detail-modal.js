@@ -10,6 +10,10 @@ function qs(sel, root=document) { return root.querySelector(sel); }
 function qsa(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
 const detailHotelBookingUi = typeof window !== 'undefined' ? window.CE_HOTEL_BOOKING_UI || null : null;
 
+function isDetailHotelDisplayOnly(hotel) {
+  return String(hotel?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+}
+
 function getDetailBookingLanguage() {
   const raw = String(
     window.getCurrentLanguage?.()
@@ -253,10 +257,12 @@ function mapTrip(t){
   };
 }
 function hotelMinPrice(h){
-  const min = window.CE_HOTEL_PRICING?.getHotelMinPricePerNight
+  const min = isDetailHotelDisplayOnly(h)
+    ? window.HotelsV2SevenArchesPublicPricing?.getDisplay(h)?.min_nightly_rate
+    : window.CE_HOTEL_PRICING?.getHotelMinPricePerNight
     ? window.CE_HOTEL_PRICING.getHotelMinPricePerNight(h, { preferredPersons: 2 })
     : null;
-  return isFinite(min) ? `${min.toFixed(2)} € / noc` : '';
+  return Number.isFinite(min) ? `${min.toFixed(2)} € / noc` : '';
 }
 function mapHotel(h){
   const photos = Array.isArray(h.photos)? h.photos: [];
@@ -517,6 +523,7 @@ function renderDetail(type, vm){
   };
 
   const getHotelQuote = () => {
+    if (isDetailHotelDisplayOnly(vm.raw)) return null;
     if (form.dataset.type !== 'hotel' || !detailHotelBookingUi?.calculateQuoteFromForm) return null;
     const fd = new FormData(form);
     const a = fd.get('arrival_date');
@@ -530,6 +537,18 @@ function renderDetail(type, vm){
   };
 
   const renderHotelUiSections = () => {
+    if (form.dataset.type === 'hotel' && isDetailHotelDisplayOnly(vm.raw)) {
+      form.hidden = true;
+      if (detailHotelBookingUi?.renderPublicDisplayOnly) {
+        detailHotelBookingUi.renderPublicDisplayOnly(vm.raw, form);
+      } else if (!form.parentElement.querySelector('[data-seven-arches-public-display]')) {
+        const notice = document.createElement('p');
+        notice.dataset.sevenArchesPublicDisplay = '';
+        notice.textContent = 'Accommodation details are temporarily unavailable. Online booking is not enabled.';
+        form.before(notice);
+      }
+      return;
+    }
     if (form.dataset.type !== 'hotel' || !detailHotelBookingUi) return;
     detailHotelBookingUi.renderLocationSummary(qs('#detailHotelLocationSummary'), vm.raw, { form });
     detailHotelBookingUi.refreshLocationSummaryMap?.(qs('#detailHotelLocationSummary'));
@@ -594,6 +613,7 @@ function renderDetail(type, vm){
   };
 
   const renderQuotePreview = () => {
+    if (form.dataset.type === 'hotel' && isDetailHotelDisplayOnly(vm.raw)) return;
     const baseTotal = Number(getBaseTotal() || 0);
     const coupon = getCouponContext(baseTotal);
     const hotelQuote = form.dataset.type === 'hotel' ? getHotelQuote() : null;
@@ -621,6 +641,7 @@ function renderDetail(type, vm){
   };
 
   const applyCouponForCurrentForm = async () => {
+    if (form.dataset.type === 'hotel' && isDetailHotelDisplayOnly(vm.raw)) return false;
     const code = normalizeDetailCouponCode(couponInput?.value || '');
     if (!code) {
       setCouponStatus('Wpisz kod kuponu.', 'error');
@@ -732,10 +753,17 @@ function renderDetail(type, vm){
   });
   renderHotelUiSections();
   renderQuotePreview();
+  if (form.dataset.type === 'hotel' && isDetailHotelDisplayOnly(vm.raw)) {
+    void detailHotelBookingUi?.loadPublicDisplayOnly?.(vm.raw, form, sb);
+  }
 
   // wire booking submit
   form.addEventListener('submit', async (e)=>{
     e.preventDefault();
+    if (form.dataset.type === 'hotel' && isDetailHotelDisplayOnly(vm.raw)) {
+      renderHotelUiSections();
+      return;
+    }
     const msg = qs('#detailBookingMsg');
     const btn = form.querySelector('.booking-submit');
     msg.style.display = 'none';

@@ -52,8 +52,8 @@ async function setup(page: Page, options: Options = {}) {
     w.__calls = [];
     w.getSupabase = () => ({rpc: async (name: string, args: any) => {
       w.__calls.push({name, args});
-      if (name === 'hotel_v2_admin_get_content_control_114487') return {data: content, error: null};
-      if (name === 'hotel_v2_admin_get_capability_lifecycle') return {data: lifecycle, error: null};
+      if (name === 'hotel_v2_admin_get_content_control_114490') return {data: content, error: null};
+      if (name === 'hotel_v2_admin_get_capability_lifecycle_114490') return {data: lifecycle, error: null};
       if (name === 'hotel_v2_admin_get_partner_stripe_onboarding_authorization') return {data: account, error: null};
       if (name === 'hotel_v2_admin_get_stripe_platform_readiness_114486') return {data: {
         contract_version: 'hotels_stripe_platform_readiness_admin_v1', state: options.stale ? 'STALE' : 'READY', ready: !options.stale,
@@ -102,7 +102,7 @@ for (const stale of [false, true]) test(`Admin Payments separates enabled capabi
 test('Admin Payments actual capability OFF stays truthful when the post-Stripe content contract rejects that boundary', async ({page}) => {
   await setup(page, {capability: false});
   await expect(page.locator('[data-payments-stripe-capability]')).toHaveText('Capability disabled');
-  // The unchanged 114487 content loader requires Stripe ON. Do not invent Partner evidence after it rejects OFF.
+  // The successor retains the post-Stripe content contract. Do not invent Partner evidence after it rejects OFF.
   expect(await page.evaluate(() => Boolean((window as any).HotelsV2Workspace.state.contentControlError))).toBe(true);
   await expect(page.locator('[data-payments-stripe]')).toContainText('No verified operational Partner assignment');
   await expect(page.locator('[data-payments-stripe-authorization], [data-payments-stripe-account]')).toHaveCount(0);
@@ -138,7 +138,7 @@ for (const options of [{noAssignment: true}, {foreignAssignment: true}, {missing
 for (const language of ['en', 'pl', 'he'] as const) test(`Admin Payments localized mobile presentation ${language}`, async ({page}, testInfo) => {
   await setup(page, {language, mobile: true, stale: true});
   const expected = {en: ['Capability enabled', 'Authorized', 'Not connected', 'OFF'], pl: ['Funkcja włączona', 'Autoryzowany', 'Niepołączone', 'WYŁ.'], he: ['היכולת מופעלת', 'מורשה', 'לא מחובר', 'כבוי']}[language];
-  for (const [index, selector] of ['capability', 'authorization', 'account'].entries()) await expect(page.locator(`[data-payments-stripe-${selector}]`)).toHaveText(expected[index]);
+  for (const [index, selector] of Array.from(['capability', 'authorization', 'account'].entries())) await expect(page.locator(`[data-payments-stripe-${selector}]`)).toHaveText(expected[index]);
   await expect(page.locator('[data-payments-public-booking]')).toHaveText(expected[3]);
   const card = page.locator('[data-payments-stripe]');
   expect(await card.evaluate(el => getComputedStyle(el).direction)).toBe(language === 'he' ? 'rtl' : 'ltr');

@@ -456,7 +456,7 @@ describe('7 Arches pricing activation Admin client', () => {
         if (name === 'hotel_v2_admin_get_property_workspace') {
           return { data: { property: { id: HOTEL }, room_types: [], units: [], rate_plans: [], room_rates: [] }, error: null };
         }
-        if (name === 'hotel_v2_admin_get_pricing_control') {
+        if (name === 'hotel_v2_admin_get_pricing_control_114490') {
           return { data: productionShapedPricingControl(), error: null };
         }
         return { data: null, error: new Error(`Unexpected RPC ${name}`) };

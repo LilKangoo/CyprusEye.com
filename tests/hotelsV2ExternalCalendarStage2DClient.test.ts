@@ -528,9 +528,9 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     const client = {
       async rpc(name: string, payload: any) {
         calls.push({ name, payload });
-        if (name === 'hotel_v2_admin_get_external_calendar_control') return { data: control(), error: null };
-        if (name === 'hotel_v2_admin_preview_external_calendar_plan') return { data: preview, error: null };
-        if (name === 'hotel_v2_admin_apply_external_calendar_plan') return { data: {
+        if (name === 'hotel_v2_admin_get_external_calendar_control_114490') return { data: control(), error: null };
+        if (name === 'hotel_v2_admin_preview_external_calendar_plan_114490') return { data: preview, error: null };
+        if (name === 'hotel_v2_admin_apply_external_calendar_plan_114490') return { data: {
           contract_version: 'hotels_v2_external_calendar_apply_result_v1', hotel_id: HOTEL, partner_id: null,
           correlation_id: CORRELATION, idempotency_key: IDEMPOTENCY, replayed: false, changed: true,
           activity: [{ id: ACTIVITY, hotel_id: HOTEL, entity_type: 'calendar_source', entity_id: SOURCE,
@@ -551,7 +551,7 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     expect(receipt.activity).toHaveLength(1);
     await expect(Repository.applyExternalCalendarPlan(reviewed.reviewed_plan, CORRELATION, IDEMPOTENCY, ICAL_URL))
       .rejects.toThrow('exact unchanged server-reviewed plan');
-    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_external_calendar_plan')).toHaveLength(1);
+    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_external_calendar_plan_114490')).toHaveLength(1);
     expect(calls.at(-1)?.payload.p_ical_url).toBe(ICAL_URL);
   });
 
@@ -568,14 +568,14 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
     const client = {
       async rpc(name: string, payload: any) {
         calls.push({ name, payload });
-        if (name === 'hotel_v2_admin_get_external_calendar_provider_reviews') return { data: {
+        if (name === 'hotel_v2_admin_get_external_calendar_provider_reviews_114490') return { data: {
           contract_version: 'hotels_v2_external_calendar_provider_review_list_v1',
           hotel_id: HOTEL, proposals: [providerProposal()],
         }, error: null };
-        if (name === 'hotel_v2_admin_preview_external_calendar_partner_proposal') {
+        if (name === 'hotel_v2_admin_preview_extcal_partner_proposal_114490') {
           return { data: previewEnvelope, error: null };
         }
-        if (name === 'hotel_v2_admin_apply_external_calendar_partner_proposal') return { data: {
+        if (name === 'hotel_v2_admin_apply_external_calendar_partner_proposal_114490') return { data: {
           contract_version: 'hotels_v2_external_calendar_provider_admin_apply_v1', proposal: terminal,
           replayed: false,
           apply: {
@@ -652,12 +652,12 @@ describe('Hotels V2 external calendar Stage 2D repository and static security', 
       'js/hotels-v2-partner-workspace-repository.js', 'js/hotels-v2-partner-workspace.js',
     ].map((relative) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8')).join('\n');
     for (const name of [
-      'hotel_v2_admin_get_external_calendar_control', 'hotel_v2_admin_preview_external_calendar_plan',
-      'hotel_v2_admin_apply_external_calendar_plan', 'hotel_v2_partner_get_external_calendar_control',
+      'hotel_v2_admin_get_external_calendar_control_114490', 'hotel_v2_admin_preview_external_calendar_plan_114490',
+      'hotel_v2_admin_apply_external_calendar_plan_114490', 'hotel_v2_partner_get_external_calendar_control',
       'hotel_v2_partner_preview_external_calendar_plan', 'hotel_v2_partner_apply_external_calendar_plan',
-      'hotel_v2_admin_get_external_calendar_provider_reviews',
-      'hotel_v2_admin_preview_external_calendar_partner_proposal',
-      'hotel_v2_admin_apply_external_calendar_partner_proposal',
+      'hotel_v2_admin_get_external_calendar_provider_reviews_114490',
+      'hotel_v2_admin_preview_extcal_partner_proposal_114490',
+      'hotel_v2_admin_apply_external_calendar_partner_proposal_114490',
       'hotel_v2_admin_reject_external_calendar_partner_proposal',
     ]) expect(files).toContain(name);
     expect(files).not.toMatch(/hotel_v2_admin_set_external_calendar_ical_secret/);

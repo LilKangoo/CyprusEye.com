@@ -47,7 +47,7 @@ test('114487 current Content Control accepts exact post-Stripe DTO and verified 
     hotel_id: HOTEL, snapshot_token: 'a'.repeat(32), assignment_fingerprint: 'b'.repeat(32),
     assignments: [{assignment_id: ASSIGNMENT, partner_id: PARTNER, hotel_id: HOTEL}],
   });
-  expect(c.calls).toEqual([{name: 'hotel_v2_admin_get_content_control_114487', args: {p_hotel_id: HOTEL}}]);
+  expect(c.calls).toEqual([{name: 'hotel_v2_admin_get_content_control_114490', args: {p_hotel_id: HOTEL}}]);
   expect(JSON.stringify(c.dto)).toBe(before);
 });
 
@@ -107,7 +107,7 @@ for (const field of ['snapshot_token', 'assignment_fingerprint', 'permissions_fi
 test.each(mutations)('114487 fail closed: %s', async (_name, mutate) => {
   const c = harness(); mutate(c.dto);
   await expect(c.Repository.getContentControl(HOTEL)).rejects.toThrow();
-  expect(c.calls.every((call: any) => call.name === 'hotel_v2_admin_get_content_control_114487')).toBe(true);
+  expect(c.calls.every((call: any) => call.name === 'hotel_v2_admin_get_content_control_114490')).toBe(true);
 });
 
 test('default and historical pre-Stripe permissions validators still reject Stripe ON', () => {
@@ -143,6 +143,7 @@ test('read-only mode is explicit, rejects combined modes and never rewrites flag
 test('only the current read call uses post-Stripe normalization; writer response paths keep the default', () => {
   const source = fs.readFileSync('admin/hotels-v2-workspace-repository.js', 'utf8');
   expect(source).toContain("}, 'Load Admin property content control'), id, { postStripeContentReadOnly: true });");
-  expect(source.match(/normalizeContentControl\(payload.content_control, id\)/g)).toHaveLength(2);
+  expect(source.match(/normalizeContentControl\(payload.content_control, id\)/g)).toHaveLength(1);
+  expect(source).toContain("normalizeContentControl(payload.content_control, id, { postStripeContentReadOnly: id === PUBLISHED_CONVERSION_HOTEL })");
   expect(source).toContain("partnerHotelPermissions: 'hotel_v2_admin_get_partner_hotel_permissions'");
 });

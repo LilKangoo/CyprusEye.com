@@ -139,7 +139,7 @@ describe('7 Arches Partner property proposal Admin client', () => {
       rpc: async (name: string, payload: any) => {
         calls.push({ name, payload });
         if (name === 'hotel_v2_admin_preview_partner_property_proposal_plan') return { data: preview(), error: null };
-        if (name === 'hotel_v2_admin_apply_partner_property_proposal_plan') return { data: null, error: { code: 'PT409', message: 'hotels_v2_seven_arches_property_proposal_stale' } };
+        if (name === 'hotel_v2_admin_apply_partner_property_proposal_plan_114489') return { data: null, error: { code: 'PT409', message: 'hotels_v2_seven_arches_property_proposal_stale' } };
         return { data: null, error: new Error(`Unexpected RPC ${name}`) };
       },
     });
@@ -148,8 +148,11 @@ describe('7 Arches Partner property proposal Admin client', () => {
     }
     const Repository = context.HotelsV2WorkspaceRepository;
     const reviewed = await Repository.previewPartnerPropertyProposalPlan(request(), control());
-    await expect(Repository.applyPartnerPropertyProposalPlan(reviewed.reviewed_plan, CORRELATION)).rejects.toMatchObject({ isStale: true });
+    await expect(Repository.applyPartnerPropertyProposalPlan(reviewed.reviewed_plan, CORRELATION)).rejects.toMatchObject({ isStale: true, isDefinitiveFailure: true, isAmbiguousOutcome: false });
     await expect(Repository.applyPartnerPropertyProposalPlan(reviewed.reviewed_plan, CORRELATION)).rejects.toThrow('exact server-reviewed plan');
-    expect(calls.filter((call) => call.name === 'hotel_v2_admin_apply_partner_property_proposal_plan')).toHaveLength(1);
+    expect(calls.map((call) => call.name)).toEqual([
+      'hotel_v2_admin_preview_partner_property_proposal_plan',
+      'hotel_v2_admin_apply_partner_property_proposal_plan_114489',
+    ]);
   });
 });

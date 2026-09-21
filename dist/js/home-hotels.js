@@ -185,7 +185,21 @@ function isHotelCardPanorama(url) {
   return false;
 }
 
-const HOME_HOTELS_CACHE_KEY = 'ce_cache_home_hotels_v1';
+const HOME_HOTELS_CACHE_KEY = 'ce_cache_home_hotels_v2_display_114489';
+
+function isHomeHotelDisplayOnly(hotel = homeCurrentHotel) {
+  return String(hotel?.id || '') === '9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+}
+
+function renderHomeHotelDisplayOnly() {
+  if (!isHomeHotelDisplayOnly()) return false;
+  const form = document.getElementById('hotelBookingForm');
+  if (form) form.hidden = true;
+  getHomeHotelBookingUiApi()?.renderPublicDisplayOnly?.(homeCurrentHotel, form);
+  const price = document.getElementById('modalHotelPrice');
+  if (price) price.textContent = 'Online booking is not enabled.';
+  return true;
+}
 const HOME_HOTELS_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const HOME_HOTEL_AMENITIES_CACHE_KEY = 'ce_cache_hotel_amenities_v1';
@@ -449,6 +463,11 @@ async function loadHomeHotels(){
       .order('created_at', { ascending: false });
     if(error) throw error;
     homeHotelsData = data || [];
+    const displayHotel = homeHotelsData.find(isHomeHotelDisplayOnly);
+    if (displayHotel) {
+      try { await window.HotelsV2SevenArchesPublicPricing?.loadDisplay(displayHotel, supabase); }
+      catch (_) { /* Keep the published listing; booking remains off. */ }
+    }
     writeHomeHotelsCache(homeHotelsData);
     dispatchHomeHotelsDataRefreshed();
     
@@ -568,10 +587,12 @@ function renderHomeHotels(){
     }
     let price = '';
     const perNightLabel = hotelsT('hotels.card.perNight', '/ noc');
-    const previewPrice = getHomeHotelPricingEngine()?.getHotelMinPricePerNight
+    const previewPrice = isHomeHotelDisplayOnly(h)
+      ? window.HotelsV2SevenArchesPublicPricing?.getDisplay(h)?.min_nightly_rate
+      : getHomeHotelPricingEngine()?.getHotelMinPricePerNight
       ? getHomeHotelPricingEngine().getHotelMinPricePerNight(h, { preferredPersons: 2 })
       : null;
-    if (isFinite(previewPrice)) {
+    if (Number.isFinite(previewPrice)) {
       price = `${Number(previewPrice).toFixed(2)} € ${perNightLabel}`;
     }
     return `
@@ -801,6 +822,7 @@ function initHomeHotels() {
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     if(!homeCurrentHotel) return;
+    if (renderHomeHotelDisplayOnly()) return;
     const homeHotelBookingUi = getHomeHotelBookingUiApi();
     
     const msg = document.getElementById('hotelBookingMessage');
@@ -1197,6 +1219,7 @@ function renderHomeHotelBookingUiSections(options = {}) {
     ? options.selectedExtraIds
     : homeHotelBookingUi.getSelectedExtraIds(form, 'hotel_extra_ids');
   homeHotelBookingUi.renderLocationSummary(document.getElementById('hotelLocationSummary'), homeCurrentHotel, { form });
+  if (homeHotelBookingUi.renderPublicDisplayOnly?.(homeCurrentHotel, form)) return;
   homeHotelBookingUi.renderRoomTypeOptions(document.getElementById('hotelRoomTypeOptions'), homeCurrentHotel, {
     form,
     roomInputName: 'hotel_room_type_id',
@@ -1475,6 +1498,7 @@ async function ensureHomeHotelReferralUi() {
 }
 
 async function applyHomeHotelCoupon() {
+  if (renderHomeHotelDisplayOnly()) return false;
   if (!homeCurrentHotel) return false;
   const code = normalizeHomeHotelCouponCode(document.getElementById('hotelBookingCouponCode')?.value || '');
   if (!code) {
@@ -1549,6 +1573,7 @@ function calculateHotelPriceSimple(h, persons, nights) {
 }
 
 function updateHotelLivePrice(){
+  if (renderHomeHotelDisplayOnly()) return;
   const homeHotelBookingUi = getHomeHotelBookingUiApi();
   if(!homeCurrentHotel) return;
   const modal = document.getElementById('hotelModal');
@@ -1634,6 +1659,7 @@ function updateHotelLivePrice(){
 }
 
 async function updateHomeSevenArchesAuthoritativeQuote(){
+  if (renderHomeHotelDisplayOnly()) return null;
   const bridge = window.HotelsV2SevenArchesPublicPricing;
   const form = document.getElementById('hotelBookingForm');
   if (!bridge?.isSevenArches?.(homeCurrentHotel) || !form) return null;
@@ -1730,6 +1756,9 @@ function openHotelModalRecordInternal(hotelRecord, options = {}) {
   void ensureHomeHotelReferralUi().then((controller) => controller?.bootstrapInitialValue());
   clearHomeHotelCouponState({ clearInput: true });
   renderHomeHotelBookingUiSections({ selectedExtraIds: [] });
+  void homeHotelBookingUi?.loadPublicDisplayOnly?.(h, form).then(() => {
+    if (homeCurrentHotel === h) renderHomeHotelDisplayOnly();
+  });
   
   // Prefill user data from session (if logged in)
   prefillHotelFormFromSession(form);

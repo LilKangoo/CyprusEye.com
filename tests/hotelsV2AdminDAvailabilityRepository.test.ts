@@ -66,7 +66,7 @@ describe('Hotels V2 ADMIN-D availability repository boundary', () => {
     const { Repository, calls } = loadRepository({ data: result, error: null });
     await expect(Repository.getAvailabilityControl(HOTEL_ID, result.from, result.to)).resolves.toBe(result);
     expect(calls).toEqual([{
-      name: 'hotel_v2_admin_get_availability_control',
+      name: 'hotel_v2_admin_get_availability_control_114490',
       payload: { p_hotel_id: HOTEL_ID, p_from: result.from, p_to: result.to },
     }]);
   });
@@ -74,7 +74,7 @@ describe('Hotels V2 ADMIN-D availability repository boundary', () => {
   test('applies only the exact plan cached by the immediately preceding server Review', async () => {
     const reviewedPlan = plan();
     const { Repository, calls } = loadRepository((name: string) => {
-      if (name === 'hotel_v2_admin_preview_availability_plan') {
+      if (name === 'hotel_v2_admin_preview_availability_plan_114490') {
         return { data: { hotel_id: HOTEL_ID, plan_fingerprint: FINGERPRINT, reviewed_plan: reviewedPlan }, error: null };
       }
       return { data: { changed: true }, error: null };
@@ -84,8 +84,8 @@ describe('Hotels V2 ADMIN-D availability repository boundary', () => {
       structuredClone(reviewedPlan), CORRELATION_ID, 'review.key-123',
     )).resolves.toEqual({ changed: true });
     expect(calls.map((entry) => entry.name)).toEqual([
-      'hotel_v2_admin_preview_availability_plan',
-      'hotel_v2_admin_apply_availability_control_plan',
+      'hotel_v2_admin_preview_availability_plan_114490',
+      'hotel_v2_admin_apply_availability_control_plan_114490',
     ]);
     expect(calls[1].payload).toEqual({
       p_plan: reviewedPlan,
@@ -121,7 +121,7 @@ describe('Hotels V2 ADMIN-D availability repository boundary', () => {
   test('an ambiguous transport failure makes one mutation call and does not retry', async () => {
     const reviewedPlan = plan();
     const { Repository, calls } = loadRepository((name: string) => {
-      if (name === 'hotel_v2_admin_preview_availability_plan') {
+      if (name === 'hotel_v2_admin_preview_availability_plan_114490') {
         return { data: { hotel_id: HOTEL_ID, plan_fingerprint: FINGERPRINT, reviewed_plan: reviewedPlan }, error: null };
       }
       throw new Error('connection dropped after request');
@@ -130,11 +130,11 @@ describe('Hotels V2 ADMIN-D availability repository boundary', () => {
     await expect(Repository.applyAvailabilityControlPlan(
       reviewedPlan, CORRELATION_ID, 'review.key-123',
     )).rejects.toMatchObject({ isAmbiguousOutcome: true });
-    expect(calls.filter((entry) => entry.name === 'hotel_v2_admin_apply_availability_control_plan')).toHaveLength(1);
+    expect(calls.filter((entry) => entry.name === 'hotel_v2_admin_apply_availability_control_plan_114490')).toHaveLength(1);
     await expect(Repository.applyAvailabilityControlPlan(
       reviewedPlan, CORRELATION_ID, 'review.key-123',
     )).rejects.toThrow(/exact server-reviewed plan/i);
-    expect(calls.filter((entry) => entry.name === 'hotel_v2_admin_apply_availability_control_plan')).toHaveLength(1);
+    expect(calls.filter((entry) => entry.name === 'hotel_v2_admin_apply_availability_control_plan_114490')).toHaveLength(1);
   });
 
   test.each([
