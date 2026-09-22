@@ -1,0 +1,4938 @@
+{
+  "rooms": [
+    {
+      "id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+      "code": "upper-floor-apartment",
+      "status": "active",
+      "gallery": [],
+      "version": 4,
+      "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+      "size_sqm": null,
+      "amenities": [
+        "air_conditioning",
+        "balcony",
+        "terrace"
+      ],
+      "bathrooms": null,
+      "name_i18n": {
+        "en": "Upper Floor Apartment"
+      },
+      "sort_order": 100,
+      "updated_at": "2026-09-19T22:16:10.198613+00:00",
+      "max_occupancy": 4,
+      "inventory_mode": "pooled",
+      "capacity_adults": null,
+      "description_i18n": {},
+      "floor_label_i18n": {},
+      "bed_configuration": [],
+      "capacity_children": null,
+      "base_inventory_count": 1
+    },
+    {
+      "id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+      "code": "ground-floor-apartment",
+      "status": "active",
+      "gallery": [
+        "/images/7a-5.webp",
+        "/images/7a-6.webp",
+        "/images/7a-7.webp",
+        "/images/7a-8.webp",
+        "/images/7a-9.webp"
+      ],
+      "version": 3,
+      "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+      "size_sqm": null,
+      "amenities": [
+        "air_conditioning",
+        "terrace"
+      ],
+      "bathrooms": null,
+      "name_i18n": {
+        "en": "Ground Floor Apartment"
+      },
+      "sort_order": 200,
+      "updated_at": "2026-09-19T22:16:09.958456+00:00",
+      "max_occupancy": 4,
+      "inventory_mode": "pooled",
+      "capacity_adults": null,
+      "description_i18n": {},
+      "floor_label_i18n": {},
+      "bed_configuration": [],
+      "capacity_children": null,
+      "base_inventory_count": 1
+    }
+  ],
+  "units": [],
+  "partner": {
+    "id": "0a321bfe-da6b-43f6-8e0b-7c68546a8b18",
+    "role": "owner"
+  },
+  "pricing": {
+    "currency": "EUR",
+    "schedules": [
+      {
+        "id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "code": "ground-apartment-independent",
+        "version": 1,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "name_i18n": {
+          "en": "Occupancy and length of stay",
+          "he": "תפוסה ואורך שהייה",
+          "pl": "Obłożenie i długość pobytu"
+        },
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "sharing_mode": "independent",
+        "review_status": "reviewed",
+        "application_scope": "room_occupancy",
+        "maximum_party_size": 4,
+        "minimum_billable_occupancy": 2
+      },
+      {
+        "id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "code": "legacy-property-party-preview",
+        "version": 1,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": false,
+        "name_i18n": {
+          "en": "Legacy property party preview"
+        },
+        "updated_at": "2026-09-19T22:16:09.959629+00:00",
+        "sharing_mode": "shared",
+        "review_status": "requires_review",
+        "application_scope": "property_booking_party",
+        "maximum_party_size": 8,
+        "minimum_billable_occupancy": 2
+      },
+      {
+        "id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "code": "shared-apartment-occupancy-los",
+        "version": 4,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "name_i18n": {
+          "en": "Occupancy and length of stay",
+          "he": "תפוסה ואורך שהייה",
+          "pl": "Obłożenie i długość pobytu"
+        },
+        "updated_at": "2026-09-19T22:16:20.73462+00:00",
+        "sharing_mode": "shared",
+        "review_status": "reviewed",
+        "application_scope": "room_occupancy",
+        "maximum_party_size": 4,
+        "minimum_billable_occupancy": 2
+      },
+      {
+        "id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "code": "upper-apartment-independent",
+        "version": 1,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "name_i18n": {
+          "en": "Occupancy and length of stay",
+          "he": "תפוסה ואורך שהייה",
+          "pl": "Obłożenie i długość pobytu"
+        },
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "sharing_mode": "independent",
+        "review_status": "reviewed",
+        "application_scope": "room_occupancy",
+        "maximum_party_size": 4,
+        "minimum_billable_occupancy": 2
+      }
+    ],
+    "rate_plans": [
+      {
+        "id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "code": "standard",
+        "version": 3,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "name_i18n": {
+          "en": "Standard",
+          "he": "סטנדרטי",
+          "pl": "Standardowa"
+        },
+        "sort_order": 100,
+        "updated_at": "2026-09-19T22:16:20.732873+00:00",
+        "review_status": "reviewed"
+      }
+    ],
+    "room_rates": [
+      {
+        "id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "version": 3,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 100,
+        "updated_at": "2026-09-19T22:16:32.914158+00:00",
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "review_status": "reviewed",
+        "pricing_source": "pricing_schedule",
+        "base_nightly_rate": 100,
+        "pricing_schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "base_nightly_rate_authoritative": false
+      },
+      {
+        "id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "version": 3,
+        "currency": "EUR",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 200,
+        "updated_at": "2026-09-19T22:16:32.914207+00:00",
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "review_status": "reviewed",
+        "pricing_source": "pricing_schedule",
+        "base_nightly_rate": 100,
+        "pricing_schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "base_nightly_rate_authoritative": false
+      }
+    ],
+    "schedule_tiers": [
+      {
+        "id": "4c6c12e1-1a5a-4756-a86f-15966293818b",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 100,
+        "threshold_nights": 2
+      },
+      {
+        "id": "cf2e3cc6-461f-45b4-aed7-5f967477ed51",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 90,
+        "threshold_nights": 3
+      },
+      {
+        "id": "52b3c506-26fb-4ae6-94c8-d1b9577e58db",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 88,
+        "threshold_nights": 4
+      },
+      {
+        "id": "8969f46a-bf88-467b-b5e5-d437111015f7",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 84,
+        "threshold_nights": 5
+      },
+      {
+        "id": "2a37d613-8652-423d-ba82-f3bd07c7470e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 80,
+        "threshold_nights": 6
+      },
+      {
+        "id": "9775d002-ae4e-49aa-b0c9-b5a57bb5a121",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 76,
+        "threshold_nights": 7
+      },
+      {
+        "id": "414b9e1c-7ce6-41d4-973f-c818d4adda5a",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 74,
+        "threshold_nights": 8
+      },
+      {
+        "id": "68a94f9e-f1ff-4ad0-947a-28bb59c9e5de",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 72,
+        "threshold_nights": 9
+      },
+      {
+        "id": "0d29a545-8ac1-42fa-bd73-47c8d8540e80",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 70,
+        "threshold_nights": 10
+      },
+      {
+        "id": "b2ca7259-ee95-4bc4-8b08-0117d42f6b79",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 130,
+        "threshold_nights": 2
+      },
+      {
+        "id": "5c952d08-6fe1-4009-a58d-4bac117e7f4d",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 113,
+        "threshold_nights": 3
+      },
+      {
+        "id": "5e126266-bf49-41f7-97e3-50d7d03a70c0",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 113,
+        "threshold_nights": 4
+      },
+      {
+        "id": "882d47aa-c741-425f-a823-9772ba3d3519",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 104,
+        "threshold_nights": 5
+      },
+      {
+        "id": "b34832c2-9854-483d-b444-3e70a1d5a78e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 100,
+        "threshold_nights": 6
+      },
+      {
+        "id": "86db09bc-438b-4168-8736-cf94ab1bf983",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 95,
+        "threshold_nights": 7
+      },
+      {
+        "id": "696c0a1a-94da-4b3d-a53a-df68ff34cf9c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 94,
+        "threshold_nights": 8
+      },
+      {
+        "id": "e08c1338-5a56-4f21-8323-5317df7a34b5",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 90,
+        "threshold_nights": 9
+      },
+      {
+        "id": "2637a64c-9024-483a-ad1c-69df0cb0b218",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 90,
+        "threshold_nights": 10
+      },
+      {
+        "id": "3b12e306-8b77-432a-a4a9-23bd62485231",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 155,
+        "threshold_nights": 2
+      },
+      {
+        "id": "28176fe6-f7ed-4fa2-9791-0be041acd349",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 135,
+        "threshold_nights": 3
+      },
+      {
+        "id": "2dd6b753-b5bc-4cf8-991f-74c3be0ff9da",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 135,
+        "threshold_nights": 4
+      },
+      {
+        "id": "0675fbd0-284f-43a7-9eb1-b8ce40ddeb91",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 120,
+        "threshold_nights": 5
+      },
+      {
+        "id": "58f93cb0-65e8-4c80-a472-1a19d87d98c5",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 118,
+        "threshold_nights": 6
+      },
+      {
+        "id": "af89ce90-e44d-4dd1-a8af-22abb1196b08",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 114,
+        "threshold_nights": 7
+      },
+      {
+        "id": "f51864f0-680c-4a4c-b5ae-6e6156ea3084",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 111,
+        "threshold_nights": 8
+      },
+      {
+        "id": "9e97a30b-d63c-4c39-a3fd-72bc3a928f71",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 107,
+        "threshold_nights": 9
+      },
+      {
+        "id": "7958678f-7799-4ea5-9216-d716df7ae443",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 107,
+        "threshold_nights": 10
+      },
+      {
+        "id": "75efc7cc-1ed0-4b0a-897b-82cc686aea59",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 200,
+        "threshold_nights": 2
+      },
+      {
+        "id": "a0016011-2186-4d96-9919-7777536262ac",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 180,
+        "threshold_nights": 3
+      },
+      {
+        "id": "ac9214e7-ef98-42ed-87a1-967cdb767aef",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 176,
+        "threshold_nights": 4
+      },
+      {
+        "id": "c404ba55-899a-415e-bf40-e70b1cb7878f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 168,
+        "threshold_nights": 5
+      },
+      {
+        "id": "08877331-8551-41a3-a3a6-517760f26499",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 160,
+        "threshold_nights": 6
+      },
+      {
+        "id": "0e0071f1-08bf-4e38-bd9a-d7a3b6d3d8fa",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 152,
+        "threshold_nights": 7
+      },
+      {
+        "id": "cc6df0d0-69d7-46e3-9949-ec07f75537f2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 148,
+        "threshold_nights": 8
+      },
+      {
+        "id": "a926d246-5533-4178-a023-d2b140e99e3b",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 144,
+        "threshold_nights": 9
+      },
+      {
+        "id": "e15b349d-243e-4612-b753-0e69c6725128",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 5,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 140,
+        "threshold_nights": 10
+      },
+      {
+        "id": "80554399-a411-4253-99c9-af87890f77eb",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 260,
+        "threshold_nights": 2
+      },
+      {
+        "id": "d48a9772-4ae9-418d-b73e-a1fb1cb52d0c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 226,
+        "threshold_nights": 3
+      },
+      {
+        "id": "2921c163-8daf-452e-925a-81e9a210750e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 226,
+        "threshold_nights": 4
+      },
+      {
+        "id": "db4658ed-53aa-495d-bcfc-1cb02ceceb78",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 208,
+        "threshold_nights": 5
+      },
+      {
+        "id": "6182c03a-3733-4d35-833e-3248f0de05fb",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 200,
+        "threshold_nights": 6
+      },
+      {
+        "id": "2e9a32f2-9a4b-4c56-b475-cb7386a4e651",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 190,
+        "threshold_nights": 7
+      },
+      {
+        "id": "60544f93-da44-4cec-91cb-c4032fc8278b",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 188,
+        "threshold_nights": 8
+      },
+      {
+        "id": "5cd893af-d3a7-471e-9556-526aac6c5415",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 180,
+        "threshold_nights": 9
+      },
+      {
+        "id": "1923c184-c9b1-4bf3-a539-efa37fafee9c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 6,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 180,
+        "threshold_nights": 10
+      },
+      {
+        "id": "ad874796-7717-40fb-9d59-5443873a64a4",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 310,
+        "threshold_nights": 2
+      },
+      {
+        "id": "795fab13-0037-4bb5-bb08-6150f08c0587",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 270,
+        "threshold_nights": 3
+      },
+      {
+        "id": "cdbeb101-5092-4f6a-8e7f-6ed4ea11b004",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 270,
+        "threshold_nights": 4
+      },
+      {
+        "id": "cb4e5f62-5b68-42bc-bf66-1b6b337ea738",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 240,
+        "threshold_nights": 5
+      },
+      {
+        "id": "4a7c1033-6dca-4929-bded-4b95fc193d1c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 236,
+        "threshold_nights": 6
+      },
+      {
+        "id": "408d2356-6ce1-4082-a8e8-408c7f0f8285",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 228,
+        "threshold_nights": 7
+      },
+      {
+        "id": "36adde94-27ee-4894-9f6c-0f72ff4fc5f2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 222,
+        "threshold_nights": 8
+      },
+      {
+        "id": "78b1a614-514f-49ae-8140-93d527a2bae4",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 214,
+        "threshold_nights": 9
+      },
+      {
+        "id": "5999c8e7-6a8b-47eb-974b-5a66326ae2e2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 7,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 214,
+        "threshold_nights": 10
+      },
+      {
+        "id": "bd3dae5d-fa64-4a81-abbb-d76752e4bb60",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 310,
+        "threshold_nights": 2
+      },
+      {
+        "id": "42be9a79-c3c2-4dc8-af10-be0f1b678b05",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 270,
+        "threshold_nights": 3
+      },
+      {
+        "id": "275977a5-5c13-434a-8433-6ec9d3df6669",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 270,
+        "threshold_nights": 4
+      },
+      {
+        "id": "0b94dad6-be8e-4965-a101-1be78bc5b819",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 240,
+        "threshold_nights": 5
+      },
+      {
+        "id": "e32015c5-0640-4a9a-8ef4-4b789932ef91",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 236,
+        "threshold_nights": 6
+      },
+      {
+        "id": "967f8540-fbe8-4308-9922-b1aee4b3e2ba",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 228,
+        "threshold_nights": 7
+      },
+      {
+        "id": "c4d1e582-882b-4f9b-865a-6401f13f26ba",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 222,
+        "threshold_nights": 8
+      },
+      {
+        "id": "3c3a204f-ce83-4e4b-b5df-02ccb3b0f289",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 214,
+        "threshold_nights": 9
+      },
+      {
+        "id": "b8b83a77-bb09-413c-906f-10e8dbd8d5f6",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 8,
+        "schedule_id": "443065c0-984a-5de3-a22a-d03042c41107",
+        "nightly_rate": 214,
+        "threshold_nights": 10
+      },
+      {
+        "id": "94017217-d72c-ecff-c2d4-1fbd7194ffae",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 100,
+        "threshold_nights": 2
+      },
+      {
+        "id": "845b2a37-f3e4-4846-b04c-e1d4f1893ae9",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 90,
+        "threshold_nights": 3
+      },
+      {
+        "id": "a4131071-9d33-a320-dac8-60ae344165a6",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 88,
+        "threshold_nights": 4
+      },
+      {
+        "id": "1eb29622-2b27-3b0a-d652-cc378119ad87",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 84,
+        "threshold_nights": 5
+      },
+      {
+        "id": "a66dbc4f-333d-6dc6-85e2-3ccc266e4fd5",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 80,
+        "threshold_nights": 6
+      },
+      {
+        "id": "56129774-07f2-97f8-7898-8cefb586d002",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 76,
+        "threshold_nights": 7
+      },
+      {
+        "id": "b6a4fbf0-57e0-b491-a195-8fa5d1760a7f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 74,
+        "threshold_nights": 8
+      },
+      {
+        "id": "dc1b43d6-0c66-6f22-a982-c1059fce1996",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 72,
+        "threshold_nights": 9
+      },
+      {
+        "id": "b9d0af1e-bc5b-c4eb-8ff3-3c0ac521f673",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 70,
+        "threshold_nights": 10
+      },
+      {
+        "id": "e4d9cdda-392d-8f1a-da57-1ae4ca828676",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 130,
+        "threshold_nights": 2
+      },
+      {
+        "id": "240190ee-ed4f-68a0-ac72-ad662f6adedc",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 113,
+        "threshold_nights": 3
+      },
+      {
+        "id": "2fb1d664-8c33-c49e-c98c-e951d3234dbd",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 113,
+        "threshold_nights": 4
+      },
+      {
+        "id": "c3d4a354-9c46-7318-52a7-33f5cdbf24dd",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 104,
+        "threshold_nights": 5
+      },
+      {
+        "id": "6f85de67-cb0e-3f4e-8088-2e38951271e6",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 100,
+        "threshold_nights": 6
+      },
+      {
+        "id": "24a92be1-c9f9-d60d-7454-a28eb013dcd9",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 95,
+        "threshold_nights": 7
+      },
+      {
+        "id": "8c101192-c382-c1e0-5238-6432222816b0",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 94,
+        "threshold_nights": 8
+      },
+      {
+        "id": "13ad6532-b408-4e57-2a01-e3b187c27ee1",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 90,
+        "threshold_nights": 9
+      },
+      {
+        "id": "5c5c737f-1200-9d91-eebc-b7bf4502389f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 90,
+        "threshold_nights": 10
+      },
+      {
+        "id": "e2b37937-c8b9-3e83-2116-53e7514a35e4",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 155,
+        "threshold_nights": 2
+      },
+      {
+        "id": "0fba4cbb-33c5-2696-b324-3e1a40d706b5",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 135,
+        "threshold_nights": 3
+      },
+      {
+        "id": "44c6b755-c1a5-4268-be0e-14fcc5d87e49",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 135,
+        "threshold_nights": 4
+      },
+      {
+        "id": "41448b64-4f29-d79f-fc65-b414e46a23f0",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 120,
+        "threshold_nights": 5
+      },
+      {
+        "id": "0ea45d92-e14d-cc86-c0e5-5a9265e16a21",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 118,
+        "threshold_nights": 6
+      },
+      {
+        "id": "5976c96e-ad67-434b-b61b-5fa6b8c6437f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 114,
+        "threshold_nights": 7
+      },
+      {
+        "id": "4dfdb724-01d9-7c0f-8b2e-4df0ce7281ed",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 111,
+        "threshold_nights": 8
+      },
+      {
+        "id": "5891fede-3727-760b-5693-d1022471b759",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 107,
+        "threshold_nights": 9
+      },
+      {
+        "id": "8698b1e4-4ac5-e392-e3e6-54aadb5c2c25",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "9d109336-64f3-3c57-4684-968b59c94c3b",
+        "nightly_rate": 107,
+        "threshold_nights": 10
+      },
+      {
+        "id": "0e71e8dd-ed8b-a451-ffde-25b98e0f0d49",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 100,
+        "threshold_nights": 2
+      },
+      {
+        "id": "86598aa7-c94f-7e48-e9d5-f7b6ee26fb58",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 90,
+        "threshold_nights": 3
+      },
+      {
+        "id": "bfd769b9-8bc2-a2e1-9ed5-d72c6bec1fae",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 88,
+        "threshold_nights": 4
+      },
+      {
+        "id": "85d1a69c-aa39-9598-ac4d-e9c9dd658ed8",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 84,
+        "threshold_nights": 5
+      },
+      {
+        "id": "15b787dd-f4e3-9aa1-374c-777bbf43ee6b",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 80,
+        "threshold_nights": 6
+      },
+      {
+        "id": "343ddfd0-30fa-b11e-e741-1c8a286b204a",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 76,
+        "threshold_nights": 7
+      },
+      {
+        "id": "bf12847b-4e1b-03a0-3afa-6232696d6d62",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 74,
+        "threshold_nights": 8
+      },
+      {
+        "id": "95d6ca9a-a160-c0bc-99c8-9a6e62097b7e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 72,
+        "threshold_nights": 9
+      },
+      {
+        "id": "a49264d6-a600-4507-4350-d212f85901cf",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 2,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 70,
+        "threshold_nights": 10
+      },
+      {
+        "id": "542df8c8-9db0-2b5a-72e4-bbef81939021",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 130,
+        "threshold_nights": 2
+      },
+      {
+        "id": "cb330971-a2f6-3689-f57b-2d43b566dd38",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 113,
+        "threshold_nights": 3
+      },
+      {
+        "id": "da57f336-5d3e-d86f-f0e9-e6346fe7cf58",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 113,
+        "threshold_nights": 4
+      },
+      {
+        "id": "84aaff1d-b948-3d5d-c9dc-b29982241126",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 104,
+        "threshold_nights": 5
+      },
+      {
+        "id": "e11fa4c5-6f55-fec1-540a-83de6dc12682",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 100,
+        "threshold_nights": 6
+      },
+      {
+        "id": "4eb64ef3-39bd-7c18-2008-af303c1063fc",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 95,
+        "threshold_nights": 7
+      },
+      {
+        "id": "5b07c72a-6e56-d36f-b23c-a45b2110cfa2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 94,
+        "threshold_nights": 8
+      },
+      {
+        "id": "78887f85-24b6-b7cc-cc4e-57b56725ffc1",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 90,
+        "threshold_nights": 9
+      },
+      {
+        "id": "3da204e1-e11b-ddad-d018-5c6d7c3148f9",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 3,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 90,
+        "threshold_nights": 10
+      },
+      {
+        "id": "b94133d3-7c99-607f-6216-350b83a998f7",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 155,
+        "threshold_nights": 2
+      },
+      {
+        "id": "74a3431c-4354-bd33-542f-e12fc6144142",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 135,
+        "threshold_nights": 3
+      },
+      {
+        "id": "ed87bb71-e661-99a6-f2fa-f2110359c207",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 135,
+        "threshold_nights": 4
+      },
+      {
+        "id": "df1f1581-f158-551b-8182-1908567a6d88",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 120,
+        "threshold_nights": 5
+      },
+      {
+        "id": "fabcb8fd-a0f1-7451-d152-87b383902b19",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 118,
+        "threshold_nights": 6
+      },
+      {
+        "id": "cff0cbc2-60a7-c643-fa66-334d57cf6451",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 114,
+        "threshold_nights": 7
+      },
+      {
+        "id": "b49c8292-4c3b-a5b8-c2db-24249300f8e5",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 111,
+        "threshold_nights": 8
+      },
+      {
+        "id": "c2c179c0-df8b-2106-2a99-3e912c358e8d",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 107,
+        "threshold_nights": 9
+      },
+      {
+        "id": "787781a4-3a30-8378-9dcf-731ee8664ddd",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:32.090573+00:00",
+        "guest_count": 4,
+        "schedule_id": "aec20731-7a56-35f0-334e-92b363351f02",
+        "nightly_rate": 107,
+        "threshold_nights": 10
+      },
+      {
+        "id": "de01653d-ef89-41ec-a1c3-1d357c61654b",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 100,
+        "threshold_nights": 2
+      },
+      {
+        "id": "0d22685b-aa50-4973-91b8-d6ec1d240f91",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 90,
+        "threshold_nights": 3
+      },
+      {
+        "id": "04bf9c3a-e744-4f50-8bc5-13172cc39c5c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 88,
+        "threshold_nights": 4
+      },
+      {
+        "id": "8ee04976-4885-4ef8-964f-ee1eacee3b5f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 84,
+        "threshold_nights": 5
+      },
+      {
+        "id": "faea706d-8692-4bc1-92ef-eb46f913ee6e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 80,
+        "threshold_nights": 6
+      },
+      {
+        "id": "5da37bd5-ade3-4c1d-acb8-278ff5db1a27",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 76,
+        "threshold_nights": 7
+      },
+      {
+        "id": "b9d87002-957f-46c4-8d1d-b5e8af6d9c02",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 74,
+        "threshold_nights": 8
+      },
+      {
+        "id": "aeb36336-fe9a-428c-afff-4565671df6c2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 72,
+        "threshold_nights": 9
+      },
+      {
+        "id": "9d77fc0d-c652-4f2d-b774-7c47b81daa02",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 2,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 70,
+        "threshold_nights": 10
+      },
+      {
+        "id": "d1e0fc1e-f79f-45d3-bb14-cb4d4ec2534c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 130,
+        "threshold_nights": 2
+      },
+      {
+        "id": "70b37486-516a-488d-b7d5-7ec8eefc7103",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 113,
+        "threshold_nights": 3
+      },
+      {
+        "id": "91b0f14e-ddba-49c4-b3f1-1fc94efc5d11",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 113,
+        "threshold_nights": 4
+      },
+      {
+        "id": "59efebe6-020c-4065-bd86-1d2666329da2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 104,
+        "threshold_nights": 5
+      },
+      {
+        "id": "4f9dfe35-731c-4ef4-bb4a-9efe3a290b9e",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 100,
+        "threshold_nights": 6
+      },
+      {
+        "id": "f10efb5d-1932-45af-9674-a84e816fb379",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 95,
+        "threshold_nights": 7
+      },
+      {
+        "id": "01bd4d8c-04d4-486d-ad17-994532357742",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 94,
+        "threshold_nights": 8
+      },
+      {
+        "id": "6aaa22d6-ee1b-4ef8-a52a-c5b34d760b0c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 90,
+        "threshold_nights": 9
+      },
+      {
+        "id": "b44a5425-2ca1-475a-9741-ee48a4f97212",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 3,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 90,
+        "threshold_nights": 10
+      },
+      {
+        "id": "e42d48e8-46ae-42b8-8f9e-c1b03f147f40",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 155,
+        "threshold_nights": 2
+      },
+      {
+        "id": "93cfec19-73d6-463f-8859-34578aeef4f9",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 135,
+        "threshold_nights": 3
+      },
+      {
+        "id": "e608ab6d-de87-49b2-865b-2c64b75f00a2",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 135,
+        "threshold_nights": 4
+      },
+      {
+        "id": "58b88f7c-5284-4710-a3fd-65ebcfeb00dc",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 120,
+        "threshold_nights": 5
+      },
+      {
+        "id": "1202815f-7704-40ec-a8b0-c973ac211f9c",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 118,
+        "threshold_nights": 6
+      },
+      {
+        "id": "ed9f0ee7-227c-4e74-9e7f-f74189ac3934",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 114,
+        "threshold_nights": 7
+      },
+      {
+        "id": "b9ddbeab-588c-4c57-b418-0999f534fd59",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 111,
+        "threshold_nights": 8
+      },
+      {
+        "id": "37b4516a-cbac-4575-a33d-f0f644cb2639",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 107,
+        "threshold_nights": 9
+      },
+      {
+        "id": "5a929773-86df-4f02-9f93-404350f0644f",
+        "version": 1,
+        "is_active": true,
+        "updated_at": "2026-09-19T22:16:09.960593+00:00",
+        "guest_count": 4,
+        "schedule_id": "b0a3104f-7b31-5265-a59f-c2d166f11a23",
+        "nightly_rate": 107,
+        "threshold_nights": 10
+      }
+    ],
+    "snapshot_token": "fe99a9d817736d2ef8c2b24ebf987867ae22279cbb3df24593f6cd9021c44ae3",
+    "room_rate_tiers": [],
+    "allocation_rules": [
+      {
+        "id": "31000000-0000-4000-8000-000000000014",
+        "code": "guests-1-4-choice",
+        "items": [
+          {
+            "id": "31100000-0000-4000-8000-000000000001",
+            "sort_order": 100,
+            "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000014",
+            "pricing_guest_count": null,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": null,
+            "allocated_guest_counts": null
+          },
+          {
+            "id": "31100000-0000-4000-8000-000000000002",
+            "sort_order": 200,
+            "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000014",
+            "pricing_guest_count": null,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": null,
+            "allocated_guest_counts": null
+          }
+        ],
+        "version": 1,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 100,
+        "review_status": "reviewed",
+        "allocation_mode": "customer_choice",
+        "max_guest_count": 4,
+        "min_guest_count": 1
+      },
+      {
+        "id": "31000000-0000-4000-8000-000000000015",
+        "code": "guests-5-bundle",
+        "items": [
+          {
+            "id": "31500000-0000-4000-8000-000000000001",
+            "sort_order": 100,
+            "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000015",
+            "pricing_guest_count": 2,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 3,
+            "allocated_guest_counts": null
+          },
+          {
+            "id": "31500000-0000-4000-8000-000000000002",
+            "sort_order": 200,
+            "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000015",
+            "pricing_guest_count": 2,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 2,
+            "allocated_guest_counts": null
+          }
+        ],
+        "version": 1,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 500,
+        "review_status": "reviewed",
+        "allocation_mode": "required_bundle",
+        "max_guest_count": 5,
+        "min_guest_count": 5
+      },
+      {
+        "id": "31000000-0000-4000-8000-000000000016",
+        "code": "guests-6-bundle",
+        "items": [
+          {
+            "id": "31600000-0000-4000-8000-000000000001",
+            "sort_order": 100,
+            "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000016",
+            "pricing_guest_count": 3,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 3,
+            "allocated_guest_counts": null
+          },
+          {
+            "id": "31600000-0000-4000-8000-000000000002",
+            "sort_order": 200,
+            "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000016",
+            "pricing_guest_count": 3,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 3,
+            "allocated_guest_counts": null
+          }
+        ],
+        "version": 1,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 600,
+        "review_status": "reviewed",
+        "allocation_mode": "required_bundle",
+        "max_guest_count": 6,
+        "min_guest_count": 6
+      },
+      {
+        "id": "31000000-0000-4000-8000-000000000017",
+        "code": "guests-7-bundle",
+        "items": [
+          {
+            "id": "31700000-0000-4000-8000-000000000001",
+            "sort_order": 100,
+            "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000017",
+            "pricing_guest_count": 4,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 4,
+            "allocated_guest_counts": null
+          },
+          {
+            "id": "31700000-0000-4000-8000-000000000002",
+            "sort_order": 200,
+            "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000017",
+            "pricing_guest_count": 4,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 3,
+            "allocated_guest_counts": null
+          }
+        ],
+        "version": 1,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 700,
+        "review_status": "reviewed",
+        "allocation_mode": "required_bundle",
+        "max_guest_count": 7,
+        "min_guest_count": 7
+      },
+      {
+        "id": "31000000-0000-4000-8000-000000000018",
+        "code": "guests-8-bundle",
+        "items": [
+          {
+            "id": "31800000-0000-4000-8000-000000000001",
+            "sort_order": 100,
+            "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000018",
+            "pricing_guest_count": 4,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 4,
+            "allocated_guest_counts": null
+          },
+          {
+            "id": "31800000-0000-4000-8000-000000000002",
+            "sort_order": 200,
+            "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+            "units_required": 1,
+            "allocation_rule_id": "31000000-0000-4000-8000-000000000018",
+            "pricing_guest_count": 4,
+            "pricing_guest_counts": null,
+            "allocated_guest_count": 4,
+            "allocated_guest_counts": null
+          }
+        ],
+        "version": 1,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 800,
+        "review_status": "reviewed",
+        "allocation_mode": "required_bundle",
+        "max_guest_count": 8,
+        "min_guest_count": 8
+      }
+    ],
+    "commission_policy": {
+      "id": "38000000-0000-4000-8000-000000000001",
+      "code": "partner-fixed-room-night",
+      "amount": 10,
+      "version": 1,
+      "currency": "EUR",
+      "read_only": true,
+      "updated_at": "2026-09-19T22:16:11.343291+00:00",
+      "fingerprint": "5bdf19218fcb426e389fd4030e06e30eca6d7113b8150a18c69a973804a75279",
+      "commission_mode": "per_allocated_room_per_night"
+    },
+    "exact_date_prices": [
+      {
+        "id": "c2800000-0000-4000-8000-000000000901",
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "stay_date": "2098-01-15",
+        "maximum_stay": null,
+        "minimum_stay": null,
+        "nightly_rate": 777,
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "pricing_reason": null,
+        "pricing_version": 1,
+        "maximum_stay_mode": null,
+        "minimum_stay_mode": null,
+        "nightly_rate_mode": "set",
+        "pricing_expires_at": null,
+        "pricing_updated_at": null
+      }
+    ],
+    "mutation_blocked_reasons": []
+  },
+  "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+  "property": {
+    "id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+    "city": "Lefkara",
+    "slug": "7-ukow",
+    "photos": [
+      "/images/7a-1.webp",
+      "/images/7a-2.webp",
+      "/images/7a-3.webp",
+      "/images/7a-4.webp",
+      "/images/7a-5.webp",
+      "/images/7a-6.webp",
+      "/images/7a-7.webp",
+      "/images/7a-8.webp",
+      "/images/7a-9.webp"
+    ],
+    "status": "published",
+    "country": "Cyprus",
+    "district": null,
+    "latitude": null,
+    "amenities": [
+      "wifi",
+      "air_conditioning",
+      "terrace",
+      "balcony"
+    ],
+    "longitude": null,
+    "title_i18n": {
+      "en": "7 Arches topology",
+      "he": "טופולוגיית 7 קשתות",
+      "pl": "7 Łuków — topologia"
+    },
+    "updated_at": "2026-09-20T01:15:20.545171+00:00",
+    "postal_code": null,
+    "address_line": null,
+    "is_published": true,
+    "check_in_from": "14:00:00",
+    "check_out_until": "11:00:00",
+    "cover_image_url": null,
+    "google_maps_url": null,
+    "description_i18n": {
+      "en": "Local PostgREST fixture"
+    },
+    "architecture_version": "rooms_v2"
+  },
+  "sections": {
+    "rooms": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    },
+    "bookings": {
+      "status": "existing_flow",
+      "visible": true,
+      "available": true
+    },
+    "overview": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    },
+    "payments": {
+      "status": "existing_flow",
+      "visible": true,
+      "available": true
+    },
+    "rates_pricing": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    },
+    "booking_changes": {
+      "status": "future_stage",
+      "visible": true,
+      "available": false
+    },
+    "property_photos": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    },
+    "property_content": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    },
+    "stripe_onboarding": {
+      "status": "future_stage",
+      "visible": true,
+      "available": false
+    },
+    "calendar_availability": {
+      "status": "available",
+      "visible": true,
+      "available": true
+    }
+  },
+  "assignment": {
+    "id": "32000000-0000-4000-8000-000000000001",
+    "capabilities": {
+      "create_rooms": true,
+      "manage_prices": true,
+      "edit_room_photos": true,
+      "process_bookings": true,
+      "edit_room_content": true,
+      "edit_room_structure": true,
+      "manage_availability": true,
+      "view_payment_status": true,
+      "edit_property_photos": true,
+      "edit_property_content": true,
+      "request_booking_changes": true,
+      "initiate_stripe_onboarding": true
+    },
+    "permission_version": 2,
+    "access_snapshot_token": "c93c24107065b3e7328a54225a78bb5cfb59c31c9f6b610ac094c6c9cf36ffe9"
+  },
+  "availability": {
+    "to": "2026-10-22",
+    "from": "2026-09-22",
+    "cells": [
+      {
+        "stay_date": "2026-09-22",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-23",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-24",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-25",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-26",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-27",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-28",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-29",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-30",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-01",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-02",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-03",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-04",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-05",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-06",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-07",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-08",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-09",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-10",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-11",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-12",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-13",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-14",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-15",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-16",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-17",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-18",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-19",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-20",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-21",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-22",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-22",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-23",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-24",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-25",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-26",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-27",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-28",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-29",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-09-30",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-01",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-02",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-03",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-04",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-05",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-06",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-07",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-08",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-09",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-10",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-11",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-12",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-13",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-14",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-15",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-16",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-17",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-18",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-19",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-20",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-21",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      },
+      {
+        "stay_date": "2026-10-22",
+        "held_units": 0,
+        "provenance": {
+          "capacity": "room_type_or_active_units",
+          "inventory": "hotel_daily_inventory",
+          "commitments": "server_authoritative"
+        },
+        "requestable": false,
+        "booked_units": 0,
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "inventory_mode": "pooled",
+        "available_units": 1,
+        "committed_units": 0,
+        "blocked_unit_ids": [],
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "inventory_version": 0,
+        "physical_capacity": 1,
+        "blocked_unit_count": 0,
+        "operational_closed": false,
+        "earliest_hold_expiry": null,
+        "configured_sellable_units": 1
+      }
+    ],
+    "holds": [],
+    "units": [],
+    "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+    "property": {
+      "id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+      "currency": "EUR",
+      "timezone": "Europe/Nicosia",
+      "name_i18n": {
+        "en": "7 Arches topology",
+        "he": "טופולוגיית 7 קשתות",
+        "pl": "7 Łuków — topologia"
+      },
+      "updated_at": "2026-09-20T01:15:20.545171+00:00",
+      "booking_mode": "request_confirmation",
+      "maximum_stay_nights": null,
+      "minimum_stay_nights": 2,
+      "architecture_version": "rooms_v2"
+    },
+    "room_rates": [
+      {
+        "id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "version": 3,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 100,
+        "updated_at": "2026-09-19T22:16:32.914158+00:00",
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "review_status": "reviewed"
+      },
+      {
+        "id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "version": 3,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "is_active": true,
+        "sort_order": 200,
+        "updated_at": "2026-09-19T22:16:32.914207+00:00",
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "review_status": "reviewed"
+      }
+    ],
+    "room_types": [
+      {
+        "id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "code": "upper-floor-apartment",
+        "status": "active",
+        "version": 4,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "name_i18n": {
+          "en": "Upper Floor Apartment"
+        },
+        "sort_order": 100,
+        "updated_at": "2026-09-19T22:16:10.198613+00:00",
+        "max_occupancy": 4,
+        "inventory_mode": "pooled",
+        "capacity_adults": null,
+        "capacity_children": null,
+        "base_inventory_count": 1
+      },
+      {
+        "id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "code": "ground-floor-apartment",
+        "status": "active",
+        "version": 3,
+        "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+        "name_i18n": {
+          "en": "Ground Floor Apartment"
+        },
+        "sort_order": 200,
+        "updated_at": "2026-09-19T22:16:09.958456+00:00",
+        "max_occupancy": 4,
+        "inventory_mode": "pooled",
+        "capacity_adults": null,
+        "capacity_children": null,
+        "base_inventory_count": 1
+      }
+    ],
+    "product_cells": [
+      {
+        "stay_date": "2026-09-22",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-23",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-24",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-25",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-26",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-27",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-28",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-29",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-30",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-01",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-02",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-03",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-04",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-05",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-06",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-07",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-08",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-09",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-10",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-11",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-12",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-13",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-14",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-15",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-16",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-17",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-18",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-19",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-20",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-21",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-22",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "3320590d-632d-423f-80d0-fd021cba7293",
+        "room_type_id": "825c01b7-9f82-492a-9c81-9b1d5cd7acd3",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-22",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-23",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-24",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-25",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-26",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-27",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-28",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-29",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-09-30",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-01",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-02",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-03",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-04",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-05",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-06",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-07",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-08",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-09",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-10",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-11",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-12",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-13",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-14",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-15",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-16",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-17",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-18",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-19",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-20",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-21",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      },
+      {
+        "stay_date": "2026-10-22",
+        "provenance": {
+          "daily_rate": false,
+          "exact_override_id": null,
+          "availability_version": null
+        },
+        "requestable": false,
+        "rate_plan_id": "22e47a63-a630-4fb6-8f43-816f2d3fdc17",
+        "room_rate_id": "7e420964-9cbf-4f1b-abd3-09840af5240f",
+        "room_type_id": "b4ef504f-cdeb-4e3c-a54d-932146ef4e94",
+        "safety_closed": false,
+        "blocking_reasons": [
+          "public_activation_off"
+        ],
+        "closed_to_arrival": false,
+        "operational_closed": false,
+        "closed_to_departure": false
+      }
+    ],
+    "public_change": false,
+    "snapshot_as_of": "2026-09-22T12:24:42.20177+00:00",
+    "snapshot_token": "c2e1823294642021079873fb6f3615df3f4d420d33ba5dfd44fbcc119ea5c1ac",
+    "daily_inventory": [],
+    "recent_activity": [],
+    "contract_version": "hotels_v2_admin_d_availability_control_v1",
+    "booking_allocations": [],
+    "snapshot_valid_until": null,
+    "unit_calendar_blocks": [],
+    "operational_overrides": [],
+    "unmapped_booking_blockers": [
+      {
+        "reason": "exact_booking_allocation_required",
+        "status": "confirmed",
+        "booking_id": "40000000-0000-4000-8000-000000000001",
+        "num_adults": 1,
+        "arrival_date": "2026-09-29",
+        "num_children": 0,
+        "departure_date": "2026-10-01",
+        "booking_updated_at": "2026-09-19T22:16:09.583751+00:00"
+      }
+    ],
+    "rate_rule_operational_restrictions": []
+  },
+  "feature_flags": {
+    "hotel_rooms_v2_enabled": true,
+    "hotel_external_sync_enabled": true,
+    "hotel_stripe_connect_enabled": true,
+    "hotel_instant_booking_enabled": false
+  },
+  "public_change": false,
+  "property_draft": {
+    "id": null,
+    "exists": false,
+    "photos": {},
+    "status": null,
+    "content": {},
+    "version": 0,
+    "updated_at": null,
+    "source_property_updated_at": null
+  },
+  "recent_activity": [
+    {
+      "id": "f6055a26-64d1-4790-9810-43a8d882e307",
+      "action": "update",
+      "source": "hotels_v2_h3_2b_partner_workspace",
+      "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+      "entity_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+      "actor_type": "partner",
+      "created_at": "2026-09-19T22:16:14.595173+00:00",
+      "entity_type": "property",
+      "correlation_id": "38900000-0000-4000-8000-000000000001"
+    }
+  ],
+  "contract_version": "hotels_v2_h3_2b_partner_workspace_114492_v1",
+  "stripe_connection": {
+    "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+    "checked_at": null,
+    "partner_id": "0a321bfe-da6b-43f6-8e0b-7c68546a8b18",
+    "can_connect": false,
+    "account_status": "NOT_CONNECTED",
+    "platform_ready": false,
+    "contract_version": "hotels_partner_stripe_capability_v1",
+    "platform_enabled": true,
+    "attestation_status": "STALE",
+    "onboarding_authorized": false
+  },
+  "capability_lifecycle": {
+    "version": 6,
+    "architecture": "legacy",
+    "feature_flags": {
+      "hotel_rooms_v2_enabled": true,
+      "hotel_external_sync_enabled": true,
+      "hotel_stripe_connect_enabled": true,
+      "hotel_instant_booking_enabled": false
+    },
+    "contract_version": "hotels_v2_capability_lifecycle_v1",
+    "audit_chain_exact": true,
+    "expected_public_change": false,
+    "public_booking_enabled": false
+  },
+  "legacy_authoritative": false,
+  "architecture_successor": {
+    "hotel_id": "9b6d99a0-923a-4fbc-be54-c066e856e6ca",
+    "is_published": true,
+    "contract_version": "hotels_v2_published_architecture_v1",
+    "architecture_version": "rooms_v2",
+    "public_booking_enabled": false,
+    "conversion_receipt_present": true
+  },
+  "content_snapshot_token": "25158029f7164874d0251f7c356e5dc639b5f111c78ff6daa7138c03f3f99749"
+}

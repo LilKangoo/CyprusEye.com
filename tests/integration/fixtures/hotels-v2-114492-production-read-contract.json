@@ -1,0 +1,1109 @@
+{
+  "provenance": "Production READ ONLY catalog 2026-09-22; raw sources verified against server SHA; no business rows or credentials.",
+  "entrypoint": "public.hotel_v2_partner_get_workspace(uuid,uuid,date,date)",
+  "historical_count": 48,
+  "functions": [
+    {
+      "signature": "auth.uid()",
+      "prosrc_sha": "9ab5ea099e74ec09e83b1505c51a3647791195aed7c742dcc3f257dfc7d2f300",
+      "definition_sha": "7c1ff2ecbe653c9358b3115a2607db9573f88a2944ae4eca9e296a89cc5186a7",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "extensions.digest(bytea, text)",
+      "prosrc_sha": "dab440e06d2ec1df36f3287fec02eac12a47a62063938e1aac6648560f8a6f3e",
+      "definition_sha": "53b6c34c27c86e4466e4b562104d9cac51febbc1bbadafa2c5d1a7ac81d015b3",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "extensions.digest(text, text)",
+      "prosrc_sha": "dab440e06d2ec1df36f3287fec02eac12a47a62063938e1aac6648560f8a6f3e",
+      "definition_sha": "ab7a61f8768189dc1783433785f02808cfb17a200faa4ce270284f76e0156226",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotel_stripe_connect_private.authorization_receipt_hash(jsonb)",
+      "prosrc_sha": "64aef185af0ffbecf4fdf378b36414d6e2f7da32dd70cb25c4ae0a2f8ea9c052",
+      "definition_sha": "491812ef23b5fe590a104e44e6931b095d7ac16e59358a7e74b669c462e94693",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotel_stripe_connect_private.authorization_state(uuid)",
+      "prosrc_sha": "23d55b3b97ee8893d2b464d9ea688af47827dbd9dd6570cea585346291e96fcb",
+      "definition_sha": "2e88aee4a009edf11bc7ae7a4e5abb147af8885bdf3306e565b5d711bfcc11f5",
+      "dependencies": [
+        "hotel_stripe_connect_private.authorization_receipt_hash(jsonb)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_guest_policy_private.original_source(oid)",
+      "prosrc_sha": "e9989350cadedab22bb961f825314885210bee91f55a0178762c656761a09545",
+      "definition_sha": "a055ccb717628c7cf5b925ad8043f773f55d3ba106b5f78e516970074613edda",
+      "dependencies": [
+        "hotels_guest_policy_private.raw_metadata(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_guest_policy_private.raw_metadata(oid)",
+      "prosrc_sha": "65e9d9a19c19f1e8281861752f6f7be2dcba7720fda4810a435a750ad14531b0",
+      "definition_sha": "16ff13fdd37b8f77bb273cca6ed8989e64dbe1d13eb7054ae4770b4ad8a7ef1b",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_lifecycle_private.actual_flags()",
+      "prosrc_sha": "ecd751821530611bfe8b925fa5bb73c408def4823acc1d794b70d6e5bb89fb59",
+      "definition_sha": "962a73c55a3c98bfd3a9f3d482b65d58e99d994402e402974d374d8d1c3b76fa",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_lifecycle_private.catalog_snapshot()",
+      "prosrc_sha": "a9daaad29c3561c8191707fcef258d3fb734705058c4b15ec857ef2e554f5aa7",
+      "definition_sha": "c19d455d09b6f70cd4f3a5a8fcb53e0d023b15f1909e622b1ba505e5955e1c9a",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)",
+        "hotels_lifecycle_private.hash(jsonb)",
+        "hotels_lifecycle_private.metadata(oid)",
+        "hotels_stripe_dto_private.assert_exact()",
+        "hotels_stripe_dto_private.predecessor_source(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "hotels_lifecycle_private.chain_state()",
+      "prosrc_sha": "a9bafdb21a9cce7007e14a25686a1c17606eaf2586b9778368aa9be25eba4c24",
+      "definition_sha": "ebf51ccb03f5cc99557c75c652c4ac5df3615a7172dd547cc3fdcf8cb0cb0cd1",
+      "dependencies": [
+        "hotels_lifecycle_private.hash(jsonb)",
+        "hotels_lifecycle_private.catalog_snapshot()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "hotels_lifecycle_private.hash(jsonb)",
+      "prosrc_sha": "0efcedbc625bdd5c0e6dc3f27a59e846460fe328880fd562d3f0de352c913b5a",
+      "definition_sha": "20cfb347b6a0a3a2e5f336c49502db4b971a09ac8d42b9d2761bbcd9f689419b",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_lifecycle_private.metadata(oid)",
+      "prosrc_sha": "2b49509d355fc1078aafed91f4f9307c3d55413169d7e514cab68f9e1faf760d",
+      "definition_sha": "a142b14c75138d354bcebefc01ef04cbf5f7567fd1278c8017e08a813cdaf285",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_lifecycle_private.partner_connection(uuid, uuid)",
+      "prosrc_sha": "f46e6a3fb6e534739c91a61abeec102c32b67500b7d597d954ea01e57a3dedbc",
+      "definition_sha": "69d6f8ce807885f9ae0017bebddc9781f218c5f2df29d37181c5f5b8c5d50ce2",
+      "dependencies": [
+        "auth.uid()",
+        "public.hotel_v2_h3_2a_require_partner_hotel_access(uuid, uuid, text, boolean)",
+        "hotel_stripe_connect_private.authorization_state(uuid)",
+        "hotels_lifecycle_private.safe_state()",
+        "hotels_lifecycle_private.partner_connection(uuid, uuid)",
+        "hotels_stripe_dto_private.assert_exact()",
+        "hotels_stripe_dto_private.predecessor_source(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "hotels_lifecycle_private.predecessor_flag_exact(text, boolean)",
+      "prosrc_sha": "9b1a2be02f556e7797922aceeb61211355dd576501598206b93bf0796612f11e",
+      "definition_sha": "3f04b84001f1726d6f522ef71ac8ebbf358a6ace0e659ff93d4927bd57c7775b",
+      "dependencies": [
+        "hotels_lifecycle_private.safe_state()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "hotels_lifecycle_private.safe_state()",
+      "prosrc_sha": "780d8fd7853a49d3cab639d8590a786fe88302b6f254c44b9d68b85932a0da7e",
+      "definition_sha": "acfaa64ff3f8d11115c011b19e7742f53bc2b72d866a46c63011f2d7137ec507",
+      "dependencies": [
+        "hotels_lifecycle_private.actual_flags()",
+        "hotels_lifecycle_private.chain_state()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "hotels_post_114489_private.predecessor_flag_exact_114490(text, boolean)",
+      "prosrc_sha": "01ed5f17f625016ff3e1b684a71c938eed07272d12888105737751263c922b1f",
+      "definition_sha": "812d39c616a42f94822457031468d2d80d396163bf0918002710823da64704b5",
+      "dependencies": [
+        "hotels_post_114489_private.safe_state_114490()"
+      ],
+      "historical": false,
+      "protected_by": [],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_post_114489_private.safe_state_114490()",
+      "prosrc_sha": "827a607a09a6d982cd1345342b58a2e7abf9961a93fd9ce8bd598c7a49fb77a7",
+      "definition_sha": "96fc062fb48f86772e6db3b768eac5baab80ffe2dfb22c13aaaa067363f74ef2",
+      "dependencies": [
+        "hotels_lifecycle_private.actual_flags()",
+        "r5k_catalog_proof.executor_63e67309c0eb62b8fdb1()"
+      ],
+      "historical": false,
+      "protected_by": [],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_stripe_dto_private.assert_exact()",
+      "prosrc_sha": "27a6557461c65b339d4bc4aee6c9faf8f83748fe134d4b852c9e5f4dfb99287c",
+      "definition_sha": "d7938495d53ff4072b314db3045f80ffc796d3ef886d65699e24c1ac6f066c95",
+      "dependencies": [
+        "hotels_lifecycle_private.metadata(oid)",
+        "hotels_stripe_dto_private.helper_catalog()",
+        "hotels_stripe_dto_private.relation_catalog()",
+        "hotels_guest_policy_private.original_source(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_stripe_dto_private.helper_catalog()",
+      "prosrc_sha": "95c4c33e0d17c6c9e175aa3b621dca32da8830691ab761eff6a4e9552cf0c21f",
+      "definition_sha": "000be517942288f4f8c289ea4560e2e2a9e1c21bb42a48044a7747118b7f770d",
+      "dependencies": [
+        "hotels_lifecycle_private.metadata(oid)",
+        "hotels_guest_policy_private.original_source(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_stripe_dto_private.predecessor_source(oid)",
+      "prosrc_sha": "199d181264570cba6dd5eb0c370bd19c6da613dfd5d76717f3a1ac71d20ba78a",
+      "definition_sha": "1c367cfe650319b703b1e2ee3b9c9f7276b519f945a7cccc7df18f9df6ed2226",
+      "dependencies": [
+        "hotels_lifecycle_private.metadata(oid)",
+        "hotels_stripe_dto_private.assert_exact()",
+        "hotels_guest_policy_private.original_source(oid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "hotels_stripe_dto_private.relation_catalog()",
+      "prosrc_sha": "d7955b8131b837f37fece6afa3dc8e9e8b2a91aed90f787b1e4e10db2fed1b44",
+      "definition_sha": "518b6f29d7aaec14b0ec1130780febf11b4b49f9804b6833d22c34ef542d26d7",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_allocation_items_fingerprint(uuid)",
+      "prosrc_sha": "ccbe8150dae1b9aa1d973f7cb6c1065933e9f6acb344bc96d2b6f7a9b3b6b9d7",
+      "definition_sha": "a839aef0f576e0790ec78a2c8600132e2907278bfc569e74cf0ff96c807791c4",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_cancellation_policy_is_valid(jsonb)",
+      "prosrc_sha": "986704ae01fc5c2e22ac88213d1258a59c209dde8e887260e1c5283e9050f7db",
+      "definition_sha": "074da5dfeeceda1122738c37d50ec16f2db5b2e311bb0f02feb70c588e38d0ac",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_enforce_graph_limits(uuid, integer, integer, integer, integer, integer, integer, integer, integer, integer)",
+      "prosrc_sha": "44570d9e23af259bc8cc4b4f68dfbbdbd45cf222f295818b6cf6a68d67130e90",
+      "definition_sha": "dd643f1a30608e69b5de850d6699b7137733da5709fc34864b14e2aaf3560211",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_https_url_is_valid(text)",
+      "prosrc_sha": "c4a3bbe6837f5c9827f992ecb1c23f70f9eae3420ea91ab8cc065ac3679918c9",
+      "definition_sha": "424431fd5fd7a4f5354b3c0eb3eb9efbca7676e86818984bbbb72878ed2aa63a",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_i18n_is_valid(jsonb, boolean, integer, boolean)",
+      "prosrc_sha": "3d0eb69f24c1ea01f5801620ca2b329d60b6daf71a7fad481410cfcb817eeccd",
+      "definition_sha": "591a016311c237636bd8ba8453b74b0e4b4eb4118556ab2b32de481abd1d79e4",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_immutable_contract(uuid, text, uuid)",
+      "prosrc_sha": "db46ee490fa9fb8cd82d5433d9207cde3a3a96693ab05859b500e308f38251f1",
+      "definition_sha": "2e5defe980cfbff6baa15c77cb28437cc8c1283a38723dea21b8f9e6131aafeb",
+      "dependencies": [
+        "public.hotel_v2_admin_c_is_promotion_entity(uuid, text, uuid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_is_promotion_entity(uuid, text, uuid)",
+      "prosrc_sha": "a9fd1c33c724e2f59e7a33b0c5cb8852669a077dce3354dc0e8c0f5e8fdd5f59",
+      "definition_sha": "3a0f7b76d241f0bd3d62272032d75dab6dab4e537692af1994fc516d5d48840c",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_lifecycle(boolean, text)",
+      "prosrc_sha": "55b9a9d32714a22e1d58581c2b99e91a8f7bd6561c5d192c08eff43bb8a07278",
+      "definition_sha": "20bd207f2185b5f9894278af85ca1a36050cc58abd48c14cda6cddf4854b10fd",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_pricing_control_snapshot(uuid)",
+      "prosrc_sha": "5d40f4475e8bbda75d3f44820ba90cca32fbb57cc405191e2c1369d1fc5a01c3",
+      "definition_sha": "093de65e46b1372af1c5a594b6659679df1ee1b48a66364d4fcb4c5055f7cb33",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)",
+        "public.hotel_v2_admin_c_lifecycle(boolean, text)",
+        "public.hotel_v2_admin_c_is_promotion_entity(uuid, text, uuid)",
+        "public.hotel_v2_admin_c_immutable_contract(uuid, text, uuid)",
+        "public.hotel_v2_admin_c_schedule_tiers_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_room_tiers_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_schedule_link_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_allocation_items_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_i18n_is_valid(jsonb, boolean, integer, boolean)",
+        "public.hotel_v2_admin_c_cancellation_policy_is_valid(jsonb)",
+        "public.hotel_v2_admin_c_https_url_is_valid(text)",
+        "public.hotel_v2_admin_c_schedule_source_summary(text, jsonb)",
+        "public.hotel_v2_admin_c_enforce_graph_limits(uuid, integer, integer, integer, integer, integer, integer, integer, integer, integer)",
+        "hotels_lifecycle_private.safe_state()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_pricing_control_snapshot_114490(uuid)",
+      "prosrc_sha": "f96398bdeb3e2b6ed3da1bd66372429e021d20d3cd3c44ea1595abc7137b7189",
+      "definition_sha": "1e57c24245d56031aa88dfc1bf77c97d5d59c65e515bb38e491fd69688a92714",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)",
+        "public.hotel_v2_admin_c_lifecycle(boolean, text)",
+        "public.hotel_v2_admin_c_is_promotion_entity(uuid, text, uuid)",
+        "public.hotel_v2_admin_c_immutable_contract(uuid, text, uuid)",
+        "public.hotel_v2_admin_c_schedule_tiers_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_room_tiers_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_schedule_link_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_allocation_items_fingerprint(uuid)",
+        "public.hotel_v2_admin_c_i18n_is_valid(jsonb, boolean, integer, boolean)",
+        "public.hotel_v2_admin_c_cancellation_policy_is_valid(jsonb)",
+        "public.hotel_v2_admin_c_https_url_is_valid(text)",
+        "public.hotel_v2_admin_c_schedule_source_summary(text, jsonb)",
+        "public.hotel_v2_admin_c_enforce_graph_limits(uuid, integer, integer, integer, integer, integer, integer, integer, integer, integer)",
+        "hotels_post_114489_private.safe_state_114490()"
+      ],
+      "historical": false,
+      "protected_by": [],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_room_tiers_fingerprint(uuid)",
+      "prosrc_sha": "ee26c41eec7084e69e087e872e9647da40cfe7677b4fc05de481c3a6a733aa3b",
+      "definition_sha": "a9b23c3666526993093daf7fa224334a0239bed3567d4572d1f75c332c95e1fe",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_schedule_link_fingerprint(uuid)",
+      "prosrc_sha": "96c6f32ffa32ae360019d1cd742fd3c6e93a74f64fbde3b78c3c099810784572",
+      "definition_sha": "c912d6b4d40edc1c287916cb09a9d43ad7ad2b4be834b10692647354a28dce30",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_schedule_source_summary(text, jsonb)",
+      "prosrc_sha": "67a0f1e32364a83db130aafefcd9381ce825ca76884c510368f9551b407b72c0",
+      "definition_sha": "37cc8779efa9cbd6ed99933cf6c8ffae83948becd62fefef68d657985d3f586e",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_c_schedule_tiers_fingerprint(uuid)",
+      "prosrc_sha": "914eaad5d7ab853758e1027480a1a113b5b64ffcbb9532b5a0125bbef1585891",
+      "definition_sha": "f21629eec968c6ea467fb564acabb14885bf61ef7938ac8eac91a082d7d3dc28",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_d_hash(jsonb)",
+      "prosrc_sha": "d60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828",
+      "definition_sha": "1061e7c1549ef04fe3d3c657cd503d7f01be56f263e57024a6e811acd61e90ab",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_d_snapshot(uuid, date, date, boolean)",
+      "prosrc_sha": "7f665d523ae4cd0ecd9183645e50b2898426e1e62fd1bd74b652b87a227c1e7b",
+      "definition_sha": "826e8bf6ede1d20c84a24b1a61fd002d9ac1226e612ed7ccba2dd3dbc8fdaefe",
+      "dependencies": [
+        "public.hotel_v2_admin_d_hash(jsonb)",
+        "public.hotel_v2_admin_d_snapshot_external_base(uuid, date, date, boolean)",
+        "public.hotel_v2_external_calendar_ics_source_type_is_supported(text)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_admin_d_snapshot_114490(uuid, date, date, boolean)",
+      "prosrc_sha": "70b2094358da5cd73ed9580b79d3e338323dadf4e2869f8999a4658652c614f1",
+      "definition_sha": "12713ad5048c004d561fd24770d7d51e42b5b51a46a4483c23768ae97192b048",
+      "dependencies": [
+        "public.hotel_v2_admin_d_hash(jsonb)",
+        "public.hotel_v2_external_calendar_ics_source_type_is_supported(text)",
+        "public.hotel_v2_admin_d_snapshot_external_base_114490(uuid, date, date, boolean)"
+      ],
+      "historical": false,
+      "protected_by": [],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_admin_d_snapshot_external_base(uuid, date, date, boolean)",
+      "prosrc_sha": "0d8e57d5bb06811f3ad39f6d4a638783d4517bf6c0b660a64a551790059e625c",
+      "definition_sha": "c01e624bdc9ce151093bd36ad6f468d46dc386ada46a6e105027d016213b6d97",
+      "dependencies": [
+        "public.hotel_v2_h2a_require_admin()",
+        "public.hotel_v2_admin_d_hash(jsonb)",
+        "hotels_lifecycle_private.predecessor_flag_exact(text, boolean)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_admin_d_snapshot_external_base_114490(uuid, date, date, boolean)",
+      "prosrc_sha": "5d009e628ec2fcc23daa193e16e09417bf561677c6dd78907ef83aa4a21492d4",
+      "definition_sha": "f72f2431f3f53bdc317718f72b87ae2fbde024e08fc3fd9dda2f2e23cee3f3a9",
+      "dependencies": [
+        "public.hotel_v2_h2a_require_admin()",
+        "public.hotel_v2_admin_d_hash(jsonb)",
+        "hotels_post_114489_private.predecessor_flag_exact_114490(text, boolean)"
+      ],
+      "historical": false,
+      "protected_by": [],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_external_calendar_ics_source_type_is_supported(text)",
+      "prosrc_sha": "36b05e8b654ae203ddd889c817464322e134cec638e1802acf8ae2092105c5d8",
+      "definition_sha": "d88d33143e83da36247ad40d7ae8e0a7fd73e61c4f8ce7807bca5cc17c4c5378",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h2a_require_admin()",
+      "prosrc_sha": "2f1cc975916dbc86a63d348135a2ff83de50d9f31c20e70219257d476296fa3d",
+      "definition_sha": "a44747b393c91606662d5cf110aca0ff31ea10501e7ae6e3eb0d838d7dccd3aa",
+      "dependencies": [
+        "public.is_current_user_admin()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNREACHABLE_WITH_REQUIRE_ADMIN_FALSE"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2a_capability_catalog()",
+      "prosrc_sha": "a01f1e7484b1c8253fef8d8baf6d4f705497cacd3473c45de4bdf015821f68fe",
+      "definition_sha": "4db7eb03ea3cf595523568970898b768c4eb6ac2597b5dabf3e181814d358332",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2a_permissions_snapshot(uuid)",
+      "prosrc_sha": "2014812074cb6765a094de77578e54dac8cc1688c41c1569a37c621f304bc3a3",
+      "definition_sha": "ee616f51785c5a667077690537fe46252fb40d7d4af1fb13cc7e34c710180a35",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2a_require_partner_hotel_access(uuid, uuid, text, boolean)",
+      "prosrc_sha": "2b5702a60866205e56c6ecb7492581cf1b262098f5142b39559de5c6feb012cf",
+      "definition_sha": "b3eb3fdf0b50ecf0b72556db4308b665b5efb703abb5a251a7002d4ea03dfae6",
+      "dependencies": [
+        "public.hotel_v2_h3_2a_capability_catalog()",
+        "public.hotel_v2_h3_2a_require_partner_membership(uuid)",
+        "hotels_lifecycle_private.predecessor_flag_exact(text, boolean)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2a_require_partner_membership(uuid)",
+      "prosrc_sha": "90ad483c8ae6c061d69f9b05e2a7b205219a7dbf37047e750a0a507835814b50",
+      "definition_sha": "5b7150da151427a43e1af1daec64fa0a95406f4467958e2c6278db55be8b3fa6",
+      "dependencies": [
+        "auth.uid()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_access_snapshot(uuid, uuid, text)",
+      "prosrc_sha": "7f8cb70e2c7034d17f03377cf7ffe3d5648e47dc27800e9ac3542bc95e2bb5b4",
+      "definition_sha": "d4075c2ba3967d51f01473b9cbcc83b14740ee15130b709e1d33a78efa29704c",
+      "dependencies": [
+        "public.hotel_v2_h3_2a_permissions_snapshot(uuid)",
+        "public.hotel_v2_h3_2a_require_partner_membership(uuid)",
+        "public.hotel_v2_h3_2a_require_partner_hotel_access(uuid, uuid, text, boolean)",
+        "public.hotel_v2_h3_2b_flags_off()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_commission_policy(uuid)",
+      "prosrc_sha": "533a819b7903a4247196955a555a32c4a26b4bea4450814017334c83903ace77",
+      "definition_sha": "fd370f0873dc983fffb056dd2125d3d6a396787cb244badb3d1900e1fb884e40",
+      "dependencies": [
+        "public.hotel_v2_h3_2b_hash(jsonb)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_exact_price_projection(uuid)",
+      "prosrc_sha": "41f8609b712906301ef93e0eb438188ce1989e1114ccea1dcf3f55e1775f438b",
+      "definition_sha": "aae829f7fd4ea4581b629c73f36fe281e31e9d0e98cc040a61a56ccbf2836a29",
+      "dependencies": [],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_flags_off()",
+      "prosrc_sha": "c4866c37cc2a4c5569e9efee957db4f13cc641290e2b2ea4b96f6265e9a2691f",
+      "definition_sha": "65688b0eead33ba1011655ddf3f86969b0ae0659cdbd8e951e6d7c52e89907f6",
+      "dependencies": [
+        "hotels_lifecycle_private.predecessor_flag_exact(text, boolean)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_hash(jsonb)",
+      "prosrc_sha": "d60c1f7509fa64b84e52ea9b7cd06d69f295044e76fd450cafda81528c96a828",
+      "definition_sha": "2f5016299bbcace7c05c7cf20d111ca3cc9bbbd7a3b525007b66b7ee5921722e",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "public.hotel_v2_partner_get_workspace(uuid, uuid, date, date)",
+      "prosrc_sha": "ae51c6ed5516fe7c37b684ac843572af0d2b23b08ca28759b58c926c97df9798",
+      "definition_sha": "7e9fb042f44426615b299b482739a8b2f0e4b7b696ef5d5a6e96317dbe2fd85e",
+      "dependencies": [
+        "public.hotel_v2_admin_c_pricing_control_snapshot(uuid)",
+        "public.hotel_v2_admin_d_snapshot(uuid, date, date, boolean)",
+        "public.hotel_v2_h3_2b_exact_price_projection(uuid)",
+        "public.hotel_v2_h3_2b_hash(jsonb)",
+        "public.hotel_v2_h3_2b_access_snapshot(uuid, uuid, text)",
+        "public.hotel_v2_h3_2b_commission_policy(uuid)",
+        "hotels_lifecycle_private.actual_flags()",
+        "hotels_lifecycle_private.safe_state()",
+        "hotels_lifecycle_private.partner_connection(uuid, uuid)"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": true,
+      "reuse": "REPLACE_STALE_PATH"
+    },
+    {
+      "signature": "public.is_current_user_admin()",
+      "prosrc_sha": "6073f31ba6e068173a607ef60e3ec41cde6f2c9125571dacd1b2fd2c074bae9c",
+      "definition_sha": "1148924849f16b253bfae90edb5f02da80a68d62d588c5794e99a859ceb0be0c",
+      "dependencies": [
+        "auth.uid()"
+      ],
+      "historical": true,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNREACHABLE_WITH_REQUIRE_ADMIN_FALSE"
+    },
+    {
+      "signature": "r5k_catalog_proof.collation_text(oid)",
+      "prosrc_sha": "e00c8886282426943fa820877533085abb587fb478bf4b1b91ab58319592a17d",
+      "definition_sha": "a73f13278589cb4cff718b88c2bc25b2f20e1d0e4b92e6c0188f268e8d0d68a1",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_3590b4e257042f09fe59()",
+      "prosrc_sha": "a97db1b56d741e41fc7753b660886daef7b2ed41c4d566ae82377c4c406938a4",
+      "definition_sha": "ca100b5a66b761183e7b4772d7c05d85cec9dbacfd51c9ed3c24b3d36559f95b",
+      "dependencies": [
+        "hotels_stripe_dto_private.helper_catalog()",
+        "hotels_stripe_dto_private.relation_catalog()",
+        "r5k_catalog_proof.executor_ca545b0d7f6eff9930d8(oid)",
+        "r5k_catalog_proof.executor_b8213e04befe7b524baf(oid)",
+        "r5k_catalog_proof.executor_8143856008c9a6d63d31()",
+        "r5k_catalog_proof.executor_4595c3a6733f4eab16ff()"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_4595c3a6733f4eab16ff()",
+      "prosrc_sha": "1fef2cdd0491e3e9866c535e840f07e49c81fa8cbbfb080863bdaf6e19f8c497",
+      "definition_sha": "f2816bacaf22e97a71bbbd86a0b66a790240b42e90303e47760ca70011185fe2",
+      "dependencies": [
+        "r5k_catalog_proof.pg_get_constraintdef(oid, boolean)",
+        "r5k_catalog_proof.pg_get_triggerdef(oid, boolean)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_5b3fdcb3e5733f2ea8dd(oid)",
+      "prosrc_sha": "81dc5ee4eeecfd7f28fd7d044a04f138adb604de2717f525fb443be0f258c7d4",
+      "definition_sha": "e35f7438d46e80bf26fcf549fa53fda7e08c8542c4f8088dc1cbd22c19368f51",
+      "dependencies": [
+        "hotels_stripe_dto_private.assert_exact()",
+        "r5k_catalog_proof.executor_ca545b0d7f6eff9930d8(oid)",
+        "r5k_catalog_proof.executor_b8213e04befe7b524baf(oid)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_63e67309c0eb62b8fdb1()",
+      "prosrc_sha": "6434a6186d811c5046fa334a7f9be7e27c53eb9a2e49bcb5cf5e80420e893c2c",
+      "definition_sha": "b819db1dc16a37c43e24611ddf76797ef390cde7bf2f7678b603a35baeecff59",
+      "dependencies": [
+        "r5k_catalog_proof.executor_dfbc6217b32ff0fc9d47()",
+        "r5k_catalog_proof.executor_bff8d2a3fa74580f9a97(jsonb)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_8143856008c9a6d63d31()",
+      "prosrc_sha": "e5ef9330948a6e3796fef25a6cccc439978de0364cd65f05d2bd1abdf99a2226",
+      "definition_sha": "f83d0b01d9844323ded3c558e0b00e971875c0220771221b3bd1ec2a90804459",
+      "dependencies": [
+        "r5k_catalog_proof.procedure_text(oid)",
+        "r5k_catalog_proof.executor_ca545b0d7f6eff9930d8(oid)",
+        "r5k_catalog_proof.executor_b8213e04befe7b524baf(oid)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_9f36b3d93778206cdd79(oid)",
+      "prosrc_sha": "4c1407ad8a9874a6806c25b7160252652dd76307f6e98a1012d6565ef7b8a977",
+      "definition_sha": "9b814aa4da82d6dd8a7113a7af25e9d72187cdb46492f9e18d1f8d795e94f4bb",
+      "dependencies": [
+        "r5k_catalog_proof.pg_get_functiondef(oid)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_b8213e04befe7b524baf(oid)",
+      "prosrc_sha": "e165a47c5daca7c3a4759f13c5d93ba6bac85b407b1a2aadd0e29cc93d7b89d4",
+      "definition_sha": "6b99ce981e9a321c94281ae17cd12cf66e139a944b9db9eb3fd4f9bccd24d537",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_bff8d2a3fa74580f9a97(jsonb)",
+      "prosrc_sha": "0efcedbc625bdd5c0e6dc3f27a59e846460fe328880fd562d3f0de352c913b5a",
+      "definition_sha": "9c593815903efd210ae874542fa45f4cbc8150f5f18eb1b3db3a5d5c606c51c3",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_ca545b0d7f6eff9930d8(oid)",
+      "prosrc_sha": "9878cad1f25471dbeb3a5fb165285b02302500f89dd9c02afb8a6bba0f8e7b3d",
+      "definition_sha": "d7c219eb54c9980bb1ebb04a501e4765eee948529d161990997cc9375d210756",
+      "dependencies": [
+        "r5k_catalog_proof.pg_get_functiondef(oid)",
+        "r5k_catalog_proof.executor_9f36b3d93778206cdd79(oid)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.executor_dfbc6217b32ff0fc9d47()",
+      "prosrc_sha": "dadaf2f87de4c0dedae41d9e7c9ae718ab8844e1c98b451dcddec890e571c3fd",
+      "definition_sha": "1e5f68597405ad08818e55fd3e66b9808427f0b115685c5179efb78e81d96a46",
+      "dependencies": [
+        "extensions.digest(text, text)",
+        "extensions.digest(bytea, text)",
+        "r5k_catalog_proof.procedure_text(oid)",
+        "r5k_catalog_proof.type_text(oid)",
+        "r5k_catalog_proof.collation_text(oid)",
+        "r5k_catalog_proof.pg_get_constraintdef(oid, boolean)",
+        "r5k_catalog_proof.pg_get_triggerdef(oid, boolean)",
+        "r5k_catalog_proof.pg_get_expr(pg_node_tree, oid, boolean)",
+        "r5k_catalog_proof.executor_bff8d2a3fa74580f9a97(jsonb)",
+        "r5k_catalog_proof.executor_b8213e04befe7b524baf(oid)",
+        "r5k_catalog_proof.executor_3590b4e257042f09fe59()",
+        "r5k_catalog_proof.executor_5b3fdcb3e5733f2ea8dd(oid)"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.pg_get_constraintdef(oid, boolean)",
+      "prosrc_sha": "a1f50a2f2f43df08d9a4154bb48c3ae2b0f270945f1efc2bd0f59da85e496ae5",
+      "definition_sha": "9ba107f1c8a0fab383ba6b62ea37db0c622db71a5c6c5d0732074157bbc715b4",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.pg_get_expr(pg_node_tree, oid, boolean)",
+      "prosrc_sha": "499cfe4d1ca93d8df607b372df4763ab6d3decaebd062efad683fd5b3e337c34",
+      "definition_sha": "d023be7b9d1cadedc67cc957db00d79022f51f89791385614e64e542627c2c94",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.pg_get_functiondef(oid)",
+      "prosrc_sha": "2ca8217843a7e61fe3b9029fe7e94ad272d52ebcd18e6873106123a146d5407c",
+      "definition_sha": "5eb9a643b0878248536d9ba9ffcf0b7a7c46e2fcc68adc24db0f2ffdbeae2f27",
+      "dependencies": [
+        "auth.uid()",
+        "public.is_current_user_admin()"
+      ],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.pg_get_triggerdef(oid, boolean)",
+      "prosrc_sha": "cbd891e89fafc417ce675d3e4d031b41e12dbeb52fd9c044c6a3bfcab85e29fa",
+      "definition_sha": "4b868ada62abd2f473defc5f009d1fb93dd8d4122cbfecef9ad82cfe1200fa73",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.procedure_text(oid)",
+      "prosrc_sha": "a77a6c0102c029a16e9c3ed2e51445ec658e678c574e46cf1212f842164d457c",
+      "definition_sha": "9a31982927127044037bd5e4a1840bbc8ccee8d54eb37a71ac218c66c470950a",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    },
+    {
+      "signature": "r5k_catalog_proof.type_text(oid)",
+      "prosrc_sha": "0f60b827e23f9d297f2b2199935a0324ca2a4c0d1d5898d8139d4489db97e387",
+      "definition_sha": "b9a72b3bf808910764014d6cc2d694a9031dc6efa238c3d33298af73d216e353",
+      "dependencies": [],
+      "historical": false,
+      "protected_by": [
+        "114489.foundation_certificate"
+      ],
+      "modification_allowed": false,
+      "successor_required": false,
+      "reuse": "UNCHANGED_READ_DEPENDENCY"
+    }
+  ],
+  "originals": [
+    {
+      "signature": "hotels_lifecycle_private.partner_connection(uuid, uuid)",
+      "source": "\nDECLARE permitted boolean; a hotel_stripe_connect_private.accounts%rowtype; platform boolean; attestation text;\nBEGIN\n PERFORM public.hotel_v2_h3_2a_require_partner_hotel_access(p_partner_id,p_hotel_id,null,false);\n platform:=(hotels_lifecycle_private.safe_state()->'feature_flags'->>'hotel_stripe_connect_enabled')::boolean;\n permitted:=EXISTS(SELECT 1 FROM public.partner_users WHERE partner_id=p_partner_id AND user_id=auth.uid() AND role='owner')\n  AND (hotel_stripe_connect_private.authorization_state(p_partner_id)->>'enabled')::boolean;\n PERFORM hotels_stripe_dto_private.predecessor_source('hotels_lifecycle_private.partner_connection(uuid,uuid)'::regprocedure);\n PERFORM hotels_stripe_dto_private.assert_exact();\n SELECT coalesce((SELECT CASE\n  WHEN contract_version IS DISTINCT FROM 'hotels_standard_connect_server_v1' OR ready IS NOT TRUE THEN 'NOT_READY'\n  WHEN checked_at<=statement_timestamp()-interval '15 minutes' THEN 'STALE'\n  ELSE 'READY' END FROM hotels_lifecycle_private.stripe_readiness\n  ORDER BY checked_at DESC,request_id DESC LIMIT 1),'MISSING') INTO attestation;\n SELECT * INTO a FROM hotel_stripe_connect_private.accounts WHERE partner_id=p_partner_id;\n RETURN jsonb_build_object('contract_version','hotels_partner_stripe_capability_v1','partner_id',p_partner_id,'hotel_id',p_hotel_id,\n 'platform_enabled',platform,'onboarding_authorized',permitted,'account_status',coalesce(a.status,'NOT_CONNECTED'),\n 'checked_at',a.checked_at,'platform_ready',attestation='READY','attestation_status',attestation,'can_connect',platform AND permitted AND (a.partner_id IS NULL OR a.status='ONBOARDING_INCOMPLETE'));\nEND ",
+      "prosrc_sha": "f46e6a3fb6e534739c91a61abeec102c32b67500b7d597d954ea01e57a3dedbc"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2a_require_partner_hotel_access(uuid, uuid, text, boolean)",
+      "source": "\ndeclare\n  v_membership jsonb;\n  v_partner_user_id uuid;\n  v_role text;\n  v_assignment_id uuid;\n  v_allowed boolean;\nbegin\n  if p_hotel_id is null then\n    raise exception using errcode = '42501', message = 'hotels_v2_h3_2a_partner_access_denied';\n  end if;\n\n  v_membership := public.hotel_v2_h3_2a_require_partner_membership(p_partner_id);\n  v_partner_user_id := (v_membership->>'partner_user_id')::uuid;\n  v_role := v_membership->>'role';\n\n  select assignment.id into v_assignment_id\n  from public.partner_resources assignment\n  where assignment.partner_id = p_partner_id\n    and assignment.resource_type = 'hotels'\n    and assignment.resource_id = p_hotel_id\n    and (\n      v_role = 'owner'\n      or exists (\n        select 1\n        from public.partner_user_resources user_scope\n        where user_scope.partner_user_id = v_partner_user_id\n          and user_scope.resource_type = 'hotels'\n          and user_scope.resource_id = p_hotel_id\n      )\n    );\n\n  if v_assignment_id is null then\n    raise exception using errcode = '42501', message = 'hotels_v2_h3_2a_partner_access_denied';\n  end if;\n\n  if p_owner_only and v_role <> 'owner' then\n    raise exception using errcode = '42501', message = 'hotels_v2_h3_2a_partner_access_denied';\n  end if;\n\n  if p_capability is not null then\n    if not (p_capability = any(public.hotel_v2_h3_2a_capability_catalog())) then\n      raise exception using errcode = '22023', message = 'hotels_v2_h3_2a_invalid_capability';\n    end if;\n\n    select case p_capability\n      when 'edit_property_content' then permission.edit_property_content\n      when 'edit_property_photos' then permission.edit_property_photos\n      when 'edit_room_content' then permission.edit_room_content\n      when 'edit_room_photos' then permission.edit_room_photos\n      when 'create_rooms' then permission.create_rooms\n      when 'edit_room_structure' then permission.edit_room_structure\n      when 'manage_prices' then permission.manage_prices\n      when 'manage_availability' then permission.manage_availability\n      when 'process_bookings' then permission.process_bookings\n      when 'request_booking_changes' then permission.request_booking_changes\n      when 'view_payment_status' then permission.view_payment_status\n      when 'initiate_stripe_onboarding' then permission.initiate_stripe_onboarding\n      else false\n    end into v_allowed\n    from public.hotel_partner_hotel_permissions permission\n    where permission.assignment_id = v_assignment_id\n      and permission.partner_id = p_partner_id\n      and permission.hotel_id = p_hotel_id;\n\n    if not coalesce(v_allowed, false)\n       or (p_capability = 'initiate_stripe_onboarding' and v_role <> 'owner') then\n      raise exception using errcode = '42501', message = 'hotels_v2_h3_2a_partner_access_denied';\n    end if;\n  end if;\n\n  if (select count(*) from public.site_settings) <> 1\n     or exists (\n    select 1 from public.site_settings setting\n    where setting.id <> 1 or (\n      not hotels_lifecycle_private.predecessor_flag_exact('hotel_rooms_v2_enabled',setting.hotel_rooms_v2_enabled)\n      or false\n      or setting.hotel_instant_booking_enabled\n      or not hotels_lifecycle_private.predecessor_flag_exact('hotel_stripe_connect_enabled',setting.hotel_stripe_connect_enabled)\n    )\n  ) then\n    raise exception using errcode = '55000', message = 'hotels_v2_h3_2a_public_activation_guard';\n  end if;\n\n  return v_assignment_id;\nend\n",
+      "prosrc_sha": "2b5702a60866205e56c6ecb7492581cf1b262098f5142b39559de5c6feb012cf"
+    },
+    {
+      "signature": "public.hotel_v2_h3_2b_access_snapshot(uuid, uuid, text)",
+      "source": "\ndeclare v_assignment uuid; v_membership jsonb; v_permission jsonb;\nbegin\n  if not public.hotel_v2_h3_2b_flags_off() then\n    raise exception using errcode='55000',message='hotels_v2_h3_2b_public_activation_guard';\n  end if;\n  if not exists(select 1 from public.hotels hotel\n      where hotel.id=p_hotel_id and hotel.architecture_version='legacy') then\n    raise exception using errcode='55000',message='hotels_v2_h3_2b_legacy_architecture_guard';\n  end if;\n  v_assignment:=public.hotel_v2_h3_2a_require_partner_hotel_access(\n    p_partner_id,p_hotel_id,p_capability,false);\n  v_membership:=public.hotel_v2_h3_2a_require_partner_membership(p_partner_id);\n  v_permission:=public.hotel_v2_h3_2a_permissions_snapshot(v_assignment);\n  return jsonb_build_object('assignment_id',v_assignment,'role',v_membership->>'role',\n    'permission_version',(v_permission->>'version')::bigint,\n    'has_mutation_capability',(v_permission->>'has_mutation_capability')::boolean,\n    'capabilities',v_permission->'capabilities');\nend\n",
+      "prosrc_sha": "7f8cb70e2c7034d17f03377cf7ffe3d5648e47dc27800e9ac3542bc95e2bb5b4"
+    },
+    {
+      "signature": "public.hotel_v2_partner_get_workspace(uuid, uuid, date, date)",
+      "source": "\ndeclare v_access jsonb; v_pricing jsonb; v_availability jsonb; v_commission jsonb;\n  v_hotel public.hotels%rowtype; v_content jsonb; v_content_token text; v_pricing_token text;\n  v_property_draft jsonb; v_exact_prices jsonb;\nbegin\n  v_access:=public.hotel_v2_h3_2b_access_snapshot(p_partner_id,p_hotel_id,null);\n  if p_from is null or p_to is null or p_to<p_from or p_to-p_from>61 then\n    raise exception using errcode='22023',message='hotels_v2_h3_2b_invalid_workspace_range';\n  end if;\n  select * into strict v_hotel from public.hotels where id=p_hotel_id;\n  if coalesce((v_access#>>'{capabilities,manage_prices}')::boolean,false) then\n    v_commission:=public.hotel_v2_h3_2b_commission_policy(p_hotel_id);\n    v_pricing:=public.hotel_v2_admin_c_pricing_control_snapshot(p_hotel_id);\n  end if;\n  select jsonb_build_object('exists',true,'id',draft.id,'status',draft.status,'version',draft.version,\n      'source_property_updated_at',draft.source_property_updated_at,'content',draft.content,\n      'photos',draft.photos,'updated_at',draft.updated_at)\n    into v_property_draft from public.hotel_partner_property_drafts draft\n    where draft.assignment_id=(v_access->>'assignment_id')::uuid\n    and draft.status='pending_admin_review';\n  v_property_draft:=coalesce(v_property_draft,jsonb_build_object('exists',false,'id',null,\n    'status',null,'version',0,'source_property_updated_at',null,'content','{}'::jsonb,\n    'photos','{}'::jsonb,'updated_at',null));\n  v_content:=jsonb_build_object(\n    'property',jsonb_build_object('id',v_hotel.id,'slug',v_hotel.slug,\n      'architecture_version',v_hotel.architecture_version,'status',v_hotel.status,\n      'is_published',v_hotel.is_published,'title_i18n',v_hotel.title_i18n,\n      'description_i18n',v_hotel.description_i18n,'city',v_hotel.city,'address_line',v_hotel.address_line,\n      'district',v_hotel.district,'postal_code',v_hotel.postal_code,'country',v_hotel.country,\n      'latitude',v_hotel.latitude,'longitude',v_hotel.longitude,'google_maps_url',v_hotel.google_maps_url,\n      'amenities',v_hotel.amenities,'check_in_from',v_hotel.check_in_from,\n      'check_out_until',v_hotel.check_out_until,'cover_image_url',v_hotel.cover_image_url,\n      'photos',coalesce(v_hotel.photos,'[]'::jsonb),'updated_at',v_hotel.updated_at),\n    'rooms',coalesce((select jsonb_agg(jsonb_build_object('id',room.id,'hotel_id',room.hotel_id,'code',room.code,\n      'name_i18n',room.name_i18n,'description_i18n',room.description_i18n,'amenities',room.amenities,\n      'bed_configuration',room.bed_configuration,'floor_label_i18n',room.floor_label_i18n,\n      'gallery',room.gallery,'capacity_adults',room.capacity_adults,'capacity_children',room.capacity_children,\n      'max_occupancy',room.max_occupancy,'bathrooms',room.bathrooms,'size_sqm',room.size_sqm,\n      'inventory_mode',room.inventory_mode,'base_inventory_count',room.base_inventory_count,\n      'status',room.status,'sort_order',room.sort_order,'version',room.version,'updated_at',room.updated_at)\n      order by room.sort_order,room.id) from public.hotel_room_types room where room.hotel_id=p_hotel_id),'[]'),\n    'property_draft',v_property_draft,\n    'units',coalesce((select jsonb_agg(jsonb_build_object('id',unit_row.id,'room_type_id',unit_row.room_type_id,\n      'code',unit_row.code,'name_i18n',unit_row.name_i18n,'status',unit_row.status,\n      'version',unit_row.version,'updated_at',unit_row.updated_at) order by unit_row.room_type_id,unit_row.id)\n      from public.hotel_units unit_row join public.hotel_room_types room on room.id=unit_row.room_type_id\n      where room.hotel_id=p_hotel_id),'[]'));\n  v_content_token:=public.hotel_v2_h3_2b_hash(v_content);\n  if v_pricing is not null then\n    select coalesce(jsonb_agg(public.hotel_v2_h3_2b_exact_price_projection(override_row.id)\n      order by override_row.stay_date,override_row.id),'[]'::jsonb)\n      into v_exact_prices from public.hotel_calendar_overrides override_row\n      where override_row.hotel_id=p_hotel_id;\n    v_pricing_token:=public.hotel_v2_h3_2b_hash(jsonb_build_object(\n      'admin_c_snapshot_token',v_pricing->>'snapshot_token','commission_policy',v_commission,\n      'exact_date_prices',v_exact_prices));\n  end if;\n  if coalesce((v_access#>>'{capabilities,manage_availability}')::boolean,false) then\n    v_availability:=public.hotel_v2_admin_d_snapshot(p_hotel_id,p_from,p_to,false);\n  end if;\n  return jsonb_build_object('contract_version','hotels_v2_h3_2b_partner_workspace_v1',\n    'partner',jsonb_build_object('id',p_partner_id,'role',v_access->>'role'),\n    'hotel_id',v_hotel.id,\n    'assignment',jsonb_build_object('id',v_access->'assignment_id',\n      'permission_version',v_access->'permission_version','capabilities',v_access->'capabilities',\n      'access_snapshot_token',public.hotel_v2_h3_2b_hash(v_access)),\n    'content_snapshot_token',v_content_token,\n    'property',v_content->'property','property_draft',v_content->'property_draft',\n    'rooms',v_content->'rooms','units',v_content->'units',\n    'pricing',case when v_pricing is null then null else jsonb_build_object(\n      'snapshot_token',v_pricing_token,'currency',v_pricing#>>'{property,currency}',\n      'rate_plans',coalesce((select jsonb_agg(jsonb_build_object('id',plan.id,'hotel_id',plan.hotel_id,\n        'code',plan.code,'name_i18n',plan.name_i18n,'is_active',plan.is_active,\n        'review_status',plan.review_status,'sort_order',plan.sort_order,'version',plan.version,\n        'updated_at',plan.updated_at) order by plan.sort_order,plan.id)\n        from public.hotel_rate_plans plan where plan.hotel_id=p_hotel_id),'[]'::jsonb),\n      'room_rates',coalesce((select jsonb_agg(jsonb_build_object('id',rate.id,'hotel_id',rate.hotel_id,\n        'room_type_id',rate.room_type_id,'rate_plan_id',rate.rate_plan_id,\n        'pricing_schedule_id',rate.pricing_schedule_id,'base_nightly_rate',rate.base_nightly_rate,\n        'currency',rate.currency,'is_active',rate.is_active,'review_status',rate.review_status,\n        'pricing_source',case when rate.pricing_schedule_id is not null then 'pricing_schedule'\n          when exists(select 1 from public.hotel_room_rate_occupancy_tiers tier\n            where tier.room_rate_id=rate.id and tier.is_active) then 'independent_tiers'\n          else 'base_nightly_rate' end,\n        'base_nightly_rate_authoritative',rate.pricing_schedule_id is null and not exists(\n          select 1 from public.hotel_room_rate_occupancy_tiers tier\n          where tier.room_rate_id=rate.id and tier.is_active),\n        'sort_order',rate.sort_order,'version',rate.version,'updated_at',rate.updated_at)\n        order by rate.sort_order,rate.id) from public.hotel_room_rates rate where rate.hotel_id=p_hotel_id),'[]'::jsonb),\n      'schedules',coalesce((select jsonb_agg(jsonb_build_object('id',schedule.id,'hotel_id',schedule.hotel_id,\n        'code',schedule.code,'name_i18n',schedule.name_i18n,'application_scope',schedule.application_scope,\n        'currency',schedule.currency,'maximum_party_size',schedule.maximum_party_size,\n        'minimum_billable_occupancy',schedule.minimum_billable_occupancy,'is_active',schedule.is_active,\n        'review_status',schedule.review_status,'sharing_mode',schedule.sharing_mode,\n        'version',schedule.version,'updated_at',schedule.updated_at) order by schedule.code,schedule.id)\n        from public.hotel_pricing_schedules schedule where schedule.hotel_id=p_hotel_id),'[]'::jsonb),\n      'schedule_tiers',coalesce((select jsonb_agg(jsonb_build_object('id',tier.id,\n        'schedule_id',tier.schedule_id,'guest_count',tier.guest_count,'threshold_nights',tier.threshold_nights,\n        'nightly_rate',tier.nightly_rate,'is_active',tier.is_active,'version',tier.version,\n        'updated_at',tier.updated_at) order by tier.schedule_id,tier.guest_count,tier.threshold_nights,tier.id)\n        from public.hotel_pricing_schedule_occupancy_tiers tier join public.hotel_pricing_schedules schedule\n          on schedule.id=tier.schedule_id where schedule.hotel_id=p_hotel_id),'[]'::jsonb),\n      'room_rate_tiers',coalesce((select jsonb_agg(jsonb_build_object('id',tier.id,\n        'hotel_id',tier.hotel_id,'room_rate_id',tier.room_rate_id,'guest_count',tier.guest_count,\n        'threshold_nights',tier.threshold_nights,'nightly_rate',tier.nightly_rate,\n        'is_active',tier.is_active,'version',tier.version,'updated_at',tier.updated_at)\n        order by tier.room_rate_id,tier.guest_count,tier.threshold_nights,tier.id)\n        from public.hotel_room_rate_occupancy_tiers tier where tier.hotel_id=p_hotel_id),'[]'::jsonb),\n      'exact_date_prices',v_exact_prices,\n      'allocation_rules',coalesce((select jsonb_agg(jsonb_build_object('id',allocation.id,\n        'hotel_id',allocation.hotel_id,'code',allocation.code,'allocation_mode',allocation.allocation_mode,\n        'min_guest_count',allocation.min_guest_count,'max_guest_count',allocation.max_guest_count,\n        'is_active',allocation.is_active,'review_status',allocation.review_status,'sort_order',allocation.sort_order,\n        'version',allocation.version,'items',coalesce((select jsonb_agg(\n          jsonb_build_object('id',item.id,'allocation_rule_id',item.allocation_rule_id,\n            'room_type_id',item.room_type_id,'units_required',item.units_required,\n            'allocated_guest_count',item.allocated_guest_count,'pricing_guest_count',item.pricing_guest_count,\n            'allocated_guest_counts',to_jsonb(item.allocated_guest_counts),\n            'pricing_guest_counts',to_jsonb(item.pricing_guest_counts),'sort_order',item.sort_order) order by item.sort_order,item.id)\n          from public.hotel_room_allocation_rule_items item where item.allocation_rule_id=allocation.id),'[]'::jsonb))\n        order by allocation.sort_order,allocation.id) from public.hotel_room_allocation_rules allocation\n        where allocation.hotel_id=p_hotel_id),'[]'::jsonb),\n      'commission_policy',v_commission,\n      'mutation_blocked_reasons','[]'::jsonb) end,\n    'availability',v_availability,\n    'sections',jsonb_build_object(\n      'overview',jsonb_build_object('visible',true,'available',true,'status','available'),\n      'property_content',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,edit_property_content}')::boolean,false),'available',coalesce((v_access#>>'{capabilities,edit_property_content}')::boolean,false),'status',case when coalesce((v_access#>>'{capabilities,edit_property_content}')::boolean,false) then 'available' else 'unavailable' end),\n      'property_photos',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,edit_property_photos}')::boolean,false),'available',coalesce((v_access#>>'{capabilities,edit_property_photos}')::boolean,false),'status',case when coalesce((v_access#>>'{capabilities,edit_property_photos}')::boolean,false) then 'available' else 'unavailable' end),\n      'rooms',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,edit_room_content}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_photos}')::boolean,false) or coalesce((v_access#>>'{capabilities,create_rooms}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_structure}')::boolean,false),'available',coalesce((v_access#>>'{capabilities,edit_room_content}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_photos}')::boolean,false) or coalesce((v_access#>>'{capabilities,create_rooms}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_structure}')::boolean,false),'status',case when coalesce((v_access#>>'{capabilities,edit_room_content}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_photos}')::boolean,false) or coalesce((v_access#>>'{capabilities,create_rooms}')::boolean,false) or coalesce((v_access#>>'{capabilities,edit_room_structure}')::boolean,false) then 'available' else 'unavailable' end),\n      'rates_pricing',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,manage_prices}')::boolean,false),'available',coalesce((v_access#>>'{capabilities,manage_prices}')::boolean,false),'status',case when coalesce((v_access#>>'{capabilities,manage_prices}')::boolean,false) then 'available' else 'unavailable' end),\n      'calendar_availability',jsonb_build_object('visible',v_availability is not null,'available',v_availability is not null,'status',case when v_availability is null then 'unavailable' else 'available' end),\n      'bookings',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,process_bookings}')::boolean,false),\n        'available',coalesce((v_access#>>'{capabilities,process_bookings}')::boolean,false),'status','existing_flow'),\n      'payments',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,view_payment_status}')::boolean,false),\n        'available',coalesce((v_access#>>'{capabilities,view_payment_status}')::boolean,false),'status','existing_flow'),\n      'booking_changes',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,request_booking_changes}')::boolean,false),\n        'available',false,'status','future_stage'),\n      'stripe_onboarding',jsonb_build_object('visible',coalesce((v_access#>>'{capabilities,initiate_stripe_onboarding}')::boolean,false),\n        'available',false,'status','future_stage')),\n    'capability_lifecycle',hotels_lifecycle_private.safe_state(),\n    'stripe_connection',hotels_lifecycle_private.partner_connection(p_partner_id,p_hotel_id),\n    'feature_flags',hotels_lifecycle_private.actual_flags(),\n    'recent_activity',coalesce((select jsonb_agg(jsonb_build_object('id',activity.id,'hotel_id',activity.hotel_id,\n      'entity_type',activity.entity_type,'entity_id',activity.entity_id,'action',activity.action,\n      'actor_type',activity.actor_type,'source',activity.source,'correlation_id',activity.correlation_id,\n      'created_at',activity.created_at) order by activity.created_at desc,activity.id desc)\n      from(select * from public.hotel_activity_log where hotel_id=p_hotel_id\n        and source='hotels_v2_h3_2b_partner_workspace' order by created_at desc,id desc limit 100) activity),'[]'),\n    'legacy_authoritative',v_hotel.architecture_version='legacy','public_change',false);\nend\n",
+      "prosrc_sha": "ae51c6ed5516fe7c37b684ac843572af0d2b23b08ca28759b58c926c97df9798"
+    }
+  ]
+}

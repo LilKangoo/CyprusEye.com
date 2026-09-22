@@ -94,7 +94,7 @@ describe('Partner hotel redesign presentation boundaries', () => {
       const html = read(file);
       expect(html).toContain('hotels-v2-workspace.css?v=20260906_1');
       expect(html).toContain('hotels-v2-partner-workspace.js?v=20260906_1');
-      expect(html).toContain('hotels-v2-partner-workspace-repository.js?v=20260831_2');
+      expect(html).toContain('hotels-v2-partner-workspace-repository.js?v=20260922_114492');
     }
   });
 });

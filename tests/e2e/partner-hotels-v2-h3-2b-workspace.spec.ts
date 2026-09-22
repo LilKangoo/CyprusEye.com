@@ -751,8 +751,17 @@ test.describe('Hotels V2 H3.2B Partner workspace', () => {
       await (window as any).HotelsV2PartnerWorkspace.open({ partnerId, assignment: { assignment_id: assignmentId, hotel_id: hotelId } });
     }, { partnerId: PARTNER_ID, assignmentId: ASSIGNMENT_ID, hotelId: HOTEL_ID });
     await navigatePartner(page, 'payments');
-    await workspace.locator('[data-phw-panel="payments"] [data-phw-existing-flow]').click();
-    expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(2);
+    // Payments now owns its read-only presentation; only Bookings delegates to
+    // the historical booking flow. Missing Stripe state must not offer a write.
+    const payments = workspace.locator('[data-phw-panel="payments"]');
+    await expect(payments.getByRole('heading', { name: 'Stripe Connect', exact: true })).toBeVisible();
+    await expect(payments).toContainText('Stripe state unavailable');
+    await expect(payments).toContainText('10% of booking total');
+    await expect(payments).toContainText('Commission is server-derived and read-only.');
+    await expect(payments.locator('[data-phw-existing-flow], form')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__h32b.bookingEvents)).toBe(1);
+    expect((await page.evaluate(() => (window as any).__h32b.rpcCalls))
+      .filter((call: any) => call.name === 'hotel_v2_partner_apply_content_plan')).toHaveLength(1);
     await expectNoBrowserErrors(page);
   });
 

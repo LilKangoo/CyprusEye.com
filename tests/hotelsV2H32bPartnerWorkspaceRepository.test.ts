@@ -95,7 +95,7 @@ describe('Hotels V2 H3.2B independent Partner workspace repository', () => {
     const repository = loadRepository({ rpc: jest.fn() });
     expect(repository.RPC).toEqual({
       workspace: 'hotel_v2_partner_get_workspace',
-      workspace114489: 'hotel_v2_partner_get_workspace_114489',
+      workspace114492: 'hotel_v2_partner_get_workspace_114492',
       previewContent: 'hotel_v2_partner_preview_content_plan',
       applyContent: 'hotel_v2_partner_apply_content_plan',
       previewPricing: 'hotel_v2_partner_preview_pricing_plan',

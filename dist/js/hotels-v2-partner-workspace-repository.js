@@ -9,7 +9,7 @@
 
   const RPC = Object.freeze({
     workspace: 'hotel_v2_partner_get_workspace',
-    workspace114489: 'hotel_v2_partner_get_workspace_114489',
+    workspace114492: 'hotel_v2_partner_get_workspace_114492',
     previewContent: 'hotel_v2_partner_preview_content_plan',
     applyContent: 'hotel_v2_partner_apply_content_plan',
     previewPricing: 'hotel_v2_partner_preview_pricing_plan',
@@ -79,16 +79,18 @@
     wrapped.domain = domain;
     wrapped.rpcName = context.rpcName || null;
     wrapped.httpStatus = Number.isInteger(context.httpStatus) ? context.httpStatus : null;
-    wrapped.isWorkspace114489NotInstalled = context.rpcName === RPC.workspace114489
+    wrapped.isWorkspace114492NotInstalled = context.rpcName === RPC.workspace114492
       && context.httpStatus === 404 && error?.code === 'PGRST202'
       && /could not find the function|function[^.]*not found/i.test(raw)
       && /schema cache/i.test(raw)
-      && /(?:^|[^a-zA-Z0-9_])(?:public\.)?hotel_v2_partner_get_workspace_114489(?=[^a-zA-Z0-9_]|$)/.test(raw);
+      && /(?:^|[^a-zA-Z0-9_])(?:public\.)?hotel_v2_partner_get_workspace_114492(?=[^a-zA-Z0-9_]|$)/.test(raw);
     wrapped.isStale = /(?:stale|snapshot|version|review_expired|permission_changed|assignment_changed)/.test(key);
     wrapped.isAmbiguousOutcome = /(?:timeout|network|fetch|connection|gateway|econn|abort)/.test(key)
       && !/(?:invalid|denied|forbidden|unauthorized|stale|conflict)/.test(key);
     wrapped.isDefinitiveFailure = !wrapped.isAmbiguousOutcome;
-    if (wrapped.isStale) {
+    if (wrapped.isWorkspace114492NotInstalled) {
+      wrapped.userMessage = 'The audited post-conversion Partner workspace is not installed yet. No legacy fallback or change was attempted.';
+    } else if (wrapped.isStale) {
       wrapped.userMessage = 'The exact Partner Hotel state changed after Review. Reload it and prepare a fresh explicit Review; nothing was retried.';
     } else if (/(?:permission|assignment|forbidden|unauthorized|denied)/.test(key)) {
       wrapped.userMessage = 'This exact Hotel assignment no longer permits that action. No change was saved.';
@@ -123,16 +125,9 @@
     const expected = { partnerId: expectedPartnerId, hotelId: expectedHotelId, from: start, to: end };
     let workspace;
     if (expectedHotelId === Core.PUBLISHED_ARCHITECTURE_TARGET) {
-      let value;
-      try {
-        value = await call(RPC.workspace114489, payload, 'workspace');
-      } catch (error) {
-        // Compatibility is only for an exactly identified, not-installed READ
-        // successor. Permissions, drift, timeouts and malformed DTOs fail closed.
-        if (!error.isWorkspace114489NotInstalled) throw error;
-        workspace = Core.validateWorkspace(await call(RPC.workspace, payload, 'workspace'), expected);
-      }
-      if (!workspace) workspace = Core.validateWorkspace114489(value, expected);
+      // The converted target requires its real installed-path successor. Never
+      // retry the frozen legacy guard or query raw tables when it is unavailable.
+      workspace = Core.validateWorkspace114492(await call(RPC.workspace114492, payload, 'workspace'), expected);
     } else {
       workspace = Core.validateWorkspace(await call(RPC.workspace, payload, 'workspace'), expected);
     }

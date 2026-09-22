@@ -8,6 +8,7 @@
   const CONTRACTS = Object.freeze({
     workspace: 'hotels_v2_h3_2b_partner_workspace_v1',
     workspace114489: 'hotels_v2_h3_2b_partner_workspace_114489_v1',
+    workspace114492: 'hotels_v2_h3_2b_partner_workspace_114492_v1',
     contentDraft: 'hotels_v2_h3_2b_content_draft_v1',
     contentPreview: 'hotels_v2_h3_2b_content_preview_v1',
     contentPlan: 'hotels_v2_h3_2b_content_plan_v1',
@@ -496,7 +497,7 @@
     AdminCore.normalizeAvailabilityControl(value, hotelId);
   }
 
-  function validateWorkspaceEnvelope(value, expected, successor) {
+  function validateWorkspaceEnvelope(value, expected, successor, successorContract = CONTRACTS.workspace114489) {
     requireExactKeys(value, [
       'contract_version', 'partner', 'hotel_id', 'assignment', 'feature_flags', 'content_snapshot_token',
       'property', 'property_draft', 'rooms', 'units', 'pricing', 'availability', 'sections', 'recent_activity',
@@ -504,7 +505,7 @@
       ...(successor ? ['architecture_successor'] : []),
       ...(Object.prototype.hasOwnProperty.call(value, 'capability_lifecycle') ? ['capability_lifecycle', 'stripe_connection'] : []),
     ], 'Partner Hotel workspace');
-    if (value.contract_version !== (successor ? CONTRACTS.workspace114489 : CONTRACTS.workspace)) fail('Unsupported Partner Hotel workspace contract.');
+    if (value.contract_version !== (successor ? successorContract : CONTRACTS.workspace)) fail('Unsupported Partner Hotel workspace contract.');
     requireExactKeys(value.partner, ['id', 'role'], 'Partner identity');
     const partnerId = requireCanonicalUuid(value.partner.id, 'partner.id');
     const hotelId = requireCanonicalUuid(value.hotel_id, 'hotel_id');
@@ -615,6 +616,20 @@
     // Only this explicit successor contract can expose the property's real V2
     // architecture. The audited global lifecycle remains its own legacy DTO.
     return validateWorkspaceEnvelope(value, expected, true);
+  }
+
+  function validateWorkspace114492(value, expected = {}) {
+    const workspace = validateWorkspaceEnvelope(value, expected, true, CONTRACTS.workspace114492);
+    if (workspace.partner.id !== '0a321bfe-da6b-43f6-8e0b-7c68546a8b18'
+        || !['owner', 'staff'].includes(workspace.partner.role)
+        || workspace.property.architecture_version !== 'rooms_v2'
+        || workspace.capability_lifecycle.architecture !== 'legacy'
+        || workspace.feature_flags.hotel_external_sync_enabled !== true
+        || workspace.feature_flags.hotel_stripe_connect_enabled !== true
+        || workspace.feature_flags.hotel_instant_booking_enabled !== false) {
+      fail('Post-conversion Partner workspace target or lifecycle is inconsistent.');
+    }
+    return workspace;
   }
 
   function reasonIsValid(value) {
@@ -1420,7 +1435,7 @@
   return Object.freeze({
     stripeConnectionPresentation,
     CONTRACTS, CAPABILITIES, FEATURE_FLAGS, SECTION_KEYS, SEVEN_ARCHES_REVIEWED_PRICING, PUBLISHED_ARCHITECTURE_TARGET,
-    hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateWorkspace114489, validateDraft,
+    hasExactKeys, requireCanonicalUuid, requirePostgresUuid, requirePricingTargetUuid, requireIsoDate, compactI18n, validateWorkspace, validateWorkspace114489, validateWorkspace114492, validateDraft,
     validateReviewedPlan, validatePlanPreview, validateApplyResult,
     validateCommercialStayRequest, validateCommercialStayPreview, localized, newUuid,
     sevenArchesReviewedPricingTargets, isSevenArchesReviewedPricingWorkspace,
