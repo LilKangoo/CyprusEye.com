@@ -246,7 +246,10 @@ function seedHotelsH1aPartnerPortal() {
             return { data: rows, error: null };
           },
         );
-        stub.setRpcHandler('hotel_v2_partner_list_assigned_properties', (params: any) => {
+        stub.setRpcHandler('hotel_v2_partner_list_assigned_properties', () => {
+          throw new Error('historical_catalog_sensitive_read_must_not_run');
+        });
+        stub.setRpcHandler('hotel_v2_partner_list_assigned_properties_114491', (params: any) => {
           if (params?.p_partner_id !== PARTNER_A_ID) {
             return { data: null, error: { code: '42501', message: 'partner_scope_denied' } };
           }
@@ -324,15 +327,18 @@ test.describe('Hotels H1A Partner Portal security and manual fulfillment', () =>
     const assignedHotels = page.locator('#partnerAssignedHotelsCard');
     await expect(assignedHotels).toBeVisible();
     await expect(assignedHotels).toContainText('Synthetic Boutique Hotel');
-    await expect(assignedHotels).toContainText('Foundation only');
-    await expect(assignedHotels).toContainText('Payment status');
+    await expect(assignedHotels).toContainText('Reviewed workspace');
+    await expect(assignedHotels).toContainText('Payments');
     await expect(assignedHotels).not.toContainText('Other Partner Hotel');
-    await expect(assignedHotels.locator('a, button')).toHaveCount(0);
+    await expect(assignedHotels.locator('[data-assigned-hotel-workspace]')).toHaveCount(1);
+    await expect(assignedHotels.locator('[data-action="accept"], [data-action="reject"], [type="submit"]')).toHaveCount(0);
     const assignedHotelAudit = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls()
-      .filter((call: any) => call.name === 'hotel_v2_partner_list_assigned_properties'));
+      .filter((call: any) => call.name === 'hotel_v2_partner_list_assigned_properties_114491'));
     expect(assignedHotelAudit).toEqual([
       expect.objectContaining({ params: { p_partner_id: PARTNER_A_ID } }),
     ]);
+    expect(await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls()
+      .filter((call: any) => call.name === 'hotel_v2_partner_list_assigned_properties'))).toEqual([]);
 
     await row.locator('button[data-partner-details-open]').click();
     const details = page.locator('#partnerDetailsModal.is-open');

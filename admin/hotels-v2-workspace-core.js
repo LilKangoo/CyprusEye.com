@@ -4815,10 +4815,21 @@
         || flagKeys.some((key) => typeof raw.feature_flags[key] !== 'boolean')) {
       throw new Error('The pricing control feature-flag snapshot is invalid.');
     }
+    // 114490 preserves the certified legacy pricing graph after this exact
+    // property's architecture conversion. This is not public booking authority.
+    // The lifecycle envelope above is validated, including its flag agreement.
+    const postConversionSevenKamares = raw.hotel_id === SEVEN_ARCHES_PROPERTY_ID
+      && raw.property.id === SEVEN_ARCHES_PROPERTY_ID
+      && raw.property.architecture_version === 'rooms_v2'
+      && Boolean(raw.capability_lifecycle)
+      && raw.feature_flags.hotel_rooms_v2_enabled === true
+      && raw.feature_flags.hotel_external_sync_enabled === true
+      && raw.feature_flags.hotel_instant_booking_enabled === false
+      && raw.feature_flags.hotel_stripe_connect_enabled === true;
     if (!hasExactKeys(raw.legacy_safety, legacyKeys)
         || raw.legacy_safety.architecture_version !== raw.property.architecture_version
         || typeof raw.legacy_safety.legacy_pricing_authoritative !== 'boolean'
-        || raw.legacy_safety.legacy_pricing_authoritative !== (raw.property.architecture_version === 'legacy')
+        || raw.legacy_safety.legacy_pricing_authoritative !== (raw.property.architecture_version === 'legacy' || postConversionSevenKamares)
         || !(raw.legacy_safety.legacy_pricing_rule_count === null
           || isExactInteger(raw.legacy_safety.legacy_pricing_rule_count, 0, 1000000))
         || !isExactFingerprint(raw.legacy_safety.legacy_pricing_fingerprint)
@@ -4988,7 +4999,6 @@
       throw new Error('Pricing control requires a supported inert Hotel architecture, public Hotels V2 flags OFF, an exact External Calendar flag and the exact 7 Kamares legacy lock.');
     }
     if (normalized.hotel_id === SEVEN_ARCHES_PROPERTY_ID
-        && !lifecycleBackedRoomsV2
         && (raw.legacy_safety.legacy_pricing_rule_count !== 63
           || raw.legacy_safety.legacy_pricing_fingerprint !== SEVEN_KAMARES_LEGACY_PRICING_FINGERPRINT
           || raw.legacy_safety.legacy_pricing_authoritative !== true)) {

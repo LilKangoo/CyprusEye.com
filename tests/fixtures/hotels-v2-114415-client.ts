@@ -63,6 +63,23 @@ export function independentPricingControl(includeHistorical = false): any {
   };
 }
 
+// Production-shaped 114490 projection; synthetic data, no live response/token.
+export function postConversionPricingControl(): any {
+  const dto = independentPricingControl();
+  dto.property.architecture_version = 'rooms_v2';
+  dto.feature_flags.hotel_rooms_v2_enabled = true;
+  dto.feature_flags.hotel_stripe_connect_enabled = true;
+  dto.legacy_safety.architecture_version = 'rooms_v2';
+  // The immutable legacy graph remains certified after architecture conversion.
+  dto.legacy_safety.legacy_pricing_authoritative = true;
+  dto.capability_lifecycle = {
+    contract_version: 'hotels_v2_capability_lifecycle_v1', version: 6,
+    feature_flags: { ...dto.feature_flags }, public_booking_enabled: false,
+    architecture: 'legacy', expected_public_change: false, audit_chain_exact: true,
+  };
+  return dto;
+}
+
 export function independentActivationSnapshot(sharedSnapshot: any): any {
   return { ...sharedSnapshot, status: 'active', blocking_reasons: [], legacy_authoritative: false,
     pricing_authority: 'independent_room_schedules', independent_topology: {

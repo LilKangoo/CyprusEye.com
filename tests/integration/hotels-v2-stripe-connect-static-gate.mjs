@@ -55,7 +55,7 @@ test('Connect-only apex normalization preserves strict redirect validation and n
 });
 test('SW runtime handlers bypass all OAuth routes and activation removes only old Partner caches',async()=>{
  const handlers=new Map();
- const currentCache='ce-partners-pwa-20260912_1';
+ const currentCache='ce-partners-pwa-20260922_2';
  const oldCaches=['ce-partners-pwa-20260907_1','ce-partners-pwa-20260831_1'];
  const preservedCaches=[currentCache,'ce-admin-pwa-20260907_1','unrelated-cache','ce-partners-pwa'];
  const existingCaches=new Set([...oldCaches,...preservedCaches]);

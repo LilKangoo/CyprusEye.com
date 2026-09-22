@@ -2076,7 +2076,7 @@
     state.assignedHotels = { loading: true, error: null, properties: [], partnerId };
     renderAssignedHotels();
     try {
-      const { data, error } = await state.sb.rpc('hotel_v2_partner_list_assigned_properties', { p_partner_id: partnerId });
+      const { data, error } = await state.sb.rpc('hotel_v2_partner_list_assigned_properties_114491', { p_partner_id: partnerId });
       if (error) throw error;
       const envelope = normalizeAssignedHotelsEnvelope(Array.isArray(data) && data.length === 1 ? data[0] : data, partnerId);
       if (String(state.selectedPartnerId || '').trim().toLowerCase() !== partnerId) return;

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { independentPricingControl } from './fixtures/hotels-v2-114415-client';
+import { independentPricingControl, postConversionPricingControl } from './fixtures/hotels-v2-114415-client';
 
 const HOTEL_ID = '11111111-1111-4111-8111-111111111111';
 const ROOM_ID = '22222222-2222-4222-8222-222222222222';
@@ -286,6 +286,49 @@ function successfulPreview(): any {
 }
 
 describe('Hotels V2 ADMIN-C pricing client contracts', () => {
+  test('114490 accepts the converted exact Hotel with preserved legacy authority and 54 independent tiers', () => {
+    const raw = postConversionPricingControl();
+    const before = JSON.stringify(raw);
+    const parsed = Core.validatePricingControl(raw, raw.hotel_id);
+    expect(parsed.property.architecture_version).toBe('rooms_v2');
+    expect(parsed.legacy_safety.legacy_pricing_authoritative).toBe(true);
+    expect(parsed.pricing_schedules.map((s: any) => s.tiers.length)).toEqual([27, 27]);
+    expect(JSON.stringify(raw)).toBe(before);
+  });
+
+  test.each([
+    ['false authority', (d: any) => { d.legacy_safety.legacy_pricing_authoritative = false; }],
+    ['nonboolean authority', (d: any) => { d.legacy_safety.legacy_pricing_authoritative = 'true'; }],
+    ['missing lifecycle', (d: any) => { delete d.capability_lifecycle; }],
+    ['invalid audit', (d: any) => { d.capability_lifecycle.audit_chain_exact = false; }],
+    ['public booking', (d: any) => { d.capability_lifecycle.public_booking_enabled = true; }],
+    ['public change', (d: any) => { d.legacy_safety.public_change = true; }],
+    ['lifecycle public change', (d: any) => { d.capability_lifecycle.expected_public_change = true; }],
+    ['lifecycle architecture', (d: any) => { d.capability_lifecycle.architecture = 'rooms_v2'; }],
+    ['unknown architecture', (d: any) => { d.property.architecture_version = 'other'; }],
+    ['mismatched architecture', (d: any) => { d.legacy_safety.architecture_version = 'legacy'; }],
+    ['legacy fingerprint drift', (d: any) => { d.legacy_safety.legacy_pricing_fingerprint = 'a'.repeat(32); }],
+    ['legacy count drift', (d: any) => { d.legacy_safety.legacy_pricing_rule_count = 62; }],
+    ['foreign Hotel', (d: any) => { d.hotel_id = HOTEL_ID; d.property.id = HOTEL_ID; }],
+    ...['hotel_rooms_v2_enabled', 'hotel_external_sync_enabled', 'hotel_instant_booking_enabled', 'hotel_stripe_connect_enabled'].map(key => [
+      `incorrect ${key}`, (d: any) => { d.feature_flags[key] = !d.feature_flags[key]; d.capability_lifecycle.feature_flags[key] = d.feature_flags[key]; },
+    ]),
+  ])('114490 fails closed: %s', (_name, mutate) => {
+    const raw = postConversionPricingControl();
+    (mutate as (dto: any) => void)(raw);
+    expect(() => Core.validatePricingControl(raw, raw.hotel_id)).toThrow();
+  });
+
+  test('legacy authority semantics remain exact and other rooms_v2 Hotels do not gain the successor exception', () => {
+    const legacy = independentPricingControl();
+    expect(Core.validatePricingControl(legacy, legacy.hotel_id).legacy_safety.legacy_pricing_authoritative).toBe(true);
+    legacy.legacy_safety.legacy_pricing_authoritative = false;
+    expect(() => Core.validatePricingControl(legacy, legacy.hotel_id)).toThrow(/legacy-safety/);
+    const unrelated = control();
+    expect(Core.validatePricingControl(unrelated, HOTEL_ID).legacy_safety.legacy_pricing_authoritative).toBe(false);
+    unrelated.legacy_safety.legacy_pricing_authoritative = true;
+    expect(() => Core.validatePricingControl(unrelated, HOTEL_ID)).toThrow(/legacy-safety/);
+  });
   test('keeps SQL and client UUID version/variant boundaries identical', () => {
     const migration = fs.readFileSync(path.join(process.cwd(),
       'supabase/migrations/20260811350000_hotels_v2_admin_c_pricing_control.sql'), 'utf8');

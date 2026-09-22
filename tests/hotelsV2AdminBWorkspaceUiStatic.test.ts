@@ -26,7 +26,7 @@ describe('Hotels V2 ADMIN-B Admin client/static gate', () => {
     expect(repository).toContain("applyOperationalAssignment: 'hotel_v2_admin_apply_operational_assignment_plan'");
     for (const asset of [
       '/admin/admin.css?v=20260831_2',
-      '/admin/hotels-v2-workspace-core.js?v=20260922_1',
+      '/admin/hotels-v2-workspace-core.js?v=20260922_2',
       '/admin/hotels-v2-workspace-repository.js?v=20260922_1',
       '/admin/hotels-v2-workspace.js?v=20260922_1',
       '/admin/admin.js?v=20260821_1',
