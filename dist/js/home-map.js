@@ -330,25 +330,59 @@
     }
     return true;
   }
+  let routeSignature = "";
+  let routeKeys = [];
   function filterItems(items) {
     allItems = items;
-    visibleItems = items.filter(matches);
-    visibleItems.sort((a, b) => {
-      const first = coords(a),
-        second = coords(b);
-      if (!first || !second) return first ? -1 : second ? 1 : 0;
-      if (state.sortOrigin)
-        return (
-          first.distanceTo(state.sortOrigin) -
-            second.distanceTo(state.sortOrigin) || key(a).localeCompare(key(b))
+    const candidates = items.filter(matches).map((item) => ({
+      item,
+      id: key(item),
+      point: coords(item),
+    }));
+    // Selection and background GPS fixes must never reshuffle the route.
+    const signature = JSON.stringify([
+      state.sortOrigin && [state.sortOrigin.lat, state.sortOrigin.lng],
+      candidates.map(({ id, point }) => [id, point?.lat, point?.lng]),
+    ]);
+    if (signature !== routeSignature) {
+      const remaining = candidates
+        .filter(({ point }) => point)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      routeKeys = [];
+      let origin = state.sortOrigin;
+      if (!origin && remaining.length) {
+        origin = remaining.reduce(
+          (west, entry) =>
+            entry.point.lng < west.lng ||
+            (entry.point.lng === west.lng && entry.point.lat < west.lat)
+              ? entry.point
+              : west,
+          remaining[0].point,
         );
-      // Without permission/location, browse geographically from west to east.
-      return (
-        first.lng - second.lng ||
-        first.lat - second.lat ||
-        key(a).localeCompare(key(b))
+      }
+      // Build once: each step visits the closest unvisited place, not the
+      // next distance from the user's original location on the opposite side.
+      while (remaining.length) {
+        let nearest = 0;
+        let distance = Infinity;
+        remaining.forEach((entry, index) => {
+          const nextDistance = origin.distanceTo(entry.point);
+          if (nextDistance < distance) {
+            nearest = index;
+            distance = nextDistance;
+          }
+        });
+        const [next] = remaining.splice(nearest, 1);
+        routeKeys.push(next.id);
+        origin = next.point;
+      }
+      routeKeys.push(
+        ...candidates.filter(({ point }) => !point).map(({ id }) => id),
       );
-    });
+      routeSignature = signature;
+    }
+    const byKey = new Map(candidates.map(({ id, item }) => [id, item]));
+    visibleItems = routeKeys.map((id) => byKey.get(id));
     schedule();
     return visibleItems;
   }

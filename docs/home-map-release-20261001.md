@@ -60,3 +60,9 @@ Detailed tile loading: reproduced gray map after navigation at zoom 16; observed
 Map-only work reduction: do not fetch/poll rating/comment counters absent from the current card; use the local auth session only for check-in button presentation (the real check-in still verifies the user); rebuild category rows only while the menu is open. Six successive synthetic-Paphos navigation actions took 1.2–4.8 ms synchronous handling and 9.8–15.8 ms to the next animation frame on the test machine, with zero unused stats/user requests. These timings exclude remote satellite tile latency.
 
 Validation: 17 map tests pass including first GPS fix, preserved manual selection, west-to-east fallback, stable GPS order, search, error recovery, prefetch concurrency/cancellation/native zoom/request cap. Production build, language suites and scoped lint pass (existing bridge warnings only). Browser checks cover auto location, nearby arrow progression, detailed satellite zoom 16/17, permission denial, Hebrew RTL and category menu.
+
+## Stable adjacent-place browsing
+
+Replaced radial distance ordering with a cached nearest-unvisited sequence, starting at the nearest item to the frozen user origin (westernmost item without GPS). Ties use catalog type/id; coordinate-less items remain last. Search/selection and background GPS updates preserve the sequence. Catalog/filter/origin changes rebuild it; next-tile warming consumes the same sequence.
+
+Validation: 18 scoped map integration tests passed, including opposite-side zigzag, GPS stability, search and category changes; controller ESLint passed, i18n tests and production build passed. Local browser with synthetic Paphos location: next/back 1→2→1, reverse/forward loop 1→151→1, search Protaras selects 127/151. No layout or other homepage sections changed.

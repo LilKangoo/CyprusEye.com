@@ -20,7 +20,8 @@ const catalog = [
   { id: "middle", lat: 5, lng: 5, category: "beach" },
 ];
 const entries = catalog.map(({ id }) => ({ type: "poi", id }));
-function setup(responses, prefs = null) {
+function setup(responses, prefs = null, places = catalog) {
+  const entries = places.map(({ id }) => ({ type: "poi", id }));
   const nodes = new Map();
   const node = () => ({
     textContent: "",
@@ -82,7 +83,7 @@ function setup(responses, prefs = null) {
     setView: (p, z) => views.push({ p, z }),
   };
   const window = {
-    PLACES_DATA: catalog,
+    PLACES_DATA: places,
     currentMapItem: entries[0],
     setCurrentMapItem(item) {
       this.currentMapItem = item;
@@ -288,4 +289,34 @@ test("tile warming uses native tile zoom and has a finite request budget", () =>
     h.images[i].onload();
   }
   assert.ok(h.images.length <= 16);
+});
+
+test("route follows adjacent places instead of alternating around the user", () => {
+  const places = [
+    { id: "east", lat: 0, lng: 1, category: "beach" },
+    { id: "west", lat: 0, lng: -1.1, category: "nature" },
+    { id: "east-next", lat: 0, lng: 1.2, category: "beach" },
+    { id: "west-next", lat: 0, lng: -1.3, category: "nature" },
+    { id: "missing", category: "nature" },
+  ];
+  const h = setup([], null, places);
+  h.window.CE_HOME_MAP.updateUserPosition({ latitude: 0, longitude: 0 });
+  const expected = ["east", "east-next", "west", "west-next", "missing"];
+  assert.deepEqual(h.order(), expected);
+  h.api.select({ type: "poi", id: "west" });
+  h.window.CE_HOME_MAP.updateUserPosition({ latitude: 0, longitude: -1 });
+  h.api.state.query = "east";
+  assert.deepEqual(h.order(), expected);
+  const reversedInput = places
+    .slice()
+    .reverse()
+    .map(({ id }) => ({ type: "poi", id }));
+  assert.deepEqual(
+    Array.from(h.window.CE_HOME_MAP.filterItems(reversedInput), (x) => x.id),
+    expected,
+  );
+  h.api.state.categories = ["beach"];
+  assert.deepEqual(h.order(), ["east", "east-next"]);
+  h.api.state.categories = [];
+  assert.deepEqual(h.order(), expected);
 });
