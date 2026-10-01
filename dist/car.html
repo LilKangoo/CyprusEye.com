@@ -78,6 +78,7 @@
 <link rel="stylesheet" href="/assets/css/site-navigation.css?v=1" />
   <link rel="stylesheet" href="/assets/css/rental-controls.css?v=20261001visual1">
   <script type="module" src="/js/rental-controls.js?v=20261001visual1"></script>
+  <script type="module" src="/js/rental-kind-picker.js?v=20261001filters1"></script>
 </head>
 <body data-ce-page="cars" data-ce-shell data-navigation="multi-page" data-initial-view="carRentalView" data-seo-page="carRentalLanding" data-car-location="larnaca">
     <!-- CE:NAV:START -->
@@ -328,6 +329,8 @@
 
           <form id="carRentalCalculator" class="auto-calculator" novalidate>
             <div class="grid auto-calculator-grid">
+              <fieldset class="vehicle-kind-filter" id="rentalVehicleKinds"></fieldset>
+              <div class="auto-checkbox"><input type="checkbox" id="rentalNorth"><label for="rentalNorth" data-rental-north-label>Jadę na północ Cypru</label></div>
               <div class="auto-field">
                 <label for="pickupDate" data-i18n="carRental.calculator.form.pickupDate">Data odbioru</label>
                 <input type="date" id="pickupDate" name="pickupDate" required aria-required="true" />
@@ -893,9 +896,9 @@
     <script src="js/mobile-nav.js?v=2" defer></script>
   <script src="js/header-dropdown.js" defer></script>
     <script src="js/media-viewer.js?v=1" defer></script>
-    <script type="module" src="/js/car-rental-paphos.js?v=20260227a"></script>
+    <script type="module" src="/js/car-rental-paphos.js?v=20261001filters1"></script>
     <script type="module" src="/js/car-reservation.js?v=20260630_city_place"></script>
-    <script type="module" src="/js/car-rental-landing.js?v=20260630_city_place"></script>
+    <script type="module" src="/js/car-rental-landing.js?v=20261001filters1-20260630_city_place"></script>
     <!-- SOS Emergency Modal -->
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/sos.js?v=1" defer></script>

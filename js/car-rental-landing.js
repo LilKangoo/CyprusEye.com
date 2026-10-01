@@ -1415,6 +1415,8 @@ function bindWidgetHandlers() {
     'rentalPassengers',
     'fullInsurance',
     'youngDriver',
+    'rentalNorth',
+    'rentalVehicleKinds',
     'rentalCarSelect',
   ];
 

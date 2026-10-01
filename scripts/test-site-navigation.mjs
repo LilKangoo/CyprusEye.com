@@ -194,6 +194,9 @@ test("Public page content outside navigation retains its original main markup", 
     });
     const current = await read(file);
     const section = (s) => s.match(/<main\b[\s\S]*?<\/main>/)?.[0];
-    assert.equal(section(current), section(old), file);
+    // The approved rental filters are the only later addition inside car.html main.
+    const rentalFilters = '\n              <fieldset class="vehicle-kind-filter" id="rentalVehicleKinds"></fieldset>\n              <div class="auto-checkbox"><input type="checkbox" id="rentalNorth"><label for="rentalNorth" data-rental-north-label>Jadę na północ Cypru</label></div>';
+    const currentSection = file === "car.html" ? section(current)?.replace(rentalFilters, "") : section(current);
+    assert.equal(currentSection, section(old), file);
   }
 });

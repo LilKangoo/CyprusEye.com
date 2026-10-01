@@ -652,3 +652,31 @@ describe('Car Rental Multi-City Stage 2D 36-pair shadow matrix', () => {
     expect(reasonCodes).toEqual(new Set(['MAPPED_ONLY_OFFER', 'EXPECTED_MAPPED_ADDITION']));
   });
 });
+
+describe('public vehicle kind and north filters', () => {
+  const rows = [
+    offer('car', 'larnaca', { vehicle_kind_id: 'kind-car', north_allowed: true }),
+    offer('quad', 'larnaca', { vehicle_kind_id: 'kind-quad', north_allowed: true }),
+    offer('buggy', 'larnaca', { vehicle_kind_id: 'kind-buggy', north_allowed: false }),
+    offer('unknown', 'larnaca', { vehicle_kind_id: null, north_allowed: null }),
+  ];
+  const context = baseContext({ offers: rows, availability: rows.map(row => availability(row.id, 'larnaca')) });
+  const ids = (result: any) => result.mappedOffers.map((row: any) => row.id).sort();
+  test('empty selection preserves all offers; multiple types use OR and unknown types are not guessed', async () => {
+    expect(ids(await resolve({}, context))).toEqual(['buggy', 'car', 'quad', 'unknown']);
+    expect(ids(await resolve({ filters: { platform: 'homepage', vehicleKindIds: ['kind-quad', 'kind-buggy'] } }, context))).toEqual(['buggy', 'quad']);
+  });
+  test('north combines with types and accepts only explicit permission without changing quote', async () => {
+    const original = await resolve({}, context);
+    const selected = await resolve({ filters: { platform: 'homepage', vehicleKindIds: ['kind-quad', 'kind-buggy'], requireNorthAllowed: true } }, context);
+    expect(ids(selected)).toEqual(['quad']);
+    expect(selected.mappedOffers[0].quote).toEqual(original.mappedOffers.find((row: any) => row.id === 'quad').quote);
+    expect(ids(await resolve({ filters: { platform: 'homepage', requireNorthAllowed: true } }, context))).toEqual(['car', 'quad']);
+  });
+  test('cache fingerprint changes with filters but not selected-kind order', () => {
+    const fingerprint = (filters: any) => adapter.buildCarRentalAvailabilityInputFingerprint(input({filters}));
+    expect(fingerprint({vehicleKindIds:['a']})).not.toEqual(fingerprint({vehicleKindIds:[]}));
+    expect(fingerprint({requireNorthAllowed:true})).not.toEqual(fingerprint({}));
+    expect(fingerprint({vehicleKindIds:['a','b']})).toEqual(fingerprint({vehicleKindIds:['b','a']}));
+  });
+});

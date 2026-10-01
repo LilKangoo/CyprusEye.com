@@ -119,6 +119,9 @@ function passesFilters(offer, profile, input, diagnostics) {
     if (offer?.young_driver_fee !== true) return false;
   }
 
+  const kindIds = unique(filters.vehicleKindIds);
+  if (kindIds.length && !kindIds.includes(text(offer?.vehicle_kind_id))) return false;
+
   const platform = normalized(filters.platform);
   const explicitNorth = typeof filters.requireNorthAllowed === 'boolean'
     ? filters.requireNorthAllowed
@@ -1060,6 +1063,7 @@ export function buildCarRentalAvailabilityInputFingerprint(input = {}) {
     language: normalized(input.language) || 'en',
     platform: normalized(input.filters?.platform),
     allowedOfferIds: unique(input.filters?.allowedOfferIds).sort(),
+    vehicleKindIds: unique(input.filters?.vehicleKindIds).sort(),
     carType: unique(Array.isArray(input.filters?.carType) ? input.filters.carType : [input.filters?.carType]).map(normalized).sort(),
     transmission: unique(Array.isArray(input.filters?.transmission) ? input.filters.transmission : [input.filters?.transmission]).map(normalized).sort(),
     fuel: unique(Array.isArray(input.filters?.fuel) ? input.filters.fuel : [input.filters?.fuel]).map(normalized).sort(),

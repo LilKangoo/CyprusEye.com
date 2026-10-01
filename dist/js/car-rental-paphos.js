@@ -14,7 +14,7 @@ import {
 import {
   buildCarRentalAvailabilityInputFingerprint,
   resolveCarRentalAvailability,
-} from './car-rental-availability-adapter.js';
+} from './car-rental-availability-adapter.js?v=20261001filters1';
 import {
   CAR_THRESHOLD_PRICING_STRATEGY,
   calculateThresholdCarRentalQuote,
@@ -230,6 +230,8 @@ function buildCarPageAvailabilityInput(legacyRenderedOffers) {
     language: getI18nShortLanguage(),
     filters: {
       platform: 'car-page',
+      vehicleKindIds: Array.from(document.querySelectorAll('#rentalVehicleKinds input:checked')).map(el => el.value),
+      ...(document.getElementById('rentalNorth')?.checked ? { requireNorthAllowed: true } : {}),
       isLanguageEligible: (offer, language) => {
         const checker = window.CELanguage?.isRecordReadyForLanguage;
         return typeof checker === 'function' ? checker(offer, 'car', language) : true;
@@ -612,6 +614,9 @@ function getFleetFilteredByPassengers(source = paphosFleet) {
   const requiredPassengers = getRequiredPassengers();
   const requireYoungDriver = getCurrentYoungDriverSelected();
   const filteredFleet = filterFleetForLanguage(source).filter((car) => {
+    if (document.getElementById('rentalNorth')?.checked && car?.north_allowed !== true) return false;
+    const kindIds = Array.from(document.querySelectorAll('#rentalVehicleKinds input:checked')).map(el => el.value);
+    if (kindIds.length && !kindIds.includes(car?.vehicle_kind_id)) return false;
     const capacity = Number(car?.max_passengers || 0);
     const capacityOk = !Number.isFinite(capacity) || capacity <= 0 || capacity >= requiredPassengers;
     if (!capacityOk) return false;
@@ -746,6 +751,15 @@ function renderFleet() {
   const { requiredPassengers, filteredFleet, requireYoungDriver } = renderedSource === legacyRenderedOffers
     ? legacyFilterState
     : getFleetFilteredByPassengers(renderedSource);
+
+  if (!filteredFleet.length && (document.getElementById('rentalNorth')?.checked || document.querySelector('#rentalVehicleKinds input:checked'))) {
+    grid.innerHTML = `<p style="grid-column:1/-1;padding:24px;text-align:center">${escapeHtml(carUiText({
+      pl: 'Brak pojazdów spełniających wybrane filtry. Zmień rodzaj pojazdu, trasę lub pozostałe ustawienia.',
+      en: 'No vehicles match the selected filters. Change the vehicle type, route or other settings.',
+      he: 'אין כלי רכב המתאימים למסננים שנבחרו. שנו את סוג הרכב, המסלול או ההגדרות.'
+    }, null, getI18nShortLanguage()))}</p>`;
+    return;
+  }
 
   if (filteredFleet.length === 0 && paphosFleet.length === 0) {
     const cityLabel = i18n(`carRental.locations.${loc}.short`, null, loc);

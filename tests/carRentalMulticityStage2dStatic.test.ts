@@ -69,8 +69,8 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
     const adapterFiles = childProcess.execFileSync('git', ['ls-files', 'js'], { encoding: 'utf8' })
       .trim().split('\n').filter((file) => /car-rental-availability-adapter\.js$/.test(file));
     expect(adapterFiles).toEqual([adapterPath]);
-    expect(read('js/car-rental-paphos.js')).toContain("from './car-rental-availability-adapter.js'");
-    expect(read('js/home-cars.js')).toContain("from '/js/car-rental-availability-adapter.js'");
+    expect(read('js/car-rental-paphos.js')).toMatch(/from '\.\/car-rental-availability-adapter\.js(?:\?[^']+)?'/);
+    expect(read('js/home-cars.js')).toMatch(/from '\/js\/car-rental-availability-adapter\.js(?:\?[^']+)?'/);
     expect(adapter).toContain('calculateCarRentalQuote');
     expect(adapter).toContain('buildPricingMatrixForOfferRow');
     expect(adapter).not.toMatch(/(?:larnaca|nicosia|ayia-napa|protaras|limassol|paphos)\s*:\s*(?:0|15|20|40)\b/);
@@ -109,8 +109,8 @@ describe('Car Rental Multi-City Stage 2D static safety guards', () => {
     expect(distAdapter).toContain('Stage 2D safety assertion failed');
     expect(distAdapter).not.toMatch(/renderedOffers\s*:\s*mappedOffers/);
     expectReadOnlyEligibilityRpc(distRepository);
-    expect(distCarPage).toContain("from './car-rental-availability-adapter.js'");
-    expect(distHomepage).toContain("from '/js/car-rental-availability-adapter.js'");
+    expect(distCarPage).toMatch(/from '\.\/car-rental-availability-adapter\.js(?:\?[^']+)?'/);
+    expect(distHomepage).toMatch(/from '\/js\/car-rental-availability-adapter\.js(?:\?[^']+)?'/);
   });
 
   test('real PostgREST gate is loopback-only and contains no production project reference', () => {

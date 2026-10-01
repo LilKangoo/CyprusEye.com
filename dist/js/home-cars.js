@@ -24,7 +24,7 @@ import {
 import {
   buildCarRentalAvailabilityInputFingerprint,
   resolveCarRentalAvailability,
-} from '/js/car-rental-availability-adapter.js';
+} from '/js/car-rental-availability-adapter.js?v=20261001filters1';
 import { calculateRentalDaysFromLocalDateTimes } from '/js/car-rental-duration-contract.js';
 import { createCarRentalAvailabilityRepository } from '/js/car-rental-availability-repository.js';
 import {
@@ -32,6 +32,8 @@ import {
   resolveGenericVehicleCopy,
 } from '/js/car-rental-public-presentation.js';
 
+let vehicleKinds = [];
+let vehicleKindsFailed = false;
 let allHomeCars = [];
 let homeCarsById = {};
 let homeCarsByLocation = { larnaca: [], paphos: [] };
@@ -125,6 +127,8 @@ function buildHomeCarsAvailabilityInput(legacyRenderedOffers, finderState) {
     language: getLang(),
     filters: {
       platform: 'homepage',
+      vehicleKindIds: finderState.vehicleKindIds || [],
+      ...(finderState.northAllowed === true ? { requireNorthAllowed: true } : {}),
       isLanguageEligible: (offer, language) => {
         const checker = window.CELanguage?.isRecordReadyForLanguage;
         return typeof checker === 'function' ? checker(offer, 'car', language) : true;
@@ -408,6 +412,8 @@ function readFinderStateFromDom(baseState = null) {
     pickupLocation: String(document.getElementById('carsFinderPickupLocation')?.value || defaults.pickupLocation).trim() || defaults.pickupLocation,
     returnLocation: String(document.getElementById('carsFinderReturnLocation')?.value || defaults.returnLocation).trim() || defaults.returnLocation,
     fullInsurance: !!document.getElementById('carsFinderInsurance')?.checked,
+    northAllowed: !!document.getElementById('carsFinderNorth')?.checked,
+    vehicleKindIds: Array.from(document.querySelectorAll('[data-rental-kind]:checked')).map(el => el.value),
     youngDriver: !!document.getElementById('carsFinderYoungDriver')?.checked,
     passengers: Math.max(1, Number(document.getElementById('carsFinderPassengers')?.value || defaults.passengers || 2)),
   };
@@ -616,7 +622,12 @@ function renderHomeCarsFinder() {
           </label>
           <div class="home-cars-finder-field home-cars-finder-field--extras">
             <span>${escapeHtml(text('Dodatki', 'Extras', 'תוספות'))}</span>
+            <fieldset class="vehicle-kind-filter"><legend>${escapeHtml(text('Rodzaj pojazdu', 'Vehicle type', 'סוג כלי רכב'))}</legend><p>${escapeHtml(text('Możesz wybrać kilka. Brak zaznaczenia = wszystkie rodzaje.', 'Choose several. No selection means all types.', 'אפשר לבחור כמה. ללא בחירה מוצגים כל הסוגים.'))}</p><div class="vehicle-kind-options">${vehicleKinds.map(kind => { const icon = {car:'🚗',quad:'🛞',buggy:'🏎️',scooter:'🛵',bicycle:'🚲'}[kind.code] || '◈'; return `<label><input type="checkbox" data-rental-kind value="${escapeHtml(kind.id)}" ${(state.vehicleKindIds || []).includes(kind.id) ? 'checked' : ''}><span>${icon} ${escapeHtml(pickHomeCarLocalizedValue(kind.name_i18n, getLang(), kind.code))}</span></label>`; }).join('')}</div>${vehicleKindsFailed ? `<p role="status">${escapeHtml(text('Nie udało się pobrać rodzajów pojazdów. Odśwież stronę.', 'Could not load vehicle types. Refresh the page.', 'לא ניתן לטעון סוגי כלי רכב. רעננו את התצוגה.'))}</p>` : ''}</fieldset>
             <div class="home-cars-finder-inline-options">
+              <label class="home-cars-finder-checkbox north-option">
+                <input id="carsFinderNorth" type="checkbox" ${state.northAllowed ? 'checked' : ''} />
+                <span><strong>${escapeHtml(text('Jadę na północ Cypru', 'Travelling to northern Cyprus', 'נוסעים לצפון קפריסין'))}</strong><small>${escapeHtml(text('Tylko pojazdy ze zgodą wypożyczalni na przejazd.', 'Only vehicles with rental-company permission to cross.', 'רק כלי רכב עם אישור חברת ההשכרה למעבר.'))}</small></span>
+              </label>
               <label class="home-cars-finder-checkbox">
                 <input id="carsFinderInsurance" type="checkbox" ${state.fullInsurance ? 'checked' : ''} />
                 <span>${escapeHtml(insuranceFilterLabel)}</span>
@@ -847,9 +858,14 @@ function renderHomeCars() {
     list = list.filter((car) => !!car?.young_driver_fee);
   }
 
+  if (finderState.northAllowed === true) list = list.filter(car => car.north_allowed === true);
+  if (finderState.vehicleKindIds?.length) list = list.filter(car => finderState.vehicleKindIds.includes(car.vehicle_kind_id));
+
   const legacyRenderedOffers = list;
   scheduleHomeCarsAvailabilityShadow(legacyRenderedOffers, finderState);
   list = resolveHomeCarsRenderedOffers(legacyRenderedOffers, finderState);
+  if (finderState.northAllowed === true) list = list.filter(car => car.north_allowed === true);
+  if (finderState.vehicleKindIds?.length) list = list.filter(car => finderState.vehicleKindIds.includes(car.vehicle_kind_id));
 
   // Saved-only filtering must happen after the shared hybrid resolver. A
   // threshold offer is intentionally absent from the legacy bootstrap list,
@@ -866,7 +882,11 @@ function renderHomeCars() {
     grid.innerHTML = `
       <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
         <p>${escapeHtml(
-          finderState.youngDriver
+          finderState.vehicleKindIds?.length
+            ? text('Brak pojazdów wybranego rodzaju spełniających wszystkie filtry. Zmień rodzaj, trasę lub pozostałe ustawienia.', 'No vehicles of the selected types match all filters. Change the type, route or other settings.', 'אין כלי רכב מהסוגים שנבחרו המתאימים לכל המסננים. שנו את הסוג, המסלול או ההגדרות.')
+            : finderState.northAllowed
+            ? text('Brak pojazdów ze zgodą na północ dla wybranej trasy, terminu i pozostałych filtrów.', 'No north-permitted vehicles match your route, dates and other filters.', 'אין כלי רכב עם אישור לצפון המתאימים למסלול, לתאריכים ולמסננים שנבחרו.')
+            : finderState.youngDriver
             ? text(
               `Brak pojazdów dla ${passengerCount} pasażerów z opcją młodego kierowcy w tym ustawieniu`,
               `No vehicles available for ${passengerCount} passengers with young driver enabled in the current setup`,
@@ -1425,6 +1445,9 @@ async function loadHomeCars() {
 
     if (error) throw error;
 
+    const kindsResponse = await supabase.from('car_vehicle_kinds').select('id,code,name_i18n,is_active,sort_order').eq('is_active', true).order('sort_order', { ascending: true }).order('code', { ascending: true }).then(result => result, () => ({ error: true }));
+    vehicleKindsFailed = !!kindsResponse.error;
+    vehicleKinds = kindsResponse.error ? [] : (kindsResponse.data || []);
     await hydrateCarRentalCityCatalogForActiveRuntime(homeCarsCatalogRepository);
 
     allHomeCars = data || [];
