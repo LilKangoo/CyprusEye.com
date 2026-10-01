@@ -53,6 +53,8 @@
       }
     } catch (_error) {}
 
+    if (document.querySelector('[data-ce-campaign-language]')) return document.documentElement.lang || 'en';
+
     try {
       const paramLang = new URL(window.location.href).searchParams.get('lang');
       if (typeof paramLang === 'string' && paramLang.trim()) {
@@ -241,6 +243,7 @@
     }
     if (tab) {
       url.searchParams.set('tab', tab);
+      if (document.body?.hasAttribute('data-ce-shell')) url.searchParams.set('returnTo', window.location.pathname + window.location.search + window.location.hash);
     }
     return url.toString();
   }
@@ -921,6 +924,7 @@
     const level = metrics.level;
     const badges = metrics.badges;
     const isPl = getLanguage() === 'pl';
+    if (getLanguage().startsWith('he')) return `רמה ${level} • ${badges} תגים`;
     return isPl ? `Poziom ${level} • ${badges} odznak` : `Level ${level} • ${badges} badges`;
   }
 

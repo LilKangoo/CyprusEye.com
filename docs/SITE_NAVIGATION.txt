@@ -1,0 +1,58 @@
+Shared site navigation — option C
+
+Source of truth:
+  config/site-navigation.json — items, destinations, translated shell labels
+  config/site-navigation-pages.json — 46 explicitly classified HTML entries
+  templates/site-navigation.html — account/auth/header contracts and shell slot
+  templates/site-sos.html — existing canonical SOS for pages without a modal
+  scripts/render-site-navigation.mjs — deterministic marked-region generation
+
+Run npm run navigation:generate after changing the manifest/template.
+Run npm run navigation:check before committing. Never manually edit CE:NAV regions.
+The normal build also generates navigation and refuses unclassified HTML entries.
+Generated source HTML is committed so server.js and static previews use the same
+initial DOM as dist. Existing edge-rendered offer/blog routes use those templates.
+
+Scope: 31 public templates receive the shared shell. 7 admin/partner workspaces,
+6 transaction/auth callback flows, and 2 legacy redirects retain their existing
+behavior. The manifest documents every entry. No routing, SEO, rollout flags,
+payment logic, authentication provider or database schema changes.
+
+Existing providers remain authoritative: CE_STATE and ce-auth:state; existing
+header-stats and compact-header profile/partner logic; CELanguage and appI18n;
+existing cart badge/events, shop cart, authentication modal and SOS controller.
+The old mobile navigation and header dropdown stop owning the new shell.
+Saved items open a read-only dialog against the existing user_saved_catalog_items
+collection, without requiring a travel plan. Data is loaded only on opening.
+Notifications load the current user's existing poi_notifications, without adding
+another realtime subscription. Missing/failed responses are not treated as empty
+success. Logout invalidates in-flight results and clears private panel content.
+Campaign pages retain their own language controller; the shell translates only
+its header/SOS labels from existing translation packs. Public Hebrew restrictions
+remain in force on destination pages.
+
+Validation completed locally:
+- 55 navigation/adapter/source-preservation tests and 18 existing map tests pass.
+- Language fallback, admin/partner Hebrew and HE rollout guard tests pass.
+- Scoped ESLint passes; production build succeeds; all 31 built HTML files match
+  their sources, no QA fixtures included.
+- Browser checks: guest shell on public templates; actual redirects preserved for
+  guests/account and offer pages without a slug; mobile and desktop bounding boxes;
+  320–1920 CSS px breakpoints, PL/EN/HE and RTL; menu/Escape/focus return; login modal;
+  real empty shop cart; SOS; map next/zoom/card visibility; controlled authenticated
+  profile fixture, session expiry, saved/notification data, empty and error states.
+- The fixture uses synthetic data and is NOT a live account/backend verification.
+  Physical Safari/iOS/Android devices and real checkout submissions are not covered.
+- Map JS/CSS/bridge/app-core hashes and existing public main markup are protected.
+  Update protected baselines deliberately only for separately authorized content/map work.
+
+Small compatibility fixes discovered during integration:
+- Legacy public pages explicitly load the existing Supabase module before auth.
+- Advertise/cruise shell moved outside their content width wrapper.
+- public/trips.html: fix pre-existing items block-scope error, retain its page title.
+- Hebrew profile status is localized; auth fallback retains returnTo.
+
+Release: deploy the same complete dist artifact together with unchanged functions.
+Previous production baseline: a876023f6ab7535d9b9faa9ba7016ede08e1dea0;
+Cloudflare deployment 2ceccc22-1095-4a4a-ac4f-e92ca19a31e2.
+Rollback uses the complete previous deployment, not individual HTML files.

@@ -1,0 +1,186 @@
+{
+  "404.html": {
+    "mode": "standard",
+    "active": ""
+  },
+  "account/index.html": {
+    "mode": "account",
+    "active": ""
+  },
+  "achievements.html": {
+    "mode": "standard",
+    "active": "achievements"
+  },
+  "admin/dashboard.html": {
+    "mode": "workspace",
+    "active": ""
+  },
+  "admin/index.html": {
+    "mode": "workspace",
+    "active": "map"
+  },
+  "admin/login.html": {
+    "mode": "workspace",
+    "active": ""
+  },
+  "advertise.html": {
+    "mode": "standard",
+    "active": "advertise"
+  },
+  "attractions.html": {
+    "mode": "standard",
+    "active": "attractions"
+  },
+  "auth/callback/index.html": {
+    "mode": "transaction",
+    "active": "map"
+  },
+  "auth/index.html": {
+    "mode": "standard",
+    "active": ""
+  },
+  "autopfo.html": {
+    "mode": "redirect",
+    "active": ""
+  },
+  "blog-post.html": {
+    "mode": "standard",
+    "active": "blog"
+  },
+  "blog.html": {
+    "mode": "standard",
+    "active": "blog"
+  },
+  "car-rental.html": {
+    "mode": "redirect",
+    "active": ""
+  },
+  "car.html": {
+    "mode": "standard",
+    "active": "cars"
+  },
+  "community.html": {
+    "mode": "standard",
+    "active": "community"
+  },
+  "cruise.html": {
+    "mode": "standard",
+    "active": "cruise"
+  },
+  "deposit.html": {
+    "mode": "transaction",
+    "active": ""
+  },
+  "hotel.html": {
+    "mode": "standard",
+    "active": "hotels"
+  },
+  "hotels.html": {
+    "mode": "standard",
+    "active": "hotels"
+  },
+  "index.html": {
+    "mode": "standard",
+    "active": "map"
+  },
+  "kupon.html": {
+    "mode": "standard",
+    "active": "coupon"
+  },
+  "packing.html": {
+    "mode": "standard",
+    "active": "packing"
+  },
+  "partners.html": {
+    "mode": "workspace",
+    "active": ""
+  },
+  "partners/index.html": {
+    "mode": "workspace",
+    "active": "map"
+  },
+  "partners/stripe-connect-return.html": {
+    "mode": "transaction",
+    "active": ""
+  },
+  "partners/stripe-connect.html": {
+    "mode": "transaction",
+    "active": ""
+  },
+  "plan.html": {
+    "mode": "standard",
+    "active": "planner"
+  },
+  "public/admin.html": {
+    "mode": "workspace",
+    "active": ""
+  },
+  "public/admin/index.html": {
+    "mode": "workspace",
+    "active": "map"
+  },
+  "public/auto-larnaka.html": {
+    "mode": "legacy",
+    "active": "cars"
+  },
+  "public/auto-paphos.html": {
+    "mode": "legacy",
+    "active": "cars"
+  },
+  "public/trip.html": {
+    "mode": "legacy",
+    "active": "trips"
+  },
+  "public/trips.html": {
+    "mode": "legacy",
+    "active": "trips"
+  },
+  "recommendations.html": {
+    "mode": "standard",
+    "active": "recommendations"
+  },
+  "reset/index.html": {
+    "mode": "standard",
+    "active": ""
+  },
+  "shop.html": {
+    "mode": "standard",
+    "active": "shop"
+  },
+  "special-offer.html": {
+    "mode": "campaign",
+    "active": ""
+  },
+  "tasks.html": {
+    "mode": "standard",
+    "active": "tasks"
+  },
+  "terms.html": {
+    "mode": "standard",
+    "active": ""
+  },
+  "transport.html": {
+    "mode": "standard",
+    "active": "transport"
+  },
+  "trip-date-selection.html": {
+    "mode": "transaction",
+    "active": ""
+  },
+  "trip.html": {
+    "mode": "standard",
+    "active": "trips"
+  },
+  "trips.html": {
+    "mode": "standard",
+    "active": "trips"
+  },
+  "vip.html": {
+    "mode": "standard",
+    "active": "vip"
+  },
+  "yourbooking.html": {
+    "mode": "transaction",
+    "active": ""
+  }
+}

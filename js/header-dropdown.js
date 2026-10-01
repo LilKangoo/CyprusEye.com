@@ -149,6 +149,7 @@ function ensureHeaderCartButton() {
 }
 
 function initHeaderDropdown() {
+  if (document.body?.hasAttribute('data-ce-shell')) return;
   const toggleBtn = document.getElementById('navToggleBtn');
   const linksRow = document.getElementById('navLinksRow');
 

@@ -22,7 +22,9 @@
     "i18n:review-import": "node scripts/import-reviewed-translations.js",
     "i18n:test": "node scripts/test-language-fallback.js && node scripts/test-admin-he-internal.js && node scripts/test-he-rollout-guard.js",
     "build": "node scripts/build.js",
-    "build:clean": "rm -rf dist && npm run build"
+    "build:clean": "rm -rf dist && npm run build",
+    "navigation:generate": "node scripts/render-site-navigation.mjs",
+    "navigation:check": "node scripts/render-site-navigation.mjs --check && node --test scripts/test-site-navigation.mjs"
   },
   "dependencies": {
     "nodemailer": "^6.9.11",

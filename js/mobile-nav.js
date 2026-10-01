@@ -5,6 +5,7 @@
 
 (function() {
   'use strict';
+  if (document.body?.hasAttribute('data-ce-shell')) return;
 
   // All 7 navigation pages
   const NAV_PAGES = [

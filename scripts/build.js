@@ -1,3 +1,4 @@
+import './render-site-navigation.mjs';
 import { readdir, readFile, writeFile, mkdir, cp, rm, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

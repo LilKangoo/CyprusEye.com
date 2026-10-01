@@ -1,0 +1,321 @@
+{
+  "items": [
+    {
+      "id": "map",
+      "href": "/index.html",
+      "group": "map"
+    },
+    {
+      "id": "trips",
+      "href": "/trips.html",
+      "group": "book"
+    },
+    {
+      "id": "hotels",
+      "href": "/hotels.html",
+      "group": "book"
+    },
+    {
+      "id": "cars",
+      "href": "/car.html",
+      "group": "book"
+    },
+    {
+      "id": "transport",
+      "href": "/transport.html",
+      "group": "book"
+    },
+    {
+      "id": "recommendations",
+      "href": "/recommendations.html",
+      "group": "discover"
+    },
+    {
+      "id": "community",
+      "href": "/community.html",
+      "group": "discover"
+    },
+    {
+      "id": "blog",
+      "href": "/blog",
+      "group": "discover"
+    },
+    {
+      "id": "shop",
+      "href": "/shop.html",
+      "group": "discover"
+    },
+    {
+      "id": "planner",
+      "href": "/plan.html",
+      "group": "plan"
+    },
+    {
+      "id": "packing",
+      "href": "/packing.html",
+      "group": "plan"
+    },
+    {
+      "id": "tasks",
+      "href": "/tasks.html",
+      "group": "plan"
+    },
+    {
+      "id": "achievements",
+      "href": "/achievements.html",
+      "group": "more"
+    },
+    {
+      "id": "attractions",
+      "href": "/attractions.html",
+      "group": "more"
+    },
+    {
+      "id": "cruise",
+      "href": "/cruise.html",
+      "group": "more"
+    },
+    {
+      "id": "vip",
+      "href": "/vip.html",
+      "group": "more"
+    },
+    {
+      "id": "coupon",
+      "href": "/kupon.html",
+      "group": "more"
+    },
+    {
+      "id": "advertise",
+      "href": "/advertise.html",
+      "group": "more"
+    }
+  ],
+  "labels": {
+    "menu": {
+      "pl": "Menu",
+      "en": "Menu",
+      "he": "תפריט"
+    },
+    "close": {
+      "pl": "Zamknij menu",
+      "en": "Close menu",
+      "he": "סגירת התפריט"
+    },
+    "book": {
+      "pl": "Rezerwuj",
+      "en": "Book",
+      "he": "הזמנות"
+    },
+    "discover": {
+      "pl": "Odkrywaj",
+      "en": "Discover",
+      "he": "לגלות"
+    },
+    "plan": {
+      "pl": "Zaplanuj",
+      "en": "Plan",
+      "he": "לתכנן"
+    },
+    "more": {
+      "pl": "Więcej",
+      "en": "More",
+      "he": "עוד"
+    },
+    "saved": {
+      "pl": "Zapisane",
+      "en": "Saved",
+      "he": "שמורים"
+    },
+    "account": {
+      "pl": "Konto",
+      "en": "Account",
+      "he": "חשבון"
+    },
+    "login": {
+      "pl": "Zaloguj się",
+      "en": "Sign in",
+      "he": "התחברות"
+    },
+    "services": {
+      "pl": "Usługi",
+      "en": "Services",
+      "he": "שירותים"
+    },
+    "map": {
+      "pl": "Mapa",
+      "en": "Map",
+      "he": "מפה"
+    },
+    "trips": {
+      "pl": "Wycieczki",
+      "en": "Trips",
+      "he": "טיולים"
+    },
+    "hotels": {
+      "pl": "Hotele",
+      "en": "Hotels",
+      "he": "מלונות"
+    },
+    "cars": {
+      "pl": "Wynajem auta",
+      "en": "Car rental",
+      "he": "השכרת רכב"
+    },
+    "transport": {
+      "pl": "Transport",
+      "en": "Transfers",
+      "he": "הסעות"
+    },
+    "recommendations": {
+      "pl": "Polecane miejsca",
+      "en": "Recommended places",
+      "he": "מקומות מומלצים"
+    },
+    "community": {
+      "pl": "Społeczność",
+      "en": "Community",
+      "he": "קהילה"
+    },
+    "blog": {
+      "pl": "Poradniki i blog",
+      "en": "Guides & blog",
+      "he": "מדריכים ובלוג"
+    },
+    "shop": {
+      "pl": "Sklep",
+      "en": "Shop",
+      "he": "חנות"
+    },
+    "planner": {
+      "pl": "Planer podróży",
+      "en": "Trip planner",
+      "he": "תכנון טיול"
+    },
+    "packing": {
+      "pl": "Lista pakowania",
+      "en": "Packing list",
+      "he": "רשימת אריזה"
+    },
+    "tasks": {
+      "pl": "Zadania",
+      "en": "Tasks",
+      "he": "משימות"
+    },
+    "achievements": {
+      "pl": "Osiągnięcia",
+      "en": "Achievements",
+      "he": "הישגים"
+    },
+    "attractions": {
+      "pl": "Atrakcje",
+      "en": "Attractions",
+      "he": "אטרקציות"
+    },
+    "cruise": {
+      "pl": "Rejsy",
+      "en": "Cruises",
+      "he": "הפלגות"
+    },
+    "vip": {
+      "pl": "VIP",
+      "en": "VIP",
+      "he": "VIP"
+    },
+    "coupon": {
+      "pl": "Kupony",
+      "en": "Coupons",
+      "he": "קופונים"
+    },
+    "advertise": {
+      "pl": "Współpraca",
+      "en": "Partner with us",
+      "he": "שיתוף פעולה"
+    },
+    "notifications": {
+      "pl": "Powiadomienia",
+      "en": "Notifications",
+      "he": "התראות"
+    },
+    "loading": {
+      "pl": "Wczytywanie…",
+      "en": "Loading…",
+      "he": "טוען…"
+    },
+    "emptySaved": {
+      "pl": "Nie masz jeszcze zapisanych miejsc ani ofert.",
+      "en": "You have no saved places or offers yet.",
+      "he": "עדיין אין מקומות או הצעות שמורים."
+    },
+    "emptyNotifications": {
+      "pl": "Brak powiadomień.",
+      "en": "No notifications.",
+      "he": "אין התראות."
+    },
+    "loadError": {
+      "pl": "Nie udało się wczytać danych. Spróbuj ponownie.",
+      "en": "Could not load your items. Please try again.",
+      "he": "לא ניתן לטעון את הפריטים. נסו שוב."
+    },
+    "retry": {
+      "pl": "Spróbuj ponownie",
+      "en": "Try again",
+      "he": "נסו שוב"
+    },
+    "liked": {
+      "pl": "Polubienie Twojego komentarza",
+      "en": "Your comment received a like",
+      "he": "התגובה שלך קיבלה לייק"
+    },
+    "replied": {
+      "pl": "Odpowiedź na Twój komentarz",
+      "en": "A reply to your comment",
+      "he": "תגובה לתגובה שלך"
+    },
+    "closePanel": {
+      "pl": "Zamknij",
+      "en": "Close",
+      "he": "סגירה"
+    },
+    "cart": {
+      "pl": "Koszyk",
+      "en": "Cart",
+      "he": "סל קניות"
+    },
+    "logout": {
+      "pl": "Wyloguj się",
+      "en": "Sign out",
+      "he": "התנתקות"
+    },
+    "hotline": {
+      "pl": "Telefon alarmowy",
+      "en": "Emergency phone",
+      "he": "טלפון חירום"
+    },
+    "reception": {
+      "pl": "Recepcja",
+      "en": "Reception",
+      "he": "קבלה"
+    },
+    "address": {
+      "pl": "Adres",
+      "en": "Address",
+      "he": "כתובת"
+    },
+    "email": {
+      "pl": "E-mail",
+      "en": "Email",
+      "he": "דואר אלקטרוני"
+    },
+    "avatar": {
+      "pl": "Zdjęcie profilowe",
+      "en": "Profile picture",
+      "he": "תמונת פרופיל"
+    },
+    "homeLabel": {
+      "pl": "CyprusEye — strona główna",
+      "en": "CyprusEye — home",
+      "he": "CyprusEye — דף הבית"
+    }
+  }
+}
