@@ -416,10 +416,24 @@ function setRecommendationCategoryFilter(mapInstance, categorySlugs = []) {
 // ============================================================================
 // LOAD RECOMMENDATIONS
 // ============================================================================
+let recommendationStartupPromise = null;
+async function waitForMapRecommendationClient() {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const client = window.supabaseClient || window.sb || window.__SB__ || window.getSupabase?.();
+    if (client) return client;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return null;
+}
+function preloadMapRecommendations() {
+  if (!recommendationStartupPromise) recommendationStartupPromise = loadRecommendationsForMap();
+  return recommendationStartupPromise;
+}
+
 async function loadRecommendationsForMap() {
   try {
     // Get Supabase client
-    const supabase = window.getSupabase ? window.getSupabase() : (window.sb || null);
+    const supabase = await waitForMapRecommendationClient();
     
     if (!supabase) {
       console.warn('[map-recommendations] Supabase client not available');
@@ -853,7 +867,7 @@ async function initMapRecommendations(mapInstance) {
     return;
   }
   
-  await loadRecommendationsForMap();
+  await preloadMapRecommendations();
   syncRecommendationMarkers(mapInstance);
   setRecommendationMarkersVisibility(mapInstance, recommendationMarkersVisible);
 }
@@ -872,3 +886,6 @@ window.getVisibleRecommendationIdsForMap = getVisibleRecommendationIdsForMap;
 window.getRecommendationMarkerById = getRecommendationMarkerById;
 window.openRecommendationMarkerPopup = openRecommendationMarkerPopup;
 window.getRecommendationCategoryMeta = getRecommendationCategoryMeta;
+
+// Begin public catalog reads while the rest of the page initializes.
+if (document.getElementById('map')) preloadMapRecommendations();

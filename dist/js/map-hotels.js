@@ -303,9 +303,15 @@
     }
   }
 
+  let hotelStartupPromise = null;
+  function preloadMapHotels() {
+    if (!hotelStartupPromise) hotelStartupPromise = loadHotelsForMap();
+    return hotelStartupPromise;
+  }
+
   async function initMapHotels(mapInstance) {
     hotelMapInstance = mapInstance || hotelMapInstance;
-    await loadHotelsForMap();
+    await preloadMapHotels();
     if (hotelMapInstance && typeof globalScope.L !== 'undefined') {
       syncHotelMarkers(hotelMapInstance);
     } else {
@@ -332,4 +338,5 @@
   globalScope.getHotelMarkerById = getHotelMarkerById;
   globalScope.getMapHotelsData = getMapHotelsData;
   globalScope.focusHotelOnMap = focusHotelOnMap;
+  if (typeof document !== 'undefined' && document.getElementById('map')) preloadMapHotels();
 })(typeof window !== 'undefined' ? window : globalThis);

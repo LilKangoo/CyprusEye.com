@@ -119,16 +119,17 @@ async function loadPOIsFromSupabase() {
       return useFallbackData();
     }
 
-    const poiCategoryMap = await loadPoiCategoriesFromSupabase(supabase);
-    window.POI_CATEGORIES_DATA = Array.from(poiCategoryMap.values());
+    const categoriesRequest = loadPoiCategoriesFromSupabase(supabase);
     
     // Pobierz POI z bazy (tylko Published)
     ceLog('🔍 Zapytanie: SELECT * FROM pois WHERE status = published');
-    const { data: pois, error } = await supabase
+    const poisRequest = supabase
       .from('pois')
       .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
+    const [poiCategoryMap, { data: pois, error }] = await Promise.all([categoriesRequest, poisRequest]);
+    window.POI_CATEGORIES_DATA = Array.from(poiCategoryMap.values());
     
     if (error) {
       console.error('❌ Błąd Supabase:', error);

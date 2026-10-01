@@ -1923,41 +1923,23 @@ try {
     // Lokalizacja użytkownika - odłóż na idle (nieblokujące)
     runWhenIdle(() => initializeUserLocation());
     
-    // Initialize recommendation markers (green)
-    if (typeof window.initMapRecommendations === 'function') {
-      runWhenIdle(() => {
-        const recommendationInit = window.initMapRecommendations(mapInstance);
-        if (recommendationInit && typeof recommendationInit.then === 'function') {
-          recommendationInit
-            .then(() => {
-              applyMapMarkerFilter();
-            })
-            .catch((error) => {
-              console.warn('[app-core] Recommendation markers init failed:', error);
-              updateMapMarkerFilterCounter();
-            });
-        } else {
-          applyMapMarkerFilter();
-        }
-      });
-    }
-
-    if (typeof window.initMapHotels === 'function') {
-      runWhenIdle(() => {
-        const hotelInit = window.initMapHotels(mapInstance);
-        if (hotelInit && typeof hotelInit.then === 'function') {
-          hotelInit
-            .then(() => {
-              applyMapMarkerFilter();
-            })
-            .catch((error) => {
-              console.warn('[app-core] Hotel markers init failed:', error);
-              updateMapMarkerFilterCounter();
-            });
-        } else {
-          applyMapMarkerFilter();
-        }
-      });
+    // Catalog data is essential to the map; never wait for browser idle time.
+    // Both requests start independently, so a slow catalog cannot block the other.
+    for (const [name, initCatalog] of [
+      ['Recommendation', window.initMapRecommendations],
+      ['Hotel', window.initMapHotels],
+    ]) {
+      if (typeof initCatalog !== 'function') continue;
+      try {
+        Promise.resolve(initCatalog(mapInstance))
+          .then(() => applyMapMarkerFilter())
+          .catch((error) => {
+            console.warn(`[app-core] ${name} markers init failed:`, error);
+            updateMapMarkerFilterCounter();
+          });
+      } catch (error) {
+        console.warn(`[app-core] ${name} markers init failed:`, error);
+      }
     }
 
     ceLog('✅ Mapa zainicjalizowana');
