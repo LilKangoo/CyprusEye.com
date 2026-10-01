@@ -6,9 +6,12 @@ export function localizedTitle(row, lang, fallback = "") {
     "title",
     "name",
     "display_name",
+    "car_model",
   ]) {
-    const flat = row?.[`${key}_${lang}`];
-    if (typeof flat === "string" && flat.trim()) return flat;
+    for (const code of [lang, "en", "pl", "he"]) {
+      const flat = row?.[`${key}_${code}`];
+      if (typeof flat === "string" && flat.trim()) return flat;
+    }
     let value = row?.[key];
     if (typeof value === "string" && value.trim().startsWith("{")) {
       try {
@@ -40,7 +43,7 @@ export function savedDestination(type, row) {
     );
   if (type === "recommendation")
     return "/recommendations.html?recommendation=" + encodeURIComponent(id);
-  return "/community.html?poi=" + encodeURIComponent(id);
+  return "/index.html?poi=" + encodeURIComponent(id) + "#map";
 }
 export async function loadSaved(sb, userId, lang) {
   const refs = await sb

@@ -105,6 +105,7 @@ function setup(responses, prefs = null, places = catalog) {
   }
   vm.runInNewContext(source, {
     window,
+    URLSearchParams,
     document: {
       getElementById: () => root,
       documentElement: { lang: "pl" },
@@ -147,6 +148,7 @@ function setup(responses, prefs = null, places = catalog) {
   return {
     api,
     window,
+    URLSearchParams,
     images,
     TileLayer,
     map,

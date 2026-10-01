@@ -12,8 +12,9 @@ const items = [
   { type: "recommendation", id: "r" },
   { type: "hotel", id: "h" },
 ];
-function setup(preferences, saved = false) {
+function setup(preferences, saved = false, search = "") {
   const window = {
+    location: {search},
     PLACES_DATA: [
       { id: "a", name: "Áyia Napa", category: "beach" },
       { id: "b", name: "Troodos", category: "nature" },
@@ -28,6 +29,7 @@ function setup(preferences, saved = false) {
   };
   vm.runInNewContext(code, {
     window,
+    URLSearchParams,
     document: { getElementById: () => ({}), documentElement: { lang: "pl" } },
     localStorage: { getItem: () => preferences },
     console,
@@ -61,3 +63,12 @@ test("valid empty result does not substitute unfiltered records", () =>
     setup(JSON.stringify({ categories: ["missing"], types: ["poi"] }))(items),
     [],
   ));
+
+test("saved POI navigation clears conflicting filters after its catalog entry arrives", () => {
+  const filter = setup(JSON.stringify({types:["hotel"],categories:["food"],saved:true}),true,"?poi=b");
+  assert.deepEqual(filter(items),items);
+});
+test("missing saved POI does not reset filters or introduce a phantom result", () => {
+  const filter = setup(JSON.stringify({types:["hotel"]}),false,"?poi=missing");
+  assert.deepEqual(filter(items),[items[3]]);
+});

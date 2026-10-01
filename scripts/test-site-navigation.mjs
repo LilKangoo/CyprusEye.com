@@ -109,6 +109,7 @@ test("Saved titles respect localized POI and catalog schemas", () => {
     "Cruise",
   );
   assert.equal(localizedTitle({ name_pl: "Plaża" }, "pl"), "Plaża");
+  assert.equal(localizedTitle({ name_en: "Beach" }, "he"), "Beach");
   assert.equal(
     savedDestination("trip", { id: "a", slug: "with space" }),
     "/trip.html?slug=with%20space",
@@ -116,7 +117,7 @@ test("Saved titles respect localized POI and catalog schemas", () => {
   assert.equal(savedDestination("hotel", { id: "a" }), "/hotels.html");
   assert.equal(
     savedDestination("poi", { id: "a&b" }),
-    "/community.html?poi=a%26b",
+    "/index.html?poi=a%26b#map",
   );
 });
 test("Saved catalog queries only current user and saved published records", async () => {
@@ -199,4 +200,11 @@ test("Public page content outside navigation retains its original main markup", 
     const currentSection = file === "car.html" ? section(current)?.replace(rentalFilters, "") : section(current);
     assert.equal(currentSection, section(old), file);
   }
+});
+
+test("Saved vehicles use the model name in every language and retain their offer URL", () => {
+  const car = {id:"car-1",car_model:{pl:"Auto PL",en:"Car EN",he:"רכב"},location:"larnaca"};
+  for (const lang of ["pl","en","he"]) assert.equal(localizedTitle(car,lang),car.car_model[lang]);
+  assert.equal(localizedTitle({car_model:'{"en":"Nissan Note"}'},"en"),"Nissan Note");
+  assert.equal(savedDestination("car",car),"/car.html?offer_id=car-1&offer_location=larnaca");
 });

@@ -322,7 +322,7 @@
       const sb =
         typeof window.getSupabase === "function" ? window.getSupabase() : null;
       if (!sb) throw Error("Session provider unavailable");
-      const api = await import("/js/site-navigation-data.js?v=1");
+      const api = await import("/js/site-navigation-data.js?v=20261001saved1");
       const rows =
         kind === "saved"
           ? await api.loadSaved(sb, uid, language())
@@ -343,7 +343,7 @@
       for (const row of rows) {
         const li = document.createElement("li"),
           a = document.createElement("a");
-        a.textContent = row.title || t("map");
+        a.textContent = row.title || t(({ car: "cars", trip: "trips", hotel: "hotels", recommendation: "recommendations", poi: "map" })[row.type] || "saved");
         a.href =
           window.CELanguage?.buildLocalizedUrl(row.href, language()) ||
           row.href;

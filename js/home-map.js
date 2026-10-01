@@ -196,6 +196,9 @@
     allItems = [],
     visibleItems = [],
     initialized = false;
+  // Resolve a saved POI only after the catalog arrives. Do not let old
+  // category/saved filters hide the target of an explicit navigation link.
+  let linkedPoiId = new URLSearchParams(window.location?.search || "").get("poi");
   const boundMarkers = new WeakSet();
   const island = [
     [34.625019, 32.271739],
@@ -334,6 +337,12 @@
   let routeKeys = [];
   function filterItems(items) {
     allItems = items;
+    if (linkedPoiId && items.some(item => item.type === "poi" && String(item.id) === linkedPoiId)) {
+      state.types = [...types];
+      state.categories = [];
+      state.saved = false;
+      state.query = "";
+    }
     const candidates = items.filter(matches).map((item) => ({
       item,
       id: key(item),
@@ -730,6 +739,15 @@
     }
   }
   function render() {
+    if (linkedPoiId && typeof window.setCurrentMapItem === "function") {
+      const target = visibleItems.find(item => item.type === "poi" && String(item.id) === linkedPoiId);
+      if (target) {
+        linkedPoiId = null;
+        select(target);
+        collapse(false);
+        center(target, Math.max(map.getZoom(), 13));
+      }
+    }
     // Late-arriving hotels/recommendations can be nearer than the first POI batch.
     if (
       !selectionTouched &&
