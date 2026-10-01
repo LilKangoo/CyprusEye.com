@@ -531,6 +531,7 @@
       force: true,
     });
     q("#hm-results").hidden = true;
+    q("#hm-search").blur();
     center(item);
   }
   function renderResults() {
@@ -740,6 +741,15 @@
     content.querySelector(".place-badges").after(description);
     description.append(element("p", "hm-distance"));
     description.lastChild.id = "hm-distance";
+    const checkInStatus = q("#currentPlaceCheckInStatus");
+    description.prepend(checkInStatus);
+    new MutationObserver(() => {
+      description.scrollTop = 0;
+    }).observe(checkInStatus, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
     card.append(q(".current-place-navigation"));
     const top = element("div", "hm-top"),
       search = element("input");
@@ -1003,7 +1013,10 @@
     setLayer(state.layer);
     overview(false);
     map.on("zoomend moveend", schedule);
-    window.addEventListener("ce:map-item-selected", schedule);
+    window.addEventListener("ce:map-item-selected", () => {
+      q("#hm-description").scrollTop = 0;
+      schedule();
+    });
     for (const event of [
       "mapVisibleItemsChanged",
       "mapHotelMarkersUpdated",
