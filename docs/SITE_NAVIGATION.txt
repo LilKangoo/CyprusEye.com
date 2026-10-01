@@ -56,3 +56,11 @@ Release: deploy the same complete dist artifact together with unchanged function
 Previous production baseline: a876023f6ab7535d9b9faa9ba7016ede08e1dea0;
 Cloudflare deployment 2ceccc22-1095-4a4a-ac4f-e92ca19a31e2.
 Rollback uses the complete previous deployment, not individual HTML files.
+
+Final preview follow-up:
+- Existing tutorial navigation targets now follow sidebar/tablet shortcuts/mobile
+  bottom bar. The first two navigation descriptions are updated in PL/EN/HE.
+- Translation requests on migrated pages are versioned to avoid a one-day stale
+  tutorial after release. Rollout/fallback behavior is unchanged.
+- Production-style Cloudflare preview checked before release; final static build
+  contains all 31 generated pages and no synthetic QA fixture.

@@ -153,6 +153,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
       );
   }
   html = html
+    .replace(/i18n\.js\?v=20260509_profile_lang1/g, "i18n.js?v=20261001_navigation1")
     .replace(/(compact-header\.js\?v=)3/g, "$14")
     .replace(/(header-dropdown\.js\?v=)2/g, "$13")
     .replace(/(mobile-nav\.js)(["'])/g, "$1?v=2$2");

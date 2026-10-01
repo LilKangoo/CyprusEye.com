@@ -1238,7 +1238,7 @@
       return translationCache.get(language);
     }
 
-    const promise = fetch(`/translations/${language}.json`)
+    const promise = fetch(`/translations/${language}.json${document.body?.hasAttribute('data-ce-shell') ? '?v=20261001-navigation' : ''}`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load translations for ${language}`);

@@ -18,7 +18,7 @@
       ticket = ++campaignTranslationTicket;
     try {
       if (!campaignPacks.has(lang)) {
-        const response = await fetch("/translations/" + lang + ".json");
+        const response = await fetch("/translations/" + lang + ".json?v=20261001-navigation");
         if (!response.ok) return;
         campaignPacks.set(lang, await response.json());
       }
@@ -62,6 +62,18 @@
     window.CE_NAV_LABELS?.[key]?.en ||
     key;
   function sync() {
+    const tourTarget = desktop.matches
+      ? menu
+      : document.querySelector(
+          matchMedia("(max-width:767px)").matches
+            ? ".ce-bottom-nav"
+            : ".ce-service-strip",
+        );
+    document
+      .querySelectorAll('[data-tour-target="tabs-navigation"]')
+      .forEach((el) => el.removeAttribute("data-tour-target"));
+    tourTarget?.setAttribute("data-tour-target", "tabs-navigation");
+
     const sosLabels = {
       "Telefon alarmowy": "hotline",
       Recepcja: "reception",
@@ -375,7 +387,11 @@
       if (matchMedia("(max-width:767px)").matches)
         document.querySelector("[data-ce-account]")?.focus();
     });
-  desktop.addEventListener("change", () => close(false));
+  desktop.addEventListener("change", () => {
+    close(false);
+    sync();
+  });
+  matchMedia("(max-width:767px)").addEventListener("change", sync);
   document.addEventListener("wakacjecypr:languagechange", sync);
   document.addEventListener("ce-auth:state", sync);
   new MutationObserver(sync).observe(document.documentElement, {
