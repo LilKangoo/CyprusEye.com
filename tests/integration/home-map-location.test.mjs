@@ -9,7 +9,7 @@ const source = readFileSync(
   "utf8",
 ).replace(
   "  window.CE_HOME_MAP = {",
-  `  window.testMap = { locate, center, state, reset,
+  `  window.testMap = { locate, center, state, reset, searchResults, select,
     connect: (instance, adapter) => { map = instance; api = adapter; } };
   window.CE_HOME_MAP = {`,
 );
@@ -208,4 +208,24 @@ test("recent fallback is disclosed and does not renew the old position timestamp
   };
   stale.api.locate();
   assert.equal(stale.status(), "unavailable");
+});
+
+test("search jumps to a catalog position without narrowing the navigation list", () => {
+  const h = setup([]);
+  h.order();
+  h.api.state.query = "middle";
+  assert.deepEqual(h.order(), ["far", "near", "middle"]);
+  const results = h.api.searchResults();
+  assert.deepEqual(
+    Array.from(results, (x) => x.id),
+    ["middle"],
+  );
+  h.api.select(results[0]);
+  assert.equal(h.window.currentMapItem.id, "middle");
+  assert.equal(h.order().indexOf(h.window.currentMapItem.id), 2);
+  assert.equal(h.order().length, 3);
+  assert.equal(h.api.state.query, "");
+  h.api.state.query = "missing";
+  assert.equal(h.api.searchResults().length, 0);
+  assert.equal(h.order().length, 3);
 });

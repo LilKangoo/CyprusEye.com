@@ -52,6 +52,7 @@
       minus:
         "Oddal — przytrzymaj, aby zobaczyć cały Cypr (klawiatura: Shift+Enter)",
       empty: "Brak miejsc dla wybranych filtrów.",
+      searchEmpty: "Nie znaleziono miejsca. Spróbuj innej nazwy.",
       denied:
         "Dostęp do lokalizacji jest zablokowany. Włącz go w ustawieniach przeglądarki.",
       unavailable:
@@ -97,6 +98,7 @@
       plus: "Zoom in",
       minus: "Zoom out — hold for all Cyprus (keyboard: Shift+Enter)",
       empty: "No places match these filters.",
+      searchEmpty: "No places found. Try another name.",
       denied: "Location access is blocked. Enable it in your browser settings.",
       unavailable:
         "Location is temporarily unavailable. Check your device location services and try again.",
@@ -141,6 +143,7 @@
       plus: "התקרבות",
       minus: "התרחקות — לחיצה ארוכה להצגת כל קפריסין (Shift+Enter)",
       empty: "אין מקומות התואמים למסננים.",
+      searchEmpty: "לא נמצאו מקומות. נסו שם אחר.",
       denied: "הגישה למיקום חסומה. אפשרו אותה בהגדרות הדפדפן.",
       unavailable:
         "המיקום אינו זמין כרגע. בדקו את שירותי המיקום במכשיר ונסו שוב.",
@@ -301,6 +304,9 @@
       !window.CE_SAVED_CATALOG?.isSaved(item.type, String(item.id))
     )
       return false;
+    return true;
+  }
+  function matchesQuery(item) {
     if (state.query) {
       const row = data(item) || {};
       const words = [
@@ -556,6 +562,8 @@
       `${t("done")} (${visibleItems.length})`;
   }
   function select(item) {
+    state.query = "";
+    q("#hm-search").value = "";
     window.setCurrentMapItem?.(item, {
       focus: false,
       scroll: false,
@@ -565,13 +573,22 @@
     q("#hm-search").blur();
     center(item);
   }
+  function searchResults() {
+    return visibleItems.filter(matchesQuery);
+  }
   function renderResults() {
     const list = q("#hm-results");
+    // Do not replace a suggestion while it has keyboard focus.
+    if (list.contains(document.activeElement)) return;
     list.replaceChildren();
-    list.hidden = !state.query || document.activeElement !== q("#hm-search");
+    list.hidden =
+      !state.query ||
+      (document.activeElement !== q("#hm-search") &&
+        !list.contains(document.activeElement));
     if (!state.query) return;
-    if (!visibleItems.length) list.append(element("p", "", t("empty")));
-    visibleItems.slice(0, 8).forEach((item) => {
+    const results = searchResults();
+    if (!results.length) list.append(element("p", "", t("searchEmpty")));
+    results.slice(0, 8).forEach((item) => {
       const b = button("", `${category(item).icon} ${name(item)}`, () =>
         select(item),
       );
@@ -853,7 +870,7 @@
     search.setAttribute("aria-controls", "hm-results");
     search.addEventListener("input", () => {
       state.query = search.value.trim();
-      refresh();
+      renderResults();
     });
     search.addEventListener("focus", () => {
       if (root.clientWidth <= 600) collapse(true);
@@ -870,7 +887,10 @@
         results.hidden = true;
         search.blur();
       }
-      if (e.key === "Enter" && visibleItems[0]) select(visibleItems[0]);
+      if (e.key === "Enter" && state.query) {
+        const first = searchResults()[0];
+        if (first) select(first);
+      }
     });
     top.append(search);
     const filters = element("div", "hm-filters");
