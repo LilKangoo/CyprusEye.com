@@ -53,7 +53,12 @@
         "Oddal — przytrzymaj, aby zobaczyć cały Cypr (klawiatura: Shift+Enter)",
       empty: "Brak miejsc dla wybranych filtrów.",
       denied:
-        "Nie udało się uzyskać lokalizacji. Sprawdź uprawnienia przeglądarki i spróbuj ponownie.",
+        "Dostęp do lokalizacji jest zablokowany. Włącz go w ustawieniach przeglądarki.",
+      unavailable:
+        "Lokalizacja jest chwilowo niedostępna. Sprawdź usługi lokalizacji urządzenia i spróbuj ponownie.",
+      timeout: "Ustalanie lokalizacji trwało zbyt długo. Spróbuj ponownie.",
+      unsupported: "Ta przeglądarka nie udostępnia lokalizacji.",
+      recent: "Używam ostatniej pozycji uzyskanej w ciągu ostatniej minuty.",
       locating: "Ustalam lokalizację…",
       distance: "Odległość w linii prostej",
       group: "miejsc — przybliż grupę",
@@ -92,7 +97,12 @@
       plus: "Zoom in",
       minus: "Zoom out — hold for all Cyprus (keyboard: Shift+Enter)",
       empty: "No places match these filters.",
-      denied: "Location unavailable. Check browser permissions and try again.",
+      denied: "Location access is blocked. Enable it in your browser settings.",
+      unavailable:
+        "Location is temporarily unavailable. Check your device location services and try again.",
+      timeout: "Finding your location timed out. Please try again.",
+      unsupported: "This browser does not support location access.",
+      recent: "Using your last position obtained within the past minute.",
       locating: "Finding your location…",
       distance: "Straight-line distance",
       group: "places — zoom into group",
@@ -131,7 +141,12 @@
       plus: "התקרבות",
       minus: "התרחקות — לחיצה ארוכה להצגת כל קפריסין (Shift+Enter)",
       empty: "אין מקומות התואמים למסננים.",
-      denied: "המיקום אינו זמין. בדקו הרשאות בדפדפן ונסו שוב.",
+      denied: "הגישה למיקום חסומה. אפשרו אותה בהגדרות הדפדפן.",
+      unavailable:
+        "המיקום אינו זמין כרגע. בדקו את שירותי המיקום במכשיר ונסו שוב.",
+      timeout: "תם הזמן לאיתור המיקום. נסו שוב.",
+      unsupported: "הדפדפן הזה אינו תומך בגישה למיקום.",
+      recent: "נעשה שימוש במיקום האחרון שהתקבל בדקה האחרונה.",
       locating: "מאתר את המיקום…",
       distance: "מרחק בקו אווירי",
       group: "מקומות — הגדלת הקבוצה",
@@ -173,7 +188,8 @@
     layers,
     activeLayer,
     frame,
-    userDot,
+    cameraOnUser = false,
+    locating = false,
     allItems = [],
     visibleItems = [],
     initialized = false;
@@ -246,7 +262,7 @@
   }
   function category(item) {
     if (item.type === "hotel")
-      return { slug: "hotel", icon: "🏨", name: t("hotel") };
+      return { slug: "hotel", icon: "🏨", name: t("hotel"), color: "#f59e0b" };
     const row = data(item) || {};
     const meta =
       item.type === "poi"
@@ -259,6 +275,11 @@
     );
     return {
       slug,
+      color:
+        meta?.color ||
+        entry?.color ||
+        row.category_color ||
+        (item.type === "recommendation" ? "#22c55e" : "#1f6feb"),
       icon:
         meta?.icon ||
         row.category_icon ||
@@ -310,7 +331,8 @@
       visibleItems.sort(
         (a, b) =>
           (coords(a)?.distanceTo(state.position) ?? Infinity) -
-          (coords(b)?.distanceTo(state.position) ?? Infinity),
+            (coords(b)?.distanceTo(state.position) ?? Infinity) ||
+          key(a).localeCompare(key(b)),
       );
     schedule();
     return visibleItems;
@@ -328,10 +350,17 @@
         : null)
     );
   }
-  function center(item = selected(), zoom = map?.getZoom()) {
-    if (!map || !item) return;
-    // Use the actual marker anchor (duplicates can be offset slightly).
-    const target = api.getMarker(item)?.getLatLng() || coords(item);
+  function center(
+    item = selected(),
+    zoom = map?.getZoom(),
+    onUser = arguments.length === 0 && cameraOnUser,
+  ) {
+    if (!map) return;
+    // Keep location focus through card/layout updates until a place is explicitly selected.
+    const target = onUser
+      ? state.position
+      : item && (api.getMarker(item)?.getLatLng() || coords(item));
+    cameraOnUser = onUser;
     if (!target) return;
     map.stop();
     map.invalidateSize({ pan: false });
@@ -375,6 +404,7 @@
   }
   function overview(animate = true) {
     if (!map) return;
+    cameraOnUser = false;
     if (animate) {
       state.collapsed = true;
       save();
@@ -456,6 +486,7 @@
     state.types = [...types];
     state.categories = [];
     state.saved = false;
+    state.near = false;
     state.query = "";
     q("#hm-search").value = "";
     refresh();
@@ -571,6 +602,11 @@
       }
       const show = allowed.has(key(item));
       node.style.display = show ? "" : "none";
+      const color = category(item).color;
+      node.style.setProperty(
+        "--hm-marker-color",
+        CSS.supports("color", color) ? color : "#1f6feb",
+      );
       node.classList.toggle("hm-selected", key(item) === activeKey);
       marker.setZIndexOffset(key(item) === activeKey ? 25000 : 1000);
       if (show && key(item) !== activeKey && map.getZoom() < 15)
@@ -660,6 +696,7 @@
     q("#hm-layer").setAttribute("aria-label", t("layers"));
     q("#hm-description").setAttribute("aria-label", t("description"));
     q(".hm-prompt-close")?.setAttribute("aria-label", t("close"));
+    q("#hm-status-close")?.setAttribute("aria-label", t("close"));
     root
       .querySelectorAll(".hm-menu-close")
       .forEach((node) => node.setAttribute("aria-label", t("close")));
@@ -680,48 +717,102 @@
     save();
     schedule();
   }
-  function locate() {
-    if (state.near) {
-      state.near = false;
-      refresh();
-      return;
-    }
+  function setStatus(message) {
     const status = q("#hm-status");
-    status.textContent = t("locating");
+    status.replaceChildren();
+    if (!message) return;
+    const text = element("span");
+    qCopy(text, message);
+    const close = button("hm-status-close", "×", () => setStatus(null));
+    close.setAttribute("aria-label", t("close"));
+    status.append(text, close);
+  }
+  function locate(mode = "near") {
+    if (locating) return;
+    setStatus("locating");
+    const prompt = q(".map-location-prompt");
+    if (prompt) prompt.hidden = true;
     if (!navigator.geolocation) {
-      status.textContent = t("denied");
+      setStatus("unsupported");
       return;
     }
+    locating = true;
+    const finish = () => {
+      locating = false;
+      q("#hm-near").disabled = false;
+      q("#hm-locate").disabled = false;
+    };
     q("#hm-near").disabled = true;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        q("#hm-near").disabled = false;
-        status.textContent = "";
-        state.position = L.latLng(
-          position.coords.latitude,
-          position.coords.longitude,
-        );
+    q("#hm-locate").disabled = true;
+    const success = (position, recent = false) => {
+      const originalTimestamp = window.currentUserLocation?.timestamp;
+      finish();
+      setStatus(recent ? "recent" : null);
+      state.position = L.latLng(
+        position.coords.latitude,
+        position.coords.longitude,
+      );
+      state.dismissed = true;
+      api.setUserLocation(position.coords);
+      if (recent && window.currentUserLocation)
+        window.currentUserLocation.timestamp = originalTimestamp;
+      save();
+      const prompt = q(".map-location-prompt");
+      if (prompt) prompt.hidden = true;
+      if (mode === "near") {
+        // Repeated clicks always start at the nearest matching place, never toggle sorting off.
         state.near = true;
-        state.dismissed = true;
-        save();
-        if (userDot) map.removeLayer(userDot);
-        userDot = L.circleMarker(state.position, {
-          radius: 7,
-          color: "#fff",
-          weight: 3,
-          fillColor: "#0284c7",
-          fillOpacity: 1,
-        }).addTo(map);
-        const prompt = q(".map-location-prompt");
-        if (prompt) prompt.hidden = true;
         refresh();
         if (visibleItems.length) select(visibleItems[0]);
+        else center(null, Math.max(map.getZoom(), 14), true);
+      } else {
+        // Locating the user must not change the selected place or the result order.
+        center(null, Math.max(map.getZoom(), 14), true);
+        schedule();
+      }
+    };
+    const failure = (error) => {
+      // A denied permission must never be bypassed with a cached position.
+      const recent = window.currentUserLocation;
+      if (
+        error?.code !== 1 &&
+        recent &&
+        Date.now() - recent.timestamp <= 60000 &&
+        Number.isFinite(recent.lat) &&
+        Number.isFinite(recent.lng)
+      ) {
+        success(
+          {
+            coords: {
+              latitude: recent.lat,
+              longitude: recent.lng,
+              accuracy: recent.accuracy,
+            },
+          },
+          true,
+        );
+        return;
+      }
+      finish();
+      setStatus(
+        error?.code === 1
+          ? "denied"
+          : error?.code === 3
+            ? "timeout"
+            : "unavailable",
+      );
+    };
+    navigator.geolocation.getCurrentPosition(
+      success,
+      (error) => {
+        if (error?.code === 1) return failure(error);
+        navigator.geolocation.getCurrentPosition(success, failure, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0,
+        });
       },
-      () => {
-        q("#hm-near").disabled = false;
-        status.textContent = t("denied");
-      },
-      { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 },
     );
   }
   function makeUI() {
@@ -764,7 +855,12 @@
       state.query = search.value.trim();
       refresh();
     });
-    search.addEventListener("focus", renderResults);
+    search.addEventListener("focus", () => {
+      if (root.clientWidth <= 600) collapse(true);
+      const prompt = q(".map-location-prompt");
+      if (prompt) prompt.hidden = true;
+      renderResults();
+    });
     search.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
         results.querySelector("button")?.focus();
@@ -776,13 +872,13 @@
       }
       if (e.key === "Enter" && visibleItems[0]) select(visibleItems[0]);
     });
-    top.append(search, results);
+    top.append(search);
     const filters = element("div", "hm-filters");
     filters.append(
       button("hm-category", "", () =>
         toggleMenu("hm-categories", "hm-category"),
       ),
-      button("hm-near", "", locate),
+      button("hm-near", "", () => locate("near")),
       button("hm-saved", "", () => {
         state.saved = !state.saved;
         refresh();
@@ -816,11 +912,7 @@
     qCopy(catsHead.firstChild, "categories");
     const tools = element("div", "hm-tools");
     tools.append(
-      button("hm-locate", "⌖", () => {
-        state.dismissed = false;
-        save();
-        api.locate();
-      }),
+      button("hm-locate", "⌖", () => locate("user")),
       button("hm-plus", "+", () => {
         if (selected()) center(selected(), map.getZoom() + 1);
         else map.zoomIn();
@@ -890,7 +982,7 @@
     const status = element("div", "hm-status");
     status.id = "hm-status";
     status.setAttribute("role", "status");
-    root.append(status);
+    top.append(status, results);
     let timer,
       held = false,
       start;
@@ -1036,13 +1128,18 @@
       width = root.clientWidth;
       height = root.clientHeight;
       const previous = map.getZoom();
+      const wasOnUser = cameraOnUser;
       const wasOverview = Math.abs(previous - map.getMinZoom()) < 0.1;
       map.invalidateSize({ pan: false });
       overview(false);
       if (!wasOverview && previous > map.getMinZoom())
-        center(selected(), previous);
+        center(selected(), previous, wasOnUser);
     }).observe(root);
     new ResizeObserver(() => {
+      root.style.setProperty(
+        "--hm-card-height",
+        `${q("#currentPlaceSection").getBoundingClientRect().height}px`,
+      );
       if (initialized && !state.collapsed)
         requestAnimationFrame(() => center());
     }).observe(q("#currentPlaceSection"));
@@ -1052,6 +1149,11 @@
     init,
     filterItems,
     center,
+    locate: () => locate("user"),
+    updateUserPosition: (coords) => {
+      state.position = L.latLng(coords.latitude, coords.longitude);
+      schedule();
+    },
     locationDismissed: () => state.dismissed,
     ready: false,
   };

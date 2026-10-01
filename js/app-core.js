@@ -358,7 +358,8 @@ try {
     action.type = 'button';
     action.className = 'btn primary map-location-prompt__action';
     action.addEventListener('click', () => {
-      initializeUserLocation({ requestPermission: true });
+      if (window.CE_HOME_MAP?.ready) window.CE_HOME_MAP.locate();
+      else initializeUserLocation({ requestPermission: true });
     });
 
     container.appendChild(title);
@@ -1561,6 +1562,25 @@ try {
     });
   }
 
+  // Shared home-map dot: explicit location and background tracking update the same marker.
+  function setHomeUserLocation({ latitude: lat, longitude: lng, accuracy }) {
+    window.currentUserLocation = { lat, lng, accuracy, timestamp: Date.now() };
+    if (!userLocationMarker) {
+      userLocationMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'user-location-marker',
+          html: '<div class="user-dot"><div class="user-dot-pulse"></div><div class="user-dot-core"></div></div>',
+          iconSize: [24, 24], iconAnchor: [12, 12],
+        }),
+        zIndexOffset: 16000, interactive: false, keyboard: false,
+      }).addTo(mapInstance);
+    } else {
+      userLocationMarker.setLatLng([lat, lng]);
+    }
+    window.CE_HOME_MAP?.updateUserPosition({ latitude: lat, longitude: lng });
+    hideMapLocationPrompt();
+  }
+
   async function initializeUserLocation({ requestPermission = false } = {}) {
     ceLog('📍 initializeUserLocation() wywołane');
     if (!mapInstance) {
@@ -1676,6 +1696,10 @@ try {
     };
     
     const updatePosition = (lat, lng, accuracy) => {
+      if (window.CE_HOME_MAP?.ready) {
+        setHomeUserLocation({ latitude: lat, longitude: lng, accuracy });
+        return;
+      }
       ceLog('📍 Aktualizacja pozycji:', lat, lng, '(dokładność:', accuracy, 'm)');
       window.currentUserLocation = { lat, lng, accuracy, timestamp: Date.now() };
       const latLng = getSafeUserMarkerLatLng(lat, lng);
@@ -1860,7 +1884,7 @@ try {
           : item.type === 'hotel' ? getHotelMarkerById(item.id) : getRecommendationMarkerById(item.id),
         refresh: () => dispatchVisiblePoiIdsChanged(true),
         category: resolvePoiCategoryMeta,
-        locate: () => initializeUserLocation({ requestPermission: true }),
+        setUserLocation: setHomeUserLocation,
       });
     } else {
       setupMapMarkerFilterControl();

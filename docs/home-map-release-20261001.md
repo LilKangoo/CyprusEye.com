@@ -36,3 +36,14 @@ Validation:
   at 32270762 produces exactly the same diagnostics; no new TypeScript regression.
 
 Rollback: revert this map-only commit and rebuild. No database rollback is needed.
+
+
+## Location and selection regression fix
+
+- Near me is an idempotent action: sort matching catalog items by straight-line distance and select the nearest. Repeated clicks and returning after arrow navigation retain this behavior. Equal distances have a deterministic catalog-key tie break. Show all clears proximity mode.
+- Explicit location requests center the real user coordinate, preserving the selected catalog item; card/layout updates retain this camera target. Initial background geolocation still does not pan the overview. Explicit requests and existing tracking share one dot. Homepage-only CSS removes the community avatar offset from its anchor.
+- Selected emoji uses a circular ring in the existing category color (hotels retain amber), with no rectangular wrapper outline or old blue pulsing overlay.
+- Location errors distinguish permission denial, provider unavailability and timeout in PL/EN/HE. Transient failures retry once with high accuracy. A last known position is used only if obtained within the past minute and permission was not denied, with an explicit message; fallback does not renew its age. Precise coordinates are not persisted.
+- Dismissible status and search results share normal document flow. Result lists scroll in the space above the card. On narrow screens focusing search collapses the card.
+
+Validation: 13 Node map regression tests pass, scoped ESLint has no errors (2 existing core warnings), all three language test suites pass, production build passes. Browser tests use synthetic Paphos coordinates, never a fabricated successful browser permission: repeated Near me selects Tombs of the Kings (1.437 km), then archaeological park (2.155 km), castle (2.367 km), ascending among all 151 records. User-dot and selected-point anchors are within 2 CSS pixels of their intended free-map center. Mobile 320/390 and desktop 1440 checks cover expanded/collapsed cards, PL/EN/HE including RTL, search during a simulated provider failure, dismissal, retry recovery and category-color computed styles. Real OS location service availability remains browser/device dependent.

@@ -52,6 +52,9 @@
   top: 14px;
   inset-inline-start: 14px;
   width: min(365px, calc(100% - 84px));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - var(--hm-card-height, 160px) - 42px);
 }
 #current-objective #hm-search {
   width: 100%;
@@ -247,15 +250,16 @@
   opacity: 1;
 }
 #current-objective .hm-results {
-  position: absolute;
-  top: 49px;
-  inset-inline: 0;
+  position: relative;
+  margin-top: 7px;
   padding: 6px;
   background: white;
   border: 1px solid #dbe3ef;
   border-radius: 12px;
   box-shadow: 0 8px 24px #0f172a26;
   max-height: 280px;
+  min-height: 0;
+  flex-shrink: 1;
   overflow: auto;
   z-index: 900;
 }
@@ -416,16 +420,28 @@
   font-size: 13px;
 }
 #current-objective .hm-status {
-  position: absolute;
-  z-index: 880;
-  top: 112px;
-  inset-inline-start: 14px;
-  max-width: calc(100% - 84px);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 7px;
+  max-width: 100%;
   font-size: 12px;
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 4px 16px #0f172a20;
   padding: 10px 13px;
+}
+#current-objective .hm-status span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#current-objective #hm-status-close {
+  flex: 0 0 28px;
+  min-height: 28px;
+  padding: 0;
+  font-size: 20px;
+  box-shadow: none;
 }
 #current-objective .hm-status:empty {
   display: none;
@@ -480,21 +496,31 @@
   font-size: 13px;
   white-space: nowrap;
 }
-#current-objective.hm-ready .ce-poi-marker {
-  animation: none !important;
-  box-shadow: 0 2px 6px #0f172a30;
-}
+/* Leaflet's icon box is only an anchor; paint the circular emoji, never that box. */
+#current-objective.hm-ready .ce-poi-marker,
+#current-objective.hm-ready .recommendation-marker,
 #current-objective.hm-ready .hm-selected {
-  outline: 4px solid #38bdf84d;
-  border: 2px solid #0284c7 !important;
+  animation: none !important;
+  outline: none;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#current-objective.hm-ready .hm-selected .ce-poi-marker__emoji,
+#current-objective.hm-ready .hm-selected .recommendation-marker__emoji {
+  border: 2px solid var(--hm-marker-color, #1f6feb);
+  border-radius: 50%;
   box-shadow:
     0 0 0 2px white,
-    0 3px 12px #0f172a35 !important;
+    0 0 0 6px
+      color-mix(in srgb, var(--hm-marker-color, #1f6feb) 28%, transparent),
+    0 4px 12px #0f172a35;
+  transform: scale(1.12);
   animation: none !important;
 }
 #current-objective.hm-ready .map-marker-active::after,
 #current-objective.hm-ready .map-marker-active::before {
-  animation: none !important;
+  display: none;
 }
 #current-objective.hm-ready .leaflet-control-attribution {
   max-width: 100%;
@@ -590,4 +616,19 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+/* Community's avatar styles must not offset Leaflet's GPS anchor on the home map. */
+#current-objective.hm-ready .user-location-marker {
+  top: 0;
+  left: 0;
+  box-shadow: none;
+}
+#current-objective.hm-ready .user-location-marker::after {
+  display: none;
+}
+
+#current-objective #hm-search,
+#current-objective .hm-filters,
+#current-objective .hm-status {
+  flex-shrink: 0;
 }
