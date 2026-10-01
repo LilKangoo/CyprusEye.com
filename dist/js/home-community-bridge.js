@@ -410,9 +410,13 @@
 
     let user = null;
     try {
-      const { data, error } = await sb.auth.getUser();
-      if (!error && data?.user) {
-        user = data.user;
+      // UI state can use the local session; the actual check-in still validates getUser().
+      if (window.CE_HOME_MAP?.ready) {
+        const { data, error } = await sb.auth.getSession();
+        if (!error) user = data?.session?.user || null;
+      } else {
+        const { data, error } = await sb.auth.getUser();
+        if (!error) user = data?.user || null;
       }
     } catch (_) {}
 
@@ -1136,13 +1140,13 @@
     if(ratingEl) ratingEl.textContent = '...';
 
     // Load live stats (rating + comments) for the selected place
-    updatePlaceStats(id).catch(()=>{
-      // Non-blocking; leave placeholders on error
-    });
-
-    // Periodic refresh while this POI is selected
     if (statsTimer) clearInterval(statsTimer);
-    statsTimer = setInterval(() => { if (currentId===id) updatePlaceStats(id); }, 10000);
+    statsTimer = null;
+    // The compact home card has no rating/comment counters: do not request unused data.
+    if (commentsEl || ratingEl) {
+      updatePlaceStats(id).catch(()=>{});
+      statsTimer = setInterval(() => { if (currentId===id) updatePlaceStats(id); }, 10000);
+    }
 
     updateCurrentPlaceActionsForType('poi', poi);
 

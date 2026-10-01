@@ -22,7 +22,7 @@
       : [],
     dismissed: prefs.dismissed === true,
     saved: false,
-    near: false,
+    sortOrigin: null,
     position: null,
     query: "",
   };
@@ -31,7 +31,6 @@
       map: "Interaktywna mapa Cypru",
       search: "Szukaj miejsca lub miasta",
       categories: "Kategorie",
-      near: "Blisko mnie",
       saved: "Zapisane",
       collapse: "Zwiń",
       expand: "Rozwiń",
@@ -78,7 +77,6 @@
       map: "Interactive map of Cyprus",
       search: "Search places or towns",
       categories: "Categories",
-      near: "Near me",
       saved: "Saved",
       collapse: "Collapse",
       expand: "Expand",
@@ -123,7 +121,6 @@
       map: "מפה אינטראקטיבית של קפריסין",
       search: "חיפוש מקום או עיר",
       categories: "קטגוריות",
-      near: "קרוב אליי",
       saved: "שמורים",
       collapse: "צמצום",
       expand: "הרחבה",
@@ -193,6 +190,9 @@
     frame,
     cameraOnUser = false,
     locating = false,
+    selectionTouched = false,
+    warmTimer,
+    warmGeneration = 0,
     allItems = [],
     visibleItems = [],
     initialized = false;
@@ -333,13 +333,22 @@
   function filterItems(items) {
     allItems = items;
     visibleItems = items.filter(matches);
-    if (state.near && state.position)
-      visibleItems.sort(
-        (a, b) =>
-          (coords(a)?.distanceTo(state.position) ?? Infinity) -
-            (coords(b)?.distanceTo(state.position) ?? Infinity) ||
-          key(a).localeCompare(key(b)),
+    visibleItems.sort((a, b) => {
+      const first = coords(a),
+        second = coords(b);
+      if (!first || !second) return first ? -1 : second ? 1 : 0;
+      if (state.sortOrigin)
+        return (
+          first.distanceTo(state.sortOrigin) -
+            second.distanceTo(state.sortOrigin) || key(a).localeCompare(key(b))
+        );
+      // Without permission/location, browse geographically from west to east.
+      return (
+        first.lng - second.lng ||
+        first.lat - second.lat ||
+        key(a).localeCompare(key(b))
       );
+    });
     schedule();
     return visibleItems;
   }
@@ -458,7 +467,7 @@
     const distance = q("#hm-distance"),
       point = selected() && coords(selected());
     distance.textContent =
-      state.near && point && state.position
+      point && state.position
         ? `${(point.distanceTo(state.position) / 1000).toLocaleString(lang(), { maximumFractionDigits: 1 })} km · ${t("distance")}`
         : "";
   }
@@ -480,6 +489,7 @@
     q("#" + id).hidden = !open;
     q("#" + trigger).setAttribute("aria-expanded", String(open));
     if (open) {
+      if (id === "hm-categories") renderCategories();
       collapse(true);
       const prompt = q(".map-location-prompt");
       if (prompt) prompt.hidden = true;
@@ -492,12 +502,12 @@
     state.types = [...types];
     state.categories = [];
     state.saved = false;
-    state.near = false;
     state.query = "";
     q("#hm-search").value = "";
     refresh();
   }
   function renderCategories() {
+    if (q("#hm-categories").hidden) return;
     const list = q("#hm-category-list");
     const focused = document.activeElement?.dataset?.filterKey;
     const scroll = list.scrollTop;
@@ -562,6 +572,7 @@
       `${t("done")} (${visibleItems.length})`;
   }
   function select(item) {
+    selectionTouched = true;
     state.query = "";
     q("#hm-search").value = "";
     window.setCurrentMapItem?.(item, {
@@ -685,6 +696,17 @@
     }
   }
   function render() {
+    // Late-arriving hotels/recommendations can be nearer than the first POI batch.
+    if (
+      !selectionTouched &&
+      visibleItems.length &&
+      key(selected() || {}) !== key(visibleItems[0])
+    )
+      window.setCurrentMapItem?.(visibleItems[0], {
+        focus: false,
+        scroll: false,
+        force: true,
+      });
     root.dir = lang() === "he" ? "rtl" : "ltr";
     q("#map").setAttribute("aria-label", t("map"));
     q("#currentPlaceName").title = q("#currentPlaceName").textContent;
@@ -695,8 +717,7 @@
     root.querySelectorAll("[data-hm-copy]").forEach((node) => {
       node.textContent = t(node.dataset.hmCopy);
     });
-    for (const id of ["near", "saved"])
-      q("#hm-" + id).setAttribute("aria-pressed", String(state[id]));
+    q("#hm-saved").setAttribute("aria-pressed", String(state.saved));
     q("#hm-search").placeholder = t("search");
     q("#hm-search").setAttribute("aria-label", t("search"));
     q("#hm-category").textContent =
@@ -726,11 +747,107 @@
         ),
       );
   }
+  // Warm only the next viewport after the visible map has finished loading.
+  // Bounded concurrency avoids competing with current tiles or filling memory on rapid clicks.
+  const warmedTiles = new Set();
+  function scheduleTileWarmup() {
+    clearTimeout(warmTimer);
+    const generation = ++warmGeneration;
+    if (
+      !map ||
+      map.getZoom() < 12 ||
+      document.hidden ||
+      navigator.connection?.saveData
+    )
+      return;
+    warmTimer = setTimeout(() => warmNextViewport(generation), 350);
+  }
+  function warmNextViewport(generation) {
+    if (generation !== warmGeneration || !visibleItems.length) return;
+    const tileLayers = activeLayer instanceof L.TileLayer ? [activeLayer] : [];
+    if (!tileLayers.length)
+      activeLayer?.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) tileLayers.push(layer);
+      });
+    if (tileLayers.some((layer) => layer.isLoading())) return;
+    const index = visibleItems.findIndex(
+      (item) => key(item) === key(selected() || {}),
+    );
+    const next = visibleItems[(Math.max(0, index) + 1) % visibleItems.length];
+    const target = api.getMarker(next)?.getLatLng() || coords(next);
+    if (!target) return;
+    const urls = [];
+    for (const layer of tileLayers) {
+      const zoom = Math.min(
+        map.getZoom(),
+        layer.options.maxNativeZoom ?? map.getZoom(),
+      );
+      const size = layer.getTileSize().x;
+      const point = map.project(target, zoom);
+      const half = map
+        .getSize()
+        .divideBy(2 * Math.pow(2, map.getZoom() - zoom));
+      const candidates = [];
+      for (
+        let y = Math.floor((point.y - half.y) / size) - 1;
+        y <= Math.floor((point.y + half.y) / size) + 1;
+        y++
+      ) {
+        for (
+          let x = Math.floor((point.x - half.x) / size) - 1;
+          x <= Math.floor((point.x + half.x) / size) + 1;
+          x++
+        ) {
+          if (
+            x < 0 ||
+            y < 0 ||
+            x >= Math.pow(2, zoom) ||
+            y >= Math.pow(2, zoom)
+          )
+            continue;
+          candidates.push({ x, y, z: zoom });
+        }
+      }
+      candidates.sort(
+        (a, b) =>
+          Math.hypot(a.x + 0.5 - point.x / size, a.y + 0.5 - point.y / size) -
+          Math.hypot(b.x + 0.5 - point.x / size, b.y + 0.5 - point.y / size),
+      );
+      for (const tile of candidates.slice(0, 16)) {
+        const url = layer.getTileUrl(tile);
+        if (!warmedTiles.has(url)) urls.push(url);
+      }
+    }
+    let cursor = 0;
+    const worker = () => {
+      if (
+        generation !== warmGeneration ||
+        cursor >= urls.length ||
+        document.hidden
+      )
+        return;
+      const url = urls[cursor++];
+      const img = new Image();
+      img.decoding = "async";
+      img.fetchPriority = "low";
+      img.onload = () => {
+        warmedTiles.add(url);
+        if (warmedTiles.size > 192)
+          warmedTiles.delete(warmedTiles.values().next().value);
+        worker();
+      };
+      img.onerror = worker;
+      img.src = url;
+    };
+    worker();
+    worker();
+  }
   function setLayer(value) {
     if (activeLayer) map.removeLayer(activeLayer);
     state.layer = value;
     activeLayer = layers[value];
     activeLayer.addTo(map);
+    scheduleTileWarmup();
     save();
     schedule();
   }
@@ -744,7 +861,23 @@
     close.setAttribute("aria-label", t("close"));
     status.append(text, close);
   }
-  function locate(mode = "near") {
+  function updateUserPosition(coords) {
+    const firstFix = !state.sortOrigin;
+    state.position = L.latLng(coords.latitude, coords.longitude);
+    if (firstFix) {
+      state.sortOrigin = state.position;
+      api.refresh();
+      // Start at the nearest place, unless the visitor has already chosen a place.
+      if (!selectionTouched && visibleItems.length)
+        window.setCurrentMapItem?.(visibleItems[0], {
+          focus: false,
+          scroll: false,
+          force: true,
+        });
+    }
+    schedule();
+  }
+  function locate() {
     if (locating) return;
     setStatus("locating");
     const prompt = q(".map-location-prompt");
@@ -756,19 +889,16 @@
     locating = true;
     const finish = () => {
       locating = false;
-      q("#hm-near").disabled = false;
       q("#hm-locate").disabled = false;
     };
-    q("#hm-near").disabled = true;
     q("#hm-locate").disabled = true;
     const success = (position, recent = false) => {
       const originalTimestamp = window.currentUserLocation?.timestamp;
       finish();
       setStatus(recent ? "recent" : null);
-      state.position = L.latLng(
-        position.coords.latitude,
-        position.coords.longitude,
-      );
+      updateUserPosition(position.coords);
+      state.sortOrigin = state.position;
+      api.refresh();
       state.dismissed = true;
       api.setUserLocation(position.coords);
       if (recent && window.currentUserLocation)
@@ -776,17 +906,9 @@
       save();
       const prompt = q(".map-location-prompt");
       if (prompt) prompt.hidden = true;
-      if (mode === "near") {
-        // Repeated clicks always start at the nearest matching place, never toggle sorting off.
-        state.near = true;
-        refresh();
-        if (visibleItems.length) select(visibleItems[0]);
-        else center(null, Math.max(map.getZoom(), 14), true);
-      } else {
-        // Locating the user must not change the selected place or the result order.
-        center(null, Math.max(map.getZoom(), 14), true);
-        schedule();
-      }
+      // Explicit GPS focus keeps the current selection and refreshes distance ordering.
+      center(null, Math.max(map.getZoom(), 14), true);
+      schedule();
     };
     const failure = (error) => {
       // A denied permission must never be bypassed with a cached position.
@@ -898,14 +1020,12 @@
       button("hm-category", "", () =>
         toggleMenu("hm-categories", "hm-category"),
       ),
-      button("hm-near", "", () => locate("near")),
       button("hm-saved", "", () => {
         state.saved = !state.saved;
         refresh();
       }),
     );
-    qCopy(filters.children[1], "near");
-    qCopy(filters.children[2], "saved");
+    qCopy(filters.children[1], "saved");
     top.append(filters);
     root.append(top);
     const cats = element("section", "hm-menu hm-categories");
@@ -932,7 +1052,7 @@
     qCopy(catsHead.firstChild, "categories");
     const tools = element("div", "hm-tools");
     tools.append(
-      button("hm-locate", "⌖", () => locate("user")),
+      button("hm-locate", "⌖", locate),
       button("hm-plus", "+", () => {
         if (selected()) center(selected(), map.getZoom() + 1);
         else map.zoomIn();
@@ -1050,6 +1170,10 @@
     });
     minus.addEventListener("contextmenu", (e) => e.preventDefault());
     window.addEventListener("blur", cancel);
+    root.addEventListener("click", (e) => {
+      if (e.target.closest("#prevPlaceBtn,#nextPlaceBtn,.leaflet-marker-icon"))
+        selectionTouched = true;
+    });
     root.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         closeMenus(true);
@@ -1093,7 +1217,13 @@
       if (layer instanceof L.TileLayer) map.removeLayer(layer);
     });
     const tile = (url, attribution, maxNativeZoom = 19) =>
-      L.tileLayer(url, { attribution, maxNativeZoom, maxZoom: 24 });
+      L.tileLayer(url, {
+        attribution,
+        maxNativeZoom,
+        maxZoom: 24,
+        keepBuffer: 3,
+        updateWhenZooming: false,
+      }).on("load", scheduleTileWarmup);
     const imagery =
       "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
     const attribution =
@@ -1125,8 +1255,14 @@
     setLayer(state.layer);
     overview(false);
     map.on("zoomend moveend", schedule);
+    map.on("movestart zoomstart", () => {
+      clearTimeout(warmTimer);
+      warmGeneration++;
+    });
+    map.on("moveend zoomend", scheduleTileWarmup);
     window.addEventListener("ce:map-item-selected", () => {
       q("#hm-description").scrollTop = 0;
+      scheduleTileWarmup();
       schedule();
     });
     for (const event of [
@@ -1136,6 +1272,7 @@
       "poisDataRefreshed",
     ])
       window.addEventListener(event, schedule);
+    window.addEventListener("mapVisibleItemsChanged", scheduleTileWarmup);
     window.addEventListener("languageChanged", schedule);
     document.addEventListener("wakacjecypr:languagechange", schedule);
     window.CE_SAVED_CATALOG?.subscribe(() => {
@@ -1169,11 +1306,8 @@
     init,
     filterItems,
     center,
-    locate: () => locate("user"),
-    updateUserPosition: (coords) => {
-      state.position = L.latLng(coords.latitude, coords.longitude);
-      schedule();
-    },
+    locate,
+    updateUserPosition,
     locationDismissed: () => state.dismissed,
     ready: false,
   };
