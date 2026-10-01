@@ -906,8 +906,8 @@
       }
     }
 
-    if (prevBtn) prevBtn.disabled = !hasVisiblePois || currentIndex <= 0;
-    if (nextBtn) nextBtn.disabled = !hasVisiblePois || currentIndex < 0 || currentIndex >= items.length - 1;
+    if (prevBtn) prevBtn.disabled = items.length < 2;
+    if (nextBtn) nextBtn.disabled = items.length < 2;
 
     if (panelEl) {
       panelEl.classList.toggle('is-filter-empty', !hasVisiblePois);
@@ -1253,7 +1253,9 @@
       listRoot.querySelectorAll('.poi-card.active').forEach((el) => el.classList.remove('active'));
     }
 
-    if (options.focus !== false) {
+    if (options.focus !== false && window.CE_HOME_MAP?.ready) {
+      window.CE_HOME_MAP.center({ type: 'hotel', id: hotelId });
+    } else if (options.focus !== false) {
       if (typeof window.focusHotelOnMap === 'function') {
         window.focusHotelOnMap(hotelId, window.mapInstance || null);
       } else {
@@ -1335,7 +1337,9 @@
       listRoot.querySelectorAll('.poi-card.active').forEach((el) => el.classList.remove('active'));
     }
 
-    if (options.focus !== false) {
+    if (options.focus !== false && window.CE_HOME_MAP?.ready) {
+      window.CE_HOME_MAP.center({ type: 'recommendation', id: recommendationId });
+    } else if (options.focus !== false) {
       if (typeof window.openRecommendationMarkerPopup === 'function') {
         window.openRecommendationMarkerPopup(recommendationId, window.mapInstance || null);
       } else {
@@ -1453,17 +1457,14 @@
     }
   }
 
-  function navigatePlace(delta){
+  function navigatePlace(delta) {
     const items = getOrderedMapItems();
-    if(items.length===0) {
-      updateCurrentPlacePanelNavigationUi();
-      return;
-    }
-    const currentKey = currentId ? `${currentItemType}:${currentId}` : '';
-    let idx = Math.max(0, items.findIndex((item) => `${item.type}:${item.id}` === currentKey));
-    idx = idx + delta;
-    if(idx<0) idx = 0; else if(idx>=items.length) idx = items.length-1;
-    setCurrentMapDisplayItem(items[idx], {scroll:true, force:true});
+    if (!items.length) { updateCurrentPlacePanelNavigationUi(); return; }
+    const currentKey = `${currentItemType}:${currentId}`;
+    const index = Math.max(0, items.findIndex(item => `${item.type}:${item.id}` === currentKey));
+    const next = ((index + delta) % items.length + items.length) % items.length;
+    setCurrentMapDisplayItem(items[next], { scroll: false, focus: !window.CE_HOME_MAP?.ready, force: true });
+    window.CE_HOME_MAP?.center(items[next]);
   }
 
   function buildHomeCommunityNavigationUrl(target) {

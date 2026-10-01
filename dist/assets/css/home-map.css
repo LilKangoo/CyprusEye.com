@@ -1,0 +1,593 @@
+/* Scoped to the homepage map; no global/header/navigation styles. */
+#current-objective.hm-ready {
+  isolation: isolate;
+  container-type: inline-size;
+  height: 78vh;
+  height: 78svh;
+  min-height: 580px;
+  max-height: 850px;
+  background: #dbeafe;
+  color: #0f172a;
+}
+#current-objective.hm-ready [hidden] {
+  display: none !important;
+}
+#current-objective .hm-button {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.25;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 9px 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: none;
+  letter-spacing: normal;
+}
+#current-objective .hm-button:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+#current-objective .hm-button:focus-visible,
+#current-objective input:focus-visible,
+#current-objective .hm-description:focus-visible {
+  outline: 3px solid #0284c7;
+  outline-offset: 2px;
+}
+#current-objective .hm-button[aria-pressed="true"] {
+  color: #075985;
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+#current-objective .hm-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#current-objective .hm-top {
+  position: absolute;
+  z-index: 700;
+  top: 14px;
+  inset-inline-start: 14px;
+  width: min(365px, calc(100% - 84px));
+}
+#current-objective #hm-search {
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 12px #0f172a18;
+  color: #0f172a;
+  font: inherit;
+  font-size: 14px;
+}
+#current-objective .hm-filters {
+  display: flex;
+  gap: 5px;
+  margin-top: 7px;
+}
+#current-objective .hm-filters button {
+  padding: 8px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px #0f172a18;
+}
+#current-objective .hm-tools {
+  position: absolute;
+  z-index: 710;
+  top: 14px;
+  inset-inline-end: 14px;
+  display: grid;
+  gap: 5px;
+  width: 44px;
+}
+#current-objective .hm-tools button {
+  padding: 5px;
+  font-size: 23px;
+  box-shadow: 0 2px 8px #0f172a18;
+}
+#current-objective #hm-layer {
+  margin-top: 4px;
+  height: 44px;
+  padding: 3px;
+}
+#current-objective #hm-layer img {
+  display: block;
+  width: 36px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 7px;
+}
+#current-objective .hm-menu {
+  position: absolute;
+  z-index: 850;
+  width: min(340px, calc(100% - 28px));
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  box-shadow: 0 12px 35px #0f172a30;
+  max-height: calc(100% - 130px);
+  display: flex;
+  flex-direction: column;
+}
+#current-objective .hm-categories {
+  top: 112px;
+  inset-inline-start: 14px;
+}
+#current-objective .hm-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+#current-objective .hm-menu-heading strong {
+  font-size: 15px;
+}
+#current-objective .hm-menu-close {
+  border: 0;
+  font-size: 23px;
+  padding: 5px;
+}
+#current-objective .hm-menu-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 9px;
+}
+#current-objective .hm-category-list {
+  min-height: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 2px;
+}
+#current-objective .hm-category-list h4 {
+  margin: 15px 6px 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+#current-objective .hm-category-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 8px;
+  border-radius: 9px;
+  cursor: pointer;
+  margin: 2px 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+#current-objective .hm-category-row:has(input:checked) {
+  background: #eff6ff;
+}
+#current-objective .hm-category-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0284c7;
+  margin: 0;
+  flex-shrink: 0;
+}
+#current-objective .hm-emoji {
+  font-size: 20px;
+  width: 25px;
+  text-align: center;
+}
+#current-objective .hm-category-label {
+  flex: 1;
+  min-width: 0;
+}
+#current-objective .hm-count {
+  font-size: 12px;
+  color: #475569;
+  padding: 2px 7px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+#current-objective .hm-menu-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
+  padding-top: 9px;
+  flex-shrink: 0;
+}
+#current-objective #hm-category-done {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: white;
+}
+#current-objective .hm-layers {
+  top: 14px;
+  inset-inline-end: 68px;
+  width: min(280px, calc(100% - 82px));
+  gap: 5px;
+  overflow-y: auto;
+}
+#current-objective .hm-layers > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: start;
+  flex-shrink: 0;
+  padding: 7px;
+}
+#current-objective .hm-layer-picture {
+  display: block;
+  position: relative;
+  width: 65px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+#current-objective .hm-layer-picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#current-objective .hm-tick {
+  margin-inline-start: auto;
+  opacity: 0;
+}
+#current-objective [aria-pressed="true"] > .hm-tick {
+  opacity: 1;
+}
+#current-objective .hm-results {
+  position: absolute;
+  top: 49px;
+  inset-inline: 0;
+  padding: 6px;
+  background: white;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #0f172a26;
+  max-height: 280px;
+  overflow: auto;
+  z-index: 900;
+}
+#current-objective .hm-results button {
+  display: block;
+  width: 100%;
+  text-align: start;
+  border: 0;
+  margin: 2px 0;
+}
+#current-objective .hm-results p {
+  padding: 8px;
+  font-size: 13px;
+}
+#current-objective.hm-ready .current-place-section {
+  inset: auto;
+  inset-inline-start: 14px;
+  bottom: 38px;
+  width: 352px;
+  max-width: calc(100% - 28px);
+  max-height: min(470px, calc(100% - 160px));
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 6px 24px #0f172a24;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 650;
+  box-sizing: border-box;
+}
+#current-objective .hm-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+#current-objective.hm-ready #currentPlaceName {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #166534;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#current-objective #hm-collapse {
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 8px;
+  flex-shrink: 0;
+}
+#current-objective.hm-ready .current-place-content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 9px;
+  margin-top: 9px;
+}
+#current-objective .hm-description {
+  min-height: 32px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  padding-inline-end: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #475569;
+}
+#current-objective.hm-ready #currentPlaceDescription {
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+  font-size: 13px;
+  line-height: 1.55;
+  display: block;
+}
+#current-objective.hm-ready .place-badges {
+  margin: 0;
+  flex-shrink: 0;
+}
+#current-objective.hm-ready .current-place-actions {
+  margin: 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+#current-objective.hm-ready .current-place-actions .btn {
+  min-height: 44px;
+  padding: 7px 9px;
+  font-size: 12px;
+  border-radius: 9px;
+}
+#current-objective.hm-ready .current-place-navigation {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #e2e8f0;
+  direction: inherit;
+}
+#current-objective.hm-ready .current-place-navigation button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  font-size: 20px;
+  color: #334155;
+  background: #fff;
+}
+#current-objective.hm-ready .current-place-navigation button:disabled {
+  opacity: 0.35;
+}
+#current-objective.hm-ready #placeCounter {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  color: #64748b;
+}
+#current-objective .hm-distance {
+  font-size: 11px;
+  color: #64748b;
+  margin: 8px 0 0;
+}
+#current-objective .hm-distance:empty {
+  display: none;
+}
+#current-objective.hm-ready #mapFilterInline,
+#current-objective.hm-ready #currentPlaceFilterHint,
+#current-objective.hm-ready .map-poi-dropdown-control {
+  display: none !important;
+}
+#current-objective .hm-empty {
+  position: absolute;
+  inset-inline-start: 14px;
+  bottom: 38px;
+  width: min(352px, calc(100% - 28px));
+  z-index: 660;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  padding: 14px;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px #0f172a18;
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+}
+#current-objective .hm-status {
+  position: absolute;
+  z-index: 880;
+  top: 112px;
+  inset-inline-start: 14px;
+  max-width: calc(100% - 84px);
+  font-size: 12px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px #0f172a20;
+  padding: 10px 13px;
+}
+#current-objective .hm-status:empty {
+  display: none;
+}
+#current-objective.hm-ready .map-location-prompt {
+  top: 112px;
+  inset-inline-start: 14px;
+  inset-inline-end: auto;
+  max-width: calc(100% - 84px);
+  width: 300px;
+  border-radius: 14px;
+  background: #fff;
+  z-index: 720;
+  padding: 14px;
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 5px 20px #0f172a20;
+}
+#current-objective .map-location-prompt__title {
+  padding-inline-end: 32px;
+}
+#current-objective .hm-prompt-close {
+  position: absolute;
+  top: 3px;
+  inset-inline-end: 3px;
+  border: 0;
+  font-size: 22px;
+  padding: 4px;
+}
+#current-objective .hm-cluster {
+  border: 0;
+  background: transparent;
+}
+#current-objective .hm-cluster-content {
+  width: 58px;
+  height: 48px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 15px;
+  box-shadow: 0 3px 12px #0f172a35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  color: #0f172a;
+}
+#current-objective .hm-cluster-content strong {
+  font-size: 15px;
+  color: #0369a1;
+}
+#current-objective .hm-cluster-content span {
+  font-size: 13px;
+  white-space: nowrap;
+}
+#current-objective.hm-ready .ce-poi-marker {
+  animation: none !important;
+  box-shadow: 0 2px 6px #0f172a30;
+}
+#current-objective.hm-ready .hm-selected {
+  outline: 4px solid #38bdf84d;
+  border: 2px solid #0284c7 !important;
+  box-shadow:
+    0 0 0 2px white,
+    0 3px 12px #0f172a35 !important;
+  animation: none !important;
+}
+#current-objective.hm-ready .map-marker-active::after,
+#current-objective.hm-ready .map-marker-active::before {
+  animation: none !important;
+}
+#current-objective.hm-ready .leaflet-control-attribution {
+  max-width: 100%;
+  font:
+    9px/1.35 Arial,
+    sans-serif;
+  color: #475569;
+  background: #fffffff0;
+  padding: 2px 5px;
+  text-align: end;
+  direction: ltr;
+}
+#current-objective.hm-ready .leaflet-control-attribution a {
+  color: #0369a1;
+}
+#current-objective #hm-minus {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#current-objective #hm-minus::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: #0284c7;
+}
+#current-objective #hm-minus.hm-holding::after {
+  width: 100%;
+  transition: width 0.6s linear;
+}
+@container (max-width:600px) {
+  #current-objective.hm-ready .current-place-section {
+    inset-inline: 12px;
+    bottom: 43px;
+    width: auto;
+    max-width: none;
+    max-height: min(430px, calc(100% - 220px));
+    padding: 12px;
+  }
+  #current-objective.hm-ready #currentPlaceName {
+    font-size: 15px;
+    -webkit-line-clamp: 2;
+  }
+  #current-objective .hm-top {
+    inset-inline-start: 12px;
+    width: calc(100% - 80px);
+    top: 12px;
+  }
+  #current-objective .hm-tools {
+    inset-inline-end: 12px;
+    top: 12px;
+  }
+  #current-objective .hm-filters {
+    gap: 4px;
+  }
+  #current-objective .hm-filters button {
+    padding: 7px;
+    font-size: 11px;
+    flex: 1;
+  }
+  #current-objective .hm-menu {
+    max-height: calc(100% - 135px);
+  }
+  #current-objective .hm-category-list {
+    max-height: 270px;
+  }
+  #current-objective.hm-ready .current-place-actions .btn {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  #current-objective.hm-ready .map-location-prompt {
+    inset-inline-start: 12px;
+    font-size: 12px;
+  }
+  #current-objective .hm-empty {
+    inset-inline: 12px;
+    width: auto;
+    bottom: 43px;
+  }
+  #current-objective.hm-ready .leaflet-control-attribution {
+    font-size: 8px;
+    max-width: 100cqw;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #current-objective.hm-ready * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

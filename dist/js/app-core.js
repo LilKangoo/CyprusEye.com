@@ -398,6 +398,7 @@ try {
       return;
     }
     updateMapLocationPrompt(state);
+    if (window.CE_HOME_MAP?.locationDismissed()) return;
     prompt.container.hidden = false;
     syncPoiCategoryControlOffset();
   }
@@ -907,14 +908,14 @@ try {
       items.push({ type: 'hotel', id });
     });
 
-    return items;
+    return window.CE_HOME_MAP?.filterItems(items) || items;
   }
 
   function dispatchVisiblePoiIdsChanged(force = false) {
-    const nextVisibleIds = getVisiblePoiIdsForCurrentFilter();
-    const nextRecommendationIds = getVisibleRecommendationIdsForCurrentFilter();
-    const nextHotelIds = getVisibleHotelIdsForCurrentFilter();
     const nextVisibleItems = getVisibleMapItemsForCurrentFilter();
+    const nextVisibleIds = nextVisibleItems.filter(item => item.type === "poi").map(item => item.id);
+    const nextRecommendationIds = nextVisibleItems.filter(item => item.type === "recommendation").map(item => item.id);
+    const nextHotelIds = nextVisibleItems.filter(item => item.type === "hotel").map(item => item.id);
     const activePoiCategoryFilters = getActivePoiCategoryFilters();
     const poiCategoryFilterSignature = activePoiCategoryFilters.join('|') || MAP_POI_CATEGORY_ALL;
     mapVisiblePoiIds = nextVisibleIds;
@@ -1822,7 +1823,7 @@ try {
           && typeof window.matchMedia === 'function'
           && window.matchMedia('(max-width: 768px)').matches;
 
-        if (isMobile) {
+        if (isMobile && !window.CE_HOME_MAP) {
           const refit = () => {
             try { mapInstance.invalidateSize(); } catch (_) {}
             try { fitCyprus(true); } catch (_) {}
@@ -1851,7 +1852,19 @@ try {
       ceLog('✅ Mapa utworzona');
     }
 
-    setupMapMarkerFilterControl();
+    window.mapInstance = mapInstance;
+    window.markersLayer = markersLayer;
+    if (window.CE_HOME_MAP) {
+      window.CE_HOME_MAP.init(mapInstance, {
+        getMarker: (item) => item.type === 'poi' ? getPoiMarkerById(item.id)
+          : item.type === 'hotel' ? getHotelMarkerById(item.id) : getRecommendationMarkerById(item.id),
+        refresh: () => dispatchVisiblePoiIdsChanged(true),
+        category: resolvePoiCategoryMeta,
+        locate: () => initializeUserLocation({ requestPermission: true }),
+      });
+    } else {
+      setupMapMarkerFilterControl();
+    }
     attachMapFilterListeners();
     attachMapLocationPromptListeners();
 
@@ -2129,6 +2142,7 @@ try {
    * Fokusuje mapę na POI
    */
   window.focusPlaceOnMap = function(placeId) {
+    if (window.CE_HOME_MAP?.ready) { window.CE_HOME_MAP.center({ type: 'poi', id: String(placeId) }); return; }
     const poi = window.PLACES_DATA?.find(p => p.id === placeId);
     if (!poi || !mapInstance) return;
 
