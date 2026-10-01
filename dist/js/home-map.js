@@ -975,7 +975,7 @@
     const imagery =
       "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
     const attribution =
-      "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community";
+      "Tiles © Esri — Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community";
     layers = {
       road: tile(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -987,7 +987,7 @@
       tile(imagery, attribution),
       tile(
         "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-        "Labels © Esri, Garmin, OpenStreetMap contributors",
+        "Labels: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community",
         18,
       ),
       tile(
