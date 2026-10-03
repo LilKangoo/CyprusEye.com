@@ -1,0 +1,169 @@
+/* Presentation only: native controls and booking handlers remain authoritative. */
+:is(.home-transport-panel, .transport-booking-main) {
+  --transport-text: #183d2c;
+  --transport-muted: #51657c;
+  --transport-border: #d6e3da;
+  --transport-primary: #157347;
+  --transport-primary-strong: #12633d;
+  font-family: Jost, system-ui, sans-serif;
+}
+.home-transport-panel,
+.transport-booking-main .transport-booking-shell {
+  border: 1px solid #e0e8e3;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 40px #183b6210;
+}
+.home-transport-panel { padding: 28px; }
+.transport-booking-main .transport-hero {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 0 24px;
+}
+.home-transport-panel .home-transport-panel__title,
+.transport-booking-main .transport-hero h1 {
+  color: #126a49;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.home-transport-panel .home-transport-shell {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.home-transport-panel .home-transport-form { padding: 0; }
+:is(.home-transport-panel, .transport-booking-main) .transport-section,
+:is(.home-transport-panel, .transport-booking-main) .transport-quote {
+  border: 1px solid #e0e8e3;
+  border-radius: 18px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-section h2, .transport-quote h2, .transport-quote h3, .transport-detail-card__title, .transport-return-leg h3, .transport-return-extras h3) {
+  font-family: inherit;
+  color: #284c3e;
+  font-weight: 600;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-field-grid { gap: 16px; }
+:is(.home-transport-panel, .transport-booking-main) .transport-field { gap: 7px; }
+:is(.home-transport-panel, .transport-booking-main) .transport-field label {
+  color: #51657c;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-field :is(input, select, textarea),
+:is(.home-transport-panel, .transport-booking-main) .transport-coupon-box__row input {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid #d6e3da;
+  border-radius: 13px;
+  background-color: #fff;
+  color: #183d2c;
+  font: 500 16px Jost, system-ui, sans-serif;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-field select {
+  appearance: none;
+  padding-inline-end: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2351657c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-field select:dir(rtl) { background-position: left 14px center; }
+:is(.home-transport-panel, .transport-booking-main) :is(input, textarea)::placeholder { color: #708375; opacity: 1; }
+:is(.home-transport-panel, .transport-booking-main) .transport-field :is(input, select, textarea):hover:not(:disabled) { border-color: #80ad90; }
+:is(.home-transport-panel, .transport-booking-main) .transport-field :is(input, select, textarea):focus,
+:is(.home-transport-panel, .transport-booking-main) .transport-coupon-box__row input:focus {
+  outline: 2px solid #218451;
+  outline-offset: 2px;
+  border-color: #80ad90;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-field :is(input, select, textarea):disabled { background-color: #f2f5f3; color: #718078; cursor: not-allowed; }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-return-leg, .transport-return-extras, .transport-detail-card, .transport-return-extras-mode, .transport-submit-row, .transport-coupon-box) {
+  border: 1px solid #dfe9e3;
+  border-radius: 16px;
+  background: #f6f9f7;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dfe9e3;
+  border-radius: 16px;
+  background: #f6f9f7;
+  color: #284c3e;
+  cursor: pointer;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle):has(input:checked) { border-color: #80b796; background: #edf7f0; color: #175b38; }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) input {
+  appearance: none;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 25px;
+  min-height: 25px;
+  border: 0;
+  border-radius: 99px;
+  padding: 0;
+  margin: 0;
+  background: #bdcbc3;
+  cursor: pointer;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) input::before {
+  content: "";
+  display: block;
+  width: 17px;
+  height: 17px;
+  margin: 4px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px #173c3326;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) input:checked { background: #157347; }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) input:checked::before { transform: translateX(17px); }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-policy-check, .transport-return-extras-toggle) input:checked:dir(rtl)::before { transform: translateX(-17px); }
+:is(.home-transport-panel, .transport-booking-main) :is(button, input[type=checkbox]):focus-visible { outline: 2px solid #218451; outline-offset: 3px; }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-submit-btn, .home-transport-btn--primary) {
+  min-height: 48px;
+  border: 1px solid #157347;
+  border-radius: 13px;
+  background: #157347;
+  color: #fff;
+  font: 600 15px Jost, system-ui, sans-serif;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-submit-btn, .home-transport-btn--primary):hover:not(:disabled) { background: #12633d; transform: none; box-shadow: 0 4px 12px #15734720; }
+:is(.home-transport-panel, .transport-booking-main) :is(.home-transport-btn--ghost, .transport-mini-summary__btn) { border: 1px solid #d6e3da; border-radius: 13px; background: #fff; color: #284c3e; min-height: 44px; }
+.home-transport-panel .home-transport-wizard-progress__item { border-radius: 13px; box-shadow: none; transform: none; }
+:is(.home-transport-panel, .transport-booking-main) :is(.transport-coupon-box__row button, .ce-phone-input__button) {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #d6e3da;
+  border-radius: 13px;
+  background: #fff;
+  color: #284c3e;
+  font: 500 14px Jost, system-ui, sans-serif;
+  box-shadow: none;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-coupon-box__row button:disabled { opacity: .55; cursor: not-allowed; }
+.home-transport-panel .home-transport-wizard-progress__item:is(.is-active, .is-complete) { background: #edf7f0; border-color: #80b796; color: #175b38; box-shadow: none; transform: none; }
+.home-transport-panel .home-transport-wizard-progress__item:is(.is-active, .is-complete) .home-transport-wizard-progress__index { background: #157347; color: white; }
+:is(.home-transport-panel, .transport-booking-main) .transport-total { background: #edf7f0; border: 1px solid #80b796; color: #175b38; border-radius: 14px; }
+@media (max-width: 700px) {
+  .home-transport-panel { padding: 19px; }
+  :is(.home-transport-panel, .transport-booking-main) :is(.transport-section, .transport-quote) { padding: 14px; }
+  .home-transport-panel .home-transport-wizard-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-transport-panel .home-transport-wizard-progress__item { padding: 8px; font-size: 12px; }
+}
