@@ -23,9 +23,9 @@
       status.className = "muted small partner-copy-status";
       status.setAttribute("role", "status");
       for (const [lang, label] of [
-        ["pl", "🇵🇱 PL"],
-        ["en", "🇬🇧 EN"],
-        ["he", "🇮🇱 HE"],
+        ["pl", "🇵🇱 Polski"],
+        ["en", "🇬🇧 English"],
+        ["he", "🇮🇱 עברית"],
       ]) {
         const button = document.createElement("button");
         button.type = "button";
@@ -79,7 +79,13 @@
     const portal = document.getElementById("partnerPortalView");
     const heading = portal?.querySelector("h1");
     if (heading) heading.textContent = "Reservations";
-    const intro = portal?.querySelector(":scope > p");
+    if (heading) {
+      const eyebrow = document.createElement("p");
+      eyebrow.className = "partner-workspace-eyebrow";
+      eyebrow.textContent = "Your partner workspace";
+      heading.before(eyebrow);
+    }
+    const intro = heading?.nextElementSibling;
     if (intro)
       intro.textContent =
         "Bookings, referrals and your daily actions in one place.";
@@ -100,7 +106,34 @@
         const group = code.parentElement;
         group.classList.add("partner-code-inline");
         group.append(copy);
+        const codeLabel = document.createElement("span");
+        codeLabel.textContent = "Code:";
+        const codeValue = document.createElement("span");
+        copy.replaceChildren(
+          codeLabel,
+          document.createTextNode(" "),
+          codeValue,
+          document.createTextNode(" ⧉"),
+        );
+        const updateCode = () => {
+          if (codeValue.textContent !== code.value)
+            codeValue.textContent = code.value;
+        };
+        new MutationObserver(updateCode).observe(summary, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
+        updateCode();
       }
+      const unpaidLabel = document.querySelector(
+        "#partnerAffiliateSummaryUnpaid",
+      )?.previousElementSibling;
+      if (unpaidLabel) unpaidLabel.textContent = "Available for payout:";
+      const thresholdLabel = document.querySelector(
+        "#partnerAffiliateSummaryThreshold",
+      )?.previousElementSibling;
+      if (thresholdLabel) thresholdLabel.textContent = "Minimum";
     }
 
     const searchBar = document.querySelector(".partner-search-bar");

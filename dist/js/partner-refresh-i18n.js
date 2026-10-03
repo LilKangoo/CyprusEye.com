@@ -2,6 +2,11 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "Your partner workspace": "Twoje centrum współpracy",
+    "Code:": "Kod:",
+    "Available for payout:": "Do wypłaty:",
+    Minimum: "Minimum",
+    "Close details": "Zamknij szczegóły",
     "Your referral link & code": "Twój link i kod",
     "Bookings, referrals and your daily actions in one place.":
       "Rezerwacje, polecenia i codzienne działania w jednym miejscu.",
@@ -410,9 +415,12 @@
         const now = n.textContent.trim();
         let entry = saved.get(n);
         if (!entry || ![entry.en, entry.pl].includes(now)) {
+          const english = Object.keys(pl).find((key) => pl[key] === now);
           const translated = translate(now);
-          if (translated == null) continue;
-          entry = { en: now, pl: translated };
+          if (translated == null && !english) continue;
+          entry = english
+            ? { en: english, pl: now }
+            : { en: now, pl: translated };
           saved.set(n, entry);
         }
         const value = entry[lang];

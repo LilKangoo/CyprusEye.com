@@ -345,3 +345,41 @@ test("Return city code takes priority over legacy offer city", () =>
     }),
     "larnaca airport",
   ));
+
+test("Reservation titles use the requested stored language without changing booking data", () => {
+  let lang = "en";
+  const c = {
+    getPartnerUiLanguage: () => lang,
+    normalizeServiceResourceType: (x) => x,
+    normalizeTitleJson: (value, language) =>
+      value?.[language] || value?.en || "",
+    state: {
+      hotelResourcesById: {
+        h: { title: { en: "7 Arches", pl: "7 Łuków" }, city: "Lefkara" },
+      },
+    },
+  };
+  vm.createContext(c);
+  vm.runInContext(fn("localizedOrderSummary"), c);
+  const trip = {
+    resource_type: "trips",
+    summary: "Private tour / Wycieczka — Paphos",
+    __tripTitleEn: "Private tour",
+    __tripTitlePl: "Wycieczka",
+  };
+  const hotel = {
+    resource_type: "hotels",
+    resource_id: "h",
+    summary: "7 Łuków — Lefkara",
+  };
+  assert.equal(c.localizedOrderSummary(trip), "Private tour — Paphos");
+  assert.equal(c.localizedOrderSummary(hotel), "7 Arches — Lefkara");
+  lang = "pl";
+  assert.equal(c.localizedOrderSummary(trip), "Wycieczka — Paphos");
+  assert.equal(c.localizedOrderSummary(hotel), "7 Łuków — Lefkara");
+  assert.equal(trip.summary, "Private tour / Wycieczka — Paphos");
+  assert.equal(
+    c.localizedOrderSummary({ resource_type: "cars", summary: "Nissan Note" }),
+    "Nissan Note",
+  );
+});

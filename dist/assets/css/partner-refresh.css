@@ -1016,3 +1016,94 @@ body.partners-page {
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   }
 }
+
+/* The legacy row padding reset must not cancel the service icon gutter. */
+#fulfillmentsTableBody tr[data-fulfillment-id] > td:nth-child(5) {
+  padding-inline-start: 30px !important;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] > td:nth-child(5)::before {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  font-size: 18px;
+  inset-inline-start: 0;
+  top: 0;
+  text-align: center;
+}
+.admin-nav-item svg {
+  flex-shrink: 0;
+}
+.partner-referral-heading {
+  font-size: 14px;
+}
+.partner-code-inline {
+  padding: 0;
+  border: 0;
+}
+.partner-code-inline input {
+  display: none;
+}
+.partner-code-inline button {
+  border: 1px solid #2a3b50 !important;
+  padding: 11px 15px;
+}
+.partner-workspace-eyebrow {
+  margin: 0 0 8px !important;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #98aabe;
+}
+/* Match the quiet labels and horizontal order rows of the approved concept. */
+#fulfillmentsTableBody tr[data-fulfillment-id] {
+  grid-template-columns: minmax(170px, 2fr) minmax(125px, 1fr) minmax(
+      105px,
+      1fr
+    ) minmax(85px, 0.65fr) minmax(95px, 0.75fr);
+  grid-template-areas: "service dates status price actions" "reference dates status price actions";
+  gap: 6px 14px;
+  padding: 18px 2px;
+}
+#fulfillmentsTableBody .badge {
+  background: #17493d !important;
+  color: #a3ebc9 !important;
+  border: 0;
+  box-shadow: none !important;
+}
+#fulfillmentsTableBody [data-order-status="pending"] .badge,
+#fulfillmentsTableBody [data-order-status="pending_acceptance"] .badge {
+  background: #40351d !important;
+  color: #efce88 !important;
+}
+#fulfillmentsTableBody [data-order-status="cancelled"] .badge,
+#fulfillmentsTableBody [data-order-status="rejected"] .badge,
+#fulfillmentsTableBody [data-order-status="expired"] .badge {
+  background: #382731 !important;
+  color: #e8b5c3 !important;
+}
+#fulfillmentsTableBody .btn-details {
+  width: auto !important;
+  display: inline-block;
+  text-align: start;
+  box-shadow: none !important;
+}
+.partner-search-bar input,
+.partner-search-bar select {
+  box-shadow: none !important;
+  padding: 11px 12px !important;
+}
+@media (max-width: 1100px) {
+  #fulfillmentsTableBody tr[data-fulfillment-id] {
+    grid-template-columns: minmax(160px, 1.6fr) minmax(110px, 1fr) minmax(
+        100px,
+        0.7fr
+      );
+    grid-template-areas: "service dates price" "reference status actions";
+  }
+}
+@media (max-width: 700px) {
+  #fulfillmentsTableBody tr[data-fulfillment-id] {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-areas: "service price" "reference reference" "dates status" "actions actions";
+  }
+}

@@ -3217,6 +3217,25 @@
     }
   }
 
+  function localizedOrderSummary(row) {
+    const lang = getPartnerUiLanguage();
+    const fallback = String(row?.summary || 'Booking');
+    const type = normalizeServiceResourceType(row?.resource_type);
+    if (type === 'trips') {
+      const title = lang === 'pl' ? row.__tripTitlePl || row.__tripTitleEn : row.__tripTitleEn || row.__tripTitlePl;
+      if (title) {
+        const separator = fallback.lastIndexOf(' — ');
+        return title + (separator >= 0 ? fallback.slice(separator) : '');
+      }
+    }
+    if (type === 'hotels') {
+      const hotel = state.hotelResourcesById[String(row?.resource_id || '')];
+      const title = normalizeTitleJson(hotel?.title, lang);
+      if (title) return title + (hotel.city ? ` — ${hotel.city}` : '');
+    }
+    return fallback;
+  }
+
   function orderLabelForFulfillment(row) {
     if (!row) return '—';
     if (String(row.__source || '') === 'shop') {
@@ -10134,7 +10153,7 @@
         if (isShop) return f.order_number || (f.order_id ? String(f.order_id).slice(0, 8) : String(id).slice(0, 8));
         return f.reference || (f.booking_id ? String(f.booking_id).slice(0, 8) : String(id).slice(0, 8));
       })();
-      const metaParts = [orderRef ? `Ref: ${orderRef}` : '', f.created_at ? `Created: ${formatDate(f.created_at)}` : '', f.summary ? String(f.summary) : '']
+      const metaParts = [orderRef ? `Ref: ${orderRef}` : '', f.created_at ? `Created: ${formatDate(f.created_at)}` : '', f.summary ? localizedOrderSummary(f) : '']
         .map((x) => String(x || '').trim())
         .filter(Boolean);
       if (els.partnerDetailsMeta) els.partnerDetailsMeta.textContent = metaParts.join(' · ');
@@ -10441,9 +10460,7 @@
                 || ''
               ).trim();
               const tripNameLabel = (() => {
-                if (tripTitleEn && tripTitlePl && tripTitleEn.toLowerCase() !== tripTitlePl.toLowerCase()) {
-                  return `${tripTitleEn} / ${tripTitlePl}`;
-                }
+                if (getPartnerUiLanguage() === 'pl' && tripTitlePl) return tripTitlePl;
                 return tripTitleEn || tripTitlePl || String(f.summary || '').trim() || tripSlug || null;
               })();
 
@@ -10745,7 +10762,7 @@
         const totalAmount = Number(hotelBooking?.total_price ?? f.total_price ?? hotelBreakdown.base_total ?? 0);
         const guests = `${Math.max(0, Number(getField('num_adults') || hotelBooking?.num_adults || 0))} adult(s) + ${Math.max(0, Number(getField('num_children') || hotelBooking?.num_children || 0))} child(ren)`;
         const cards = [
-          { label: 'Hotel', value: String(f.summary || hotelResource?.slug || '').trim() || 'Hotel booking' },
+          { label: 'Hotel', value: String(localizedOrderSummary(f) || hotelResource?.slug || '').trim() || 'Hotel booking' },
           { label: 'Stay', value: arrival && departure ? `${formatDateDmy(arrival)} → ${formatDateDmy(departure)}` : '—' },
           { label: 'Guests', value: guests },
           { label: 'Quoted total', value: Number.isFinite(totalAmount) && totalAmount > 0 ? formatMoney(totalAmount, hotelCurrency) : '—' },
@@ -11244,7 +11261,7 @@
         const itemsSummary = (() => {
           if (!isShop) {
             const typeLabel = f.resource_type ? String(f.resource_type) : 'service';
-            const summary = f.summary ? String(f.summary) : 'Booking';
+            const summary = localizedOrderSummary(f);
             return `
               <div class="small"><strong>${escapeHtml(typeLabel)}</strong></div>
               <div class="small">${escapeHtml(summary)}</div>
@@ -11341,7 +11358,7 @@
           : '';
 
         return `
-          <tr data-fulfillment-id="${escapeHtml(id)}" data-service-type="${escapeHtml(isShop ? 'shop' : String(f.resource_type || 'service'))}">
+          <tr data-fulfillment-id="${escapeHtml(id)}" data-service-type="${escapeHtml(isShop ? 'shop' : String(f.resource_type || 'service'))}" data-order-status="${escapeHtml(resolvedStatus || f.status)}">
             <td>
               <strong>${orderLabel}</strong>
               <div class="muted small">Created: ${escapeHtml(formatDate(f.created_at))}</div>
@@ -11355,9 +11372,8 @@
             <td>${priceHtml}</td>
             <td>
               ${itemsSummary}
-              ${detailsBtnHtml}
             </td>
-            <td>${actionsHtml}</td>
+            <td>${actionsHtml}${detailsBtnHtml}</td>
           </tr>
         `;
       })
@@ -11516,7 +11532,7 @@
     state.blocks = Array.isArray(data) ? data : [];
   }
 
-  function normalizeTitleJson(value, lang = 'pl') {
+  function normalizeTitleJson(value, lang = getPartnerUiLanguage()) {
     if (!value) return '';
     if (typeof value === 'string') return value;
     if (typeof value === 'object') return pickPartnerBlogLocalizedValue(value, lang);
@@ -13981,6 +13997,7 @@
     });
 
     window.addEventListener('ce:partner-ui-language', () => {
+      refreshOrdersPanelViews();
       if (state.linksDiscounts.items.length) renderPartnerLinksGrid();
       rerenderAnalyticsLiveTrendFromCache();
     });
