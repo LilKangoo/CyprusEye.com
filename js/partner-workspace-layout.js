@@ -131,7 +131,7 @@
     const calendar = $("partnerTabCalendar");
     if (calendar) {
       const layout = make("div", "partner-availability-layout");
-      const left = make("section", "partner-availability-main");
+      const left = make("section", "partner-availability-main partner-card");
       const right = make("section", "partner-availability-editor partner-card");
       right.append(make("h2", "", "Availability block"));
       [...calendar.children].forEach((el) => {
@@ -148,6 +148,55 @@
       if (resource) {
         resource.classList.add("partner-resource-selector");
         $("partnerResourcePanels")?.before(resource);
+      }
+      // Recompose the original controls into the approved two-card layout.
+      const grid = $("partnerCalendarMonthGrid");
+      const filters = calendar.querySelector(".partner-calendar-filters");
+      const typeGroup = $("blockResourceType")?.parentElement;
+      const bulk = $("partnerAvailabilityBulkMode")?.closest(".partner-card");
+      const form = $("partnerBlockForm");
+      if (bulk && form) {
+        bulk.classList.remove("partner-card");
+        bulk.classList.add("partner-availability-bulk");
+        $("btnCreateBlock")?.parentElement.before(bulk);
+      }
+      if (resource && typeGroup && filters?.contains(typeGroup)) {
+        resource.prepend(typeGroup);
+        typeGroup.classList.add("partner-resource-types");
+      }
+      const resourceLabel = resource?.querySelector(
+        'label[for="blockResourceId"]',
+      );
+      if (resourceLabel) {
+        resourceLabel.textContent = "Select service / resource";
+        resource.prepend(resourceLabel);
+      }
+      // This original legend sits immediately before the calendar grid.
+      const legend = grid?.previousElementSibling;
+      if (legend?.classList.contains("muted")) {
+        legend.className = "partner-availability-legend";
+        legend.replaceChildren();
+        for (const [state, label] of [
+          ["busy", "Busy"],
+          ["available", "Available"],
+        ]) {
+          const item = make("span");
+          const swatch = make(
+            "i",
+            "partner-day-swatch partner-day-swatch--" + state,
+          );
+          swatch.setAttribute("aria-hidden", "true");
+          item.append(swatch, make("span", "", label));
+          legend.append(item);
+        }
+        grid.after(legend);
+      }
+      const table = right.querySelector(".admin-table-container");
+      if (table) {
+        const existing = make("details", "partner-existing-blocks");
+        existing.append(make("summary", "", "Existing blocks"));
+        table.before(existing);
+        existing.append(table);
       }
       const update = () => {
         const availability = !calendar.hidden;

@@ -6504,6 +6504,7 @@
         <button
           type="button"
           data-day="${escapeHtml(iso)}"
+          data-busy="${busy}" data-today="${iso === todayIso}"
           style="height: 44px; border-radius: 8px; background:${bg}; border: 1px solid ${border}; display:flex; align-items:center; justify-content:center; font-weight: 600; box-shadow: ${outline}; cursor:pointer;"
           title="${escapeHtml(iso)}"
         >${day}</button>
@@ -13432,7 +13433,7 @@
       const active = o.value === current;
       const bg = active ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.06)';
       const border = active ? 'rgba(59,130,246,0.65)' : 'rgba(255,255,255,0.14)';
-      return `<button type="button" data-rt="${escapeHtml(o.value)}" style="padding: 8px 10px; border-radius: 10px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer; font-weight: 600;">${escapeHtml(labelForResourceType(o.value))}</button>`;
+      return `<button type="button" data-rt="${escapeHtml(o.value)}" data-current="${active}" style="padding: 8px 10px; border-radius: 10px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer; font-weight: 600;">${escapeHtml(labelForResourceType(o.value))}</button>`;
     }).join('');
 
     setHtml(els.resourceTypePanels, html || '<div class="muted small">No resource types.</div>');

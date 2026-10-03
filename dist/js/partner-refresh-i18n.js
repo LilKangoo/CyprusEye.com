@@ -2,6 +2,8 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "Select service / resource": "Wybierz usługę / zasób",
+    "Existing blocks": "Istniejące blokady",
     "Link to entire category": "Link do całej kategorii",
     "Opens all offers in this category.":
       "Otwiera listę wszystkich ofert w tej kategorii.",
