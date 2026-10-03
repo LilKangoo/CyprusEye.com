@@ -33,11 +33,14 @@
     const sync = () => {
       if (!pairs[active] || pairs[active].panel.hidden)
         active = pairs.findIndex((p) => !p.panel.hidden);
-      pairs.forEach(({ button, panel }, i) => {
+      pairs.forEach(({ button, panel, option }, i) => {
         button.hidden = panel.hidden;
         if (selection) {
-          selection.options[i].hidden = panel.hidden;
-          selection.options[i].disabled = panel.hidden;
+          // iOS pickers can show hidden options as unselectable rows.
+          // Keep only permitted reports in the native list; retain each node
+          // and its stable value so partner/category changes restore it safely.
+          if (panel.hidden) option.remove();
+          else selection.append(option);
         }
         button.setAttribute("aria-pressed", String(i === active));
         panel.classList.toggle("is-current", i === active);
@@ -55,9 +58,10 @@
       const label = make("label", "partner-report-select", title);
       const select = make("select");
       selection = select;
-      pairs.forEach(({ button }, i) => {
-        const option = make("option", "", button.textContent);
+      pairs.forEach((pair, i) => {
+        const option = make("option", "", pair.button.textContent);
         option.value = String(i);
+        pair.option = option;
         select.append(option);
       });
       select.addEventListener("change", () => {
