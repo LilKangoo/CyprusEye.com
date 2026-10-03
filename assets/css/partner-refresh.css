@@ -952,7 +952,7 @@ body.partners-page {
     padding: 16px !important;
   }
   .partner-search-bar {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
     gap: 10px 6px;
   }
   .partner-search-bar label {
@@ -964,18 +964,18 @@ body.partners-page {
   .partner-search-bar label:first-child {
     grid-column: 1/-1;
   }
-  .partner-search-bar input,
-  .partner-search-bar select {
+  #partnerServicesCard .partner-search-bar input,
+  #partnerServicesCard .partner-search-bar select {
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
-    padding-inline: 6px;
+    padding: 10px 6px !important;
     font-size: 12px;
     text-overflow: ellipsis;
   }
-  .partner-search-bar input[type="search"] {
+  #partnerServicesCard .partner-search-bar input[type="search"] {
     font-size: 16px;
-    padding-inline: 12px;
+    padding-inline: 12px !important;
   }
   .partner-search-bar input[type="date"]::-webkit-date-and-time-value {
     min-width: 0;
