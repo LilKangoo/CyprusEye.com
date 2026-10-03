@@ -1,4 +1,75 @@
 /* Presentation only: native controls and booking handlers remain authoritative. */
+.transport-native-control {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  border: 0 !important;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+:is(.home-transport-panel, .transport-booking-main) .transport-picker-trigger {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 38px 11px 14px;
+  padding-inline: 14px 38px;
+  border: 1px solid #d6e3da;
+  border-radius: 13px;
+  background: #fff;
+  color: #183d2c;
+  font: 500 16px Jost, system-ui, sans-serif;
+  text-align: start;
+  position: relative;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.transport-picker-trigger::after { content: '⌄'; position: absolute; inset-inline-end: 14px; top: 12px; color: #51657c; }
+:is(.home-transport-panel, .transport-booking-main) .transport-picker-trigger:hover:not(:disabled) { background: #f9fcfa; border-color: #80ad90; }
+.transport-picker-trigger:disabled { opacity: .6; cursor: not-allowed; }
+.transport-picker-dialog {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid #d6e3da;
+  border-radius: 24px;
+  background: #fff;
+  color: #183d2c;
+  box-shadow: 0 24px 80px #173c3333;
+  font: 500 16px Jost, system-ui, sans-serif;
+}
+.transport-picker-dialog::backdrop { background: #122d4666; }
+.transport-picker-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.transport-picker-dialog h2 { font: 600 20px/1.3 Jost, system-ui, sans-serif; color: #126a49; margin: 0; }
+.transport-picker-dialog button { min-height: 44px; border: 1px solid #d6e3da; border-radius: 12px; background: #fff; color: #284c3e; font: inherit; cursor: pointer; padding: 8px 12px; }
+.transport-picker-dialog button:hover:not(:disabled) { background: #edf7f0; border-color: #80b796; }
+.transport-picker-dialog button:disabled { opacity: .4; cursor: not-allowed; }
+.transport-picker-dialog :focus-visible { outline: 2px solid #218451; outline-offset: 2px; }
+.transport-picker-dialog .transport-picker-close { flex: 0 0 44px; font-size: 24px; }
+.transport-picker-dialog input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; border: 1px solid #d6e3da; border-radius: 13px; background: #fff; color: #183d2c; font: inherit; }
+.transport-picker-options { display: grid; gap: 7px; max-height: min(400px, 50dvh); overflow-y: auto; padding: 4px; margin: 12px -4px 0; overscroll-behavior: contain; }
+.transport-picker-options button { text-align: start; overflow-wrap: anywhere; }
+.transport-picker-dialog button[aria-pressed=true], .transport-picker-dialog .transport-picker-apply { color: #fff; background: #157347; border-color: #157347; }
+.transport-picker-dialog button[aria-pressed=true]:hover, .transport-picker-dialog .transport-picker-apply:hover:not(:disabled) { background: #12633d; color: white; }
+.transport-calendar-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.transport-calendar-nav strong { text-align: center; }
+.transport-calendar-week, .transport-calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; text-align: center; }
+.transport-calendar-week { color: #637c6c; font-size: 12px; margin-bottom: 7px; }
+.transport-calendar-days button { padding: 0; min-width: 0; min-height: 40px; border-color: transparent; }
+.transport-calendar-days .is-today { border-color: #80b796; }
+.transport-picker-times { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #e7eee9; }
+.transport-picker-times label { display: grid; gap: 6px; font-size: 13px; color: #51657c; }
+.transport-picker-times input { font-size: 18px; }
+.transport-picker-error { color: #a32d25; font-size: 13px; }
+.transport-picker-dialog footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+@media(max-width:400px) { .transport-picker-dialog { padding: 16px; } .transport-picker-dialog footer button { padding-inline: 10px; font-size: 14px; } }
 :is(.home-transport-panel, .transport-booking-main) {
   --transport-text: #183d2c;
   --transport-muted: #51657c;
