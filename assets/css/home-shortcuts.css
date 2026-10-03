@@ -1,0 +1,63 @@
+/* Compact homepage shortcuts; retain original links and translation hooks. */
+#main-content .shortcuts-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+}
+#main-content .shortcuts-grid .shortcut-compact {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 64px;
+  height: auto;
+  padding: 12px 14px;
+  text-align: start;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e3edf0;
+  box-shadow: none;
+  transition: background .18s, border-color .18s;
+}
+#main-content .shortcuts-grid .shortcut-compact:hover {
+  transform: none;
+  background: #f1faf8;
+  border-color: #9acfc0;
+}
+#main-content .shortcuts-grid .shortcut-compact-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  font-size: 23px;
+  background: none;
+  border: 0;
+  transform: none;
+}
+#main-content .shortcuts-grid h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #234454;
+  overflow-wrap: anywhere;
+}
+#main-content .shortcuts-grid .shortcut-compact::after {
+  content: '›';
+  color: #6e8a95;
+  font-size: 22px;
+}
+html[dir="rtl"] #main-content .shortcuts-grid .shortcut-compact::after { content: '‹'; }
+#main-content .shortcuts-grid .shortcut-compact-badge,
+#main-content .shortcuts-grid .shortcut-compact-meta,
+#main-content .shortcuts-grid .shortcut-compact p { display: none; }
+@media(max-width:1100px) {
+  #main-content .shortcuts-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:480px) {
+  #main-content .shortcuts-grid { grid-template-columns: 1fr; gap: 8px; }
+  #main-content .shortcuts-grid .shortcut-compact { min-height: 52px; padding: 9px 12px; }
+}
