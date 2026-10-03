@@ -1056,10 +1056,9 @@ body.partners-page {
 }
 /* Match the quiet labels and horizontal order rows of the approved concept. */
 #fulfillmentsTableBody tr[data-fulfillment-id] {
-  grid-template-columns: minmax(170px, 2fr) minmax(125px, 1fr) minmax(
-      105px,
-      1fr
-    ) minmax(85px, 0.65fr) minmax(95px, 0.75fr);
+  grid-template-columns:
+    minmax(170px, 2fr) minmax(125px, 1fr) minmax(105px, 1fr)
+    minmax(85px, 0.65fr) minmax(95px, 0.75fr);
   grid-template-areas: "service dates status price actions" "reference dates status price actions";
   gap: 6px 14px;
   padding: 18px 2px;
@@ -1106,4 +1105,582 @@ body.partners-page {
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     grid-template-areas: "service price" "reference reference" "dates status" "actions actions";
   }
+}
+/* Complete workspace composition, shared by all partner sections. */
+.partner-workspace-complete {
+  --admin-bg-light: #152232;
+  --admin-bg-dark: #0c141f;
+  --admin-radius: 17px;
+}
+.partner-workspace-complete .admin-main > div {
+  max-width: 1400px;
+  margin-inline: auto;
+}
+.partner-workspace-complete .admin-main h1 {
+  font-size: 30px !important;
+  letter-spacing: -0.8px;
+  margin-bottom: 10px !important;
+}
+.partner-workspace-complete .admin-main h2 {
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+.partner-workspace-complete .admin-main h3 {
+  font-size: 16px;
+}
+.partner-workspace-complete .admin-main button {
+  font-family: inherit;
+  font-weight: 550;
+}
+.partner-workspace-complete .partner-card {
+  padding: 22px;
+}
+.partner-workspace-complete .partner-card[style] {
+  max-width: none !important;
+}
+.partner-workspace-complete .partner-insight-card,
+.partner-workspace-complete .partner-metric {
+  background: #152232 !important;
+  background-image: none !important;
+}
+.partner-workspace-complete .partner-metric {
+  border: 0;
+  border-radius: 0;
+  padding: 16px 12px;
+}
+.partner-workspace-complete .partner-metric__label {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #98aabe;
+}
+.partner-workspace-complete .partner-metric__value {
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+  margin-top: 10px;
+}
+.partner-workspace-complete .partner-card input,
+.partner-workspace-complete .partner-card select,
+.partner-workspace-complete .partner-card textarea {
+  padding: 11px 12px;
+  border: 1px solid #2a3b50;
+  background: #111e2c !important;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 14px;
+}
+.partner-workspace-complete .partner-card button {
+  box-shadow: none;
+}
+.partner-workspace-complete .partner-card .primary {
+  background: #268b72 !important;
+  border-color: #268b72 !important;
+  color: white !important;
+}
+.partner-workspace-complete .partner-tab,
+.partner-workspace-complete .partner-chart-switch__btn,
+.partner-workspace-complete .partner-period-switch__btn {
+  background: #152232;
+  border: 1px solid #2a3b50;
+  color: #bccbdb;
+  padding: 9px 13px;
+  width: auto;
+  box-shadow: none;
+}
+.partner-workspace-complete .is-active,
+.partner-layout-tab-buttons [aria-pressed="true"] {
+  background-color: #174b43;
+  color: #a5eed3;
+}
+.partner-layout-tab-buttons {
+  display: flex;
+  gap: 8px;
+  overflow: auto;
+  padding: 6px 0 16px;
+}
+.partner-layout-tab-buttons button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.partner-layout-tab-panel {
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.partner-layout-tab-panel:not(.is-current) {
+  display: none !important;
+}
+.partner-layout-tab-panel > h2 {
+  display: none;
+}
+.partner-layout-tabs {
+  margin-top: 20px;
+}
+.partner-layout-tabs .admin-table {
+  min-width: 540px;
+  font-size: 13px;
+}
+.partner-layout-tabs .admin-table-container {
+  overflow: auto;
+}
+.partner-workspace-complete .admin-table th {
+  background: #111e2c;
+  color: #98aabe;
+  font-weight: 550;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.partner-workspace-complete .admin-table td {
+  border-color: #293849;
+}
+/* Availability */
+#partnerPortalView.is-availability > #partnerReferralSummary {
+  display: none !important;
+}
+#partnerPortalView.is-availability > p:not(.partner-workspace-eyebrow) {
+  display: none;
+}
+.partner-availability-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(270px, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.partner-availability-main {
+  min-width: 0;
+}
+.partner-availability-main > h3 {
+  display: none;
+}
+.partner-availability-main > p {
+  margin-bottom: 18px;
+}
+.partner-availability-editor {
+  background: #101e2c !important;
+  padding: 20px !important;
+}
+.partner-availability-editor form {
+  margin: 14px 0 22px;
+}
+.partner-availability-editor .admin-table {
+  min-width: 300px;
+}
+.partner-calendar-filters {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+.partner-calendar-filters > div {
+  flex: 1;
+  min-width: 160px;
+}
+.partner-calendar-filters select {
+  width: 100%;
+}
+.partner-resource-selector {
+  margin-top: 22px;
+  display: grid;
+  gap: 8px;
+}
+.partner-resource-selector select {
+  width: 100%;
+}
+#partnerResourceTypePanels {
+  gap: 6px !important;
+}
+#partnerResourceTypePanels button {
+  padding: 8px 12px !important;
+  background: #152232;
+}
+#partnerCalendarMonthGrid {
+  gap: 6px !important;
+  margin-top: 18px;
+}
+#partnerCalendarMonthGrid button {
+  min-width: 0;
+  padding: 12px 2px !important;
+  box-shadow: none;
+  border-radius: 9px !important;
+}
+#partnerResourcePanels {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+  max-height: 440px;
+}
+#partnerResourcePanels button {
+  text-align: start !important;
+  padding: 10px !important;
+  overflow: hidden;
+}
+/* One analytics chart with metrics and an optional report. */
+.partner-analytics-view {
+  gap: 20px !important;
+}
+.partner-analytics-controls {
+  grid-template-columns: 1fr 110px minmax(140px, 1fr) auto !important;
+  align-items: end;
+}
+.partner-analytics-controls input,
+.partner-analytics-controls select {
+  height: 42px;
+}
+.partner-analytics-meta {
+  margin: 16px 0;
+}
+.partner-analytics-chart-head {
+  margin-top: 14px;
+  align-items: center;
+}
+.partner-unified-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: none !important;
+  border: 0 !important;
+  margin: 16px 0;
+}
+.partner-unified-metrics.showing-response [data-live-trend-metric] {
+  background: #152232 !important;
+  color: #bccbdb !important;
+}
+.partner-chart-view-switch {
+  display: none;
+}
+#partnerAnalyticsCategoryChips {
+  display: none;
+}
+.partner-analytics-kpi-grid {
+  margin-top: 18px;
+}
+.partner-analytics-kpi-grid .partner-metric {
+  border-inline-end: 1px solid #2a3b50;
+}
+.partner-analytics-kpi-grid .partner-metric:last-child {
+  border: 0;
+}
+.partner-analytics-card .partner-metrics-custom {
+  margin-top: 16px;
+}
+.partner-analytics-live-chart__bar {
+  background: #4fc5a1 !important;
+}
+/* Profile: card groups with the original independent save actions. */
+.partner-profile-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.partner-profile-layout > section:first-child {
+  grid-row: span 2;
+}
+.partner-profile-layout form {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid #2a3b50;
+  gap: 12px;
+}
+.partner-profile-layout input,
+.partner-profile-layout textarea {
+  width: 100%;
+}
+.partner-profile-layout button {
+  width: auto;
+}
+/* Referrals: compact payout overview, history tabs and a clear network. */
+.partner-referral-links-compact {
+  margin: 20px 0;
+}
+.partner-referral-links-compact .partner-toolbar {
+  display: flex;
+  gap: 8px;
+}
+.partner-referral-links-compact input {
+  flex: 1;
+  min-width: 150px;
+}
+.partner-referral-links-compact .partner-kpi {
+  margin-top: 12px;
+}
+#partnerReferralsView > section {
+  margin-top: 20px;
+}
+#partnerReferralsView .partner-insight-divider {
+  margin: 16px 0;
+  background: #2a3b50;
+}
+#partnerReferralTreeContainer {
+  margin-top: 18px;
+  padding: 20px;
+}
+#partnerReferralTreeContainer:not(.is-list) > .tree-item > .tree-row-root {
+  max-width: 420px;
+  margin-inline: auto;
+  background: #174039;
+  border: 1px solid #327665;
+}
+#partnerReferralTreeContainer:not(.is-list)
+  > .tree-item
+  > .tree-children-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+  border: 0;
+  padding: 0;
+}
+#partnerReferralTreeContainer .tree-row {
+  border: 1px solid #2a3b50;
+  background: #152232;
+  padding: 12px;
+}
+#partnerReferralTreeContainer .tree-user-card {
+  gap: 10px;
+}
+#partnerReferralTreeContainer .tree-avatar,
+#partnerReferralTreeContainer .tree-avatar-placeholder {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+#partnerReferralTreeContainer .tree-user-details {
+  min-width: 0;
+}
+#partnerReferralTreeContainer .tree-user-meta {
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+/* Links: compact QR header and horizontal photo offers like the concept. */
+.partner-links-shell > .partner-links-section-head {
+  display: none;
+}
+#partnerReferralQrCard {
+  margin: 22px 0;
+  background: #152232 !important;
+  border: 1px solid #2a3b50;
+  border-radius: 17px;
+}
+.partner-referral-qr-card__content {
+  display: grid !important;
+  grid-template-columns: 150px minmax(0, 1fr) !important;
+  align-items: center;
+  gap: 24px;
+}
+.partner-referral-qr-card__visual {
+  width: 150px !important;
+  height: 150px !important;
+  padding: 8px;
+  border-radius: 12px;
+  background: white;
+}
+#partnerReferralQrCanvas {
+  width: 134px !important;
+  height: 134px !important;
+  max-width: 100%;
+}
+.partner-referral-qr-card__meta {
+  min-width: 0;
+}
+.partner-referral-qr-card__meta input {
+  width: 100%;
+  max-width: 560px;
+}
+.partner-links-toolbar {
+  margin: 0 0 16px;
+}
+#partnerLinksFilters {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow: auto;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+#partnerLinksFilters button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  width: auto !important;
+}
+#partnerLinksGrid {
+  grid-template-columns: 1fr !important;
+  gap: 18px;
+}
+.partner-links-card {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1fr);
+  border: 1px solid #2a3b50 !important;
+  background: #152232 !important;
+  box-shadow: none !important;
+}
+.partner-links-card__media {
+  height: 100% !important;
+  min-height: 230px;
+  aspect-ratio: auto !important;
+}
+.partner-links-card__media img {
+  height: 100% !important;
+  width: 100%;
+  object-fit: cover;
+}
+.partner-links-card__body {
+  padding: 20px !important;
+}
+.partner-links-card h3 {
+  font-size: 20px !important;
+  line-height: 1.35;
+}
+.partner-links-card__summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 0 !important;
+}
+.partner-links-card__actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.partner-links-card__actions button {
+  width: auto !important;
+}
+.partner-category-copy {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid #2a3b50;
+}
+.partner-category-copy > span,
+.partner-offer-copy-label {
+  font-size: 12px;
+  color: #98aabe;
+}
+.partner-category-copy > div {
+  display: flex;
+  gap: 6px;
+}
+.partner-offer-copy-label {
+  margin: 8px 0;
+}
+.partner-links-modal-content,
+.partner-details-dialog,
+#partnerBlogModal .admin-modal-content {
+  background: #142334 !important;
+  border: 1px solid #2a3b50;
+  border-radius: 20px !important;
+}
+.partner-links-modal-content .partner-card {
+  background: #111e2c !important;
+}
+@media (max-width: 1100px) {
+  .partner-availability-layout {
+    grid-template-columns: 1fr;
+  }
+  .partner-analytics-controls {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (max-width: 700px) {
+  .partner-workspace-complete .partner-card {
+    padding: 16px;
+  }
+  .partner-profile-layout {
+    grid-template-columns: 1fr;
+  }
+  .partner-profile-layout > section:first-child {
+    grid-row: auto;
+  }
+  .partner-referral-qr-card__content {
+    grid-template-columns: 100px minmax(0, 1fr) !important;
+    gap: 14px;
+  }
+  .partner-referral-qr-card__visual {
+    width: 100px !important;
+    height: 100px !important;
+    padding: 6px;
+  }
+  #partnerReferralQrCanvas {
+    width: 88px !important;
+    height: 88px !important;
+  }
+  .partner-referral-qr-card__meta input {
+    font-size: 11px !important;
+  }
+  .partner-referral-qr-card__meta p {
+    display: none;
+  }
+  .partner-referral-qr-card__actions {
+    flex-wrap: wrap;
+  }
+  .partner-links-card {
+    grid-template-columns: 1fr;
+  }
+  .partner-links-card__media {
+    height: 190px !important;
+    min-height: 0;
+  }
+  .partner-links-card__body {
+    padding: 16px !important;
+  }
+  .partner-analytics-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  #partnerReferralTreeContainer:not(.is-list)
+    > .tree-item
+    > .tree-children-container {
+    grid-template-columns: 1fr;
+  }
+  .partner-calendar-filters > div {
+    min-width: 120px;
+  }
+}
+
+.partner-visually-hidden {
+  display: none !important;
+}
+.partner-section-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.partner-section-titlebar h2 {
+  margin: 0 !important;
+}
+.partner-report-select {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+  margin: 16px 0;
+  font-size: 12px;
+  color: #98aabe;
+}
+.partner-report-select select {
+  width: 100%;
+}
+/* Keep the original resource selector usable alongside its photo cards. */
+.partner-workspace-complete #blockResourceId {
+  display: block !important;
+}
+.partner-workspace-complete #partnerCalendarMonthGrid button {
+  color: #e5f1ee;
+}
+.partner-calendar-filters .btn-row {
+  flex-wrap: nowrap;
+}
+.partner-calendar-filters input[type="month"] {
+  min-width: 0;
+  width: 100%;
+}
+.partner-calendar-filters .btn-row button {
+  flex: 0 0 34px;
+  padding: 8px !important;
 }

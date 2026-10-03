@@ -4767,6 +4767,11 @@
       const title = getPartnerLinksLocalizedText(item, 'title', uiLanguage, 'title') || item.title;
       const description = getPartnerLinksLocalizedText(item, 'description', uiLanguage, 'description') || '';
       const summaryText = description || (item.type === 'transport' ? (item.transportNote || '') : '');
+      const categoryButtons = ['pl', 'en', 'he'].map(lang => {
+        const readiness = lang === 'he' ? getPartnerLinksHeReadiness(item, 'landing') : { allowed: true };
+        const url = readiness.allowed ? buildPartnerLinksReferralUrl(item, { lang, kind: 'landing' }) : '';
+        return `<button type="button" class="btn-sm" data-partner-link-stop="1" ${url ? `data-partner-link-copy-url="${escapeHtml(url)}"` : 'disabled'}>${{pl:'🇵🇱',en:'🇬🇧',he:'🇮🇱'}[lang]} ${lang.toUpperCase()}</button>`;
+      }).join('');
       const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
       const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
       const offerHeReadiness = getPartnerLinksHeReadiness(item, 'detail');
@@ -4805,6 +4810,8 @@
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
             <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
             <a class="partner-see-offer" href="${escapeHtml(buildPartnerLinksPageUrl(item, {lang: document.documentElement.lang === 'pl' ? 'pl' : 'en', kind: 'detail'}))}" target="_blank" rel="noopener noreferrer" data-partner-link-stop="1">See offer ↗</a>
+            <div class="partner-category-copy"><span>Category link</span><div>${categoryButtons}</div></div>
+            <div class="partner-offer-copy-label">Specific offer</div>
             <div class="partner-links-card__actions">
               <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">Copy PL 🇵🇱</button>
               <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">Copy EN 🇬🇧</button>

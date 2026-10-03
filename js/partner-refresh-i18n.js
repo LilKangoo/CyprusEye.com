@@ -2,6 +2,20 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "My metrics": "Moje wskaźniki",
+    Customize: "Dostosuj",
+    "Chart type": "Typ wykresu",
+    "Detailed report": "Zestawienie szczegółowe",
+    "By category": "Według kategorii",
+    "Top products": "Najlepsze produkty",
+    Security: "Bezpieczeństwo",
+    "Payout details": "Dane do wypłat",
+    "Commission history": "Historia prowizji",
+    "Referral orders": "Zamówienia z poleceń",
+    "Referral activity": "Rozliczenia poleceń",
+    "Category link": "Link do kategorii",
+    "Specific offer": "Konkretna oferta",
+    "Availability block": "Blokada dostępności",
     "Your partner workspace": "Twoje centrum współpracy",
     "Code:": "Kod:",
     "Available for payout:": "Do wypłaty:",
@@ -358,11 +372,22 @@
     ". If no prompt appears, use your browser menu (e.g.":
       ". Jeśli nie pojawi się okno instalacji, użyj menu przeglądarki (np.",
   });
+  for (const section of [
+    "Reservations",
+    "Availability",
+    "Analytics",
+    "Profile",
+    "Referrals",
+    "Links / Discounts",
+  ]) {
+    pl[`Partner Portal — ${section}`] =
+      `Panel partnera — ${pl[section] || "Rezerwacje"}`;
+  }
   const patterns = [
     [/^Progress: (.+) \/ (.+)$/, "Do wypłaty: $1 / minimum $2"],
     [/^Loaded (\d+) fulfillments\.$/, "Wczytane zamówienia: $1."],
     [
-      /^You have (\d+) fulfillment\(s\) waiting payment confirmation\.$/,
+      /^You have (\d+) fulfillment\(s\) (?:waiting|awaiting) payment confirmation\.$/,
       "Zamówienia oczekujące potwierdzenia płatności: $1.",
     ],
     [
