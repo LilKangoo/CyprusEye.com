@@ -738,6 +738,16 @@
       marker.addTo(clusterLayer);
     }
   }
+  function openPoi(id) {
+    if (!initialized || !id) return false;
+    linkedPoiId = String(id);
+    api.refresh();
+    // Refresh supplies the existing catalog synchronously. Render now rather
+    // than waiting for a new document or another map event.
+    render();
+    root.scrollIntoView({ block: "start", behavior: "instant" });
+    return true;
+  }
   function render() {
     if (linkedPoiId && typeof window.setCurrentMapItem === "function") {
       const target = visibleItems.find(item => item.type === "poi" && String(item.id) === linkedPoiId);
@@ -1357,6 +1367,7 @@
   window.CE_HOME_MAP = {
     init,
     filterItems,
+    openPoi,
     center,
     locate,
     updateUserPosition,

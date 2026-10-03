@@ -142,7 +142,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
     ["/js/compact-header.js?v=3", false],
     ["/js/header-dropdown.js?v=3", false],
     ["/js/site-navigation-labels.js?v=1", false],
-    ["/js/site-navigation.js?v=20261001saved1", false],
+    ["/js/site-navigation.js?v=20261001saved2", false],
   ];
   for (const [src, module] of scripts) {
     const base = src.split("?")[0];
@@ -153,7 +153,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
       );
   }
   html = html
-    .replace(/site-navigation\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.js?v=20261001saved1")
+    .replace(/site-navigation\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.js?v=20261001saved2")
     .replace(/i18n\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "i18n.js?v=20261001_navigation1")
     .replace(/(compact-header\.js\?v=)3/g, "$14")
     .replace(/(header-dropdown\.js\?v=)2/g, "$13")

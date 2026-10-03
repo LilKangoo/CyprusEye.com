@@ -347,6 +347,20 @@
         a.href =
           window.CELanguage?.buildLocalizedUrl(row.href, language()) ||
           row.href;
+        if (kind === "saved" && row.type === "poi") {
+          a.addEventListener("click", (event) => {
+            if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            const homeMap = window.CE_HOME_MAP;
+            if (!homeMap?.ready || typeof homeMap.openPoi !== "function") return;
+            const target = new URL(a.href, window.location.href);
+            const poiId = target.searchParams.get("poi");
+            if (!poiId) return;
+            event.preventDefault();
+            closePanel();
+            homeMap.openPoi(poiId);
+            if (window.location.href !== target.href) window.history.pushState(null, "", target.href);
+          });
+        }
         if (row.unread) a.dataset.unread = "true";
         if (row.detail) {
           const small = document.createElement("small");
