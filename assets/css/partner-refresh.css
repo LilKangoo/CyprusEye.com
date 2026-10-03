@@ -1941,3 +1941,39 @@ body.partners-page {
     padding: 12px;
   }
 }
+/* Offer rows must grow with their content at every breakpoint.
+   The original bounded grid (72vh + height:100% cards) compressed desktop
+   tracks to 318px and clipped the specific-offer links beneath them. */
+#partnerLinksGrid {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-height: none;
+  overflow: visible;
+  padding-inline-end: 0;
+}
+#partnerLinksGrid > .partner-links-card {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  min-width: 0;
+  grid-template-rows: auto auto;
+  align-content: start;
+  overflow: visible;
+}
+#partnerLinksGrid .partner-links-card__body {
+  min-width: 0;
+  height: auto;
+}
+#partnerLinksGrid .partner-links-card__body > * {
+  flex-shrink: 0;
+}
+#partnerLinksGrid .partner-links-card__media {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  #partnerLinksGrid > .partner-links-card {
+    grid-template-rows: auto auto auto;
+  }
+}
