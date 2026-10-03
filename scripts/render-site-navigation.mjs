@@ -111,7 +111,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
   // Use root-relative assets, including on nested pages. Keep the existing providers once.
   const css = [
     "/assets/css/compact-header.css?v=2",
-    "/assets/css/site-navigation.css?v=20261003savedicons1",
+    "/assets/css/site-navigation.css?v=20261003profile1",
   ];
   for (const href of css) {
     const base = href.split("?")[0];
@@ -154,9 +154,9 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
   }
   html = html
     .replace(/site-navigation\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.js?v=20261003savedicons1")
-    .replace(/site-navigation\.css(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.css?v=20261003savedicons1")
+    .replace(/site-navigation\.css(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.css?v=20261003profile1")
     .replace(/i18n\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, html.includes('service-booking-controls.js') ? "i18n.js?v=20261003_services1" : "i18n.js?v=20261001_navigation1")
-    .replace(/(compact-header\.js\?v=)3/g, "$14")
+    .replace(/compact-header\.js\?v=[^"'\s<>]+/g, "compact-header.js?v=20261003profile1")
     .replace(/(header-dropdown\.js\?v=)2/g, "$13")
     .replace(/(mobile-nav\.js)(["'])/g, "$1?v=2$2");
   await output(name, html);

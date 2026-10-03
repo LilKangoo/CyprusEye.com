@@ -970,6 +970,7 @@
       const { data, error } = await sb
         .from('partners')
         .select(columns)
+        .eq('status', 'active')
         .order('name', { ascending: true })
         .limit(100);
 
@@ -1029,8 +1030,9 @@
 
         const { data, error } = await sb
           .from('partner_users')
-          .select('partner_id')
+          .select('partner_id, partners!inner(status)')
           .eq('user_id', userId)
+          .eq('partners.status', 'active')
           .limit(1);
 
         if (error) {
