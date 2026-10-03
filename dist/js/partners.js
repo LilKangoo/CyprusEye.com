@@ -4799,7 +4799,10 @@
         >
           <div class="partner-links-category-heading">
             <h2><span class="partner-category-emoji" aria-hidden="true">${partnerLinksTypeIcon(item.type)}</span><span>${escapeHtml(partnerLinksTypeLabel(item.type))}</span></h2>
-            <div class="partner-category-copy"><span>Category link</span><div>${categoryButtons}</div></div>
+            <div class="partner-category-copy partner-link-scope partner-link-scope--category" role="group" aria-label="${uiLanguage === 'pl' ? 'Link do całej kategorii' : 'Link to entire category'}">
+              <div class="partner-copy-context"><strong>Link to entire category</strong><small>Opens all offers in this category.</small></div>
+              <div class="partner-scope-buttons">${categoryButtons}</div>
+            </div>
           </div>
           <div class="partner-links-card__media">${imageHtml}</div>
           <div class="partner-links-card__body">
@@ -4819,10 +4822,13 @@
             <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
             <a class="partner-see-offer" href="${escapeHtml(buildPartnerLinksPageUrl(item, {lang: document.documentElement.lang === 'pl' ? 'pl' : 'en', kind: 'detail'}))}" target="_blank" rel="noopener noreferrer" data-partner-link-stop="1">See offer ↗</a>
 
+            <div class="partner-link-scope partner-link-scope--offer" role="group" aria-label="${uiLanguage === 'pl' ? 'Link do tej oferty' : 'Link to this offer'}">
+            <div class="partner-copy-context"><strong>Link to this offer</strong><small class="partner-link-offer-name">${escapeHtml(title)}</small></div>
             <div class="partner-links-card__actions">
               <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">🇵🇱 <span>Copy link</span></button>
               <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">🇬🇧 <span>Copy link</span></button>
               <button type="button" class="btn-sm partner-links-action" ${offerHeAttrs} data-partner-link-stop="1">🇮🇱 <span>Copy link</span></button>
+            </div>
             </div>
           </div>
         </article>

@@ -1887,3 +1887,57 @@ body.partners-page {
   font-size: 36px;
   line-height: 1.4;
 }
+/* Explicit scope for the two different referral destinations. */
+.partner-links-category-heading .partner-link-scope--category {
+  padding: 14px 16px;
+  border: 1px solid #35495e;
+  border-radius: 12px;
+  background: #111d2b;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.partner-link-scope .partner-copy-context {
+  display: grid !important;
+  gap: 5px;
+  min-width: 0;
+}
+.partner-copy-context strong {
+  color: #e4edf7;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.partner-copy-context small {
+  color: #a7b8ca;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.partner-scope-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.partner-link-scope--offer {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #357766;
+  border-radius: 12px;
+  background: #122e2a;
+}
+.partner-link-scope--offer .partner-copy-context strong {
+  color: #a7ebd2;
+}
+.partner-link-scope--offer .partner-links-card__actions {
+  margin-top: 12px;
+}
+.partner-link-scope--offer .partner-links-card__actions button {
+  background: #183b34;
+  border-color: #357766;
+  color: #e4f9f0;
+}
+@media (max-width: 700px) {
+  .partner-links-category-heading .partner-link-scope--category,
+  .partner-link-scope--offer {
+    padding: 12px;
+  }
+}

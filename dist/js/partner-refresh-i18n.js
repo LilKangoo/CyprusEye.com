@@ -2,6 +2,10 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "Link to entire category": "Link do całej kategorii",
+    "Opens all offers in this category.":
+      "Otwiera listę wszystkich ofert w tej kategorii.",
+    "Link to this offer": "Link do tej oferty",
     "Enlarge QR code": "Powiększ kod QR",
     "Public offer · preview": "Oferta publiczna · podgląd",
     "My metrics": "Moje wskaźniki",
@@ -428,7 +432,7 @@
         const parent = n.parentElement;
         if (
           parent.closest(
-            "script,style,textarea,[contenteditable],#partnerSelect,#blockResourceId,#partnerUserName,.tree-user-details,.partner-links-card__summary,.partner-links-card h3,.partner-blog-editor,.partner-details-value",
+            "script,style,textarea,[contenteditable],#partnerSelect,#blockResourceId,#partnerUserName,.tree-user-details,.partner-links-card__summary,.partner-links-card h3,.partner-link-offer-name,.partner-blog-editor,.partner-details-value",
           )
         )
           continue;
