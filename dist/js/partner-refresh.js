@@ -241,7 +241,12 @@
       const find = document.createElement("button");
       find.type = "button";
       find.className = "btn-sm";
-      find.textContent = "Find in calendar";
+      const calendarIcon = document.createElement("span");
+      calendarIcon.setAttribute("aria-hidden", "true");
+      calendarIcon.textContent = "📅";
+      const calendarLabel = document.createElement("span");
+      calendarLabel.textContent = "Find in calendar";
+      find.append(calendarIcon, " ", calendarLabel);
       find.addEventListener("click", () => {
         calendar.scrollIntoView({ block: "start", behavior: "smooth" });
         document

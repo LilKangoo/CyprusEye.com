@@ -748,8 +748,9 @@ body.partners-page {
   color: #a5eed3;
   border-color: #317965;
 }
+#fulfillmentsHint,
 #partnerOrdersFilterHint {
-  margin: 8px 0 16px;
+  display: none !important;
 }
 #partnerFulfillmentsTableContainer {
   overflow: visible;
@@ -951,14 +952,34 @@ body.partners-page {
     padding: 16px !important;
   }
   .partner-search-bar {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 10px 6px;
+  }
+  .partner-search-bar label {
+    min-width: 0;
+    grid-template-rows: 1fr 44px;
+    gap: 5px;
+    font-size: 11px;
   }
   .partner-search-bar label:first-child {
     grid-column: 1/-1;
   }
-  .partner-search-bar label:has(#partnerOrderDate) {
-    grid-column: 1/-1;
-    order: 3;
+  .partner-search-bar input,
+  .partner-search-bar select {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-inline: 6px;
+    font-size: 12px;
+    text-overflow: ellipsis;
+  }
+  .partner-search-bar input[type="search"] {
+    font-size: 16px;
+    padding-inline: 12px;
+  }
+  .partner-search-bar input[type="date"]::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: start;
   }
   .partner-referral-heading {
     align-items: flex-start;
