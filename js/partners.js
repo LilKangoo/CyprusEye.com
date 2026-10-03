@@ -11154,7 +11154,7 @@
               ? `<div class="small"><strong>Selection link expires:</strong> ${escapeHtml(optionsExpiryLabel)}</div>`
               : '';
 
-            const parts = [preferredHtml, stayHtml, participantsHtml, proposedHtml, selectionHtml, sentHtml, expiresHtml, selectedHtml].filter(Boolean).join('');
+            const parts = [selectedHtml || preferredHtml, stayHtml, participantsHtml, proposedHtml, selectionHtml, sentHtml, expiresHtml].filter(Boolean).join('');
             return parts || '<span class="muted">—</span>';
           }
 
@@ -11341,7 +11341,7 @@
           : '';
 
         return `
-          <tr data-fulfillment-id="${escapeHtml(id)}">
+          <tr data-fulfillment-id="${escapeHtml(id)}" data-service-type="${escapeHtml(isShop ? 'shop' : String(f.resource_type || 'service'))}">
             <td>
               <strong>${orderLabel}</strong>
               <div class="muted small">Created: ${escapeHtml(formatDate(f.created_at))}</div>

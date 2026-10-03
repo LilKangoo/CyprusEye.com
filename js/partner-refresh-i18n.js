@@ -2,6 +2,9 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "Your referral link & code": "Twój link i kod",
+    "Bookings, referrals and your daily actions in one place.":
+      "Rezerwacje, polecenia i codzienne działania w jednym miejscu.",
     Shop: "Sklep",
     Cars: "Auta",
     Trips: "Wycieczki",

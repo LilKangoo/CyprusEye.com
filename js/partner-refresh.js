@@ -75,6 +75,113 @@
       workspace.prepend(partnerToolbar);
     }
 
+    // Match the approved reservations layout while retaining the original controls/listeners.
+    const portal = document.getElementById("partnerPortalView");
+    const heading = portal?.querySelector("h1");
+    if (heading) heading.textContent = "Reservations";
+    const intro = portal?.querySelector(":scope > p");
+    if (intro)
+      intro.textContent =
+        "Bookings, referrals and your daily actions in one place.";
+    if (summary) {
+      const head = document.createElement("div");
+      head.className = "partner-referral-heading";
+      const label = document.createElement("strong");
+      label.textContent = "Your referral link & code";
+      head.append(label);
+      const invited = summary.querySelector(
+        "#partnerReferralCountSummary",
+      )?.parentElement;
+      if (invited) head.append(invited);
+      summary.prepend(head);
+      const code = document.getElementById("partnerReferralCodeSummary");
+      const copy = document.getElementById("btnPartnerCopyReferralCodeSummary");
+      if (code && copy) {
+        const group = code.parentElement;
+        group.classList.add("partner-code-inline");
+        group.append(copy);
+      }
+    }
+
+    const searchBar = document.querySelector(".partner-search-bar");
+    const filter = document.querySelector(".partner-orders-filter-panel");
+    const statusButtons = [
+      ...document.querySelectorAll("[data-orders-status-filter]"),
+    ];
+    if (searchBar && filter && statusButtons.length) {
+      filter.before(searchBar);
+      const label = document.createElement("label");
+      label.append(document.createTextNode("Status"));
+      const select = document.createElement("select");
+      select.id = "partnerOrderStatus";
+      statusButtons.forEach((button) => {
+        const option = document.createElement("option");
+        option.value = button.dataset.ordersStatusFilter;
+        option.textContent = button.textContent;
+        select.append(option);
+      });
+      select.addEventListener("change", () =>
+        statusButtons
+          .find((b) => b.dataset.ordersStatusFilter === select.value)
+          ?.click(),
+      );
+      label.append(select);
+      searchBar.children[1]?.before(label);
+      const syncStatus = () => {
+        select.value =
+          statusButtons.find(
+            (b) =>
+              b.getAttribute("aria-pressed") === "true" ||
+              b.classList.contains("is-active"),
+          )?.dataset.ordersStatusFilter || "all";
+      };
+      new MutationObserver(syncStatus).observe(filter, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["aria-pressed", "class"],
+      });
+      syncStatus();
+      const chips = document.createElement("div");
+      chips.className = "partner-order-category-chips";
+      const nav = [
+        ...document.querySelectorAll("#partnerNavAll, [data-partner-category]"),
+      ];
+      const pairs = nav.map((source) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn-sm";
+        button.textContent =
+          source.id === "partnerNavAll"
+            ? "All"
+            : source.querySelector("span")?.textContent || source.textContent;
+        button.addEventListener("click", () => source.click());
+        chips.append(button);
+        return { source, button };
+      });
+      const syncCategories = () =>
+        pairs.forEach(({ source, button }) => {
+          button.hidden = source.hidden;
+          button.setAttribute(
+            "aria-pressed",
+            String(source.classList.contains("active")),
+          );
+        });
+      new MutationObserver(syncCategories).observe(
+        document.getElementById("partnerSidebarNav"),
+        {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["hidden", "class"],
+        },
+      );
+      syncCategories();
+      const reset = document.getElementById("btnPartnerOrdersClearFilters");
+      if (reset) chips.append(reset);
+      searchBar.after(chips);
+      const hint = document.getElementById("partnerOrdersFilterHint");
+      if (hint) chips.after(hint);
+    }
+
     const resources = document.getElementById("partnerResourcePanels");
     const grid = document.getElementById("partnerCalendarMonthGrid");
     if (resources && grid) grid.after(resources);

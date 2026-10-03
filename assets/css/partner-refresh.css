@@ -615,3 +615,404 @@ body.partners-page {
     height: 88px;
   }
 }
+
+/* Reservations: approved compact mockup, backed by the original booking controls. */
+.partners-page main.admin-main {
+  background: #0c141f !important;
+  padding: 28px 32px;
+}
+.partners-page main.admin-main::before {
+  display: none;
+}
+#partnerPortalView {
+  max-width: 1400px;
+  margin-inline: auto;
+}
+#partnerPortalView > h1 {
+  letter-spacing: -0.7px;
+}
+#partnerPortalView > p {
+  margin-bottom: 24px;
+}
+#partnerPortalResponseCard,
+#partnerServicesCard > .partner-tabs,
+.partner-orders-filter-panel,
+#partnerServicesTipsCard .partner-support-status {
+  display: none !important;
+}
+.partner-referral-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.partner-referral-heading > div {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+}
+#partnerReferralCountSummary {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #98aabe;
+}
+.partner-referral-compact {
+  justify-content: flex-start !important;
+  gap: 8px !important;
+}
+.partner-code-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #2a3b50;
+  border-radius: 10px;
+  padding-inline-start: 10px;
+}
+.partner-code-inline > .muted {
+  display: none;
+}
+.partner-code-inline input {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  width: 80px;
+  max-width: 100px;
+  height: 38px;
+  font-weight: 600;
+}
+.partner-code-inline button {
+  border: 0 !important;
+}
+#partnerAffiliateSummaryMetrics {
+  margin: 0;
+  gap: 12px;
+}
+#partnerAffiliateSummaryMetrics .partner-metric {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: baseline;
+}
+#partnerAffiliateSummaryMetrics .partner-metric:last-child {
+  justify-content: flex-end;
+}
+#partnerAffiliateSummaryMetrics .partner-metric__label {
+  text-transform: none;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+#partnerAffiliateSummaryMetrics .partner-metric__value {
+  font-size: 14px;
+  margin: 0;
+}
+#partnerAffiliateSummaryProgressText {
+  display: none;
+}
+.partner-affiliate-progress {
+  margin-top: 10px;
+}
+.partner-workspace-switch {
+  margin: 0 !important;
+  padding: 0;
+}
+#partnerServicesCard {
+  padding: 22px;
+}
+#partnerTabFulfillments {
+  margin-top: 0 !important;
+}
+.partner-search-bar {
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.55fr) 145px minmax(
+      150px,
+      0.6fr
+    );
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.partner-order-category-chips {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+}
+.partner-order-category-chips button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: 36px;
+}
+.partner-order-category-chips button[aria-pressed="true"] {
+  background: #174b43;
+  color: #a5eed3;
+  border-color: #317965;
+}
+#partnerOrdersFilterHint {
+  margin: 8px 0 16px;
+}
+#partnerFulfillmentsTableContainer {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+#partnerFulfillmentsTableContainer table {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+}
+#partnerFulfillmentsTableContainer thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+#fulfillmentsTableBody {
+  display: block;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 2fr) minmax(135px, 1fr) minmax(95px, 0.7fr)
+    minmax(110px, 0.8fr);
+  grid-template-areas: "service dates price actions" "reference status status actions";
+  gap: 8px 18px;
+  padding: 20px 2px;
+  border-top: 1px solid #293849;
+  align-items: center;
+  border-radius: 0;
+  background: transparent;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id]:hover {
+  background: #182a3b;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] > td {
+  padding: 0 !important;
+  border: 0;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#fulfillmentsTableBody td:nth-child(1) {
+  grid-area: reference;
+  font-size: 12px;
+  color: #98aabe;
+}
+#fulfillmentsTableBody td:nth-child(1) strong {
+  font-weight: 400;
+}
+#fulfillmentsTableBody td:nth-child(1) > .muted {
+  display: none;
+}
+#fulfillmentsTableBody td:nth-child(2) {
+  grid-area: status;
+}
+#fulfillmentsTableBody td:nth-child(2) > .muted {
+  display: none;
+}
+#fulfillmentsTableBody td:nth-child(2) .badge {
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#fulfillmentsTableBody td:nth-child(3) {
+  grid-area: dates;
+  font-size: 12px;
+}
+#fulfillmentsTableBody td:nth-child(3) > div:nth-child(n + 3) {
+  display: none;
+}
+#fulfillmentsTableBody td:nth-child(4) {
+  grid-area: price;
+  font-weight: 650;
+}
+#fulfillmentsTableBody td:nth-child(4) > div[style] {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: inherit !important;
+}
+#fulfillmentsTableBody td:nth-child(4) > .muted {
+  font-size: 10px;
+}
+#fulfillmentsTableBody td:nth-child(5) {
+  grid-area: service;
+  position: relative;
+  padding-inline-start: 28px !important;
+}
+#fulfillmentsTableBody td:nth-child(5)::before {
+  content: "📍";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+}
+#fulfillmentsTableBody [data-service-type="cars"] td:nth-child(5)::before {
+  content: "🚗";
+}
+#fulfillmentsTableBody [data-service-type="trips"] td:nth-child(5)::before {
+  content: "🧭";
+}
+#fulfillmentsTableBody [data-service-type="hotels"] td:nth-child(5)::before {
+  content: "🏨";
+}
+#fulfillmentsTableBody [data-service-type="transport"] td:nth-child(5)::before {
+  content: "🚐";
+}
+#fulfillmentsTableBody [data-service-type="shop"] td:nth-child(5)::before {
+  content: "🛍️";
+}
+#fulfillmentsTableBody td:nth-child(5) > .small:first-child:has(strong) {
+  display: none;
+}
+#fulfillmentsTableBody td:nth-child(5) > .small {
+  font-size: 14px;
+  font-weight: 650;
+}
+#fulfillmentsTableBody td:nth-child(5) > div:has([data-partner-details-open]) {
+  margin-top: 4px !important;
+}
+#fulfillmentsTableBody .btn-details {
+  padding: 0;
+  min-height: 28px;
+  border: 0;
+  background: none;
+  color: #8ad8c0;
+  font-size: 12px;
+}
+#fulfillmentsTableBody td:nth-child(6) {
+  grid-area: actions;
+  text-align: end;
+}
+#fulfillmentsTableBody .btn-row {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#fulfillmentsTableBody .btn-row button {
+  width: auto;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+.partner-orders-calendar-card {
+  border: 0 !important;
+  border-top: 1px solid #293849 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding-top: 16px;
+}
+#btnPartnerOrdersCalendarToggle {
+  background: transparent !important;
+  padding-inline: 0;
+}
+.partner-orders-calendar-toggle-subtitle {
+  display: none;
+}
+#partnerServicesTipsCard {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  gap: 18px;
+}
+#partnerServicesTipsCard > section {
+  padding: 22px;
+  border-radius: 17px;
+  background: #152232;
+}
+.partner-support-install h3::before {
+  content: "📲 ";
+}
+.partner-support-push h3::before {
+  content: "🔔 ";
+}
+@media (max-width: 1100px) {
+  .partner-search-bar {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .partner-search-bar label:first-child {
+    grid-column: 1/-1;
+  }
+  #fulfillmentsTableBody tr[data-fulfillment-id] {
+    grid-template-columns: minmax(160px, 1.6fr) minmax(110px, 1fr) minmax(
+        100px,
+        0.7fr
+      );
+    grid-template-areas: "service dates price" "reference status actions";
+  }
+}
+@media (max-width: 700px) {
+  .partners-page main.admin-main {
+    padding: 22px 16px;
+  }
+  #partnerServicesCard {
+    padding: 16px !important;
+  }
+  .partner-search-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .partner-search-bar label:first-child {
+    grid-column: 1/-1;
+  }
+  .partner-search-bar label:has(#partnerOrderDate) {
+    grid-column: 1/-1;
+    order: 3;
+  }
+  .partner-referral-heading {
+    align-items: flex-start;
+  }
+  .partner-copy-languages {
+    gap: 6px;
+  }
+  .partner-copy-languages button {
+    font-size: 12px;
+    padding: 10px;
+  }
+  #fulfillmentsTableBody tr[data-fulfillment-id] {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "service price" "reference reference" "dates status" "actions actions";
+    gap: 10px;
+  }
+  #fulfillmentsTableBody td:nth-child(4) {
+    text-align: end;
+  }
+  #fulfillmentsTableBody td:nth-child(2) {
+    text-align: end;
+  }
+  #fulfillmentsTableBody td:nth-child(6) {
+    text-align: start;
+  }
+  #fulfillmentsTableBody .btn-row {
+    justify-content: flex-start;
+  }
+  #partnerServicesTipsCard {
+    grid-template-columns: 1fr;
+  }
+  .partner-workspace-switch select {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+}
+/* Override the legacy mobile table's internal label/value grid. */
+#fulfillmentsTableBody tr[data-fulfillment-id] > td {
+  display: block !important;
+  width: auto !important;
+  max-width: none !important;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] > td:not(:nth-child(5))::before {
+  display: none !important;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] > td:nth-child(5)::before {
+  display: block !important;
+}
+.partners-page {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+@media (max-width: 700px) {
+  #fulfillmentsTableBody tr[data-fulfillment-id] {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  }
+}
