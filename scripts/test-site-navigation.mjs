@@ -14,7 +14,7 @@ for (const [page, { mode }] of Object.entries(pages))
       full ? 1 : 0,
     );
     if (!full) return;
-    if (mode !== "campaign") assert.match(html, /i18n\.js\?v=20261001_navigation1/, `${page}: translation cache version`);
+    if (mode !== "campaign") assert.match(html, html.includes('service-booking-controls.js') ? /i18n\.js\?v=20261003_services1/ : /i18n\.js\?v=20261001_navigation1/, `${page}: translation cache version`);
     for (const id of [
       "ce-site-menu",
       "sosToggle",
