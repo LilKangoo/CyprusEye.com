@@ -4701,6 +4701,10 @@
     return partnerLinksTypeLabel(row?.service_type || row?.type);
   }
 
+  function partnerLinksTypeIcon(type) {
+    return {cars:'🚗', trips:'🧭', hotels:'🏨', transport:'🚕', shop:'🛍️', blog:'📰', special_offers:'✨', 'special-offers':'✨', special:'✨'}[type] || '';
+  }
+
   function renderPartnerLinksFilters() {
     if (!els.partnerLinksFilters) return;
     els.partnerLinksFilters.innerHTML = PARTNER_LINKS_FILTERS.map((filter) => {
@@ -4711,7 +4715,7 @@
           class="partner-tab ${String(state.linksDiscounts.filter || 'all') === filter.key ? 'is-active' : ''}"
           data-partner-links-filter="${escapeHtml(filter.key)}"
         >
-          ${escapeHtml(filter.label)}
+          <span class="partner-category-emoji" aria-hidden="true">${partnerLinksTypeIcon(filter.key)}</span><span>${escapeHtml(filter.label)}</span>
           <span class="partner-links-tab-count">${escapeHtml(String(count))}</span>
         </button>
       `;
@@ -4770,7 +4774,7 @@
       const categoryButtons = ['pl', 'en', 'he'].map(lang => {
         const readiness = lang === 'he' ? getPartnerLinksHeReadiness(item, 'landing') : { allowed: true };
         const url = readiness.allowed ? buildPartnerLinksReferralUrl(item, { lang, kind: 'landing' }) : '';
-        return `<button type="button" class="btn-sm" data-partner-link-stop="1" ${url ? `data-partner-link-copy-url="${escapeHtml(url)}"` : 'disabled'}>${{pl:'🇵🇱',en:'🇬🇧',he:'🇮🇱'}[lang]} ${lang.toUpperCase()}</button>`;
+        return `<button type="button" class="btn-sm" data-partner-link-stop="1" ${url ? `data-partner-link-copy-url="${escapeHtml(url)}"` : 'disabled'}>${{pl:'🇵🇱',en:'🇬🇧',he:'🇮🇱'}[lang]} <span>Copy link</span></button>`;
       }).join('');
       const offerPl = buildPartnerLinksReferralUrl(item, { lang: 'pl', kind: 'detail' });
       const offerEn = buildPartnerLinksReferralUrl(item, { lang: 'en', kind: 'detail' });
@@ -4782,8 +4786,8 @@
       const imageHtml = item.imageUrl
         ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(title || item.title)}" loading="lazy" />`
         : (item.type === 'transport' && item.transportFromPrice
-          ? `<div class="partner-links-card__placeholder"><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span><small>Transport route</small></div>`
-          : `<div class="partner-links-card__placeholder">${escapeHtml(partnerLinksTypeLabel(item.type))}</div>`);
+          ? `<div class="partner-links-card__placeholder"><span class="partner-placeholder-icon" aria-hidden="true">🚕</span><span class="partner-links-card__transport-price">${escapeHtml(`from ${item.transportFromPrice}`)}</span><small>Transport route</small></div>`
+          : `<div class="partner-links-card__placeholder"><span class="partner-placeholder-icon" aria-hidden="true">${partnerLinksTypeIcon(item.type)}</span><small>${escapeHtml(partnerLinksTypeLabel(item.type))}</small></div>`);
       return `
         <article
           class="partner-links-card partner-links-card--${escapeHtml(item.type)} ${item.key === state.linksDiscounts.selectedKey ? 'is-active' : ''}"
@@ -4793,10 +4797,14 @@
           tabindex="0"
           aria-label="${escapeHtml(`Preview ${title}`)}"
         >
+          <div class="partner-links-category-heading">
+            <h2><span class="partner-category-emoji" aria-hidden="true">${partnerLinksTypeIcon(item.type)}</span><span>${escapeHtml(partnerLinksTypeLabel(item.type))}</span></h2>
+            <div class="partner-category-copy"><span>Category link</span><div>${categoryButtons}</div></div>
+          </div>
           <div class="partner-links-card__media">${imageHtml}</div>
           <div class="partner-links-card__body">
             <div class="partner-links-card__top">
-              <span class="partner-links-card__category">${escapeHtml(partnerLinksTypeLabel(item.type))}</span>
+              <span class="partner-offer-preview-label">Public offer · preview</span>
               <button
                 type="button"
                 class="partner-links-info-btn"
@@ -4810,12 +4818,11 @@
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
             <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
             <a class="partner-see-offer" href="${escapeHtml(buildPartnerLinksPageUrl(item, {lang: document.documentElement.lang === 'pl' ? 'pl' : 'en', kind: 'detail'}))}" target="_blank" rel="noopener noreferrer" data-partner-link-stop="1">See offer ↗</a>
-            <div class="partner-category-copy"><span>Category link</span><div>${categoryButtons}</div></div>
-            <div class="partner-offer-copy-label">Specific offer</div>
+
             <div class="partner-links-card__actions">
-              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">Copy PL 🇵🇱</button>
-              <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">Copy EN 🇬🇧</button>
-              <button type="button" class="btn-sm partner-links-action" ${offerHeAttrs} data-partner-link-stop="1">Copy HE 🇮🇱</button>
+              <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">🇵🇱 <span>Copy link</span></button>
+              <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">🇬🇧 <span>Copy link</span></button>
+              <button type="button" class="btn-sm partner-links-action" ${offerHeAttrs} data-partner-link-stop="1">🇮🇱 <span>Copy link</span></button>
             </div>
           </div>
         </article>

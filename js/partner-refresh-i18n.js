@@ -2,6 +2,8 @@
 (() => {
   const pl = {
     All: "Wszystkie",
+    "Enlarge QR code": "Powiększ kod QR",
+    "Public offer · preview": "Oferta publiczna · podgląd",
     "My metrics": "Moje wskaźniki",
     Customize: "Dostosuj",
     "Chart type": "Typ wykresu",
@@ -417,7 +419,7 @@
     observer.disconnect();
     document.documentElement.lang = lang;
     const roots = document.querySelectorAll(
-      ".admin-header, .partner-workspace-switch, #partnerSidebarNav, .partner-card, .admin-main h1, .admin-main > div > p, #partnerDetailsModal, #partnerBlogModal",
+      ".admin-header, .partner-workspace-switch, #partnerSidebarNav, .partner-card, .admin-main h1, .admin-main > div > p, #partnerDetailsModal, #partnerBlogModal, .partner-qr-dialog",
     );
     roots.forEach((root) => {
       const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);

@@ -1684,3 +1684,206 @@ body.partners-page {
   flex: 0 0 34px;
   padding: 8px !important;
 }
+/* Compact referral actions and the approved category/offer hierarchy. */
+.partner-copy-languages button {
+  white-space: nowrap;
+}
+#partnerLinksFilters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.partner-category-emoji {
+  flex: 0 0 auto;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.partner-category-emoji:empty {
+  display: none;
+}
+.partner-links-card {
+  padding: 22px;
+  gap: 20px;
+  align-items: start;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1fr);
+}
+.partner-links-category-heading {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.partner-links-category-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+.partner-links-category-heading .partner-category-copy {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 8px 16px;
+}
+.partner-category-copy button,
+.partner-links-card__actions button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+.partner-links-card__media {
+  min-height: 180px;
+  max-height: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.partner-links-card__body {
+  padding: 0 !important;
+}
+.partner-links-card__top {
+  align-items: center;
+  gap: 12px;
+}
+.partner-offer-preview-label {
+  color: #98aabe;
+  font-size: 12px;
+}
+.partner-links-card__actions {
+  margin-top: 18px;
+}
+.partner-links-card__actions .partner-links-action--primary {
+  background: #152232;
+  border-color: #334155;
+}
+.partner-referral-qr-card__visual {
+  padding: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.partner-qr-trigger {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  cursor: zoom-in;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.partner-qr-trigger:focus-visible {
+  outline: 3px solid #54d3b0;
+  outline-offset: 4px;
+}
+.partner-qr-trigger #partnerReferralQrCanvas {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+}
+.partner-qr-open {
+  overflow: hidden;
+}
+.partner-qr-dialog {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 24px;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  background: #0c141f;
+  color: #eef5fc;
+}
+.partner-qr-dialog::backdrop {
+  background: #0c141f;
+}
+.partner-qr-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.partner-qr-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.partner-qr-dialog-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.partner-qr-dialog-header button {
+  min-height: 44px;
+  padding: 10px 18px;
+  color: #eef5fc;
+  background: #192c3f;
+  border: 1px solid #3e5266;
+  border-radius: 12px;
+}
+.partner-qr-dialog-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+}
+.partner-qr-dialog #partnerReferralQrCanvas {
+  width: min(82vw, 72dvh, 768px) !important;
+  height: auto !important;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  border-radius: 0;
+  object-fit: contain;
+}
+@media (max-width: 700px) {
+  .partner-links-card {
+    padding: 16px;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .partner-links-card__media {
+    height: 190px !important;
+  }
+  .partner-links-card__body {
+    padding: 0 !important;
+  }
+  .partner-links-category-heading .partner-category-copy {
+    align-items: start;
+    flex-direction: column;
+  }
+  .partner-referral-qr-card__content {
+    grid-template-columns: 110px minmax(0, 1fr) !important;
+    gap: 16px;
+  }
+  .partner-referral-qr-card__visual {
+    width: 110px !important;
+    height: 110px !important;
+  }
+  .partner-qr-dialog {
+    padding: 16px;
+  }
+  .partner-qr-dialog-header h2 {
+    font-size: 17px;
+  }
+}
+@media (max-width: 430px) {
+  .partner-referral-qr-card__content {
+    grid-template-columns: 1fr !important;
+  }
+  .partner-referral-qr-card__visual {
+    width: 150px !important;
+    height: 150px !important;
+    justify-self: center;
+  }
+}
+
+.partner-placeholder-icon {
+  font-size: 36px;
+  line-height: 1.4;
+}

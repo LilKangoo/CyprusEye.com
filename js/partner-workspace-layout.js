@@ -72,8 +72,61 @@
     sync();
     return shell;
   }
+  function initQrViewer() {
+    const canvas = $("partnerReferralQrCanvas");
+    const visual = canvas?.parentElement;
+    if (!canvas || !visual) return;
+    const trigger = make("button", "partner-qr-trigger");
+    trigger.type = "button";
+    trigger.setAttribute("aria-labelledby", "btnPartnerEnlargeQr");
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-controls", "partnerQrFullscreen");
+    canvas.before(trigger);
+    trigger.append(canvas);
+    const dialog = make("dialog", "partner-qr-dialog");
+    dialog.id = "partnerQrFullscreen";
+    dialog.setAttribute("aria-labelledby", "partnerQrFullscreenTitle");
+    const header = make("div", "partner-qr-dialog-header");
+    const title = make("h2", "", "Referral QR code");
+    title.id = "partnerQrFullscreenTitle";
+    const close = make("button", "btn-sm", "Close");
+    close.type = "button";
+    header.append(title, close);
+    const stage = make("div", "partner-qr-dialog-stage");
+    dialog.append(header, stage);
+    document.body.append(dialog);
+    const expand = make("button", "btn-sm", "Enlarge QR code");
+    expand.id = "btnPartnerEnlargeQr";
+    expand.type = "button";
+    expand.setAttribute("aria-haspopup", "dialog");
+    expand.setAttribute("aria-controls", dialog.id);
+    $("partnerReferralQrCard")
+      ?.querySelector(".partner-referral-qr-card__actions")
+      ?.append(expand);
+    let opener;
+    const open = (event) => {
+      if (dialog.open) return;
+      opener = event.currentTarget;
+      stage.append(canvas);
+      document.body.classList.add("partner-qr-open");
+      dialog.showModal();
+      close.focus();
+    };
+    trigger.addEventListener("click", open);
+    expand.addEventListener("click", open);
+    close.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog || event.target === stage) dialog.close();
+    });
+    dialog.addEventListener("close", () => {
+      trigger.append(canvas);
+      document.body.classList.remove("partner-qr-open");
+      opener?.focus({ preventScroll: true });
+    });
+  }
   function init() {
     document.body.classList.add("partner-workspace-complete");
+    initQrViewer();
     // Availability: calendar and selectable photo resources on the left, original block form on the right.
     const calendar = $("partnerTabCalendar");
     if (calendar) {

@@ -23,14 +23,14 @@
       status.className = "muted small partner-copy-status";
       status.setAttribute("role", "status");
       for (const [lang, label] of [
-        ["pl", "🇵🇱 Polski"],
-        ["en", "🇬🇧 English"],
-        ["he", "🇮🇱 עברית"],
+        ["pl", "🇵🇱"],
+        ["en", "🇬🇧"],
+        ["he", "🇮🇱"],
       ]) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "btn-sm";
-        button.append(document.createTextNode(label + " · "));
+        button.append(document.createTextNode(label + " "));
         const text = document.createElement("span");
         text.textContent = "Copy link";
         button.append(text);
@@ -51,17 +51,29 @@
         controls.appendChild(button);
       }
       row?.prepend(controls);
-      const qr = document.createElement("button");
-      qr.type = "button";
-      qr.className = "btn-sm";
-      qr.textContent = "QR";
-      qr.addEventListener("click", () => {
-        document.getElementById("btnPartnerOpenLinksDiscountsSummary")?.click();
-        document
-          .getElementById("partnerReferralQrCard")
-          ?.scrollIntoView({ block: "center", behavior: "smooth" });
-      });
-      row?.append(qr, status);
+      const qrMeta = document.querySelector(".partner-referral-qr-card__meta");
+      if (qrMeta) {
+        const homepageCopies = document.createElement("div");
+        homepageCopies.className = "partner-copy-languages";
+        const qrStatus = document.createElement("span");
+        qrStatus.className = "partner-copy-status";
+        qrStatus.setAttribute("role", "status");
+        [...controls.children].forEach((source) => {
+          const button = source.cloneNode(true);
+          button.addEventListener("click", () => source.click());
+          homepageCopies.append(button);
+        });
+        new MutationObserver(() => {
+          qrStatus.textContent = status.textContent;
+        }).observe(status, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        qrMeta.querySelector("h3")?.after(homepageCopies);
+        qrMeta.append(qrStatus);
+      }
+      row?.append(status);
       const earnings = document.getElementById("partnerAffiliateSummaryCard");
       if (earnings) summary.append(earnings);
     }
