@@ -111,7 +111,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
   // Use root-relative assets, including on nested pages. Keep the existing providers once.
   const css = [
     "/assets/css/compact-header.css?v=2",
-    "/assets/css/site-navigation.css?v=1",
+    "/assets/css/site-navigation.css?v=20261003savedicons1",
   ];
   for (const href of css) {
     const base = href.split("?")[0];
@@ -142,7 +142,7 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
     ["/js/compact-header.js?v=3", false],
     ["/js/header-dropdown.js?v=3", false],
     ["/js/site-navigation-labels.js?v=1", false],
-    ["/js/site-navigation.js?v=20261001saved2", false],
+    ["/js/site-navigation.js?v=20261003savedicons1", false],
   ];
   for (const [src, module] of scripts) {
     const base = src.split("?")[0];
@@ -153,7 +153,8 @@ for (const [name, { mode, active }] of Object.entries(pages)) {
       );
   }
   html = html
-    .replace(/site-navigation\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.js?v=20261001saved2")
+    .replace(/site-navigation\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.js?v=20261003savedicons1")
+    .replace(/site-navigation\.css(?:\?v=[^"'\s<>]+)?(?=["'])/g, "site-navigation.css?v=20261003savedicons1")
     .replace(/i18n\.js(?:\?v=[^"'\s<>]+)?(?=["'])/g, "i18n.js?v=20261001_navigation1")
     .replace(/(compact-header\.js\?v=)3/g, "$14")
     .replace(/(header-dropdown\.js\?v=)2/g, "$13")

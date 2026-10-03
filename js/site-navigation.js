@@ -344,6 +344,17 @@
         const li = document.createElement("li"),
           a = document.createElement("a");
         a.textContent = row.title || t(({ car: "cars", trip: "trips", hotel: "hotels", recommendation: "recommendations", poi: "map" })[row.type] || "saved");
+        if (kind === "saved") {
+          const title = document.createElement("span");
+          title.className = "ce-saved-title";
+          title.textContent = a.textContent;
+          const icon = document.createElement("span");
+          icon.className = "ce-saved-icon";
+          icon.setAttribute("aria-hidden", "true");
+          icon.textContent = ({ trip: "🚤", hotel: "🏨", car: "🚗", poi: "📍", recommendation: "⭐" })[row.type] || "🔖";
+          a.classList.add("ce-saved-link");
+          a.replaceChildren(icon, title);
+        }
         a.href =
           window.CELanguage?.buildLocalizedUrl(row.href, language()) ||
           row.href;
