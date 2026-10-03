@@ -75,9 +75,12 @@
       monthValue: '',
       selectedDateIso: '',
       dayListVisible: false,
-      calendarExpanded: false,
+      calendarExpanded: true,
       compactRows: true,
-      filterExpanded: false,
+      filterExpanded: true,
+      search: '',
+      sort: 'date',
+      filterDate: '',
     },
     analytics: {
       period: 'year',
@@ -145,6 +148,7 @@
 
   let referralTreeRoot = null;
   let referralTreeQuery = '';
+  let referralTreeView = 'tree';
 
   const PARTNER_REFERRAL_QR_LOGO_SRC = '/assets/cyprus_logo-128.png';
 
@@ -2108,7 +2112,7 @@
     if (!els.partnerAffiliateSummaryCard) return;
     const compact = Boolean(canShow && !isAffiliateOnly);
     els.partnerAffiliateSummaryCard.classList.toggle('partner-affiliate-summary--compact', compact);
-    setHidden(els.partnerAffiliateSummaryMetrics, compact);
+    setHidden(els.partnerAffiliateSummaryMetrics, false);
     setHidden(els.partnerAffiliateSummaryActions, compact);
     if (els.partnerAffiliateSummarySubtitle) {
       els.partnerAffiliateSummarySubtitle.textContent = compact
@@ -3265,16 +3269,13 @@
   }
 
   function syncOrdersCalendarCollapseUi() {
-    const expanded = Boolean(state.orders.calendarExpanded);
-    const toggleLabel = expanded ? 'Tap to collapse' : 'Tap to expand';
+    state.orders.calendarExpanded = true;
     if (els.btnOrdersCalendarToggle) {
-      els.btnOrdersCalendarToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      els.btnOrdersCalendarToggle.title = `${toggleLabel} paid reservations calendar`;
+      els.btnOrdersCalendarToggle.setAttribute('aria-expanded', 'true');
+      els.btnOrdersCalendarToggle.disabled = true;
     }
-    if (els.ordersCalendarToggleState) {
-      setText(els.ordersCalendarToggleState, toggleLabel);
-    }
-    setHidden(els.ordersCalendarBody, !expanded);
+    if (els.ordersCalendarToggleState) els.ordersCalendarToggleState.hidden = true;
+    setHidden(els.ordersCalendarBody, false);
   }
 
   function applyOrdersTableDensity() {
@@ -3293,10 +3294,34 @@
     const rows = filteredFulfillmentsForSelectedCategory();
     const statusFilter = normalizeOrdersStatus(state.orders.status);
 
+    const amountFor = (row) => row.__source === 'shop'
+      ? Number(row.total_allocated ?? row.subtotal ?? 0)
+      : row.resource_type === 'transport'
+        ? Number(getPartnerTransportEffectiveAmount(row) || 0)
+        : Number(getCarsFulfillmentPricing(row).amount || 0);
+    const query = String(state.orders.search || '').trim().toLocaleLowerCase();
+    const date = state.orders.filterDate || '';
     return rows.filter((row) => {
       const status = fulfillmentStatusForOrders(row);
       if (statusFilter !== 'all' && status !== statusFilter) return false;
-      return true;
+      const range = fulfillmentScheduleRange(row);
+      if (date && (!range || date < range.startIso || date > range.endIso)) return false;
+      const contact = row.contact_revealed_at ? state.contactsByFulfillmentId[String(row.id)] : null;
+      const safeText = [orderLabelForFulfillment(row), row.summary, row.resource_type,
+        range?.startIso, range?.endIso, row.total_price,
+        contact?.customer_name, contact?.customer_email, contact?.customer_phone,
+        contact?.full_name, contact?.email, contact?.phone].filter(Boolean).join(' ').toLocaleLowerCase();
+      return !query || safeText.includes(query);
+    }).sort((a, b) => {
+      if (state.orders.sort === 'price') return amountFor(b) - amountFor(a);
+      if (state.orders.sort === 'newest') return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      const ar = fulfillmentScheduleRange(a), br = fulfillmentScheduleRange(b);
+      const today = localDateIso();
+      const aPast = Boolean(ar?.endIso && ar.endIso < today);
+      const bPast = Boolean(br?.endIso && br.endIso < today);
+      if (aPast !== bPast) return aPast ? 1 : -1;
+      const order = String(ar?.startIso || '9999').localeCompare(String(br?.startIso || '9999'));
+      return aPast ? -order : order;
     });
   }
 
@@ -3698,7 +3723,8 @@
 
   function getPartnerUiLanguage() {
     const lang = String(
-      (typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '')
+      document.documentElement.lang
+      || (typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '')
       || window.appI18n?.language
       || 'en'
     ).trim().toLowerCase();
@@ -4759,6 +4785,7 @@
             <h3>${escapeHtml(title)}</h3>
             <p class="partner-links-card__meta">${escapeHtml(item.meta || '—')}</p>
             <p class="partner-links-card__summary ${summaryText ? '' : 'is-empty'}">${summaryText ? escapeHtml(summaryText) : '&nbsp;'}</p>
+            <a class="partner-see-offer" href="${escapeHtml(buildPartnerLinksPageUrl(item, {lang: document.documentElement.lang === 'pl' ? 'pl' : 'en', kind: 'detail'}))}" target="_blank" rel="noopener noreferrer" data-partner-link-stop="1">See offer ↗</a>
             <div class="partner-links-card__actions">
               <button type="button" class="btn-sm partner-links-action" data-partner-link-copy-url="${escapeHtml(offerPl)}" data-partner-link-stop="1">Copy PL 🇵🇱</button>
               <button type="button" class="btn-sm partner-links-action partner-links-action--primary" data-partner-link-copy-url="${escapeHtml(offerEn)}" data-partner-link-stop="1">Copy EN 🇬🇧</button>
@@ -5507,7 +5534,7 @@
       if (q && !subtreeMatches(node)) return '';
 
       const hasChildren = (node.children || []).length > 0;
-      const expanded = q ? true : !!node.expanded;
+      const expanded = q || referralTreeView === 'list' ? true : !!node.expanded;
 
       const toggleHtml = hasChildren
         ? `<div class="tree-toggle tree-toggle-active" data-toggle-id="${escapeHtml(node.id)}">${expanded ? '−' : '+'}</div>`
@@ -8559,11 +8586,11 @@
     if (period === 'year') {
       const dt = new Date(`${bucket}-01T00:00:00Z`);
       if (Number.isNaN(dt.getTime())) return bucket;
-      return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      return dt.toLocaleDateString(document.documentElement.lang === 'pl' ? 'pl-PL' : 'en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
     }
     const dt = new Date(`${bucket}T00:00:00Z`);
     if (Number.isNaN(dt.getTime())) return bucket;
-    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    return dt.toLocaleDateString(document.documentElement.lang === 'pl' ? 'pl-PL' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
 
   function analyticsTypeLabel(type) {
@@ -10194,6 +10221,11 @@
         if (!raw) return value;
         return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       };
+      const carLocationLabel = (side) => formatLocationLabel(window.CEPartnerCarLocation?.locationForSide({
+        location: getField(`${side}_location`),
+        otherLocation: getField(side === 'pickup' ? 'return_location' : 'pickup_location'),
+        flightNumber: getField('flight_number'), cityCode: getField(`${side}_city_code`), bookingLocation: getField('location'), side,
+      }) ?? getField(`${side}_location`));
       const formatDateLabel = (value) => {
         const raw = String(value == null ? '' : value).trim();
         if (!raw) return '';
@@ -10496,7 +10528,7 @@
         return [
           { label: 'Pickup date', value: getField('pickup_date') },
           { label: 'Pickup time', value: getField('pickup_time') },
-          { label: 'Pickup location', value: formatLocationLabel(getField('pickup_location')) },
+          { label: 'Pickup location', value: carLocationLabel('pickup') },
           { label: 'Pickup address', value: getField('pickup_address') },
           { label: 'Flight number', value: getField('flight_number') },
         ];
@@ -10507,7 +10539,7 @@
         return [
           { label: 'Return date', value: getField('return_date') },
           { label: 'Return time', value: getField('return_time') },
-          { label: 'Return location', value: formatLocationLabel(getField('return_location')) },
+          { label: 'Return location', value: carLocationLabel('return') },
           { label: 'Return address', value: getField('return_address') },
         ];
       })();
@@ -10887,10 +10919,10 @@
 
         const pickupDate = formatDateLabel(getField('pickup_date'));
         const pickupTime = formatTimeLabel(getField('pickup_time'));
-        const pickupLocation = formatLocationLabel(getField('pickup_location'));
+        const pickupLocation = carLocationLabel('pickup');
         const returnDate = formatDateLabel(getField('return_date'));
         const returnTime = formatTimeLabel(getField('return_time'));
-        const returnLocation = formatLocationLabel(getField('return_location'));
+        const returnLocation = carLocationLabel('return');
         const rentalDays = calculateCarDurationDays(f, snapshotPayload);
         const pricing = getCarsFulfillmentPricing(f);
         const totalPrice = pricing.amount != null ? formatMoney(pricing.amount, pricing.currency) : '';
@@ -11453,6 +11485,19 @@
       });
     });
 
+    els.fulfillmentsBody.querySelectorAll('tr[data-fulfillment-id]').forEach((row) => {
+      row.tabIndex = 0;
+      row.addEventListener('click', (event) => {
+        if (event.target.closest('button,a,input,select,textarea')) return;
+        row.querySelector('[data-partner-details-open]')?.click();
+      });
+      row.addEventListener('keydown', (event) => {
+        if (event.target === row && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          row.querySelector('[data-partner-details-open]')?.click();
+        }
+      });
+    });
     focusFulfillmentRowFromHash();
   }
 
@@ -13270,6 +13315,25 @@
     return [];
   }
 
+  async function loadCalendarResourceImages(type, rows, partnerId) {
+    const tables = { cars: 'car_offers', trips: 'trips', shop: 'shop_products' };
+    if (!tables[type] || !rows.length) return;
+    try {
+      // Presentation only: enrich the already-authorized resource IDs, never discover new resources.
+      const { data, error } = await state.sb.from(tables[type]).select('*').in('id', rows.map(row => row.id));
+      if (error || state.selectedPartnerId !== partnerId || state.calendar.resourcesByType[type] !== rows) return;
+      const byId = new Map((data || []).map(row => [String(row.id), row]));
+      rows.forEach(row => {
+        const record = byId.get(String(row.id));
+        row.imageUrl = getSafePartnerLinksImageUrl(getFirstMediaUrl([
+          record?.image_url, record?.main_image_url, record?.cover_image_url,
+          record?.thumbnail_url, record?.images, record?.photos,
+        ]));
+      });
+      if (String(els.blockResourceType?.value || '') === type) renderResourcePanels();
+    } catch (_error) { /* The calendar remains usable when an optional image is unavailable. */ }
+  }
+
   async function loadCalendarResourceOptions() {
     const type = String(els.blockResourceType?.value || '').trim();
     const select = els.blockResourceId;
@@ -13281,8 +13345,11 @@
     }
 
     try {
+      const partnerId = state.selectedPartnerId;
       const rows = await loadCalendarResourcesForType(type);
+      if (state.selectedPartnerId !== partnerId) return;
       state.calendar.resourcesByType[type] = rows;
+      void loadCalendarResourceImages(type, rows, partnerId);
 
       const existing = select.value;
       const options = ['<option value="">Select resource</option>']
@@ -13378,7 +13445,13 @@
         ? '<div class="muted small" style="margin-top:6px; font-weight:700; color: rgba(59,130,246,0.95);">Selected</div>'
         : (isCurrent ? '<div class="muted small" style="margin-top:6px; font-weight:700; color: rgba(34,197,94,0.95);">Current</div>' : '');
 
+      const image = getSafePartnerLinksImageUrl(r.imageUrl);
+      const emoji = { cars: '🚗', trips: '🧭', hotels: '🏨', transport: '🚐', shop: '🛍️' }[type] || '📍';
+      const visual = image
+        ? `<img class="partner-resource-photo" src="${escapeHtml(image)}" loading="lazy" alt="" />`
+        : `<span class="partner-resource-photo partner-resource-photo--placeholder" aria-hidden="true">${emoji}</span>`;
       return `<button type="button" data-rid="${escapeHtml(id)}" style="text-align:left; padding: 10px 10px; border-radius: 12px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer;">
+        ${visual}
         <div style="font-weight:700;">${escapeHtml(label)}</div>
         <div class="muted small" style="margin-top:4px;"><code>${escapeHtml(id.slice(0, 8))}</code></div>
         ${badge}
@@ -13656,12 +13729,16 @@
     if (state.selectedPartnerId) {
       setPersistedPartnerId(state.selectedPartnerId);
     }
+    state.orders.search = '';
+    state.orders.filterDate = '';
+    if (document.getElementById('partnerOrderSearch')) document.getElementById('partnerOrderSearch').value = '';
+    if (document.getElementById('partnerOrderDate')) document.getElementById('partnerOrderDate').value = '';
     state.orders.status = 'all';
     state.orders.monthValue = getMonthValue();
     state.orders.selectedDateIso = localDateIso();
     state.orders.dayListVisible = false;
-    state.orders.calendarExpanded = false;
-    state.orders.filterExpanded = false;
+    state.orders.calendarExpanded = true;
+    state.orders.filterExpanded = true;
 
     clearAvailabilitySelectionsAll();
     updateAvailabilitySelectionSummary();
@@ -13903,6 +13980,16 @@
       await handlePartnerChange(nextId);
     });
 
+    window.addEventListener('ce:partner-ui-language', () => {
+      if (state.linksDiscounts.items.length) renderPartnerLinksGrid();
+      rerenderAnalyticsLiveTrendFromCache();
+    });
+    const search = document.getElementById('partnerOrderSearch');
+    const sort = document.getElementById('partnerOrderSort');
+    const date = document.getElementById('partnerOrderDate');
+    search?.addEventListener('input', () => { state.orders.search = search.value; refreshOrdersPanelViews(); });
+    sort?.addEventListener('change', () => { state.orders.sort = sort.value; refreshOrdersPanelViews(); });
+    date?.addEventListener('change', () => { state.orders.filterDate = date.value; refreshOrdersPanelViews(); });
     els.tabBtnFulfillments?.addEventListener('click', () => setActiveTab('fulfillments'));
     els.tabBtnCalendar?.addEventListener('click', () => setActiveTab('calendar'));
 
@@ -13936,6 +14023,10 @@
     });
 
     els.btnOrdersClearFilters?.addEventListener('click', () => {
+      state.orders.search = '';
+      state.orders.filterDate = '';
+      if (search) search.value = '';
+      if (date) date.value = '';
       state.orders.status = 'all';
       state.orders.selectedDateIso = localDateIso();
       state.orders.dayListVisible = false;
@@ -14050,6 +14141,7 @@
     });
     els.partnerLinksGrid?.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('a.partner-see-offer')) return;
       const copyButton = target?.closest('[data-partner-link-copy-url]');
       if (copyButton instanceof HTMLElement) {
         const link = String(copyButton.getAttribute('data-partner-link-copy-url') || '').trim();
@@ -14338,6 +14430,14 @@
       }
     });
 
+    document.querySelectorAll('[data-partner-tree-view]').forEach((button) => {
+      button.addEventListener('click', () => {
+        referralTreeView = button.dataset.partnerTreeView === 'list' ? 'list' : 'tree';
+        els.partnerReferralTreeContainer?.classList.toggle('is-list', referralTreeView === 'list');
+        document.querySelectorAll('[data-partner-tree-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.partnerTreeView === referralTreeView)));
+        renderReferralTree();
+      });
+    });
     els.partnerReferralTreeSearch?.addEventListener('input', () => {
       referralTreeQuery = String(els.partnerReferralTreeSearch?.value || '');
       renderReferralTree();

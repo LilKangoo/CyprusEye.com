@@ -1209,9 +1209,9 @@ function syncFlightNumberField(pickupPlaceType, returnPlaceType) {
       .filter(Boolean)
       .join(' | ');
   } else if (pickupAirport) {
-    combined = pickupFlight;
+    combined = pickupFlight ? `Pickup: ${pickupFlight}` : '';
   } else if (returnAirport) {
-    combined = returnFlight;
+    combined = returnFlight ? `Return: ${returnFlight}` : '';
   }
   legacyInput.value = combined;
   return combined;

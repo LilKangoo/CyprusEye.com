@@ -2966,7 +2966,8 @@
     }
 
   </style>
- </head>
+   <link rel="stylesheet" href="/assets/css/partner-refresh.css?v=20261003r5" />
+</head>
 
  <body data-admin-panel="true" data-navigation="multi-page" data-force-language="en" data-disable-language-switcher="true" class="partners-page">
  
@@ -3062,7 +3063,7 @@
             <rect x="14" y="14" width="7" height="7"/>
             <rect x="3" y="14" width="7" height="7"/>
           </svg>
-          <span>All</span>
+          <span>Reservations</span>
         </button>
 
         <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="shop" id="partnerNavShop" hidden>
@@ -3343,6 +3344,11 @@
               </div>
             </div>
 
+            <div class="partner-search-bar">
+              <label>Search orders<input id="partnerOrderSearch" type="search" placeholder="Order ID, service, released name, email or phone" /></label>
+              <label>Find by date<input id="partnerOrderDate" type="date" /></label>
+              <label>Sort<select id="partnerOrderSort"><option value="date">Upcoming date</option><option value="newest">Newest order</option><option value="price">Price: high to low</option></select></label>
+            </div>
             <div id="partnerFulfillmentsTableContainer" class="admin-table-container partner-fulfillments-table partner-fulfillments-table--compact" aria-label="Fulfillments">
             <table class="admin-table">
               <thead>
@@ -3454,20 +3460,20 @@
         </section>
 
         <aside class="partner-card" id="partnerServicesTipsCard">
-          <h2 style="margin: 0 0 8px;">Status</h2>
+          <section class="partner-support-status"><h2 style="margin: 0 0 8px;">Status</h2>
           <div id="partnerPortalStatus" class="muted">Loading…</div>
           <div style="height: 12px;"></div>
 
           <h3 style="margin: 0 0 8px;">Tips</h3>
           <div class="muted small" style="display: grid; gap: 8px;">
-            <div>Accepting reveals the customer's contact details (email/phone/address) for this fulfillment.</div>
+            <div>Customer contact details become available after confirmed payment. Accepting a reservation requests payment from the customer.</div>
             <div>After rejection, an admin is notified and any refund decision is handled by the administration.</div>
             <div>If the SLA passes without acceptance, admins may receive automatic reminders.</div>
           </div>
 
           <div style="height: 14px;"></div>
 
-          <h3 style="margin: 0 0 8px;">Install app</h3>
+          </section><section class="partner-support-install"><h3 style="margin: 0 0 8px;">Install app</h3>
           <div class="muted small" style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;">
             <div>
               <div class="muted small">Status</div>
@@ -3481,7 +3487,7 @@
 
           <div style="height: 14px;"></div>
 
-          <h3 style="margin: 0 0 8px;">Push notifications</h3>
+          </section><section class="partner-support-push"><h3 style="margin: 0 0 8px;">Push notifications</h3>
           <div class="muted small" style="display: grid; gap: 10px;">
             <div class="muted small">Status: <strong id="partnerPushStatus">—</strong></div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -3490,6 +3496,7 @@
             </div>
             <div id="partnerPushHint" class="muted small"></div>
           </div>
+          </section>
         </aside>
       </div>
     </div>
@@ -3575,6 +3582,7 @@
           </div>
         </div>
         <div id="partnerAnalyticsCategoryChips" class="partner-analytics-chip-group" aria-label="Category quick filters"></div>
+        <div class="partner-chart-view-switch" role="group" aria-label="Chart view"><button type="button" class="btn-sm" data-partner-chart-view="revenue" aria-pressed="true">Revenue &amp; orders</button><button type="button" class="btn-sm" data-partner-chart-view="response" aria-pressed="false">Response time</button></div>
         <div id="partnerAnalyticsLiveChart" class="partner-analytics-live-chart" aria-live="polite"></div>
       </section>
 
@@ -3954,6 +3962,7 @@
       <section class="partner-card" style="max-width: 980px;">
         <h2 style="margin: 0 0 12px;">Referral tree</h2>
         <div class="partner-toolbar" style="margin-top: 10px;">
+          <div class="partner-tree-switch" role="group" aria-label="Referral view"><button type="button" class="btn-sm" data-partner-tree-view="tree" aria-pressed="true">Tree</button><button type="button" class="btn-sm" data-partner-tree-view="list" aria-pressed="false">List</button></div>
           <input id="partnerReferralTreeSearch" type="text" placeholder="Find user in tree..." />
           <button id="btnPartnerReferralExpandAll" class="btn-sm" type="button">Expand all</button>
           <button id="btnPartnerReferralCollapseAll" class="btn-sm" type="button">Collapse all</button>
@@ -4431,7 +4440,10 @@
   <script src="/js/hotels-v2-partner-workspace-repository.js?v=20260922_114492" defer></script>
   <script src="/js/hotels-v2-partner-media.js?v=20260825_1" defer></script>
   <script src="/js/hotels-v2-partner-workspace.js?v=20260906_1" defer></script>
-  <script src="/js/partners.js?v=20260922_2" defer></script>
+  <script src="/js/partner-car-location.js?v=20261003r5" defer></script>
+  <script src="/js/partners.js?v=20261003r5" defer></script>
+  <script src="/js/partner-refresh.js?v=20261003r5" defer></script>
+  <script src="/js/partner-refresh-i18n.js?v=20261003r5" defer></script>
 
   <div
     id="auth-modal"

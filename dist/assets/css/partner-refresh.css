@@ -1,0 +1,617 @@
+/* Partner presentation only. All capability-driven hidden attributes remain authoritative. */
+:root {
+  --admin-bg: #0c141f;
+  --admin-surface: #152232;
+  --admin-border: #2a3b50;
+  --admin-text: #e1eaf4;
+  --admin-text-muted: #98aabe;
+  --admin-primary: #38b494;
+}
+body {
+  background: #0c141f;
+  color: #e1eaf4;
+}
+body [hidden] {
+  display: none !important;
+}
+.admin-header,
+.admin-sidebar {
+  background: #111d2b;
+  border-color: #263448;
+}
+.admin-title {
+  font-size: 20px;
+}
+.admin-title img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  background: white;
+  border-radius: 10px;
+  margin-inline-end: 10px;
+}
+.admin-main,
+.admin-content {
+  min-width: 0;
+}
+.partner-card,
+.partner-insight-card {
+  background: #152232 !important;
+  border: 1px solid #2a3b50 !important;
+  border-radius: 17px !important;
+  box-shadow: 0 10px 30px #00000010 !important;
+}
+.partner-card {
+  padding: 20px;
+}
+.admin-nav-item {
+  border-radius: 10px;
+  margin-bottom: 5px;
+}
+.admin-nav-item.active {
+  background: #174b43 !important;
+  color: #9be8d0 !important;
+}
+button,
+input,
+select,
+textarea {
+  border-radius: 10px !important;
+}
+input,
+select,
+textarea {
+  background: #101e2d !important;
+  border-color: #34465a !important;
+  color: #e1eaf4 !important;
+  max-width: 100%;
+  min-width: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #79c8b0;
+  outline-offset: 2px;
+}
+.btn-sm.primary,
+.btn-primary {
+  background: #208970 !important;
+  border-color: #208970 !important;
+}
+.muted {
+  color: #9db0c4 !important;
+}
+#partnerPortalApp {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 18px;
+}
+#partnerServicesTipsCard {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+#partnerReferralWidget {
+  display: none !important;
+}
+#partnerReferralSummary {
+  padding: 16px !important;
+}
+.partner-copy-languages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.partner-referral-compact > div {
+  min-width: 0 !important;
+  flex: none !important;
+}
+.partner-referral-compact {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center !important;
+}
+.partner-referral-compact input {
+  max-width: 150px;
+}
+#partnerAffiliateSummaryCard {
+  padding: 16px !important;
+}
+#partnerAffiliateSummaryMetrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+#partnerAffiliateSummaryMetrics > .partner-metric:nth-child(2),
+#partnerAffiliateSummaryMetrics > .partner-metric:nth-child(3) {
+  display: none;
+}
+#partnerAffiliateSummaryActions {
+  display: none !important;
+}
+#partnerAffiliateSummaryCard .partner-insight-divider {
+  display: none;
+}
+#partnerAffiliateSummaryCard .partner-metric {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+#partnerAffiliateSummaryCard .partner-metric__value {
+  font-size: 19px;
+}
+#partnerAffiliateSummaryCard .partner-insight-subtitle {
+  display: none;
+}
+.partner-affiliate-progress__track {
+  height: 7px !important;
+}
+.partner-affiliate-progress__fill {
+  background: #4fc5a1 !important;
+}
+#btnPartnerOrdersCalendarToggle {
+  opacity: 1;
+  cursor: default;
+}
+#btnPartnerOrdersCalendarToggle .partner-orders-toggle-right {
+  display: none;
+}
+.partner-search-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 180px;
+  gap: 12px;
+  margin: 18px 0;
+}
+.partner-search-bar label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  color: #a5b8ca;
+}
+.partner-search-bar input,
+.partner-search-bar select {
+  width: 100%;
+  height: 44px;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id] {
+  cursor: pointer;
+}
+#fulfillmentsTableBody tr[data-fulfillment-id]:hover {
+  background: #193044;
+}
+#fulfillmentsTableBody td {
+  padding: 16px 12px !important;
+}
+#partnerDetailsBody section {
+  border: 1px solid #304355;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.partner-details-dialog {
+  background: #142334 !important;
+  color: #e1eaf4;
+  max-width: 780px;
+}
+.partner-resource-panels {
+  margin: 20px 0;
+}
+.partner-links-card {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+.partner-see-offer {
+  display: inline-block;
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-radius: 9px;
+  background: #174a3d;
+  border: 1px solid #418972;
+  color: #b9f2dd;
+  text-decoration: none;
+}
+.partner-language-controls {
+  display: flex;
+  gap: 6px;
+}
+.partner-language-controls button[aria-pressed="true"] {
+  background: #174b43;
+  color: #a5eed3;
+}
+@media (max-width: 900px) {
+  .partner-search-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .partner-search-bar label:first-child {
+    grid-column: 1/-1;
+  }
+  .partner-grid {
+    min-width: 0;
+  }
+  .admin-table-container {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  #partnerServicesTipsCard {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .partner-card {
+    padding: 14px !important;
+  }
+  .admin-header {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 10px;
+  }
+  .admin-header-right {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .admin-title {
+    font-size: 17px;
+  }
+  .partner-search-bar {
+    grid-template-columns: 1fr;
+  }
+  .partner-search-bar label:first-child {
+    grid-column: auto;
+  }
+  .partner-referral-compact {
+    align-items: flex-start !important;
+  }
+  .partner-details-dialog {
+    width: calc(100vw - 20px) !important;
+  }
+  .partner-copy-languages button {
+    min-height: 44px;
+  }
+}
+/* Compact summary and clearly separated support controls. */
+#partnerServicesTipsCard {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+#partnerServicesTipsCard > section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #2a3b50;
+  border-radius: 12px;
+  background: #101d2c;
+}
+#partnerServicesTipsCard .partner-support-status {
+  grid-column: 1/-1;
+}
+#partnerAffiliateSummaryCard {
+  margin: 14px 0 0 !important;
+  padding: 12px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid #2a3b50 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+#partnerAffiliateSummaryCard .partner-insight-head {
+  display: none;
+}
+#partnerAffiliateSummaryMetrics .partner-metric:last-child {
+  text-align: end;
+}
+.partner-copy-status:empty {
+  display: none;
+}
+.partner-copy-status {
+  flex-basis: 100%;
+}
+.partner-orders-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.partner-orders-titlebar h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.partner-orders-calendar-card {
+  margin-top: 24px;
+  scroll-margin-top: 100px;
+}
+.partners-page .btn-details {
+  background: #173b36;
+  border: 1px solid #36665a;
+  color: #abe8d2;
+  padding: 8px 12px;
+  min-height: 36px;
+  font-weight: 600;
+}
+.partners-page .btn-action {
+  min-height: 38px;
+  border-radius: 9px;
+}
+.partners-page .btn-danger {
+  background: #301e29;
+  border-color: #6a3443;
+  color: #ffc2cc;
+}
+.partner-chart-view-switch,
+.partner-metrics-custom,
+.partner-tree-switch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+.partner-metrics-custom > span {
+  font-size: 12px;
+  color: #a5b8ca;
+  margin-inline-end: 8px;
+}
+[data-partner-chart-view][aria-pressed="true"],
+.partner-metrics-custom [aria-pressed="true"],
+[data-partner-tree-view][aria-pressed="true"] {
+  background: #174b43;
+  border-color: #317965;
+  color: #a5eed3;
+}
+#partnerAnalyticsResponseChartCard {
+  margin: 0;
+  padding: 16px 0 0;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.partner-analytics-live-chart {
+  overflow-x: auto;
+}
+.partner-analytics-live-chart__bars,
+.partner-analytics-live-chart__line-values,
+.partner-analytics-live-chart__line-labels {
+  min-width: 560px;
+}
+.referral-tree-container {
+  background: #101d2c;
+  border: 1px solid #2a3b50;
+  border-radius: 14px;
+  padding: 16px;
+}
+.tree-row {
+  border-radius: 12px;
+  padding: 10px;
+}
+.tree-user-card {
+  min-width: 0;
+}
+.tree-user-meta {
+  overflow-wrap: anywhere;
+}
+.referral-tree-container.is-list .tree-children-container {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+  border: 0;
+}
+.referral-tree-container.is-list .tree-connector {
+  display: none;
+}
+.referral-tree-container.is-list .tree-row {
+  border-bottom: 1px solid #2a3b50;
+}
+.partner-see-offer {
+  margin-top: auto;
+}
+.partner-links-card__body {
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 700px) {
+  #partnerServicesTipsCard {
+    grid-template-columns: 1fr;
+  }
+  .admin-breadcrumb {
+    display: none;
+  }
+  .admin-header-content {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+  .admin-title {
+    font-size: 0 !important;
+    gap: 0;
+  }
+  .admin-title img {
+    margin: 0;
+  }
+  .admin-header-right {
+    gap: 8px;
+  }
+  .admin-user-info {
+    display: none;
+  }
+  .partner-language-controls button {
+    padding: 8px;
+    min-height: 40px;
+  }
+  .partner-orders-titlebar {
+    align-items: flex-start;
+  }
+  .partner-copy-languages {
+    width: 100%;
+  }
+  .partner-copy-languages button {
+    flex: 1;
+    padding: 9px 6px;
+  }
+  .partner-referral-compact input {
+    width: 100px;
+  }
+  .partner-orders-calendar-card {
+    scroll-margin-top: 80px;
+  }
+}
+@media (max-width: 768px) {
+  html[lang="pl"]
+    .partners-page
+    #partnerFulfillmentsTableContainer
+    td:nth-of-type(1)::before {
+    content: "Zamówienie";
+  }
+  html[lang="pl"]
+    .partners-page
+    #partnerFulfillmentsTableContainer
+    td:nth-of-type(3)::before {
+    content: "Terminy";
+  }
+  html[lang="pl"]
+    .partners-page
+    #partnerFulfillmentsTableContainer
+    td:nth-of-type(4)::before {
+    content: "Cena";
+  }
+  html[lang="pl"]
+    .partners-page
+    #partnerFulfillmentsTableContainer
+    td:nth-of-type(5)::before {
+    content: "Usługi";
+  }
+  html[lang="pl"]
+    .partners-page
+    #partnerFulfillmentsTableContainer
+    td:nth-of-type(6)::before {
+    content: "Działania";
+  }
+}
+.partner-workspace-switch {
+  padding: 10px 0;
+  gap: 12px;
+}
+.partner-workspace-switch select {
+  max-width: 420px;
+  min-height: 44px;
+}
+.partner-workspace-switch #btnPartnerRefresh {
+  margin-inline-start: auto;
+}
+@media (max-width: 600px) {
+  .partner-workspace-switch {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+  .partner-workspace-switch strong {
+    grid-column: 1/-1;
+  }
+  .partner-workspace-switch select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+.partners-page .btn-sm {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  flex-shrink: 0;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.partners-page .partner-referral-compact {
+  justify-content: flex-start !important;
+}
+.partners-page .partner-copy-languages {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.partners-page #partnerAffiliateSummaryMetrics:not([hidden]) {
+  display: grid;
+}
+.partners-page .partner-orders-titlebar h2 {
+  flex: 1;
+  white-space: nowrap;
+}
+.partners-page .partner-workspace-switch #btnPartnerRefresh {
+  margin-inline-start: auto;
+}
+.partners-page .partner-orders-status-btn.is-active {
+  background: #205d4e;
+  border-color: #39977d;
+  color: #c5f5e4;
+  box-shadow: none;
+}
+.partners-page .partner-orders-status-switch {
+  background: #101d2c;
+  border-color: #2a3b50;
+}
+.partners-page .partner-orders-filter-actions {
+  justify-content: flex-start;
+}
+.partners-page .partner-orders-filter-actions .btn-sm {
+  width: auto;
+}
+.partners-page .partner-search-bar input::placeholder {
+  color: #91a5b9;
+}
+body.partners-page {
+  background: #0c141f !important;
+}
+@media (max-width: 700px) {
+  .partners-page .partner-referral-compact > div {
+    flex: 0 1 auto !important;
+  }
+  .partners-page .partner-copy-languages {
+    flex: 1 0 100% !important;
+  }
+  .partners-page .partner-copy-languages button {
+    flex: 1;
+    min-width: 0;
+  }
+  .partners-page .partner-orders-titlebar h2 {
+    white-space: normal;
+  }
+  .partners-page .partner-workspace-switch #btnPartnerRefresh {
+    width: auto;
+  }
+}
+#partnerResourcePanels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 2px;
+}
+#partnerResourcePanels button {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.partner-resource-photo {
+  width: 100%;
+  height: 105px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+  background: #223348;
+}
+.partner-resource-photo--placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+}
+@media (max-width: 500px) {
+  #partnerResourcePanels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .partner-resource-photo {
+    height: 88px;
+  }
+}
