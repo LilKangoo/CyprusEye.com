@@ -96,7 +96,7 @@ test.describe('Admin Special Offers shell', () => {
     await expect(page.locator('.special-offer-stat-card:has-text("Winners Selected")')).toContainText('0');
 
     await expect(page.locator('.special-offers-empty-state')).toContainText('No special offers yet');
-    await expect(page.locator('.special-offers-empty-state')).toContainText('Draft/private creation is available in this stage.');
+    await expect(page.locator('.special-offers-empty-state')).toContainText('New campaigns start as private drafts.');
     await expect(page.locator('.special-offers-create-button')).toBeEnabled();
     await expect(page.locator('.special-offers-create-button')).toHaveText('Create campaign');
 

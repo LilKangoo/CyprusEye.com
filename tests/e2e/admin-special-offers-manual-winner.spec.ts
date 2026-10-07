@@ -5,8 +5,8 @@ import type { Page } from '@playwright/test';
 const ADMIN_ID = '15f3d442-092d-4eb8-9627-db90da0283eb';
 const OFFER_ID = '4c38a187-8a68-4eb0-9b46-1cd923e06d31';
 
-async function prepareManualWinnerStub(page: Page) {
-  await page.addInitScript(({ adminId, offerId }) => {
+async function prepareManualWinnerStub(page: Page, publicWinnerDisplay = false) {
+  await page.addInitScript(({ adminId, offerId, publicWinnerDisplay }) => {
     (window as any).__supabaseStub = {
       ...(window as any).__supabaseStub,
       onReady: (stub: any) => {
@@ -47,7 +47,7 @@ async function prepareManualWinnerStub(page: Page) {
           allow_bonus_points: true,
           exclude_admins: true,
           exclude_partners: false,
-          public_winner_display: false,
+          public_winner_display: publicWinnerDisplay,
           response_deadline_days: 7,
           settings_json: {},
         }]);
@@ -275,11 +275,11 @@ async function prepareManualWinnerStub(page: Page) {
         });
       },
     };
-  }, { adminId: ADMIN_ID, offerId: OFFER_ID });
+  }, { adminId: ADMIN_ID, offerId: OFFER_ID, publicWinnerDisplay });
 }
 
-async function openManualWinner(page: Page) {
-  await prepareManualWinnerStub(page);
+async function openManualWinner(page: Page, publicWinnerDisplay = false) {
+  await prepareManualWinnerStub(page, publicWinnerDisplay);
   await page.goto('/admin/dashboard.html');
   await waitForSupabaseStub(page);
   await page.click('button.admin-nav-item[data-view="specialOffers"]');
@@ -289,6 +289,45 @@ async function openManualWinner(page: Page) {
 }
 
 test.describe('Admin Special Offers manual winner selection', () => {
+  for (const width of [360, 390, 768, 1440]) {
+    test(`campaign workspace remains usable at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await prepareManualWinnerStub(page);
+      await page.goto('/admin/dashboard.html');
+      await waitForSupabaseStub(page);
+      await page.evaluate(({ offerId }) => {
+        const stub = (window as any).__supabaseStub;
+        stub.seedTable('special_offer_winner_workflows', [{ id: 'workflow-1', offer_id: offerId, status: 'shortlisting', created_at: '2026-09-20T16:00:00Z' }]);
+        stub.seedTable('special_offer_winner_shortlist', [{ id: 'shortlist-1', workflow_id: 'workflow-1', offer_id: offerId, entry_id: 'entry-approved', role: 'shortlisted', status: 'active' }]);
+        stub.clearRpcCalls();
+      }, { offerId: OFFER_ID });
+      if (width <= 768) await page.getByRole('button', { name: 'Toggle navigation menu' }).click();
+      await page.click('button.admin-nav-item[data-view="specialOffers"]');
+      await page.getByRole('button', { name: 'Open manual winner selection' }).click();
+      const modal = page.locator('#specialOffersManualWinnerModal');
+      expect(await modal.locator('.special-offer-workspace-nav').evaluate((nav) => {
+        const bounds = nav.getBoundingClientRect();
+        return Array.from(nav.querySelectorAll('button')).every(button => {
+          const rect = button.getBoundingClientRect();
+          return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
+        });
+      })).toBe(true);
+      await modal.getByRole('button', { name: 'Set primary', exact: true }).click();
+      const reason = modal.locator('[data-special-offers-winner-action-form="primary"] [name="reason"]');
+      await reason.fill('Responsive preview only');
+      await expect(reason).toBeInViewport();
+      await expect(modal.getByRole('button', { name: 'Close manual winner selection' })).toBeInViewport();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await modal.getByRole('button', { name: 'Participants', exact: true }).click();
+      const entries = page.locator('#specialOffersEntriesModal');
+      await expect(entries).toBeVisible();
+      await entries.getByRole('button', { name: 'Winner', exact: true }).click();
+      await expect(modal).toBeVisible();
+      const calls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+      expect(calls.some((call: any) => /^admin_(start|set|add|remove|mark|record|promote|confirm|publish|unpublish).*special_offer/.test(call.name))).toBe(false);
+    });
+  }
+
   test('shows manual panel without draw, ranking, messages or committee UI', async ({ page }) => {
     await openManualWinner(page);
     const modal = page.locator('#specialOffersManualWinnerModal');
@@ -369,7 +408,7 @@ test.describe('Admin Special Offers manual winner selection', () => {
   });
 
   test('runs shortlist, manual contact, confirmation and publication through RPC only', async ({ page }) => {
-    await openManualWinner(page);
+    await openManualWinner(page, true);
     const modal = page.locator('#specialOffersManualWinnerModal');
 
     await page.evaluate(() => {
@@ -385,6 +424,8 @@ test.describe('Admin Special Offers manual winner selection', () => {
     page.once('dialog', (dialog) => dialog.accept());
     await modal.locator('[data-special-offers-winner-action-form="start"]').getByRole('button', { name: 'Confirm start' }).click();
     await expect(modal).toContainText('Shortlisting');
+    await expect(modal).not.toContainText('Selection is currently blocked');
+    await expect(modal).toContainText('Choose the primary candidate');
 
     await modal.locator('[data-special-offers-winner-add-shortlist="entry-approved"]').click();
     await expect(modal).toContainText('Saved score snapshot');
@@ -395,6 +436,7 @@ test.describe('Admin Special Offers manual winner selection', () => {
     page.once('dialog', (dialog) => dialog.accept());
     await modal.locator('[data-special-offers-winner-action-form="primary"]').getByRole('button', { name: 'Confirm' }).click();
     await expect(modal).toContainText('Primary');
+    await expect(modal).toContainText('Start manual contact for the primary candidate');
 
     await modal.locator('[data-special-offers-winner-action="contact"]').click();
     await modal.locator('[data-special-offers-winner-action-form="contact"] [name="response_deadline_at"]').fill('2026-07-25T10:00');
@@ -402,6 +444,7 @@ test.describe('Admin Special Offers manual winner selection', () => {
     page.once('dialog', (dialog) => dialog.accept());
     await modal.locator('[data-special-offers-winner-action-form="contact"]').getByRole('button', { name: 'Save contact start' }).click();
     await expect(modal).toContainText('Contact started');
+    await expect(modal.locator('[data-special-offers-winner-action="primary"]')).toBeDisabled();
     await expect(modal).toContainText('The system does not send messages automatically');
 
     await modal.locator('[data-special-offers-winner-action="response"]').click();
@@ -441,4 +484,55 @@ test.describe('Admin Special Offers manual winner selection', () => {
     expect(source).not.toMatch(/from\(['"]special_offer_winner_(workflows|shortlist|committee_notes|contact_events|publications)['"]\)\.(insert|update|delete|upsert)/);
     expect(source).not.toMatch(/admin_add_special_offer_committee_note|admin_archive_special_offer_committee_note/);
   });
+  test('private confirmed result stays private and campaign navigation preserves scope', async ({ page }) => {
+    await prepareManualWinnerStub(page);
+    await page.goto('/admin/dashboard.html');
+    await waitForSupabaseStub(page);
+    await page.evaluate(({ offerId }) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('special_offer_winner_workflows', [{ id: 'private-workflow', offer_id: offerId, status: 'winner_confirmed', confirmed_entry_id: 'entry-approved', confirmed_at: '2026-09-20T17:00:00Z', created_at: '2026-09-20T16:00:00Z' }]);
+      stub.clearRpcCalls();
+    }, { offerId: OFFER_ID });
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByRole('button', { name: 'Open manual winner selection' }).click();
+    const modal = page.locator('#specialOffersManualWinnerModal');
+    await expect(modal).toContainText('Winner confirmed. The selection is complete.');
+    await expect(modal).toContainText('Public winner display is disabled');
+    await expect(modal.locator('[data-special-offers-winner-action="publish"]')).toHaveCount(0);
+    await expect(modal).not.toContainText('Selection is currently blocked');
+    await expect(page.locator('[data-special-offers-stat="winners"]')).toHaveText('1');
+    await modal.getByRole('button', { name: 'Participants', exact: true }).click();
+    await expect(modal).toBeHidden();
+    await expect(page.locator('#specialOffersEntriesModal')).toBeVisible();
+    await expect(page.locator('[data-special-offers-entry-offer]')).toHaveValue(OFFER_ID);
+    await page.locator('#specialOffersEntriesModal').getByRole('button', { name: 'Winner', exact: true }).click();
+    await expect(page.locator('#specialOffersEntriesModal')).toBeHidden();
+    await expect(modal).toContainText('Winner confirmed. The selection is complete.');
+    const calls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(calls.some((call: any) => /^admin_(start|set|add|remove|mark|record|promote|confirm|publish|unpublish).*special_offer/.test(call.name))).toBeFalsy();
+  });
+
+  test('failed candidate save retains the reason and reports a database error without a success state', async ({ page }) => {
+    await prepareManualWinnerStub(page);
+    await page.goto('/admin/dashboard.html');
+    await waitForSupabaseStub(page);
+    await page.evaluate(({ offerId }) => {
+      const stub = (window as any).__supabaseStub;
+      stub.seedTable('special_offer_winner_workflows', [{ id: 'workflow-1', offer_id: offerId, status: 'shortlisting', created_at: '2026-09-20T16:00:00Z' }]);
+      stub.seedTable('special_offer_winner_shortlist', [{ id: 'shortlist-1', workflow_id: 'workflow-1', offer_id: offerId, entry_id: 'entry-approved', role: 'shortlisted', status: 'active' }]);
+      stub.setRpcHandler('admin_set_special_offer_primary_candidate', () => ({ data: null, error: { code: '42702', message: 'column reference is ambiguous' } }));
+    }, { offerId: OFFER_ID });
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByRole('button', { name: 'Open manual winner selection' }).click();
+    const modal = page.locator('#specialOffersManualWinnerModal');
+    await modal.getByRole('button', { name: 'Set primary', exact: true }).click();
+    const reason = modal.locator('[data-special-offers-winner-action-form="primary"] [name="reason"]');
+    await reason.fill('Recorded committee decision');
+    page.once('dialog', dialog => dialog.accept());
+    await modal.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(modal).toContainText('A database error prevented this change (42702)');
+    await expect(reason).toHaveValue('Recorded committee decision');
+    await expect(modal.getByRole('button', { name: 'Start manual contact', exact: true })).toHaveCount(0);
+  });
+
 });

@@ -858,10 +858,10 @@ function setErrorState(message) {
 }
 
 function renderStats(campaigns) {
-  setStat('active', countByStatus(campaigns, 'active'));
+  setStat('active', campaigns.filter((campaign) => campaign.status === 'active' && (!campaign.end_at || new Date(campaign.end_at).getTime() > Date.now()) && (!campaign.start_at || new Date(campaign.start_at).getTime() <= Date.now())).length);
   setStat('draft', countByStatus(campaigns, 'draft'));
-  setStat('entries', Number(specialOffersState.entryCounts.pending_review || 0));
-  setStat('winners', 0);
+  setStat('entries', specialOffersState.shellEntryCounts == null ? '—' : Number(specialOffersState.shellEntryCounts.pending_review || 0) + Number(specialOffersState.shellEntryCounts.submitted || 0));
+  setStat('winners', specialOffersState.confirmedWinnerCount ?? '—');
 }
 
 function notifySpecialOffers(message, type = 'info') {
@@ -961,10 +961,9 @@ async function loadEntryCounts(filters = {}) {
   return Object.fromEntries(entries);
 }
 
-async function loadEntriesPage() {
+async function loadEntriesPage(filters = specialOffersState.entries) {
   const client = getSupabaseClient();
   if (!client) throw new Error('Supabase client is not available.');
-  const filters = specialOffersState.entries;
   const from = (Math.max(1, Number(filters.page || 1)) - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;
   const query = applyEntryFilters(
@@ -983,9 +982,17 @@ async function loadEntriesPage() {
 
 async function refreshEntryStatsForShell() {
   try {
-    specialOffersState.entryCounts = await loadEntryCounts();
+    specialOffersState.shellEntryCounts = await loadEntryCounts();
+    specialOffersState.entryCounts = specialOffersState.shellEntryCounts;
   } catch (error) {
-    specialOffersState.entryCounts = {};
+    specialOffersState.shellEntryCounts = null;
+  }
+  try {
+    const result = await getSupabaseClient().from('special_offer_winner_workflows').select('id', { count: 'exact', head: true }).in('status', ['winner_confirmed', 'published']);
+    if (result.error) throw result.error;
+    specialOffersState.confirmedWinnerCount = Number(result.count ?? toArray(result.data).length);
+  } catch (_error) {
+    specialOffersState.confirmedWinnerCount = null;
   }
 }
 
@@ -1351,7 +1358,7 @@ function renderCampaignCard(campaign) {
           <div class="special-offer-campaign-card__slug">${escapeHtml(campaign.slug)}</div>
         </div>
         <div class="special-offer-campaign-card__chips">
-          ${renderStatusChip(campaign.status)}
+          ${renderStatusChip(campaign.status === 'active' && campaign.end_at && new Date(campaign.end_at).getTime() <= Date.now() ? 'ended' : campaign.status)}
           ${renderStatusChip(campaign.visibility, 'visibility')}
         </div>
       </div>
@@ -1372,7 +1379,10 @@ function renderCampaignCard(campaign) {
         <button class="btn-secondary btn-small" type="button" data-special-offers-view="${escapeHtml(campaign.id)}">View details</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-entries="${escapeHtml(campaign.id)}">Entries</button>
         <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-verification="${escapeHtml(campaign.id)}">Manual verification</button>
-        <button class="btn-secondary btn-small" type="button" data-special-offers-open-manual-winner="${escapeHtml(campaign.id)}" ${campaign.winner_selection_mode === 'manual_selection' ? '' : 'disabled title="Manual winner selection requires winner_selection_mode = manual_selection."'}>Manual winner selection</button>
+        <button class="btn-primary btn-small" type="button" data-special-offers-open-manual-winner="${escapeHtml(campaign.id)}" ${campaign.winner_selection_mode === 'manual_selection' ? '' : 'disabled title="Manual winner selection requires winner_selection_mode = manual_selection."'}>Manual winner selection</button>
+      </div>
+      <details class="special-offer-disclosure"><summary>Campaign settings & previews</summary>
+      <div class="special-offer-campaign-card__actions">
         <a class="btn-secondary btn-small" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-public-url="${escapeHtml(publicUrl)}">Preview public page</a>
         <a class="btn-secondary btn-small" href="${escapeHtml(previewUrl)}" target="_blank" rel="noopener noreferrer" data-special-offers-preview-url="${escapeHtml(previewUrl)}">Admin preview</a>
         <button class="btn-secondary btn-small" type="button" data-special-offers-copy-preview-url="${escapeHtml(campaign.id)}">Copy admin preview URL</button>
@@ -1383,6 +1393,7 @@ function renderCampaignCard(campaign) {
           ${canEdit ? '' : 'disabled title="Archived or locked campaigns cannot be edited."'}
         >Edit</button>
       </div>
+      </details>
     </article>
   `;
 }
@@ -1402,7 +1413,7 @@ function renderCampaigns(campaigns) {
 
   setHidden(emptyState, true);
   setHidden(campaignsSection, false);
-  setHeaderStatus('Draft CRUD enabled', 'ready');
+  setHeaderStatus('Campaign management', 'ready');
   if (grid) {
     grid.innerHTML = campaigns.map(renderCampaignCard).join('');
   }
@@ -1515,8 +1526,23 @@ function renderEntriesPagination() {
   `;
 }
 
+function renderCampaignNavigation(offerId, current) {
+  if (!offerId || offerId === 'all') return '';
+  return `<nav class="special-offer-workspace-nav" aria-label="Campaign sections">${[
+    ['overview', 'Overview'], ['entries', 'Participants'], ['verification', 'Verification'], ['winner', 'Winner'], ['settings', 'Settings'],
+  ].map(([key, label]) => `<button type="button" class="btn-secondary btn-small" data-special-offers-section="${key}" data-offer-id="${escapeHtml(offerId)}" ${key === current ? 'aria-current="page"' : ''}>${label}</button>`).join('')}</nav>`;
+}
+
+function closeCampaignWorkspacePanels() {
+  closeEntriesModal();
+  closeManualVerificationModal();
+  closeManualWinnerModal();
+  closeCampaignDetails();
+}
+
 function renderEntriesModalBody() {
   return `
+    ${renderCampaignNavigation(specialOffersState.entries.offerId, 'entries')}
     ${renderEntryCounts(specialOffersState.entryCounts)}
     ${renderEntryFilters()}
     ${renderEntryRows()}
@@ -1885,6 +1911,7 @@ function renderActivityPagination() {
 
 function renderManualVerificationBody() {
   return `
+    ${renderCampaignNavigation(specialOffersState.manualVerification.offerId, 'verification')}
     ${renderManualVerificationNotice()}
     ${renderManualVerificationFilters()}
     ${renderManualActivityCounts()}
@@ -1893,7 +1920,7 @@ function renderManualVerificationBody() {
       <div class="special-offer-entry-section-heading">
         <div>
           <h4>Activity queue</h4>
-          <p class="special-offer-editor-muted">Share/comment claims are reviewed manually. Decisions go through review_special_offer_activity.</p>
+          <p class="special-offer-editor-muted">Review evidence before approving points.</p>
         </div>
       </div>
       ${renderActivityQueue()}
@@ -1906,7 +1933,7 @@ function renderManualWinnerNotice() {
   return `
     <div class="special-offer-manual-notice" role="note">
       <strong>The winner is selected manually by the administrator.</strong>
-      <span>Points are a supporting criterion only. This panel does not run a draw, send messages or select a winner automatically.</span>
+      <span>Points support the decision. Contact is handled privately outside the platform.</span>
     </div>
   `;
 }
@@ -1966,7 +1993,7 @@ function renderManualWinnerReadiness() {
         ['Active workflow', readiness.active_workflow_exists ? 'Yes' : 'No'],
         ['Can start workflow', canStart ? 'Yes' : 'No'],
       ])}
-      ${!canStart ? `
+      ${state.activeWorkflow ? '<p class="special-offer-selection-ready">Selection is in progress. Continue with the next step below.</p>' : !canStart ? `
         <div class="special-offer-entry-state">
           <strong>${runningCampaign ? 'Selection is disabled while the campaign is still running.' : 'Selection is currently blocked.'}</strong>
           ${renderReadinessBlockingReasons(readiness)}
@@ -2067,7 +2094,7 @@ function renderEligibleEntriesSection() {
             </tbody>
           </table>
         </div>
-      ` : '<p class="special-offers-empty-copy">No approved entries are currently eligible for shortlist.</p>'}
+      ` : '<p class="special-offers-empty-copy">All approved entries are already shortlisted, or no approved entries are available.</p>'}
     </section>
   `;
 }
@@ -2217,6 +2244,7 @@ function renderWinnerInlineActionForm(type, targetId) {
 function renderShortlistActions(item, contact) {
   const workflowStatus = String(specialOffersState.manualWinner.activeWorkflow?.status || '');
   const needsRecheck = item.status === 'needs_recheck';
+  const editable = ['shortlisting', 'candidate_selected'].includes(workflowStatus);
   const isRemoved = item.status === 'removed';
   const terminalContact = ['accepted', 'declined', 'no_response', 'replaced'].includes(String(contact?.status || ''));
   if (isRemoved) return '<p class="special-offer-editor-muted">This shortlist item was removed.</p>';
@@ -2225,13 +2253,13 @@ function renderShortlistActions(item, contact) {
       <button class="btn-secondary btn-small" type="button" data-special-offers-entry-full-form="${escapeHtml(item.entry_id)}">View form</button>
       <button class="btn-secondary btn-small" type="button" data-special-offers-winner-view-activities="${escapeHtml(item.entry_id)}">View activities</button>
       ${needsRecheck ? `<button class="btn-primary btn-small" type="button" data-special-offers-winner-action="recheck" data-winner-action-target="${escapeHtml(item.id)}">Mark rechecked</button>` : ''}
-      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="primary" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck ? 'disabled title="Needs recheck before role assignment."' : ''}>Set primary</button>
-      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="backup" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck ? 'disabled title="Needs recheck before role assignment."' : ''}>Set backup</button>
-      ${item.role === 'primary' && !contact ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="contact" data-winner-action-target="${escapeHtml(item.id)}">Start manual contact</button>` : ''}
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="primary" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck || !editable ? 'disabled title="Role changes require an editable selection and a rechecked entry."' : ''}>Set primary</button>
+      <button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="backup" data-winner-action-target="${escapeHtml(item.id)}" ${needsRecheck || !editable ? 'disabled title="Role changes require an editable selection and a rechecked entry."' : ''}>Set backup</button>
+      ${item.role === 'primary' && !contact && workflowStatus === 'candidate_selected' ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="contact" data-winner-action-target="${escapeHtml(item.id)}">Start manual contact</button>` : ''}
       ${contact && contact.status === 'contact_started' ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="response" data-winner-action-target="${escapeHtml(contact.id)}">Record response</button>` : ''}
       ${item.role === 'backup' && hasDeclinedOrNoResponsePrimaryContact() ? `<button class="btn-secondary btn-small" type="button" data-special-offers-winner-action="promote" data-winner-action-target="${escapeHtml(item.id)}">Promote backup</button>` : ''}
       ${item.role === 'primary' && contact?.status === 'accepted' && !['winner_confirmed', 'published'].includes(workflowStatus) ? `<button class="btn-primary btn-small" type="button" data-special-offers-winner-action="confirm" data-winner-action-target="${escapeHtml(contact.id)}">Confirm winner</button>` : ''}
-      ${terminalContact ? '' : `<button class="btn-danger btn-small" type="button" data-special-offers-winner-action="remove" data-winner-action-target="${escapeHtml(item.id)}">Remove from shortlist</button>`}
+      ${terminalContact || !editable ? '' : `<button class="btn-danger btn-small" type="button" data-special-offers-winner-action="remove" data-winner-action-target="${escapeHtml(item.id)}">Remove from shortlist</button>`}
     </div>
   `;
 }
@@ -2254,6 +2282,7 @@ function renderShortlistGroup(title, rows) {
                 <span>${escapeHtml(titleCase(item.status))} · ${escapeHtml(titleCase(item.role))}${item.backup_rank ? ` #${escapeHtml(item.backup_rank)}` : ''} · Added ${escapeHtml(formatDateTime(item.added_at))}</span>
               </div>
               ${item.status === 'needs_recheck' ? '<p class="special-offer-editor-warning">This entry was corrected after shortlist/candidate selection and needs recheck before role assignment.</p>' : ''}
+              <details class="special-offer-disclosure"><summary>Points & contact details</summary>
               <div class="special-offers-detail-grid">
                 <section class="special-offers-detail-panel">
                   <h5>Saved score snapshot</h5>
@@ -2276,6 +2305,7 @@ function renderShortlistGroup(title, rows) {
                   <p class="special-offer-editor-muted">Contact is handled outside the platform. The system does not send messages automatically.</p>
                 </section>
               </div>
+              </details>
               ${renderShortlistActions(item, contact)}
               ${renderWinnerInlineActionForm('primary', item.id)}
               ${renderWinnerInlineActionForm('backup', item.id)}
@@ -2320,6 +2350,7 @@ function renderShortlistSection() {
         </div>
         ${renderStatusChip(workflow.status, 'winner-workflow')}
       </div>
+      <details class="special-offer-disclosure"><summary>Selection history & dates</summary>
       ${renderDetailRows([
         ['Workflow status', titleCase(workflow.status)],
         ['Started at', formatDateTime(workflow.started_at)],
@@ -2327,7 +2358,8 @@ function renderShortlistSection() {
         ['Confirmed at', formatDateTime(workflow.confirmed_at)],
         ['Published at', formatDateTime(workflow.published_at)],
       ])}
-      ${workflow.status === 'winner_confirmed' && !publication ? `
+      </details>
+      ${workflow.status === 'winner_confirmed' && !publication && getCampaignById(state.offerId)?.public_winner_display === true ? `
         <button class="btn-primary btn-small" type="button" data-special-offers-winner-action="publish" data-winner-action-target="${escapeHtml(workflow.id)}">Publish winner result</button>
         ${renderWinnerInlineActionForm('publish', workflow.id)}
       ` : ''}
@@ -2395,6 +2427,28 @@ function renderWinnerAuditTrail() {
   `;
 }
 
+function renderWinnerProgress() {
+  const state = specialOffersState.manualWinner;
+  const status = state.activeWorkflow?.status;
+  const primary = state.shortlist.find((item) => item.status === 'active' && item.role === 'primary');
+  const primaryContact = primary ? getContactForShortlist(primary.id) : null;
+  const accepted = primaryContact?.status === 'accepted';
+  const complete = ['winner_confirmed', 'published'].includes(status);
+  const step = complete ? 3 : status === 'contacting' ? (accepted ? 3 : 2) : status === 'candidate_selected' ? 1 : 0;
+  const guidance = complete
+    ? 'Winner confirmed. The selection is complete. Contact and prize arrangements are handled privately.'
+    : status === 'contacting'
+      ? accepted ? 'The candidate accepted. Use Confirm winner to finish the selection.' : 'Record the response after contacting the candidate outside the platform.'
+      : status === 'candidate_selected'
+        ? ['declined', 'no_response'].includes(primaryContact?.status) ? 'The primary candidate declined or did not respond. Promote a backup candidate to continue.' : 'Start manual contact for the primary candidate and enter a response deadline.'
+        : state.activeWorkflow ? 'Choose the primary candidate from the shortlist and record your reason.' : 'Resolve pending reviews, then start manual selection.';
+  return `<section class="special-offer-selection-progress" aria-label="Selection progress">
+    <ol>${['Select candidate', 'Contact', 'Record response', 'Confirm winner'].map((label, index) => `<li class="${index <= step ? 'is-current' : ''}" ${index === step ? 'aria-current="step"' : ''}><span>${index + 1}</span>${label}</li>`).join('')}</ol>
+    <p role="status">${escapeHtml(guidance)}</p>
+    ${getCampaignById(state.offerId)?.public_winner_display === false ? '<p class="special-offer-editor-muted">Private result · Public winner display is disabled for this campaign.</p>' : ''}
+  </section>`;
+}
+
 function renderManualWinnerBody() {
   const state = specialOffersState.manualWinner;
   if (state.loading) return '<div class="special-offer-entry-state">Loading manual winner selection...</div>';
@@ -2406,12 +2460,15 @@ function renderManualWinnerBody() {
     `;
   }
   return `
+    ${renderCampaignNavigation(state.offerId, 'winner')}
     ${renderManualWinnerNotice()}
     ${renderManualWinnerFilters()}
-    ${renderManualWinnerReadiness()}
-    ${renderEligibleEntriesSection()}
+    ${renderWinnerProgress()}
+    ${!state.activeWorkflow ? renderManualWinnerReadiness() : ''}
     ${renderShortlistSection()}
-    ${renderWinnerAuditTrail()}
+    ${state.activeWorkflow ? `<details class="special-offer-disclosure"><summary>Campaign readiness</summary>${renderManualWinnerReadiness()}</details>` : ''}
+    ${renderEligibleEntriesSection()}
+    <details class="special-offer-disclosure"><summary>Winner workflow audit</summary>${renderWinnerAuditTrail()}</details>
   `;
 }
 
@@ -4535,7 +4592,7 @@ function renderEditorForm(campaign = null) {
             <h4>Form ${renderHelp('form')}</h4>
             <button class="btn-secondary btn-small" type="button" data-special-offers-add-form-field>Add field</button>
           </div>
-          <p class="special-offer-editor-muted">Configure form fields only. Public submit is not available in this stage.</p>
+          <p class="special-offer-editor-muted">Configure the entry form. Existing submissions keep their original answers and field snapshots.</p>
           <div class="special-offer-editor-grid">
             <label class="special-offer-editor-check">
               <input data-offer-setting="requires_form" type="checkbox" ${defaults.requires_form ? 'checked' : ''} />
@@ -4547,7 +4604,7 @@ function renderEditorForm(campaign = null) {
           <div class="special-offer-editor-list" id="specialOfferEditorFormFields"></div>
         </section>
         <section class="special-offer-editor-section" data-special-offers-editor-panel="rules" hidden>
-          <p class="special-offer-editor-muted">${renderHelp('rules')} Configure operational campaign rules. Public launch is not available.</p>
+          <p class="special-offer-editor-muted">${renderHelp('rules')} Configure eligibility, review requirements and result privacy.</p>
           <div class="special-offer-editor-grid">
             ${[
               ['requires_login', 'Requires login'],
@@ -5633,6 +5690,7 @@ async function archiveCurrentCampaign() {
 }
 
 function openCampaignDetails(campaignId) {
+  closeCampaignWorkspacePanels();
   const campaign = specialOffersState.campaigns.find((item) => item.id === campaignId);
   if (!campaign) return;
 
@@ -5644,6 +5702,7 @@ function openCampaignDetails(campaignId) {
   if (title) title.textContent = formatCampaignTitle(campaign);
   if (body) {
     body.innerHTML = `
+      ${renderCampaignNavigation(campaignId, 'overview')}
       <div class="special-offers-details-grid">
         <section class="special-offers-detail-panel">
           <h4>Campaign</h4>
@@ -5740,7 +5799,7 @@ function ensureEntriesModal() {
         <div>
           <div class="special-offers-eyebrow">Admin entries</div>
           <h3 id="specialOffersEntriesTitle">Entries</h3>
-          <p class="special-offer-editor-subtitle">Read-only submission list. Review decisions go through review_special_offer_entry.</p>
+          <p class="special-offer-editor-subtitle">Find participants and review their original submissions.</p>
         </div>
         <button class="btn-modal-close" type="button" data-special-offers-entries-close aria-label="Close entries">×</button>
       </header>
@@ -5857,6 +5916,8 @@ function ensureEntryDetailsModal() {
 }
 
 function closeEntriesModal() {
+  specialOffersState.entries.requestId = (specialOffersState.entries.requestId || 0) + 1;
+  window.clearTimeout(specialOffersState.entries.searchTimer);
   const modal = $('#specialOffersEntriesModal');
   if (modal) modal.hidden = true;
 }
@@ -5879,6 +5940,8 @@ function renderEntriesModal() {
 }
 
 async function refreshEntriesList() {
+  const requestId = specialOffersState.entries.requestId = (specialOffersState.entries.requestId || 0) + 1;
+  const filters = { ...specialOffersState.entries };
   const modal = ensureEntriesModal();
   const body = $('#specialOffersEntriesBody', modal);
   specialOffersState.entries.loading = true;
@@ -5886,24 +5949,29 @@ async function refreshEntriesList() {
   if (body) body.innerHTML = renderEntriesModalBody();
   try {
     const [counts, page] = await Promise.all([
-      loadEntryCounts(specialOffersState.entries),
-      loadEntriesPage(),
+      loadEntryCounts(filters),
+      loadEntriesPage(filters),
     ]);
+    if (requestId !== specialOffersState.entries.requestId) return;
     specialOffersState.entryCounts = counts;
     specialOffersState.entries.rows = page.rows;
     specialOffersState.entries.total = page.total;
     renderStats(specialOffersState.campaigns);
   } catch (error) {
+    if (requestId !== specialOffersState.entries.requestId) return;
     specialOffersState.entries.rows = [];
     specialOffersState.entries.total = 0;
     specialOffersState.entries.error = 'Unable to load entries. Check admin access and Special Offers RLS.';
   } finally {
-    specialOffersState.entries.loading = false;
-    if (body) body.innerHTML = renderEntriesModalBody();
+    if (requestId === specialOffersState.entries.requestId) {
+      specialOffersState.entries.loading = false;
+      if (body) body.innerHTML = renderEntriesModalBody();
+    }
   }
 }
 
 async function openEntriesModal(offerId = 'all') {
+  closeCampaignWorkspacePanels();
   specialOffersState.entries.offerId = offerId || 'all';
   specialOffersState.entries.page = 1;
   renderEntriesModal();
@@ -5924,7 +5992,7 @@ function ensureManualVerificationModal() {
         <div>
           <div class="special-offers-eyebrow">Manual verification</div>
           <h3 id="specialOffersManualVerificationTitle">Official posts, activity claims and points</h3>
-          <p class="special-offer-editor-subtitle">Admin-only workflow. Write actions use Special Offers verification RPCs.</p>
+          <p class="special-offer-editor-subtitle">Manage official posts and review participant activity.</p>
         </div>
         <button class="btn-modal-close" type="button" data-special-offers-manual-close aria-label="Close manual verification">×</button>
       </header>
@@ -6100,6 +6168,7 @@ async function refreshActivityQueue() {
 }
 
 async function openManualVerificationModal(offerId = 'all') {
+  closeCampaignWorkspacePanels();
   specialOffersState.manualVerification.offerId = offerId || 'all';
   specialOffersState.manualVerification.activities.page = 1;
   specialOffersState.manualVerification.postEditingId = '';
@@ -6459,7 +6528,7 @@ function ensureActivityDetailModal() {
         <div>
           <div class="special-offers-eyebrow">Activity review</div>
           <h3 id="specialOfferActivityDetailTitle">Activity details</h3>
-          <p class="special-offer-editor-subtitle">Evidence is read-only. Review decisions go through review_special_offer_activity.</p>
+          <p class="special-offer-editor-subtitle">Review the submitted evidence and record your decision.</p>
         </div>
         <button class="btn-modal-close" type="button" data-special-offers-activity-detail-close aria-label="Close activity details">×</button>
       </header>
@@ -6689,7 +6758,7 @@ function ensureManualWinnerModal() {
         <div>
           <div class="special-offers-eyebrow">Manual winner selection</div>
           <h3 id="specialOffersManualWinnerTitle">Manual Winner Selection</h3>
-          <p class="special-offer-editor-subtitle">Admin-only workflow. Writes use manual winner RPCs only.</p>
+          <p class="special-offer-editor-subtitle">Select a candidate, record contact and confirm the winner.</p>
         </div>
         <button class="btn-modal-close" type="button" data-special-offers-winner-close aria-label="Close manual winner selection">×</button>
       </header>
@@ -6722,6 +6791,11 @@ function ensureManualWinnerModal() {
         return;
       }
       renderManualWinnerModal();
+      const actionForm = $('[data-special-offers-winner-action-form]', modal);
+      if (actionForm) {
+        actionForm.scrollIntoView({ block: 'nearest' });
+        $('textarea, input, select', actionForm)?.focus();
+      }
     }
     if (target?.closest('[data-special-offers-winner-action-cancel]')) {
       resetManualWinnerAction();
@@ -6753,6 +6827,7 @@ function ensureManualWinnerModal() {
 }
 
 function closeManualWinnerModal() {
+  specialOffersState.manualWinner.requestId = (specialOffersState.manualWinner.requestId || 0) + 1;
   const modal = $('#specialOffersManualWinnerModal');
   if (modal) modal.hidden = true;
   resetManualWinnerAction();
@@ -6780,6 +6855,12 @@ function renderManualWinnerModal() {
   const modal = ensureManualWinnerModal();
   const body = $('#specialOffersManualWinnerBody', modal);
   if (body) body.innerHTML = renderManualWinnerBody();
+  const values = specialOffersState.manualWinner.action.values || {};
+  $$('[data-special-offers-winner-action-form] [name]', modal).forEach((field) => {
+    if (!(field.name in values)) return;
+    if (field.type === 'checkbox') field.checked = Boolean(values[field.name]);
+    else field.value = values[field.name];
+  });
   modal.hidden = false;
   if (!modal.contains(document.activeElement)) {
     const closeButton = $('[data-special-offers-winner-close]', modal);
@@ -6788,6 +6869,7 @@ function renderManualWinnerModal() {
 }
 
 async function refreshManualWinner() {
+  const requestId = specialOffersState.manualWinner.requestId = (specialOffersState.manualWinner.requestId || 0) + 1;
   const modal = ensureManualWinnerModal();
   const body = $('#specialOffersManualWinnerBody', modal);
   specialOffersState.manualWinner.loading = true;
@@ -6796,18 +6878,25 @@ async function refreshManualWinner() {
   if (body) body.innerHTML = renderManualWinnerBody();
   try {
     const data = await loadManualWinnerData(specialOffersState.manualWinner.offerId);
+    if (requestId !== specialOffersState.manualWinner.requestId) return;
     Object.assign(specialOffersState.manualWinner, data);
+    await refreshEntryStatsForShell();
+    renderStats(specialOffersState.campaigns);
   } catch (error) {
+    if (requestId !== specialOffersState.manualWinner.requestId) return;
     logSafeRpcError('Special Offers manual winner load failed', error);
     specialOffersState.manualWinner.error = 'Unable to load Manual Winner Selection.';
     specialOffersState.manualWinner.errorMeta = getManualWinnerErrorMeta(error);
   } finally {
-    specialOffersState.manualWinner.loading = false;
-    if (body) body.innerHTML = renderManualWinnerBody();
+    if (requestId === specialOffersState.manualWinner.requestId) {
+      specialOffersState.manualWinner.loading = false;
+      if (body) body.innerHTML = renderManualWinnerBody();
+    }
   }
 }
 
 async function openManualWinnerModal(offerId = 'all', trigger = null) {
+  closeCampaignWorkspacePanels();
   const fallbackOfferId = specialOffersState.campaigns[0]?.id || 'all';
   specialOffersState.manualWinner.offerId = offerId && offerId !== 'all' ? offerId : fallbackOfferId;
   specialOffersState.manualWinner.lastTrigger = trigger || document.activeElement || null;
@@ -6816,7 +6905,8 @@ async function openManualWinnerModal(offerId = 'all', trigger = null) {
   await refreshManualWinner();
 }
 
-function getManualWinnerErrorMessage(error, fallback = 'Manual winner action could not be completed.') {
+function getManualWinnerErrorMessage(error, fallback = 'Manual winner action could not be completed. Refresh the panel and try again.') {
+  if (error?.code === '42702') return 'A database error prevented this change (42702). No selection change was saved. Ask support to repair winner selection.';
   switch (getRpcErrorKey(error)) {
     case 'admin_required':
     case 'login_required':
@@ -6835,18 +6925,30 @@ function getManualWinnerErrorMessage(error, fallback = 'Manual winner action cou
       return 'Only approved entries can be shortlisted.';
     case 'shortlist_needs_recheck':
       return 'This shortlist item needs recheck before role assignment.';
+    case 'invalid_backup_rank':
     case 'backup_rank_required':
       return 'Backup rank must be greater than 0.';
+    case 'invalid_response_deadline':
     case 'contact_deadline_required':
       return 'Response deadline must be in the future.';
+    case 'invalid_winner_response_status':
     case 'winner_response_status_invalid':
       return 'Choose accepted, declined or no response.';
+    case 'accepted_contact_required':
     case 'winner_contact_not_accepted':
       return 'Winner confirmation requires accepted manual contact.';
+    case 'public_winner_display_disabled':
+      return 'Public winner display is disabled. The confirmed result remains private.';
     case 'publication_consent_required':
       return 'Publication requires confirmed consent.';
     case 'public_name_required':
       return 'Public name is required.';
+    case 'winner_workflow_not_editable':
+      return 'This selection has moved to contact or confirmation. Refresh to see the next step.';
+    case 'backup_rank_duplicate':
+      return 'This backup position is already assigned. Choose another position.';
+    case 'shortlist_entry_not_active':
+      return 'This entry must be active and rechecked before assigning a role.';
     default:
       return fallback;
   }
@@ -6970,6 +7072,7 @@ async function submitManualWinnerAction(form = null) {
     return;
   }
   if (!window.confirm(confirmMessage)) return;
+  state.action.values = form ? Object.fromEntries(new FormData(form).entries()) : {};
   state.action.submitting = true;
   state.action.error = '';
   renderManualWinnerModal();
@@ -7326,8 +7429,13 @@ function refreshBuilderPreviews(root = document) {
     const link = specialOffersState.editorLinks.find((entry) => entry.client_id === id);
     if (link) {
       if (!syncCollectionsForPreview()) return;
-      node.classList.remove('is-unavailable');
-      node.innerHTML = renderLinkImagePreview(link);
+      const markup = renderLinkImagePreview(link);
+      // Unrelated field edits must not reload a failed image and shift nearby controls.
+      if (node.dataset.previewMarkup !== markup) {
+        node.dataset.previewMarkup = markup;
+        node.classList.remove('is-unavailable');
+        node.innerHTML = markup;
+      }
     }
   });
   $$('[data-form-options-json-preview]', root).forEach((node) => {
@@ -7444,6 +7552,20 @@ async function copyTextToClipboard(text, button = null) {
 function bindEvents() {
   if (specialOffersState.initialized) return;
   specialOffersState.initialized = true;
+  document.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-special-offers-section]') : null;
+    if (!button || button.getAttribute('aria-current') === 'page') return;
+    const offerId = button.dataset.offerId;
+    const section = button.dataset.specialOffersSection;
+    if (section === 'overview') openCampaignDetails(offerId);
+    if (section === 'entries') openEntriesModal(offerId);
+    if (section === 'verification') openManualVerificationModal(offerId);
+    if (section === 'winner') openManualWinnerModal(offerId, button);
+    if (section === 'settings') {
+      closeCampaignWorkspacePanels();
+      openCampaignEditor('edit', offerId);
+    }
+  });
 
   const grid = $('#specialOffersCampaignGrid');
   if (grid) {

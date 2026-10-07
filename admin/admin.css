@@ -16907,3 +16907,113 @@ html[dir="rtl"] .hotel-pricing-property-default > div:last-child { justify-items
 @media (prefers-reduced-motion:reduce) {
   .hotels-v2-help-dialog,.hotels-v2-help-dialog::backdrop { scroll-behavior:auto; transition:none!important; animation:none!important; }
 }
+
+/* Special Offers: light campaign workspace, scoped away from other admin tools. */
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) {
+  --admin-text: #172334;
+  --admin-text-muted: #526174;
+  --admin-border: #dde4eb;
+  --admin-bg: #f5f7fa;
+  --admin-card-bg: #fff;
+  color: var(--admin-text);
+  color-scheme: light;
+}
+#viewSpecialOffers { background: #f5f7fa; padding: 28px; border-radius: 20px; }
+#viewSpecialOffers .special-offers-header { margin-bottom: 24px; }
+#viewSpecialOffers .special-offers-eyebrow { color: #526174; letter-spacing: .12em; }
+#viewSpecialOffers .special-offers-header-chip { background: #fff; color: #526174; border-color: #dde4eb; }
+#viewSpecialOffers .special-offers-stats { gap: 12px; }
+#viewSpecialOffers .special-offer-stat-card { background: #fff; border: 1px solid #dde4eb; box-shadow: none; border-radius: 12px; }
+#viewSpecialOffers .special-offer-stat-card__value { color: #172334; }
+#viewSpecialOffers .special-offer-campaign-card { background: #fff; border: 1px solid #d7e0e9; box-shadow: 0 3px 12px #17233405; padding: 24px; border-radius: 16px; }
+#viewSpecialOffers .special-offers-campaign-grid { grid-template-columns: 1fr; }
+#viewSpecialOffers .special-offer-campaign-card__actions { justify-content: flex-start; margin-top: 12px; }
+#viewSpecialOffers .special-offers-workflow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+#viewSpecialOffers .special-offer-workflow-card { background: #fff; border: 1px solid #dde4eb; padding: 18px; border-radius: 12px; }
+#viewSpecialOffers .special-offer-workflow-card__step { color: #526174; }
+#viewSpecialOffers .special-offer-workflow-card__chip { background: #f1f5f9; color: #526174; border-color: #dde4eb; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) :is(.btn-secondary, .special-offer-editor-tab, .special-offers-translation-tab) { background: #fff; color: #334155; border: 1px solid #d7e0e9; box-shadow: none; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) .btn-primary { background: #2563eb; color: #fff; border: 1px solid #2563eb; box-shadow: none; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) .btn-danger { background: #fff; color: #b42318; border: 1px solid #fecaca; box-shadow: none; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) button:not(:disabled):hover { filter: brightness(.97); }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) :is(button, a, summary, input, textarea, select):focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) :is(.special-offer-status-chip, .special-offer-pill) { background: #f1f5f9; border-color: #e2e8f0; color: #475569; padding: 5px 9px; font-size: 12px; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) :is(.special-offer-status-chip--approved, .special-offer-status-chip--active, .special-offer-status-chip--winner_confirmed) { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+:is(#viewSpecialOffers, [id^="specialOffer"][class*="modal"]) :is(.special-offer-status-chip--rejected, .special-offer-status-chip--disqualified) { background: #fff1f2; color: #9f1239; border-color: #fecdd3; }
+[id^="specialOffer"][class*="modal"] .admin-modal-content { background: #f8fafc; color: #172334; border: 1px solid #dde4eb; border-radius: 18px; box-shadow: 0 24px 80px #0f172a30; }
+[id^="specialOffer"][class*="modal"] :is(.admin-modal-header, .admin-modal-footer) { background: #fff; border-color: #dde4eb; }
+[id^="specialOffer"][class*="modal"] .admin-modal-header h3 { color: #172334; }
+[id^="specialOffer"][class*="modal"] .btn-modal-close { color: #526174; background: #f1f5f9; }
+[id^="specialOffer"][class*="modal"] .admin-modal-body { padding: 24px; }
+[id^="specialOffer"][class*="modal"] :is(.special-offers-detail-panel, .special-offer-entry-answer, .special-offer-entry-audit-row, .special-offer-entry-review-form, .special-offer-editor-section, .special-offer-editor-item, .special-offers-preview-section, .special-offers-preview-hero, .special-offer-form-preview, .special-offer-entry-full-form__meta, .special-offer-seo-preview-card, .special-offer-public-url-row) { background: #fff; border-color: #dde4eb; box-shadow: none; }
+[id^="specialOffer"][class*="modal"] :is(.special-offer-entry-filters, .special-offer-editor-tabs, .special-offers-translation-tabs, .special-offer-entry-count, .special-offer-entry-state, .special-offer-manual-notice) { background: #f1f5f9; border-color: #dde4eb; color: #334155; }
+[id^="specialOffer"][class*="modal"] :is(.special-offer-editor-tab.is-active, .special-offers-translation-tab.is-active) { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+[id^="specialOffer"][class*="modal"] :is(input, select, textarea) { background: #fff; color: #172334; border: 1px solid #cbd5e1; border-radius: 8px; }
+[id^="specialOffer"][class*="modal"] :is(input, textarea)::placeholder { color: #64748b; }
+[id^="specialOffer"][class*="modal"] :is(th, td) { border-color: #e2e8f0; }
+[id^="specialOffer"][class*="modal"] th { background: #f1f5f9; color: #475569; }
+[id^="specialOffer"][class*="modal"] tr:hover { background: #f8fafc; }
+[id^="specialOffer"][class*="modal"] .special-offer-editor-warning { color: #92400e; }
+[id^="specialOffer"][class*="modal"] :is(.special-offer-editor-success, .special-offer-selection-ready) { color: #166534; }
+[id^="specialOffer"][class*="modal"] :is(.special-offer-entry-state--error, .special-offer-editor-validation) { color: #b42318; }
+.special-offer-disclosure { background: #fff; border: 1px solid #dde4eb; border-radius: 12px; padding: 14px 16px; margin: 12px 0; min-width: 0; }
+.special-offer-disclosure > summary { color: #475569; cursor: pointer; font-weight: 600; font-size: 13px; }
+.special-offer-disclosure[open] > summary { margin-bottom: 16px; }
+.special-offer-selection-progress { background: #fff; border: 1px solid #bfdbfe; border-radius: 14px; padding: 20px; margin: 18px 0; }
+.special-offer-selection-progress ol { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0; margin: 0 0 16px; list-style: none; }
+.special-offer-selection-progress li { display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px; }
+.special-offer-selection-progress li > span { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; background: #f1f5f9; border-radius: 50%; }
+.special-offer-selection-progress li.is-current { color: #1d4ed8; font-weight: 600; }
+.special-offer-selection-progress li.is-current > span { background: #dbeafe; }
+.special-offer-selection-progress p { color: #334155; line-height: 1.6; margin: 8px 0 0; }
+#specialOffersManualWinnerBody { display: grid; gap: 14px; grid-auto-rows: max-content; align-content: start; }
+#specialOffersManualWinnerBody > * { margin-top: 0; margin-bottom: 0; }
+#specialOffersManualWinnerModal .special-offers-details-modal__content { max-width: 1040px; width: min(1040px, calc(100vw - 32px)); }
+.special-offer-winner-shortlist-card > div:first-child { display: grid; gap: 8px; }
+@media (max-width: 720px) {
+  #viewSpecialOffers { padding: 16px; }
+  #viewSpecialOffers .special-offers-workflow { grid-template-columns: 1fr; }
+  #viewSpecialOffers .special-offer-campaign-card { padding: 18px; }
+  .special-offer-selection-progress ol { grid-template-columns: repeat(2, 1fr); }
+  [id^="specialOffer"][class*="modal"] .admin-modal-body { padding: 16px; }
+}
+
+.special-offer-workspace-nav { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 16px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.special-offer-workspace-nav button { flex-shrink: 0; }
+[id^="specialOffer"][class*="modal"] .special-offer-workspace-nav [aria-current="page"] { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.admin-main:has(#viewSpecialOffers.active) { min-width: 0; }
+#viewSpecialOffers .special-offer-stat-card::before,
+#viewSpecialOffers .special-offer-stat-card::after { display: none; }
+#viewSpecialOffers .special-offers-chip-dot { background: #22c55e; box-shadow: none; }
+[id^="specialOffer"][class*="modal"] .special-offers-eyebrow { color: #526174; }
+#specialOffersManualWinnerModal .special-offer-manual-notice { font-size: 12px; padding: 10px 14px; }
+#specialOffersManualWinnerModal .special-offer-entry-filters { background: transparent; grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+#specialOffersManualWinnerModal .special-offer-entry-filters > button { min-height: 40px; }
+.special-offer-workspace-help { grid-column: 1 / -1; font-size: 12px; color: #64748b; margin: 4px 0; line-height: 1.6; }
+[id^="specialOffer"][class*="modal"] .special-offer-editor-footer { background: #fff; border-color: #dde4eb; }
+[id^="specialOffer"][class*="modal"] .special-offer-help { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+
+#specialOffersHelpPopover { --admin-text: #172334; --admin-text-muted: #526174; color-scheme: light; }
+#specialOffersHelpPopover .special-offer-help-popover__content { background: #fff; border-color: #dde4eb; color: #172334; }
+
+/* Keep dialog headings and close controls reachable while the workspace scrolls. */
+[id^="specialOffer"][class*="modal"] .admin-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden !important;
+}
+[id^="specialOffer"][class*="modal"] :is(.admin-modal-header, .admin-modal-footer, .special-offer-editor-footer) { flex-shrink: 0; }
+[id^="specialOffer"][class*="modal"] .admin-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+}
+@media (max-width: 720px) {
+  [id^="specialOffer"][class*="modal"] :is(button, summary, .special-offer-editor-tab) { min-height: 44px; }
+  [id^="specialOffer"][class*="modal"] :is(input, select, textarea) { font-size: 16px; }
+  [id^="specialOffer"][class*="modal"] .admin-modal-header > div { min-width: 0; }
+  [id^="specialOffer"][class*="modal"] .btn-modal-close { flex-shrink: 0; min-width: 44px; }
+  #viewSpecialOffers button { min-height: 44px; }
+}

@@ -1011,18 +1011,18 @@ begin
     raise exception 'winner_workflow_not_editable' using errcode = '23514';
   end if;
 
-  update public.special_offer_winner_shortlist
+  update public.special_offer_winner_shortlist as target
      set role = 'shortlisted',
          backup_rank = null
-   where workflow_id = v_workflow.id
-     and status = 'active'
-     and role = 'primary';
+   where target.workflow_id = v_workflow.id
+     and target.status = 'active'
+     and target.role = 'primary';
 
-  update public.special_offer_winner_shortlist
+  update public.special_offer_winner_shortlist as target
      set role = 'primary',
          backup_rank = null,
-         score_snapshot_json = public.special_offer_winner_score_snapshot(offer_id, entry_id)
-   where id = v_item.id
+         score_snapshot_json = public.special_offer_winner_score_snapshot(target.offer_id, target.entry_id)
+   where target.id = v_item.id
    returning * into v_item;
 
   update public.special_offer_winner_workflows
@@ -1096,11 +1096,11 @@ begin
     raise exception 'winner_workflow_not_editable' using errcode = '23514';
   end if;
 
-  update public.special_offer_winner_shortlist
+  update public.special_offer_winner_shortlist as target
      set role = 'backup',
          backup_rank = p_backup_rank,
-         score_snapshot_json = public.special_offer_winner_score_snapshot(offer_id, entry_id)
-   where id = v_item.id
+         score_snapshot_json = public.special_offer_winner_score_snapshot(target.offer_id, target.entry_id)
+   where target.id = v_item.id
    returning * into v_item;
 
   update public.special_offer_winner_workflows
@@ -1346,24 +1346,24 @@ begin
     raise exception 'replacement_contact_required' using errcode = '23514';
   end if;
 
-  update public.special_offer_winner_shortlist
+  update public.special_offer_winner_shortlist as target
      set role = 'shortlisted',
          backup_rank = null
-   where workflow_id = v_workflow.id
-     and status = 'active'
-     and role = 'primary';
+   where target.workflow_id = v_workflow.id
+     and target.status = 'active'
+     and target.role = 'primary';
 
-  update public.special_offer_winner_shortlist
+  update public.special_offer_winner_shortlist as target
      set role = 'primary',
          backup_rank = null,
-         score_snapshot_json = public.special_offer_winner_score_snapshot(offer_id, entry_id)
-   where id = v_item.id
+         score_snapshot_json = public.special_offer_winner_score_snapshot(target.offer_id, target.entry_id)
+   where target.id = v_item.id
    returning * into v_item;
 
-  update public.special_offer_winner_contact_events
+  update public.special_offer_winner_contact_events as target
      set status = 'replaced',
          replaced_at = now()
-   where workflow_id = v_workflow.id
+   where target.workflow_id = v_workflow.id
      and status in ('declined', 'no_response');
 
   perform public.special_offer_winner_audit(
@@ -1493,6 +1493,12 @@ begin
 
   if not found then
     raise exception 'winner_workflow_not_found' using errcode = 'P0001';
+  end if;
+  if not exists (
+    select 1 from public.special_offers o
+    where o.id = v_workflow.offer_id and o.public_winner_display is true
+  ) then
+    raise exception 'public_winner_display_disabled' using errcode = '23514';
   end if;
   if v_workflow.status <> 'winner_confirmed' or v_workflow.confirmed_entry_id is null then
     raise exception 'winner_not_confirmed' using errcode = '23514';

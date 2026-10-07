@@ -221,7 +221,8 @@ test.describe('Admin Special Offers read-only integration', () => {
 
     await expect(page.locator('.special-offers-create-button')).toBeEnabled();
     await expect(page.locator('.special-offers-create-button')).toHaveText('Create campaign');
-    await expect(card.getByRole('button', { name: 'Edit' })).toBeEnabled();
+    await card.locator('details.special-offer-disclosure > summary').click();
+    await expect(card.getByRole('button', { name: 'Edit', exact: true })).toBeEnabled();
 
     await card.getByRole('button', { name: 'View details' }).click();
     const modal = page.locator('#specialOffersDetailsModal');

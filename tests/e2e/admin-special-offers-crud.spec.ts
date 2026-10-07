@@ -244,7 +244,9 @@ async function openSpecialOffers(page: Page) {
 
 async function openEditorForLefkara(page: Page) {
   const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
-  await card.getByRole('button', { name: 'Edit' }).click();
+  const settings = card.locator('details.special-offer-disclosure');
+  if ((await settings.getAttribute('open')) === null) await settings.locator('summary').click();
+  await card.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.locator('#specialOffersEditorModal')).toBeVisible();
 }
 
@@ -613,7 +615,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     const editor = page.locator('#specialOffersEditorModal');
 
     await editor.getByRole('button', { name: 'Form' }).click();
-    await expect(editor).toContainText('Configure form fields only');
+    await expect(editor).toContainText('Configure the entry form');
     await expect(editor.locator('[data-offer-setting="requires_form"]')).toBeChecked();
     await expect(editor.locator('[data-special-offers-form-field]')).toHaveCount(11);
 
@@ -766,6 +768,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
   });
 
   test('shows safe public preview URLs and allows controlled active/public activation with confirmed dates', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-08-01T12:00:00Z'));
     page.on('dialog', (dialog) => {
       expect(dialog.message()).toContain('Publish this campaign as Active + Public?');
       expect(dialog.message()).toContain('immediately accept entries');
@@ -773,6 +776,7 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     });
     await openSpecialOffers(page);
     const card = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
+    await card.locator('details.special-offer-disclosure > summary').click();
     await expect(card.getByRole('link', { name: 'Preview public page' })).toHaveAttribute(
       'href',
       /\/special-offers\/lefkara-giveaway-2026\?lang=pl$/
@@ -824,7 +828,8 @@ test.describe('Admin Special Offers CRUD draft/private', () => {
     expect(saved.audit.some((row: any) => row.action === 'special_offer.updated' && row.offer_id === OFFER_ID)).toBe(true);
 
     const updatedCard = page.locator('.special-offer-campaign-card').filter({ hasText: 'Wygraj 3 dni w Lefkarze' });
-    await updatedCard.getByRole('button', { name: 'Edit' }).click();
+    await updatedCard.locator('details.special-offer-disclosure > summary').click();
+    await updatedCard.getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(editor.locator('input[name="start_at"]')).toHaveValue('2025-07-15T00:00');
     await expect(editor.locator('input[name="end_at"]')).toHaveValue('2026-09-15T23:59:59');

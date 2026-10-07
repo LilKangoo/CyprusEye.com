@@ -16,6 +16,19 @@ describe('Special Offers manual winner selection SQL stage', () => {
   const readinessFix = read('supabase/manual/special_offer_winner_readiness_stage1_fix.sql');
   const readinessVerify = read('supabase/manual/special_offer_winner_readiness_stage1_verify.sql');
 
+  test('incremental repair contains only the current function definitions and keeps tables intact', () => {
+    const repair = read('supabase/manual/special_offer_winner_actions_ambiguity_fix.sql');
+    for (const name of ['admin_set_special_offer_primary_candidate', 'admin_set_special_offer_backup_candidate', 'admin_promote_special_offer_backup', 'admin_publish_special_offer_winner']) {
+      const start = sql.indexOf(`create or replace function public.${name}(`);
+      expect(start).toBeGreaterThan(-1);
+      expect(repair).toContain(sql.slice(start, sql.indexOf('\n$$;', start) + 4));
+    }
+    expect(repair).toContain('where target.workflow_id = v_workflow.id');
+    expect(repair).toContain('special_offer_winner_score_snapshot(target.offer_id, target.entry_id)');
+    expect(repair).toContain('public_winner_display_disabled');
+    expect(repair).not.toMatch(/(?:create|alter|drop|truncate)\s+table|disable\s+row\s+level\s+security/i);
+  });
+
   test('preflight and verify are read-only and expose clear pass flags', () => {
     expect(preflight).toContain('preflight_safe_to_continue');
     expect(preflight).toContain('approved_entries');
