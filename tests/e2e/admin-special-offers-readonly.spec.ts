@@ -352,6 +352,7 @@ for (const width of [390, 1440]) {
     await modal.getByLabel('Type DELETE to confirm').fill('DELETE');
     await expect(submit).toBeEnabled();
     expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    expect(await modal.evaluate(el => { const r = el.getBoundingClientRect(); return Math.abs(r.left + r.width / 2 - innerWidth / 2) < 2; })).toBe(true);
     await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(modal).toHaveCount(0);
     await expect(page.locator('[data-special-offer-card]')).toHaveCount(1);

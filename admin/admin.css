@@ -17032,3 +17032,7 @@ html[dir="rtl"] .hotel-pricing-property-default > div:last-child { justify-items
 .special-offer-campaign-delete-modal .special-offer-campaign-card__actions { margin-top: 20px; }
 .special-offer-campaign-delete-modal button { min-height: 44px; }
 .special-offer-campaign-delete-modal [role="alert"] { color: #991b1b; }
+.special-offer-campaign-delete-modal { position: fixed; inset: 0; margin: auto; }
+#viewSpecialOffers [data-special-offers-delete-campaign],
+.special-offer-campaign-delete-modal .btn-danger { background: #b91c1c; border: 1px solid #b91c1c; border-radius: 8px; color: #fff; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+.special-offer-campaign-delete-modal .btn-danger:disabled { background: #e5e7eb; border-color: #d1d5db; color: #6b7280; cursor: not-allowed; }
