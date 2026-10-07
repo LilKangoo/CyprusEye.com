@@ -305,3 +305,28 @@ test.describe('Admin Special Offers read-only integration', () => {
     expect(hasHorizontalOverflow).toBe(false);
   });
 });
+
+for (const scenario of [
+  { status: 'candidate_selected', end: '2099-01-01', lifecycle: 'active', background: 'rgb(240, 253, 244)', active: '1' },
+  { status: 'candidate_selected', end: '2020-01-01', lifecycle: 'ended', background: 'rgb(243, 244, 246)', active: '0' },
+  { status: 'winner_confirmed', end: '2099-01-01', lifecycle: 'completed', background: 'rgb(243, 244, 246)', active: '0' },
+  { status: 'published', end: '2099-01-01', lifecycle: 'completed', background: 'rgb(243, 244, 246)', active: '0' },
+]) {
+  test(`campaign lifecycle ${scenario.status} / ${scenario.lifecycle}`, async ({ page }) => {
+    await openAdmin(page);
+    await page.evaluate(({ offerId, scenario }) => {
+      const stub = (window as any).__supabaseStub;
+      const rows = stub.getTableRows('special_offers');
+      stub.seedTable('special_offers', rows.map((row: any) => ({ ...row, status: 'active', start_at: '2019-01-01', end_at: scenario.end })));
+      stub.seedTable('special_offer_winner_workflows', [{ id: 'workflow-status-test', offer_id: offerId, status: scenario.status }]);
+    }, { offerId: OFFER_ID, scenario });
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    const card = page.locator(`[data-special-offer-card="${OFFER_ID}"]`);
+    await expect(card).toHaveAttribute('data-campaign-lifecycle', scenario.lifecycle);
+    await expect(card).toHaveCSS('background-color', scenario.background);
+    await expect(page.locator('[data-special-offers-stat="active"]')).toHaveText(scenario.active);
+    if (scenario.lifecycle === 'completed') await expect(card).toContainText('Completed · Winner confirmed');
+    if (scenario.lifecycle === 'ended') await expect(card).toContainText('Winner selection pending');
+    await expect(card.getByRole('button', { name: 'Entries', exact: true })).toBeEnabled();
+  });
+}

@@ -17017,3 +17017,9 @@ html[dir="rtl"] .hotel-pricing-property-default > div:last-child { justify-items
   [id^="specialOffer"][class*="modal"] .btn-modal-close { flex-shrink: 0; min-width: 44px; }
   #viewSpecialOffers button { min-height: 44px; }
 }
+
+/* Campaign lifecycle: retain contrast and actions after completion. */
+#viewSpecialOffers .special-offer-campaign-card--active { background: #f0fdf4; border-color: #86d5a2; }
+#viewSpecialOffers .special-offer-campaign-card--finished { background: #f3f4f6; border-color: #d1d5db; box-shadow: none; }
+#viewSpecialOffers .special-offer-campaign-card__result { margin: 12px 0 0; color: #374151; font-weight: 600; }
+#viewSpecialOffers .special-offer-status-chip--completed { background: #e5e7eb; border-color: #cbd5e1; color: #374151; }

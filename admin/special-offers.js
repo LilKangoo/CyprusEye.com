@@ -858,7 +858,7 @@ function setErrorState(message) {
 }
 
 function renderStats(campaigns) {
-  setStat('active', campaigns.filter((campaign) => campaign.status === 'active' && (!campaign.end_at || new Date(campaign.end_at).getTime() > Date.now()) && (!campaign.start_at || new Date(campaign.start_at).getTime() <= Date.now())).length);
+  setStat('active', campaigns.filter((campaign) => getCampaignLifecycle(campaign) === 'active' && (!campaign.end_at || new Date(campaign.end_at).getTime() > Date.now()) && (!campaign.start_at || new Date(campaign.start_at).getTime() <= Date.now())).length);
   setStat('draft', countByStatus(campaigns, 'draft'));
   setStat('entries', specialOffersState.shellEntryCounts == null ? '—' : Number(specialOffersState.shellEntryCounts.pending_review || 0) + Number(specialOffersState.shellEntryCounts.submitted || 0));
   setStat('winners', specialOffersState.confirmedWinnerCount ?? '—');
@@ -988,10 +988,12 @@ async function refreshEntryStatsForShell() {
     specialOffersState.shellEntryCounts = null;
   }
   try {
-    const result = await getSupabaseClient().from('special_offer_winner_workflows').select('id', { count: 'exact', head: true }).in('status', ['winner_confirmed', 'published']);
+    const result = await getSupabaseClient().from('special_offer_winner_workflows').select('id, offer_id, status').in('status', ['winner_confirmed', 'published']);
     if (result.error) throw result.error;
-    specialOffersState.confirmedWinnerCount = Number(result.count ?? toArray(result.data).length);
+    specialOffersState.completedOfferIds = new Set(toArray(result.data).map((row) => String(row.offer_id)));
+    specialOffersState.confirmedWinnerCount = specialOffersState.completedOfferIds.size;
   } catch (_error) {
+    specialOffersState.completedOfferIds = new Set();
     specialOffersState.confirmedWinnerCount = null;
   }
 }
@@ -1339,8 +1341,19 @@ function renderStatusChip(value, type = 'status') {
   return `<span class="${className}" data-chip-type="${escapeHtml(type)}">${escapeHtml(titleCase(normalized))}</span>`;
 }
 
+function getCampaignLifecycle(campaign) {
+  if (specialOffersState.completedOfferIds?.has(String(campaign.id))) return 'completed';
+  if (campaign.status === 'active') {
+    if (campaign.end_at && new Date(campaign.end_at).getTime() <= Date.now()) return 'ended';
+    if (campaign.start_at && new Date(campaign.start_at).getTime() > Date.now()) return 'scheduled';
+  }
+  return campaign.status;
+}
+
 function renderCampaignCard(campaign) {
   const title = formatCampaignTitle(campaign);
+  const lifecycle = getCampaignLifecycle(campaign);
+  const tone = lifecycle === 'active' ? 'active' : ['completed', 'ended', 'archived'].includes(lifecycle) ? 'finished' : 'neutral';
   const prizeCount = campaign.prizes.length;
   const linkCount = campaign.links.length;
   const primaryLinkCount = campaign.links.filter((link) => Boolean(link.is_primary)).length;
@@ -1351,14 +1364,14 @@ function renderCampaignCard(campaign) {
   const previewUrl = buildSpecialOfferPreviewUrl(campaign, 'pl');
 
   return `
-    <article class="special-offer-campaign-card" data-special-offer-card="${escapeHtml(campaign.id)}">
+    <article class="special-offer-campaign-card special-offer-campaign-card--${tone}" data-campaign-lifecycle="${escapeHtml(lifecycle)}" data-special-offer-card="${escapeHtml(campaign.id)}">
       <div class="special-offer-campaign-card__top">
         <div>
           <h4 class="special-offer-campaign-card__title">${escapeHtml(title)}</h4>
           <div class="special-offer-campaign-card__slug">${escapeHtml(campaign.slug)}</div>
         </div>
         <div class="special-offer-campaign-card__chips">
-          ${renderStatusChip(campaign.status === 'active' && campaign.end_at && new Date(campaign.end_at).getTime() <= Date.now() ? 'ended' : campaign.status)}
+          ${renderStatusChip(lifecycle)}
           ${renderStatusChip(campaign.visibility, 'visibility')}
         </div>
       </div>
@@ -1366,6 +1379,7 @@ function renderCampaignCard(campaign) {
         <span class="special-offer-pill">${escapeHtml(titleCase(campaign.type))}</span>
         <span class="special-offer-pill">${escapeHtml(titleCase(campaign.winner_selection_mode))}</span>
       </div>
+      ${lifecycle === 'completed' ? '<p class="special-offer-campaign-card__result">Completed · Winner confirmed</p>' : lifecycle === 'ended' ? '<p class="special-offer-campaign-card__result">Entries closed · Winner selection pending</p>' : ''}
       <div class="special-offer-campaign-card__meta">
         <span><strong>Dates:</strong> ${escapeHtml(dateRange)}</span>
         <span><strong>Winner announcement:</strong> ${escapeHtml(winnerDate)}</span>
@@ -5957,6 +5971,7 @@ async function refreshEntriesList() {
     specialOffersState.entries.rows = page.rows;
     specialOffersState.entries.total = page.total;
     renderStats(specialOffersState.campaigns);
+    renderCampaigns(specialOffersState.campaigns);
   } catch (error) {
     if (requestId !== specialOffersState.entries.requestId) return;
     specialOffersState.entries.rows = [];
