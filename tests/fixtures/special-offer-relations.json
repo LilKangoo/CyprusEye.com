@@ -1,0 +1,262 @@
+[
+  {
+    "child": "special_offer_audit_log",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_audit_log",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_entries",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_entries",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (reviewed_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_entries",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_entry_activities",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (verified_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_entry_activities",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_entry_activities",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id, offer_id) REFERENCES special_offer_entries(id, offer_id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_entry_activities",
+    "parent": "special_offer_official_posts",
+    "definition": "FOREIGN KEY (official_post_id, offer_id) REFERENCES special_offer_official_posts(id, offer_id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_entry_activities",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_entry_answers",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id) REFERENCES special_offer_entries(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_entry_answers",
+    "parent": "special_offer_form_fields",
+    "definition": "FOREIGN KEY (field_id) REFERENCES special_offer_form_fields(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_entry_referrals",
+    "parent": "partners",
+    "definition": "FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_entry_referrals",
+    "parent": "profiles",
+    "definition": "FOREIGN KEY (referrer_user_id) REFERENCES profiles(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_entry_referrals",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id, offer_id) REFERENCES special_offer_entries(id, offer_id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_form_field_translations",
+    "parent": "special_offer_form_fields",
+    "definition": "FOREIGN KEY (field_id) REFERENCES special_offer_form_fields(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_form_fields",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_form_fields",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_form_fields",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_link_translations",
+    "parent": "special_offer_links",
+    "definition": "FOREIGN KEY (link_id) REFERENCES special_offer_links(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_links",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_official_posts",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_official_posts",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_official_posts",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_prize_translations",
+    "parent": "special_offer_prizes",
+    "definition": "FOREIGN KEY (prize_id) REFERENCES special_offer_prizes(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_prizes",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_translations",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_winner_committee_notes",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (archived_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_committee_notes",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_committee_notes",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id) REFERENCES special_offer_entries(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_committee_notes",
+    "parent": "special_offer_winner_shortlist",
+    "definition": "FOREIGN KEY (shortlist_id) REFERENCES special_offer_winner_shortlist(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_committee_notes",
+    "parent": "special_offer_winner_workflows",
+    "definition": "FOREIGN KEY (workflow_id) REFERENCES special_offer_winner_workflows(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_winner_contact_events",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_contact_events",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id) REFERENCES special_offer_entries(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_contact_events",
+    "parent": "special_offer_winner_shortlist",
+    "definition": "FOREIGN KEY (shortlist_id) REFERENCES special_offer_winner_shortlist(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_contact_events",
+    "parent": "special_offer_winner_workflows",
+    "definition": "FOREIGN KEY (workflow_id) REFERENCES special_offer_winner_workflows(id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_winner_publications",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (consent_confirmed_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_publications",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (published_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_publications",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id, offer_id) REFERENCES special_offer_entries(id, offer_id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_publications",
+    "parent": "special_offer_winner_workflows",
+    "definition": "FOREIGN KEY (workflow_id, offer_id) REFERENCES special_offer_winner_workflows(id, offer_id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_publications",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_shortlist",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (added_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_shortlist",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (rechecked_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_shortlist",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (removed_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_shortlist",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (entry_id, offer_id) REFERENCES special_offer_entries(id, offer_id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_shortlist",
+    "parent": "special_offer_winner_workflows",
+    "definition": "FOREIGN KEY (workflow_id, offer_id) REFERENCES special_offer_winner_workflows(id, offer_id) ON DELETE CASCADE"
+  },
+  {
+    "child": "special_offer_winner_workflows",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (started_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_workflows",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (cancelled_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offer_winner_workflows",
+    "parent": "special_offer_entries",
+    "definition": "FOREIGN KEY (confirmed_entry_id, offer_id) REFERENCES special_offer_entries(id, offer_id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offer_winner_workflows",
+    "parent": "special_offers",
+    "definition": "FOREIGN KEY (offer_id) REFERENCES special_offers(id) ON DELETE RESTRICT"
+  },
+  {
+    "child": "special_offers",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "child": "special_offers",
+    "parent": "auth.users",
+    "definition": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  }
+]

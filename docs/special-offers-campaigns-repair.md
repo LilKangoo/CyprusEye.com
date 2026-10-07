@@ -36,3 +36,12 @@ Lefkara state before and after: 3 entries, 2 shortlist entries, `shortlisting`, 
 Responsive coverage includes 360, 390, 768 and 1440 px, with reachable dialog close controls and unclipped workspace navigation. Failed image previews no longer reload on unrelated form edits and displace language controls.
 
 Production frontend is prepared from `origin/main` (`2b71b3e`), preserving unrelated hotel and public-navigation changes. Cloudflare Pages production project: `cypruseye-com-new`.
+
+
+## Campaign completion and permanent deletion (2026-10-07 follow-up)
+
+Cards derive completion from confirmed/published winner workflows. Active campaigns are pale green; finished campaigns are light gray. Closed entries without a confirmed winner remain explicitly pending selection. Refreshing the winner workspace also refreshes cards.
+
+Campaign settings & previews contains Delete campaign. Its modal identifies the campaign, explains all removed data, and requires the exact case-sensitive word DELETE. The admin-only RPC repeats confirmation and slug checks, locks the campaign, and removes dependencies atomically. Accounts, partners, linked service records, shared media library files, and external social posts are preserved. Database installation itself deletes no data.
+
+Install `supabase/manual/special_offer_campaign_delete.sql`. Test using `node scripts/test-special-offer-campaign-delete.mjs /path/to/pglite/dist/index.js`; the fixture contains schema relationships only. Tests cover all campaign dependencies, another campaign, shared users/partners, wrong confirmation, wrong slug, missing admin/session and rollback on an unexpected dependency. UI tests cover mobile/desktop, cancellation, exact confirmation, success and failure. No production deletion is used for verification.

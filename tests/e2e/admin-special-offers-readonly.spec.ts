@@ -330,3 +330,61 @@ for (const scenario of [
     await expect(card.getByRole('button', { name: 'Entries', exact: true })).toBeEnabled();
   });
 }
+
+for (const width of [390, 1440]) {
+  test(`campaign deletion requires exact DELETE and supports cancellation at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await openAdmin(page);
+    if (width < 768) await page.click('#adminMenuToggle');
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByText('Campaign settings & previews', { exact: true }).click();
+    await page.getByRole('button', { name: 'Delete campaign', exact: true }).click();
+    const modal = page.locator('#specialOfferCampaignDeleteModal');
+    const submit = modal.getByRole('button', { name: 'Delete campaign permanently', exact: true });
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('lefkara-giveaway-2026');
+    await expect(modal).toContainText('User accounts, partners, linked services and shared media library files are kept');
+    await expect(submit).toBeDisabled();
+    for (const value of ['delete', 'DELETE ', ' DELETE']) {
+      await modal.getByLabel('Type DELETE to confirm').fill(value);
+      await expect(submit).toBeDisabled();
+    }
+    await modal.getByLabel('Type DELETE to confirm').fill('DELETE');
+    await expect(submit).toBeEnabled();
+    expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(modal).toHaveCount(0);
+    await expect(page.locator('[data-special-offer-card]')).toHaveCount(1);
+    const calls = await page.evaluate(() => (window as any).__supabaseStub.getRpcCalls());
+    expect(calls.filter((call: any) => call.name === 'admin_delete_special_offer_campaign')).toHaveLength(0);
+  });
+}
+
+for (const failure of [false, true]) {
+  test(`campaign deletion ${failure ? 'preserves form on server failure' : 'refreshes list after success'}`, async ({ page }) => {
+    await openAdmin(page);
+    await page.evaluate(({ failure, offerId }) => {
+      const stub = (window as any).__supabaseStub;
+      stub.setRpcHandler('admin_delete_special_offer_campaign', (args: any) => {
+        if (failure) return { data: null, error: { message: 'blocked by dependency', code: '23503' } };
+        if (args.p_offer_id !== offerId || args.p_expected_slug !== 'lefkara-giveaway-2026' || args.p_confirmation !== 'DELETE') throw new Error('Invalid delete scope');
+        stub.seedTable('special_offers', []);
+        return { data: true, error: null };
+      });
+    }, { failure, offerId: OFFER_ID });
+    await page.click('button.admin-nav-item[data-view="specialOffers"]');
+    await page.getByText('Campaign settings & previews', { exact: true }).click();
+    await page.getByRole('button', { name: 'Delete campaign', exact: true }).click();
+    const modal = page.locator('#specialOfferCampaignDeleteModal');
+    await modal.getByLabel('Type DELETE to confirm').fill('DELETE');
+    await modal.getByRole('button', { name: 'Delete campaign permanently', exact: true }).click();
+    if (failure) {
+      await expect(modal.getByRole('alert')).toContainText('Could not confirm deletion');
+      await expect(modal.getByLabel('Type DELETE to confirm')).toHaveValue('DELETE');
+      await expect(page.locator('[data-special-offer-card]')).toHaveCount(1);
+    } else {
+      await expect(modal).toHaveCount(0);
+      await expect(page.locator('#specialOffersEmptyState')).toBeVisible();
+    }
+  });
+}

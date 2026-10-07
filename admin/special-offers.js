@@ -1406,10 +1406,74 @@ function renderCampaignCard(campaign) {
           data-special-offers-edit="${escapeHtml(campaign.id)}"
           ${canEdit ? '' : 'disabled title="Archived or locked campaigns cannot be edited."'}
         >Edit</button>
+        <button class="btn-danger btn-small" type="button" data-special-offers-delete-campaign="${escapeHtml(campaign.id)}">Delete campaign</button>
       </div>
       </details>
     </article>
   `;
+}
+
+function openCampaignDelete(campaignId, opener) {
+  const campaign = getCampaignById(campaignId);
+  if (!campaign || $('#specialOfferCampaignDeleteModal')) return;
+  const modal = document.createElement('dialog');
+  modal.id = 'specialOfferCampaignDeleteModal';
+  modal.className = 'special-offer-campaign-delete-modal';
+  modal.setAttribute('aria-labelledby', 'specialOfferCampaignDeleteTitle');
+  modal.innerHTML = `
+    <form>
+      <h3 id="specialOfferCampaignDeleteTitle">Delete campaign permanently</h3>
+      <p><strong>${escapeHtml(formatCampaignTitle(campaign))}</strong><br>${escapeHtml(campaign.slug)}</p>
+      <p>This cannot be undone. This deletes the campaign, translations, prize and service links, forms, all participant entries and answers, verification activities, official post records, referral attribution, winner selection, contact history, published result and campaign audit history.</p>
+      <p>User accounts, partners, linked services and shared media library files are kept. External social media posts are not deleted.</p>
+      <label for="specialOfferCampaignDeleteConfirmation">Type DELETE to confirm</label>
+      <input id="specialOfferCampaignDeleteConfirmation" name="confirmation" autocomplete="off" spellcheck="false" required pattern="DELETE" />
+      <p role="alert" data-campaign-delete-error hidden></p>
+      <div class="special-offer-campaign-card__actions">
+        <button type="button" class="btn-secondary" data-campaign-delete-cancel>Cancel</button>
+        <button type="submit" class="btn-danger" disabled>Delete campaign permanently</button>
+      </div>
+    </form>`;
+  document.body.appendChild(modal);
+  const input = modal.querySelector('input');
+  const submit = modal.querySelector('[type="submit"]');
+  const cancel = modal.querySelector('[data-campaign-delete-cancel]');
+  const error = modal.querySelector('[data-campaign-delete-error]');
+  let busy = false;
+  const close = () => { if (!busy) modal.close(); };
+  modal.addEventListener('close', () => { modal.remove(); opener?.focus(); });
+  modal.addEventListener('cancel', (event) => { if (busy) event.preventDefault(); });
+  cancel.addEventListener('click', close);
+  input.addEventListener('input', () => { submit.disabled = busy || input.value !== 'DELETE'; });
+  modal.querySelector('form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (busy || input.value !== 'DELETE') return;
+    busy = true;
+    input.disabled = submit.disabled = cancel.disabled = true;
+    submit.textContent = 'Deleting…';
+    error.hidden = true;
+    try {
+      const result = await getSupabaseClient().rpc('admin_delete_special_offer_campaign', {
+        p_offer_id: campaign.id, p_expected_slug: campaign.slug, p_confirmation: input.value,
+      });
+      if (result.error) throw result.error;
+      if (result.data !== true) throw new Error('Deletion was not confirmed by the server.');
+      busy = false;
+      modal.close();
+      closeCampaignWorkspacePanels();
+      notifySpecialOffers('Campaign and related campaign data deleted permanently.', 'success');
+      await refreshSpecialOffers();
+    } catch (cause) {
+      busy = false;
+      input.disabled = cancel.disabled = false;
+      submit.disabled = input.value !== 'DELETE';
+      submit.textContent = 'Delete campaign permanently';
+      error.textContent = 'Could not confirm deletion. Refresh the campaign list before retrying. ' + (String(cause?.code || '') === 'PGRST202' ? 'The campaign delete database function is not installed.' : 'No partial deletion can be committed.');
+      error.hidden = false;
+    }
+  });
+  modal.showModal();
+  cancel.focus();
 }
 
 function renderCampaigns(campaigns) {
@@ -7586,6 +7650,8 @@ function bindEvents() {
   if (grid) {
     grid.addEventListener('click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
+      const deleteButton = target?.closest('[data-special-offers-delete-campaign]');
+      if (deleteButton) { openCampaignDelete(deleteButton.getAttribute('data-special-offers-delete-campaign'), deleteButton); return; }
       const viewButton = target?.closest('[data-special-offers-view]');
       const editButton = target?.closest('[data-special-offers-edit]');
       const entriesButton = target?.closest('[data-special-offers-open-entries]');
