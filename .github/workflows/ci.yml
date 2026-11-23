@@ -20,6 +20,10 @@ jobs:
           npm run build
           test -f dist/js/hotels-v2-partner-workspace.js
           test -f dist/partners/hotels-v2-workspace.css
+      - name: Real Chromium mobile and desktop wizard interaction
+        run: |
+          npx playwright install --with-deps chromium
+          node tests/hotelsV2CalendarWizardBrowser.mjs
 
   tests:
     runs-on: ubuntu-latest
