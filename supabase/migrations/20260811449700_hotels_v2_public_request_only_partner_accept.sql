@@ -59,6 +59,26 @@ END $f$;
 REVOKE ALL ON FUNCTION hotels_public_booking_114497_private.require_request_only()
   FROM PUBLIC,anon,authenticated,service_role;
 
+CREATE FUNCTION public.hotel_v2_public_request_capability_114497()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog','public','auth' AS $f$
+DECLARE
+  v_enabled boolean;
+BEGIN
+  PERFORM hotels_public_booking_114494_private.require_safety();
+  SELECT request_mode_enabled INTO v_enabled
+  FROM hotels_public_booking_114497_private.request_mode_gate WHERE singleton;
+  RETURN jsonb_build_object(
+    'contract_version','hotels_v2_public_request_only_capability_114497_v1',
+    'hotel_id','9b6d99a0-923a-4fbc-be54-c066e856e6ca',
+    'can_submit',coalesce(v_enabled,false)
+  );
+END $f$;
+REVOKE ALL ON FUNCTION public.hotel_v2_public_request_capability_114497()
+  FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.hotel_v2_public_request_capability_114497()
+  TO anon,authenticated;
+
 CREATE FUNCTION public.hotel_v2_public_get_request_options_114497(p_request jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog','public','auth' AS $f$
