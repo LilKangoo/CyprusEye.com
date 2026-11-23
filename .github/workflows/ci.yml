@@ -29,6 +29,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Hotels V2 browser request-only acceptance (mocked RPC)
+        run: npx playwright test tests/e2e/hotels-v2-114497-request-only.spec.ts --project=chromium
+
       - name: Check shared navigation
         run: npm run navigation:check
 
