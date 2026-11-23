@@ -435,7 +435,7 @@
     pricingProposal: null, pricingControl: null, pricingControlError: null,
     mediaDraft: { property: [], rooms: {} }, photoDraft: { property: null, rooms: {} },
     externalCalendar: null, externalCalendarError: null,
-    presentation: null, presentationError: null, pendingPartnerRequests: [], partnerRequestInboxError: null, helpController: null, lastRefresh: null,
+    presentation: null, presentationError: null, pendingPartnerRequests: [], partnerRequestInboxReady: false, partnerRequestInboxError: null, helpController: null, lastRefresh: null,
   };
 
   function text(key) { return PORTAL_COPY[state.language]?.[key] || COPY[state.language]?.[key] || COPY.en[key] || key; }
@@ -979,7 +979,7 @@
   }
 
   function requestOnlyInboxEnabled() {
-    return root.CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED === true
+    return state.partnerRequestInboxReady === true
       && state.workspace?.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
       && state.workspace?.assignment?.capabilities?.process_bookings === true;
   }
@@ -1309,7 +1309,7 @@
       state.workspace = workspace;
       state.externalCalendar = null; state.externalCalendarError = null; state.pricingControl = null; state.pricingControlError = null;
       state.presentation = null; state.presentationError = null;
-      state.pendingPartnerRequests = []; state.partnerRequestInboxError = null;
+      state.pendingPartnerRequests = []; state.partnerRequestInboxReady = false; state.partnerRequestInboxError = null;
       try {
         state.presentation = await Repository.getBookingsPaymentsPresentation(
           state.partnerId,
@@ -1327,13 +1327,14 @@
       } catch (error) {
         state.presentationError = error.userMessage || error.message;
       }
-      if (root.CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED === true
-        && workspace.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+      if (workspace.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
         && workspace.assignment.capabilities.process_bookings === true) {
         try {
           state.pendingPartnerRequests = await Repository.listPendingRequests114497(
             state.partnerId,workspace.hotel_id
           );
+          // The scoped server RPC is the source of truth: no separate JS rollout flag.
+          state.partnerRequestInboxReady = true;
         } catch (_error) {
           state.pendingPartnerRequests=[];
           state.partnerRequestInboxError='INBOX_UNAVAILABLE';
