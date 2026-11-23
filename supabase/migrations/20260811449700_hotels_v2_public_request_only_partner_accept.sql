@@ -79,6 +79,53 @@ REVOKE ALL ON FUNCTION public.hotel_v2_public_request_capability_114497()
 GRANT EXECUTE ON FUNCTION public.hotel_v2_public_request_capability_114497()
   TO anon,authenticated;
 
+CREATE FUNCTION public.hotel_v2_public_request_context_114497()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'pg_catalog','public','auth' AS $f$
+DECLARE
+  v_hotel public.hotels%rowtype;
+  v_rooms jsonb;
+  v_rules jsonb;
+  v_enabled boolean;
+BEGIN
+  PERFORM hotels_public_booking_114494_private.require_safety();
+  SELECT * INTO STRICT v_hotel FROM public.hotels
+  WHERE id='9b6d99a0-923a-4fbc-be54-c066e856e6ca'::uuid;
+  IF v_hotel.architecture_version IS DISTINCT FROM 'rooms_v2'
+    OR v_hotel.is_published IS DISTINCT FROM true THEN
+    RAISE EXCEPTION USING errcode='42501',
+      message='hotels_114497_property_unavailable';
+  END IF;
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'id',r.id,'code',r.code,'name_i18n',r.name_i18n,
+    'max_occupancy',r.max_occupancy
+  ) ORDER BY r.code),'[]'::jsonb) INTO v_rooms
+  FROM public.hotel_room_types r WHERE r.hotel_id=v_hotel.id
+    AND r.status='active';
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+    'min_guest_count',rule.min_guest_count,
+    'max_guest_count',rule.max_guest_count,
+    'allocation_mode',rule.allocation_mode
+  ) ORDER BY rule.min_guest_count),'[]'::jsonb) INTO v_rules
+  FROM public.hotel_room_allocation_rules rule
+  WHERE rule.hotel_id=v_hotel.id AND rule.is_active
+    AND rule.review_status='reviewed';
+  SELECT request_mode_enabled INTO v_enabled
+  FROM hotels_public_booking_114497_private.request_mode_gate WHERE singleton;
+  RETURN jsonb_build_object(
+    'contract_version','hotels_v2_public_request_context_114497_v1',
+    'hotel_id',v_hotel.id,
+    'can_submit',coalesce(v_enabled,false),
+    'rooms',v_rooms,
+    'allocation_rules',v_rules,
+    'extras',coalesce(v_hotel.pricing_extras->'items','[]'::jsonb)
+  );
+END $f$;
+REVOKE ALL ON FUNCTION public.hotel_v2_public_request_context_114497()
+  FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.hotel_v2_public_request_context_114497()
+  TO anon,authenticated;
+
 CREATE FUNCTION public.hotel_v2_public_get_request_options_114497(p_request jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog','public','auth' AS $f$
