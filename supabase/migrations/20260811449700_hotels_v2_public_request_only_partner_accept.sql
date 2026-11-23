@@ -98,7 +98,9 @@ BEGIN
   END IF;
   SELECT coalesce(jsonb_agg(jsonb_build_object(
     'id',r.id,'code',r.code,'name_i18n',r.name_i18n,
-    'max_occupancy',r.max_occupancy
+    'max_occupancy',r.max_occupancy,
+    'children_policy_override',r.children_policy_override,
+    'minimum_child_age_override',r.minimum_child_age_override
   ) ORDER BY r.code),'[]'::jsonb) INTO v_rooms
   FROM public.hotel_room_types r WHERE r.hotel_id=v_hotel.id
     AND r.status='active';
@@ -119,6 +121,8 @@ BEGIN
     'minimum_stay_nights',v_hotel.minimum_stay_nights,
     'maximum_stay_nights',365,
     'currency',v_hotel.currency,
+    'children_policy',v_hotel.children_policy,
+    'minimum_child_age',v_hotel.minimum_child_age,
     'rooms',v_rooms,
     'allocation_rules',v_rules,
     'extras',coalesce(v_hotel.pricing_extras->'items','[]'::jsonb)
