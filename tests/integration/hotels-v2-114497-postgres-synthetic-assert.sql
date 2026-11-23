@@ -114,8 +114,8 @@ FROM (
  ) AS issued
 ) x \gset
 -- psql does not interpolate variables inside dollar-quoted PL/pgSQL bodies.
-SELECT set_config('hotels_synthetic.quote_id', :'synthetic_quote_id', false),
-       set_config('hotels_synthetic.lookup_token', :'synthetic_lookup_token', false);
+SELECT set_config('hotels_synthetic.quote_id', :'synthetic_quote_id', false) AS synthetic_session_quote_id,
+       set_config('hotels_synthetic.lookup_token', :'synthetic_lookup_token', false) AS synthetic_session_token \gset
 
 DO $test_begin$
 DECLARE value jsonb;
