@@ -170,7 +170,7 @@ test('Partner review shows real room allocation and handles ambiguous confirmati
   assert.match(partner,/entry\.allocated_guests/);
   assert.match(partner,/state\.pendingPartnerRequests\.find\(item=>item\.order_id===orderId\)/);
   assert.match(partner,/root\.confirm\(summary\)/);
-  assert.match(partner,/text\('partnerAcceptanceUncertain'\)/);
+  assert.match(partner,/text\(attempted\?'partnerAcceptanceUncertain':'partnerRequestInboxUnavailable'\)/);
   assert.match(partner,/if \(attempted\)/);
   assert.match(partner,/try \{ await load\(\); \} catch/);
   assert.match(partner,/Repository\.acceptRequest114497\(/);
