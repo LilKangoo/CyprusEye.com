@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  hotels_114497_postgres_contract:
+    name: Hotels 114497 / isolated PostgreSQL contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+      - name: Test exact 114497 migration in disposable, no-network PostgreSQL
+        env:
+          HOTELS_114497_SYNTHETIC_ONLY: YES
+        run: bash scripts/test-hotels-v2-114497-postgres-synthetic.sh
+
   tests:
     runs-on: ubuntu-24.04
     steps:
