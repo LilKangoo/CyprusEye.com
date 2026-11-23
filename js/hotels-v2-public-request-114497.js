@@ -26,6 +26,7 @@
       disabled: 'Request booking is currently unavailable.', network: 'The submission result is uncertain. Do not retry automatically.',
       reference: 'Request reference', extras: 'Optional extras', error: 'Unable to complete the request.',
       guestError: 'Choose a valid guest count and provide each child’s age.',
+      childMinimum: 'Minimum child age: {age} years.', childPolicyError: 'The children’s ages do not meet the property policy.',
     },
     pl: {
       heading: 'Zapytanie o pobyt', notice: 'Teraz nie płacisz. Partner hotelu musi potwierdzić wybrane terminy.',
@@ -39,6 +40,7 @@
       disabled: 'Wysyłanie zapytań jest obecnie niedostępne.', network: 'Nie znamy wyniku wysłania. Nie ponawiaj automatycznie.',
       reference: 'Numer zapytania', extras: 'Dodatkowe opcje', error: 'Nie udało się wysłać zapytania.',
       guestError: 'Podaj poprawną liczbę gości i wiek każdego dziecka.',
+      childMinimum: 'Minimalny wiek dziecka: {age} lat.', childPolicyError: 'Wiek dzieci nie spełnia zasad obiektu.',
     },
     he: {
       heading: 'בקשה להזמנת שהייה', notice: 'אין תשלום בשלב הזה. שותף המלון חייב לאשר את התאריכים.',
@@ -52,6 +54,7 @@
       disabled: 'שליחת בקשות אינה זמינה כעת.', network: 'תוצאת השליחה אינה ידועה. אין לשלוח שוב באופן אוטומטי.',
       reference: 'מספר בקשה', extras: 'תוספות', error: 'לא ניתן לשלוח את הבקשה.',
       guestError: 'הזינו מספר אורחים תקין וגיל לכל ילד.',
+      childMinimum: 'גיל מינימלי לילדים: {age} שנים.', childPolicyError: 'גילי הילדים אינם עומדים במדיניות הנכס.',
     }
   });
 
@@ -95,7 +98,11 @@
       || !Number.isInteger(data.minimum_stay_nights)
       || data.minimum_stay_nights<1 || data.minimum_stay_nights>365
       || data.maximum_stay_nights!==365 || data.currency!=='EUR'
-      || data.rooms.length!==2) throw new Error('Invalid request context');
+      || !['allowed','minimum_age','not_allowed'].includes(data.children_policy)
+      || (data.children_policy==='minimum_age' && (!Number.isInteger(data.minimum_child_age)
+          || data.minimum_child_age<0 || data.minimum_child_age>17))
+      || data.rooms.length<1 || data.rooms.length>10)
+      throw new Error('Invalid request context');
     return data;
   }
   function prepareRequest(form, context) {
@@ -121,6 +128,22 @@
     }
     if (rule.allocation_mode==='customer_choice' && !exactUUID(room)) {
       throw new Error('INVALID_ROOM');
+    }
+    if (children>0) {
+      if (context.children_policy==='not_allowed'
+        || (context.children_policy==='minimum_age'
+            && ages.some(age=>age<context.minimum_child_age))) {
+        throw new Error('INVALID_CHILD_POLICY');
+      }
+      const applicableRooms=room?context.rooms.filter(r=>r.id===room):context.rooms;
+      for (const selectedRoom of applicableRooms) {
+        const policy=selectedRoom.children_policy_override || context.children_policy;
+        const minAge=Number.isInteger(selectedRoom.minimum_child_age_override)
+          ? selectedRoom.minimum_child_age_override : context.minimum_child_age;
+        if (policy==='not_allowed'
+          || (policy==='minimum_age' && Number.isInteger(minAge)
+            && ages.some(age=>age<minAge))) throw new Error('INVALID_CHILD_POLICY');
+      }
     }
     const arrival=String(data.get('arrival_date')||'');
     const departure=String(data.get('departure_date')||'');
@@ -165,6 +188,7 @@
           <label>${safeHtml(copy.departure)}<input name="departure_date" type="date" required></label>
           <label>${safeHtml(copy.adults)}<input name="adults" type="number" min="1" max="8" value="2" required></label>
           <label>${safeHtml(copy.children)}<input name="children" type="number" min="0" max="7" value="0" required></label>
+          ${context.children_policy==='minimum_age' ? `<p>${safeHtml(copy.childMinimum.replace('{age}',String(context.minimum_child_age)))}</p>` : ''}
           <div data-children-ages></div>
           <label data-request-room-wrap>${safeHtml(copy.room)}
             <select name="room_type_id">${context.rooms.map(room=>`<option value="${safeHtml(room.id)}">${safeHtml(room.name_i18n?.[locale]||room.name_i18n?.en||room.code)}</option>`).join('')}</select>
@@ -198,7 +222,7 @@
         const label=document.createElement('label');
         label.textContent=copy.age+' '+(i+1);
         const age=document.createElement('input');
-        age.type='number';age.min='0';age.max='17';age.required=true;
+        age.type='number';age.min=context.children_policy==='minimum_age'?String(context.minimum_child_age):'0';age.max='17';age.required=true;
         age.setAttribute('data-request-child-age','');
         age.addEventListener('input',invalidate);
         label.appendChild(age);agesWrap.appendChild(label);
@@ -235,7 +259,7 @@
           ? new Intl.NumberFormat(locale,{style:'currency',currency:'EUR'}).format(total)
           : '—')+' · '+copy.notice);
         submitButton.disabled=false;
-      } catch(error){message(error?.message==='INVALID_GUESTS'?copy.guestError:copy.error);}
+      } catch(error){message(error?.message==='INVALID_GUESTS'?copy.guestError:error?.message==='INVALID_CHILD_POLICY'?copy.childPolicyError:copy.error);}
       finally{previewButton.disabled=finalized;}
     });
     form.addEventListener('submit',async(event)=>{
@@ -243,7 +267,7 @@
       if(submitting||finalized||!verified)return;
       let request;
       try{request=prepareRequest(form,context);}
-      catch(_){invalidate();message(copy.guestError);return;}
+      catch(error){invalidate();message(error?.message==='INVALID_CHILD_POLICY'?copy.childPolicyError:copy.guestError);return;}
       if(JSON.stringify(request)!==verified){invalidate();message(copy.needPreview);return;}
       submitting=true;submitButton.disabled=true;previewButton.disabled=true;
       let issued=null;
