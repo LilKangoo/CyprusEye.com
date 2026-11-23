@@ -726,16 +726,26 @@
       const form = $('#bookForm');
       if (form) form.hidden = true;
       hotelPageBookingUi?.renderPublicDisplayOnly?.(hotel, form);
-      setNodeText('#hotelHeroCtaLabel', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytaj o pobyt', 'Request a stay') : pageText('Zobacz apartamenty', 'View apartments'));
-      setNodeText('#hotelHeroCtaMeta', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Wymagane potwierdzenie Partnera. Bez płatności.', 'Partner confirmation required. No payment now.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
-      setNodeText('#hotelBookingTitle', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytanie o pobyt', 'Stay request') : pageText('Informacje o apartamentach', 'Apartment information'));
-      setNodeText('#priceLive', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Cenę i dostępność sprawdzisz poniżej.', 'Check price and availability below.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      // After server-gated request mount, replace the old 'booking disabled' notice,
+      // but retain the converted pilot's safely disabled legacy insert form.
+      if (document.querySelector('[data-hotel-request-only-114497]')) {
+        const oldNotice = form?.parentElement?.querySelector('[data-seven-arches-public-display] > p');
+        if (oldNotice) oldNotice.textContent=pageText(
+          'Wyślij zapytanie poniżej — termin potwierdza Partner. Bez płatności online.',
+          'Submit a request below — the Partner confirms the dates. No online payment.',
+          'שלחו בקשה למטה — השותף יאשר את התאריכים. אין תשלום מקוון.'
+        );
+      }
+      setNodeText('#hotelHeroCtaLabel', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytaj o pobyt', 'Request a stay', 'בקשת שהייה') : pageText('Zobacz apartamenty', 'View apartments'));
+      setNodeText('#hotelHeroCtaMeta', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Wymagane potwierdzenie Partnera. Bez płatności.', 'Partner confirmation required. No payment now.', 'נדרש אישור שותף. ללא תשלום כעת.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      setNodeText('#hotelBookingTitle', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytanie o pobyt', 'Stay request', 'בקשת שהייה') : pageText('Informacje o apartamentach', 'Apartment information'));
+      setNodeText('#priceLive', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Cenę i dostępność sprawdzisz poniżej.', 'Check price and availability below.', 'בדיקת מחיר וזמינות למטה.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
       return true;
     }
 
-    function pageText(pl, en){
+    function pageText(pl, en, he){
       const lang = String(hotelPageBookingUi?.getLanguage?.() || getHotelPageLanguage()).toLowerCase();
-      return lang.startsWith('pl') ? pl : en;
+      return lang.startsWith('pl') ? pl : lang.startsWith('he') ? (he || en) : en;
     }
 
     function renderHotelStaticCopy() {
