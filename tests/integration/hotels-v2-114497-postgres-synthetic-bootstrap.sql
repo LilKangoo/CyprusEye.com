@@ -174,14 +174,14 @@ BEGIN
  RETURN hotels_public_booking_114494_private.status_core(p_id);
 END $f$;
 
-CREATE FUNCTION hotels_public_booking_114494_private.confirm_core(p_order_id uuid)
+CREATE FUNCTION hotels_public_booking_114494_private.confirm_core(p_id uuid)
 RETURNS void LANGUAGE plpgsql AS $f$
 BEGIN
  UPDATE hotels_public_booking_114494_private.orders
- SET status='confirmed' WHERE id=p_order_id AND mode='A';
+ SET status='confirmed' WHERE id=p_id AND mode='A';
  UPDATE public.hotel_bookings b SET status='confirmed'
  FROM hotels_public_booking_114494_private.orders o
- WHERE o.id=p_order_id AND o.booking_id=b.id AND o.mode='A';
+ WHERE o.id=p_id AND o.booking_id=b.id AND o.mode='A';
 END $f$;
 
 COMMIT;
