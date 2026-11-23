@@ -113,12 +113,16 @@ FROM (
     "adults":2,"child_ages":[],"selected_extra_ids":[]}'::jsonb
  ) AS issued
 ) x \gset
+-- psql does not interpolate variables inside dollar-quoted PL/pgSQL bodies.
+SELECT set_config('hotels_synthetic.quote_id', :'synthetic_quote_id', false),
+       set_config('hotels_synthetic.lookup_token', :'synthetic_lookup_token', false);
 
 DO $test_begin$
 DECLARE value jsonb;
 BEGIN
  value:=public.hotel_v2_public_begin_request_114497(
-  :'synthetic_quote_id'::uuid,:'synthetic_lookup_token',
+  current_setting('hotels_synthetic.quote_id')::uuid,
+  current_setting('hotels_synthetic.lookup_token'),
   '{"name":"Synthetic Guest","email":"synthetic@example.invalid","lang":"pl"}'::jsonb);
  IF value->>'mode'<>'A' OR value->>'status'<>'request_pending'
  OR value->'payment_required' IS DISTINCT FROM 'false'::jsonb THEN
