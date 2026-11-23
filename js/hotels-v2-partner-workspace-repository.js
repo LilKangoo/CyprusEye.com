@@ -29,6 +29,8 @@
     previewExternalCalendar114493: 'hotel_v2_partner_preview_external_calendar_plan_114493',
     submitExternalCalendarProposal: 'hotel_v2_partner_apply_external_calendar_plan',
     submitExternalCalendarProposal114493: 'hotel_v2_partner_apply_external_calendar_plan_114493',
+    pendingRequests114497: 'hotel_v2_partner_pending_requests_114497',
+    acceptRequest114497: 'hotel_v2_partner_accept_request_114497',
   });
 
   const reviewedPlans = new Map();
@@ -36,6 +38,7 @@
   const currentWorkspaces = new Map();
   const reviewedExternalCalendarPlans = new Map();
   const reviewedSevenArchesPricingPlans = new Map();
+  const currentRequestOnlyOrders = new Map();
 
   async function sha256Hex(value) {
     if (typeof crypto === 'undefined' || !crypto.subtle || typeof TextEncoder === 'undefined') {
@@ -420,6 +423,68 @@
     }
   }
 
+
+  const REQUEST_ONLY_PILOT='9b6d99a0-923a-4fbc-be54-c066e856e6ca';
+
+  function requireRequestOnlyPartner(partnerId, hotelId) {
+    const partner=exactUuid(partnerId,'partner_id');
+    const hotel=exactUuid(hotelId,'hotel_id');
+    const workspace=currentWorkspaces.get(partner+':'+hotel);
+    if (hotel!==REQUEST_ONLY_PILOT
+      || !workspace
+      || workspace.assignment.capabilities.process_bookings!==true) {
+      throw new Error('This exact Partner Hotel assignment cannot process request-only bookings.');
+    }
+    return {partner,hotel,workspace};
+  }
+
+  async function listPendingRequests114497(partnerId, hotelId) {
+    const {partner,hotel}=requireRequestOnlyPartner(partnerId,hotelId);
+    const value=await call(RPC.pendingRequests114497,{p_partner_id:partner},'booking_requests');
+    if (!value
+      || value.contract_version!=='hotels_v2_partner_pending_requests_114497_v1'
+      || value.hotel_id!==hotel || value.partner_id!==partner
+      || !Array.isArray(value.requests)||value.requests.length>100) {
+      throw new Error('Request inbox returned an invalid scoped read contract.');
+    }
+    const ids=new Set();
+    const requests=value.requests.map(item=>{
+      if (!item||!Core.requireCanonicalUuid(item.order_id,'order_id')
+        || !Core.requireCanonicalUuid(item.booking_id,'booking_id')
+        || item.status!=='request_pending'
+        || !/^\\d{4}-\\d{2}-\\d{2}$/.test(item.arrival_date)
+        || !/^\\d{4}-\\d{2}-\\d{2}$/.test(item.departure_date)
+        || ids.has(item.order_id)) {
+        throw new Error('Request inbox contains an invalid order.');
+      }
+      ids.add(item.order_id);
+      return Object.freeze(item);
+    });
+    currentRequestOnlyOrders.set(partner+':'+hotel,ids);
+    return Object.freeze(requests);
+  }
+
+  async function acceptRequest114497(partnerId,hotelId,orderId) {
+    const {partner,hotel}=requireRequestOnlyPartner(partnerId,hotelId);
+    const order=exactUuid(orderId,'order_id');
+    const key=partner+':'+hotel;
+    const allowed=currentRequestOnlyOrders.get(key);
+    if (!allowed?.has(order)) throw new Error('Refresh the exact request inbox before accepting.');
+    // Consume before the mutation; do not automatically retry after a timeout.
+    allowed.delete(order);
+    const value=await call(RPC.acceptRequest114497,{
+      p_order_id:order,p_partner_id:partner,
+    },'booking_requests');
+    if (!value || value.order_id!==order
+      || value.mode!=='A'||value.status!=='confirmed'
+      || value.payment_required!==false) {
+      const error=new Error('Accept returned an unverifiable receipt. Reload the inbox; no retry was sent.');
+      error.saveSucceeded=true;
+      throw error;
+    }
+    return Object.freeze(value);
+  }
+
   function clearReviewedPlans() {
     reviewedPlans.clear();
     reviewedExternalCalendarPlans.clear();
@@ -430,6 +495,8 @@
     RPC,
     getWorkspace,
     getBookingsPaymentsPresentation,
+    listPendingRequests114497,
+    acceptRequest114497,
     previewContentPlan: (draft) => preview('content', draft),
     applyContentPlan: (plan, correlationId, idempotencyKey) => apply('content', plan, correlationId, idempotencyKey),
     previewPricingPlan: (draft) => preview('pricing', draft),

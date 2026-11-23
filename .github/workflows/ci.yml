@@ -6,11 +6,37 @@ on:
   pull_request:
 
 jobs:
+  hotels_114497_postgres_contract:
+    name: Hotels 114497 / isolated PostgreSQL contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+      - name: Test exact 114497 migration in disposable, no-network PostgreSQL
+        env:
+          HOTELS_114497_SYNTHETIC_ONLY: YES
+        run: bash scripts/test-hotels-v2-114497-postgres-synthetic.sh
+
+  hotels_114497_authentic_core_overlap:
+    name: Hotels 114497 / authentic confirm and lock overlap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+      - name: Verify same-room concurrent acceptance against SHA-pinned 114494 function bodies
+        env:
+          HOTELS_114497_SYNTHETIC_ONLY: YES
+        run: bash scripts/test-hotels-v2-114497-authentic-confirm-concurrency.sh
+
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -18,11 +44,17 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Hotels V2 request-only 114497 contract tests
+        run: node --test tests/hotelsV2RequestOnly114497.test.mjs
+
       - name: Install dependencies
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
+
+      - name: Hotels V2 browser request-only acceptance (mocked RPC)
+        run: npx playwright test tests/e2e/hotels-v2-114497-request-only.spec.ts --project=chromium
 
       - name: Check shared navigation
         run: npm run navigation:check
@@ -41,7 +73,7 @@ jobs:
 
   lighthouse:
     needs: tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +81,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
