@@ -72,6 +72,30 @@ run_sql() {
 }
 
 run_sql "SYNTHETIC SCHEMA BOOTSTRAP" "$BOOT"
+
+# Assert the exact migration aborts atomically without its certified predecessor.
+# These DELETE/INSERT statements affect only this new disposable synthetic DB.
+docker exec -u postgres "$CTR" psql -X -qAt -v ON_ERROR_STOP=1   -U postgres -d postgres   -c "DELETE FROM supabase_migrations.schema_migrations WHERE version='20260811449400';" >/dev/null
+
+if GATE_OUTPUT="$(docker exec -i -u postgres "$CTR"     psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < "$MIGRATION" 2>&1)"; then
+  echo "STOP: MIGRATION_ACCEPTED_MISSING_PREDECESSOR"
+  exit 1
+fi
+if ! grep -Fq "hotels_114497_release_preflight_failed" <<< "$GATE_OUTPUT"; then
+  echo "STOP: MIGRATION_FAILED_FOR_WRONG_REASON"
+  printf '%s\n' "$GATE_OUTPUT" | tail -n 15
+  exit 1
+fi
+ROLLED_BACK="$(docker exec -u postgres "$CTR"   psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres   -c "SELECT to_regnamespace('hotels_public_booking_114497_private') IS NULL
+    AND to_regprocedure('public.hotel_v2_public_begin_request_114497(uuid,text,jsonb)') IS NULL;")"
+if [ "$ROLLED_BACK" != "t" ]; then
+  echo "STOP: MISSING_PREDECESSOR_DID_NOT_ROLL_BACK"
+  exit 1
+fi
+echo "MISSING_PREDECESSOR_DENIED_WITH_ZERO_CATALOG_CHANGES=PASS"
+
+docker exec -u postgres "$CTR" psql -X -qAt -v ON_ERROR_STOP=1   -U postgres -d postgres   -c "INSERT INTO supabase_migrations.schema_migrations(version) VALUES('20260811449400');" >/dev/null
+
 run_sql "EXACT TRACKED 114497 MIGRATION" "$MIGRATION"
 run_sql "AUTH, ACL AND A-ONLY ROUTE ASSERTIONS" "$ASSERT"
 
