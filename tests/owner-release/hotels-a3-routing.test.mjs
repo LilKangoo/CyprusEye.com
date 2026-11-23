@@ -103,7 +103,7 @@ test('pricing preview and submission use 114493 and cached plan identity', async
   assert.equal(lastRpc(h), 'hotel_v2_partner_preview_seven_arches_pricing_proposal_114493');
   await h.repository.submitSevenArchesPricingProposal(preview.reviewed_plan, CORRELATION, IDEMPOTENCY);
   assert.equal(lastRpc(h), 'hotel_v2_partner_submit_seven_arches_pricing_proposal_114493');
-  await assert.rejects(h.repository.submitSevenArchesPricingProposal(preview.reviewed_plan, CORRELATION, IDEMPOTENCY), /Review again/);
+  await assert.rejects(h.repository.submitSevenArchesPricingProposal(preview.reviewed_plan, CORRELATION, IDEMPOTENCY), /Preview again/);
   assert.equal(h.calls.filter(x => x.name.includes('submit_seven_arches')).length, 1);
 });
 test('external calendar read is 114493 for pilot and generic for other hotel', async () => {
