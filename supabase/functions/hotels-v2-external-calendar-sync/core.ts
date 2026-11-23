@@ -480,7 +480,7 @@ async function normalizeEvent(properties: Property[], hotelTimeZone: string): Pr
   if (!["CONFIRMED", "TENTATIVE", "CANCELLED"].includes(statusValue)) {
     throw new WorkerError("invalid_event_status", "An event status is invalid.");
   }
-  const eventStatus = statusValue === "CANCELLED" ? "cancelled" : "active";
+  const eventStatus: NormalizedEvent["event_status"] = statusValue === "CANCELLED" ? "cancelled" : "active";
   const externalUidHash = await sha256(uid.value);
   let recurrenceIdHash: string | null = null;
   if (recurrenceProperty) recurrenceIdHash = await sha256(parseTemporal(recurrenceProperty, false, hotelTimeZone).identity);
@@ -628,7 +628,7 @@ export type PinnedConnector = (target: PinnedHttpsTarget, deadline: number) => P
 async function beforeDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
   const remaining = deadline - Date.now();
   if (remaining <= 0) throw new WorkerError("calendar_fetch_timeout", "The calendar request timed out.");
-  let timer: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       promise,

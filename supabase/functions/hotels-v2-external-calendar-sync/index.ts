@@ -28,7 +28,7 @@ const RPC_NAMES = Object.freeze({
   fail: "hotel_v2_external_calendar_worker_fail_sync",
 });
 
-const RPC_ALLOWLIST = new Set(Object.values(RPC_NAMES));
+const RPC_ALLOWLIST: ReadonlySet<string> = new Set(Object.values(RPC_NAMES));
 const LEASE_SECONDS = 180;
 const CONCURRENCY = 4;
 
@@ -165,7 +165,7 @@ async function resolveDns(hostname: string, type: "A" | "AAAA"): Promise<string[
 
 async function connectPinnedTls(target: PinnedHttpsTarget, deadline: number): Promise<PinnedConnection> {
   let tcp: Deno.TcpConn | null = null;
-  let handshakeTimer: number | undefined;
+  let handshakeTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     tcp = await Deno.connect({ hostname: target.address, port: target.port, transport: "tcp" });
     const remaining = deadline - Date.now();
@@ -324,4 +324,4 @@ export async function handleRequest(
   }
 }
 
-if (import.meta.main) Deno.serve(handleRequest);
+if (import.meta.main) Deno.serve((request: Request) => handleRequest(request));
