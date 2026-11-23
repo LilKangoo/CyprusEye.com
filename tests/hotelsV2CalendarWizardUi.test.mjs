@@ -91,8 +91,23 @@ test('PL EN HE copy and safe scoped responsive/RTL styling', () => {
 
 test('both Partner entrypoints load the same cache-busted wizard JS and CSS', () => {
   for (const page of htmlPages) {
-    assert.match(page, /hotels-v2-partner-workspace\.js\?v=20261123_calendar_wizard/);
+    assert.match(page, /hotels-v2-partner-workspace\.js\?v=20261123_calendar_pattern_fix/);
     assert.match(page, /hotels-v2-workspace\.css\?v=20261123_calendar_wizard/);
     assert.match(page, /hotels-v2-partner-workspace-repository\.js\?v=20261123_a3_114493/);
+  }
+});
+
+test('Code HTML pattern compiles under Unicode v and preserves server-side code semantics', () => {
+  const page = api.renderCalendarWizard(
+    '<option value="' + pilotRoom + '">Apartment</option>',
+  );
+  const raw = page.match(/name="code"[^>]*pattern="([^"]+)"/);
+  assert.ok(raw, 'code input pattern must be present');
+  const codeRegex = new RegExp('^(?:' + raw[1] + ')$', 'v');
+  for (const value of ['a', 'ical-123', 'booking_abcdef', 'a'.repeat(80)]) {
+    assert.equal(codeRegex.test(value), true, 'allow ' + value);
+  }
+  for (const value of ['', '-wrong', 'two words', 'UPPER', 'ü', 'a'.repeat(81)]) {
+    assert.equal(codeRegex.test(value), false, 'deny ' + value);
   }
 });

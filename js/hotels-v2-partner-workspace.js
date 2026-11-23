@@ -857,7 +857,7 @@
         <details class="phw-calendar-wizard__advanced">
           <summary>${html(text('wizardAdvanced'))}</summary>
           <div class="partner-hotel-workspace__form-grid">
-            <label class="partner-hotel-workspace__field">${html(text('wizardCode'))}<input name="code" data-phw-wizard-code maxlength="80" pattern="[a-z0-9][a-z0-9_-]{0,79}" required></label>
+            <label class="partner-hotel-workspace__field">${html(text('wizardCode'))}<input name="code" data-phw-wizard-code maxlength="80" pattern="[a-z0-9][a-z0-9_\\x2d]{0,79}" required></label>
             <label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label>
             <label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label>
             <label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label>
