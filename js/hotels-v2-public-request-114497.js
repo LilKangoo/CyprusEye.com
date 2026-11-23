@@ -91,7 +91,11 @@
     if (!data || data.contract_version!=='hotels_v2_public_request_context_114497_v1'
       || data.hotel_id!==PILOT || !Array.isArray(data.rooms)
       || !Array.isArray(data.allocation_rules) || !Array.isArray(data.extras)
-      || typeof data.can_submit !== 'boolean') throw new Error('Invalid request context');
+      || typeof data.can_submit !== 'boolean'
+      || !Number.isInteger(data.minimum_stay_nights)
+      || data.minimum_stay_nights<1 || data.minimum_stay_nights>365
+      || data.maximum_stay_nights!==365 || data.currency!=='EUR'
+      || data.rooms.length!==2) throw new Error('Invalid request context');
     return data;
   }
   function prepareRequest(form, context) {
@@ -121,7 +125,7 @@
     const arrival=String(data.get('arrival_date')||'');
     const departure=String(data.get('departure_date')||'');
     const nights=(Date.parse(departure+'T12:00:00Z')-Date.parse(arrival+'T12:00:00Z'))/86400000;
-    if (!exactDate(arrival)||!exactDate(departure)||!Number.isInteger(nights)||nights<2||nights>365) {
+    if (!exactDate(arrival)||!exactDate(departure)||!Number.isInteger(nights)||nights<context.minimum_stay_nights||nights>context.maximum_stay_nights) {
       throw new Error('INVALID_DATES');
     }
     const selectedExtras=Array.from(form.querySelectorAll('[data-request-extra]:checked'),
@@ -181,9 +185,11 @@
     const agesWrap=section.querySelector('[data-children-ages]');
     const roomWrap=section.querySelector('[data-request-room-wrap]');
     let verified=null;
+    let verifiedPrice=null;
     let submitting=false;
+    let finalized=false;
     function message(text) { feedback.textContent=String(text); }
-    function invalidate(){verified=null;submitButton.disabled=true;message('');}
+    function invalidate(){if(finalized)return;verified=null;verifiedPrice=null;submitButton.disabled=true;message('');}
     function refresh() {
       invalidate();
       const children=Math.min(7,Math.max(0,Number(form.elements.children.value)||0));
@@ -208,55 +214,90 @@
       else invalidate();
     });
     previewButton.addEventListener('click',async()=>{
-      if(submitting)return;
+      if(submitting||finalized)return;
       previewButton.disabled=true;invalidate();
       try {
         const request=prepareRequest(form,context);
         const options=await call(client,RPC.options,{p_request:request});
         if (options?.hotel_id!==PILOT||options?.mode!=='A'
-          ||options?.can_submit!==true||options?.available!==true) {
+          ||options?.can_submit!==true||options?.available!==true
+          ||options?.currency!==context.currency
+          ||Number(options.due_now)!==0
+          ||!Number.isFinite(Number(options.gross))
+          ||!Array.isArray(options.allocation)
+          ||options.allocation.length!==(request.room_type_id?1:2)) {
           message(copy.unavailable);return;
         }
         verified=JSON.stringify(request);
-        const total=Number(options.gross);
+        verifiedPrice=Number(options.gross);
+        const total=verifiedPrice;
         message(copy.price+': '+(Number.isFinite(total)
           ? new Intl.NumberFormat(locale,{style:'currency',currency:'EUR'}).format(total)
           : '—')+' · '+copy.notice);
         submitButton.disabled=false;
       } catch(error){message(error?.message==='INVALID_GUESTS'?copy.guestError:copy.error);}
-      finally{previewButton.disabled=false;}
+      finally{previewButton.disabled=finalized;}
     });
     form.addEventListener('submit',async(event)=>{
       event.preventDefault();
-      if(submitting||!verified)return;
+      if(submitting||finalized||!verified)return;
       let request;
       try{request=prepareRequest(form,context);}
       catch(_){invalidate();message(copy.guestError);return;}
       if(JSON.stringify(request)!==verified){invalidate();message(copy.needPreview);return;}
       submitting=true;submitButton.disabled=true;previewButton.disabled=true;
       let issued=null;
+      let beginAttempted=false;
       try{
         issued=await call(client,RPC.quote,{p_request:request});
         if(!exactUUID(issued?.quote_id)||typeof issued.lookup_token!=='string'
-          ||issued.quote?.mode!=='A') throw new Error('INVALID_ISSUED_QUOTE');
+          ||issued.quote?.mode!=='A'
+          ||issued.quote?.currency!==context.currency
+          ||Number(issued.quote?.due_now)!==0
+          ||Number(issued.quote?.gross)!==verifiedPrice) throw new Error('INVALID_ISSUED_QUOTE');
         const customer={
           name:String(form.elements.name.value||'').trim(),
           email:String(form.elements.email.value||'').trim(),
           lang:locale
         };
+        beginAttempted=true;
         const status=await call(client,RPC.begin,{
           p_quote_id:issued.quote_id,
           p_lookup_token:issued.lookup_token,
           p_customer:customer
         });
         if(status?.mode!=='A'||!['request_pending','confirmed'].includes(status.status)
-          ||status.payment_required!==false) throw new Error('INVALID_RECEIPT');
+          ||status.payment_required!==false||!exactUUID(status.order_id))
+          throw new Error('INVALID_RECEIPT');
+        finalized=true;
         message((status.status==='confirmed'?copy.confirmed:copy.pending)+' '+copy.reference+': '+status.order_id);
       }catch(error){
-        // Do not replay a request or generate a new quote after an ambiguous outcome.
-        message(issued?.quote_id ? copy.network+' '+copy.reference+': '+issued.quote_id
-          : error?.isNetworkAmbiguous ? copy.network : copy.quoteChanged);
-      }finally{submitting=false;previewButton.disabled=false;verified=null;}
+        if (beginAttempted && issued?.quote_id) {
+          // Read-only lookup is safe; never retry the booking write automatically.
+          finalized=true;
+          let resolved=null;
+          try {
+            const status=await call(client,RPC.status,{
+              p_order_id:issued.quote_id,
+              p_lookup_token:issued.lookup_token
+            });
+            if(status?.order_id===issued.quote_id && status?.mode==='A'
+              && status.payment_required===false
+              && ['request_pending','confirmed'].includes(status.status)) resolved=status;
+          } catch (_) { /* Preserve an uncertain result without replay. */ }
+          message(resolved
+            ? (resolved.status==='confirmed'?copy.confirmed:copy.pending)+' '+copy.reference+': '+resolved.order_id
+            : copy.network+' '+copy.reference+': '+issued.quote_id);
+        } else {
+          // No begin mutation was attempted, so a fresh Preview is safe.
+          message(error?.isNetworkAmbiguous?copy.network:copy.quoteChanged);
+        }
+      }finally{
+        submitting=false;
+        verified=null;verifiedPrice=null;
+        previewButton.disabled=finalized;
+        if(finalized) form.querySelectorAll('input,select').forEach(input=>{input.disabled=true;});
+      }
     });
     refresh();
     return section;
