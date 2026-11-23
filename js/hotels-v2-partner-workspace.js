@@ -990,11 +990,20 @@
       return `<section class="partner-hotel-workspace__card" data-phw-request-inbox><h3>${html(text('pendingPartnerRequests'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('partnerRequestInboxUnavailable'))}</p></section>`;
     }
     const rows=state.pendingPartnerRequests || [];
+    const allocatedRooms = (item) => {
+      const entries=Array.isArray(item.room_allocation)?item.room_allocation:[];
+      return entries.length ? `<ul class="partner-hotel-workspace__allocation">${entries.map(entry=>{
+        const room=state.workspace.rooms.find(row=>row.id===entry.room_type_id);
+        return `<li>${html(room?localized(room.name_i18n,room.code):text('room'))}
+          · ${html(text('guestCount'))}: ${html(Number.isInteger(entry.allocated_guests)?entry.allocated_guests:text('notProvided'))}</li>`;
+      }).join('')}</ul>` : `<p>${html(text('unavailableValue'))}</p>`;
+    };
     return `<section class="partner-hotel-workspace__card" data-phw-request-inbox><h3>${html(text('pendingPartnerRequests'))}</h3>
       ${rows.length ? `<div class="partner-hotel-workspace__grid">${rows.map(item=>
         `<article class="partner-hotel-workspace__card" data-phw-request-order="${html(item.order_id)}">
           <strong>${html(item.arrival_date)} – ${html(item.departure_date)}</strong>
           <p>${html(item.customer_name)} · ${html(item.customer_email)}</p>
+          ${allocatedRooms(item)}
           <p>${html(text('customerPays'))}: ${html(presentationMoney(Number(item.total_price),item.currency || 'EUR'))}</p>
           <button class="btn-sm primary" type="button" data-phw-request-accept="${html(item.order_id)}">${html(text('acceptPartnerRequest'))}</button>
         </article>`).join('')}</div>` : `<p>${html(text('noBookings'))}</p>`}
@@ -1405,9 +1414,16 @@
       if (button.matches('[data-phw-request-accept]')) {
         if (!requestOnlyInboxEnabled() || button.disabled || state.loading) return;
         const orderId=button.dataset.phwRequestAccept;
-        if (!state.pendingPartnerRequests.some(request=>request.order_id===orderId)) return;
-        // Confirm deliberately before irreversible allocation. No optimistic success.
-        if (typeof root.confirm!=='function' || !root.confirm(text('partnerAcceptanceReview'))) return;
+        const request=state.pendingPartnerRequests.find(item=>item.order_id===orderId);
+        if (!request) return;
+        // Review the exact dates, customer and server price before irreversible allocation.
+        const summary=[
+          text('partnerAcceptanceReview'),
+          request.customer_name,
+          request.arrival_date+' – '+request.departure_date,
+          presentationMoney(Number(request.total_price),request.currency||'EUR')
+        ].join('\n');
+        if (typeof root.confirm!=='function' || !root.confirm(summary)) return;
         button.disabled=true;
         void (async ()=>{
           let attempted=false;
