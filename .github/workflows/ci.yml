@@ -18,6 +18,18 @@ jobs:
           HOTELS_114497_SYNTHETIC_ONLY: YES
         run: bash scripts/test-hotels-v2-114497-postgres-synthetic.sh
 
+  hotels_114497_authentic_core_overlap:
+    name: Hotels 114497 / authentic confirm and lock overlap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+      - name: Verify same-room concurrent acceptance against SHA-pinned 114494 function bodies
+        env:
+          HOTELS_114497_SYNTHETIC_ONLY: YES
+        run: bash scripts/test-hotels-v2-114497-authentic-confirm-concurrency.sh
+
   tests:
     runs-on: ubuntu-24.04
     steps:
