@@ -341,15 +341,59 @@ GRANT EXECUTE ON FUNCTION public.hotel_v2_partner_accept_request_114497(uuid,uui
   TO authenticated;
 
 DO $post_114497$
+DECLARE
+  v_rpc record;
+  v_oid oid;
 BEGIN
   IF (SELECT count(*) FROM hotels_public_booking_114497_private.request_mode_gate
        WHERE singleton AND request_mode_enabled IS FALSE)<>1
     OR hotels_public_booking_114494_private.public_booking_state() IS DISTINCT FROM false
     OR hotels_post_114493_private.catalog_epoch_is_exact_114493() IS DISTINCT FROM true
+    OR EXISTS (
+      SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='hotels_public_booking_114497_private'
+        AND c.relname='request_mode_gate'
+        AND (c.relrowsecurity IS DISTINCT FROM true
+          OR c.relforcerowsecurity IS DISTINCT FROM true)
+    )
+    OR has_schema_privilege('anon','hotels_public_booking_114497_private','USAGE')
+    OR has_schema_privilege('authenticated','hotels_public_booking_114497_private','USAGE')
+    OR has_schema_privilege('service_role','hotels_public_booking_114497_private','USAGE')
   THEN
     RAISE EXCEPTION USING errcode='55000',
       message='hotels_114497_post_install_gate_failed';
   END IF;
+
+  FOR v_rpc IN
+    SELECT * FROM (VALUES
+      ('public.hotel_v2_public_request_capability_114497()',true),
+      ('public.hotel_v2_public_request_context_114497()',true),
+      ('public.hotel_v2_public_get_request_options_114497(jsonb)',true),
+      ('public.hotel_v2_public_create_request_quote_114497(jsonb)',true),
+      ('public.hotel_v2_public_begin_request_114497(uuid,text,jsonb)',true),
+      ('public.hotel_v2_partner_pending_requests_114497(uuid)',false),
+      ('public.hotel_v2_partner_accept_request_114497(uuid,uuid)',false)
+    ) AS expected(signature,anon_allowed)
+  LOOP
+    v_oid:=to_regprocedure(v_rpc.signature);
+    IF v_oid IS NULL OR NOT EXISTS (
+      SELECT 1 FROM pg_proc p WHERE p.oid=v_oid
+        AND p.prosecdef AND p.proowner='postgres'::regrole
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(coalesce(p.proconfig,ARRAY[]::text[])) c(value)
+          WHERE regexp_replace(c.value,'[[:space:]]','','g')
+             = 'search_path=pg_catalog,public,auth'
+        )
+    ) OR has_function_privilege('anon',v_oid,'EXECUTE') IS DISTINCT FROM v_rpc.anon_allowed
+      OR has_function_privilege('authenticated',v_oid,'EXECUTE') IS DISTINCT FROM true
+      OR has_function_privilege('service_role',v_oid,'EXECUTE') IS DISTINCT FROM false
+    THEN
+      RAISE EXCEPTION USING errcode='55000',
+        message='hotels_114497_rpc_security_gate_failed',
+        detail=v_rpc.signature;
+    END IF;
+  END LOOP;
 END
 $post_114497$;
 
