@@ -23,6 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test Hotels V2 direct iCal release gates
+        run: |
+          node --test \
+            tests/hotelsV2CalendarDirect114496Repository.test.mjs \
+            tests/hotelsV2CalendarDirect114496UiStage2.test.mjs \
+            tests/hotelsV2CalendarDirect114496MigrationStage2.test.mjs
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
