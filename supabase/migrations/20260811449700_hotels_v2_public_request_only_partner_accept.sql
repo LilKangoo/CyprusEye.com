@@ -116,6 +116,9 @@ BEGIN
     'contract_version','hotels_v2_public_request_context_114497_v1',
     'hotel_id',v_hotel.id,
     'can_submit',coalesce(v_enabled,false),
+    'minimum_stay_nights',v_hotel.minimum_stay_nights,
+    'maximum_stay_nights',365,
+    'currency',v_hotel.currency,
     'rooms',v_rooms,
     'allocation_rules',v_rules,
     'extras',coalesce(v_hotel.pricing_extras->'items','[]'::jsonb)
