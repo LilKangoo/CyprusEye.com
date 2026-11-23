@@ -162,3 +162,17 @@ test('new quote path follows the real backend A-only and available-date constrai
   assert.match(clientSrc,/options\?\.available!==true/);
   assert.match(clientSrc,/Number\(options\.due_now\)!==0/);
 });
+
+
+test('Partner review shows real room allocation and handles ambiguous confirmation without replay',()=>{
+  assert.match(partner,/room_allocation/);
+  assert.match(partner,/entry\.room_type_id/);
+  assert.match(partner,/entry\.allocated_guests/);
+  assert.match(partner,/state\.pendingPartnerRequests\.find\(item=>item\.order_id===orderId\)/);
+  assert.match(partner,/root\.confirm\(summary\)/);
+  assert.match(partner,/text\('partnerAcceptanceUncertain'\)/);
+  assert.match(partner,/if \(attempted\)/);
+  assert.match(partner,/try \{ await load\(\); \} catch/);
+  assert.match(partner,/Repository\.acceptRequest114497\(/);
+  assert.doesNotMatch(partner,/no action was taken/);
+});
