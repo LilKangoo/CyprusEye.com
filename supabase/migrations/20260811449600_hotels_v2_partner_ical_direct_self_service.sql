@@ -142,7 +142,11 @@ BEGIN
   IF v_oid IS NULL OR NOT EXISTS (
     SELECT 1 FROM pg_proc p WHERE p.oid=v_oid AND p.prosecdef
       AND p.proowner='postgres'::regrole
-      AND p.proconfig @> ARRAY['search_path=pg_catalog,public,auth']::text[]
+      AND EXISTS (
+        SELECT 1 FROM unnest(coalesce(p.proconfig, ARRAY[]::text[])) setting(value)
+        WHERE regexp_replace(setting.value,'[[:space:]]','','g')
+          = 'search_path=pg_catalog,public,auth'
+      )
   ) THEN
     RAISE EXCEPTION 'hotels_114496_post_function_security_mismatch';
   END IF;
