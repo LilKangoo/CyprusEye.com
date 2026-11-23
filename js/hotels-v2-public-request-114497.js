@@ -102,7 +102,7 @@
         !Number.isInteger(children) || children<0 || children>7 ||
         adults+children>8) throw new Error('INVALID_GUESTS');
     const ages = Array.from(form.querySelectorAll('[data-request-child-age]'),
-      node=>Number(node.value));
+      node=>String(node.value).trim()!=='' ? Number(node.value) : NaN);
     if (ages.length!==children || ages.some(a=>!Number.isInteger(a)||a<0||a>17)) {
       throw new Error('INVALID_GUESTS');
     }
@@ -120,7 +120,8 @@
     }
     const arrival=String(data.get('arrival_date')||'');
     const departure=String(data.get('departure_date')||'');
-    if (!exactDate(arrival)||!exactDate(departure)||departure<=arrival) {
+    const nights=(Date.parse(departure+'T12:00:00Z')-Date.parse(arrival+'T12:00:00Z'))/86400000;
+    if (!exactDate(arrival)||!exactDate(departure)||!Number.isInteger(nights)||nights<2||nights>365) {
       throw new Error('INVALID_DATES');
     }
     const selectedExtras=Array.from(form.querySelectorAll('[data-request-extra]:checked'),
@@ -248,9 +249,9 @@
           p_lookup_token:issued.lookup_token,
           p_customer:customer
         });
-        if(status?.mode!=='A'||status.status!=='request_pending'
+        if(status?.mode!=='A'||!['request_pending','confirmed'].includes(status.status)
           ||status.payment_required!==false) throw new Error('INVALID_RECEIPT');
-        message(copy.pending+' '+copy.reference+': '+status.order_id);
+        message((status.status==='confirmed'?copy.confirmed:copy.pending)+' '+copy.reference+': '+status.order_id);
       }catch(error){
         // Do not replay a request or generate a new quote after an ambiguous outcome.
         message(issued?.quote_id ? copy.network+' '+copy.reference+': '+issued.quote_id
