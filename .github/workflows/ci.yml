@@ -7,10 +7,12 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # navigation regression compares against historical commit a876023f
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -20,6 +22,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Test Hotels V2 direct iCal release gates
+        run: |
+          node --test \
+            tests/hotelsV2CalendarDirect114496Repository.test.mjs \
+            tests/hotelsV2CalendarDirect114496UiStage2.test.mjs \
+            tests/hotelsV2CalendarDirect114496MigrationStage2.test.mjs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -41,7 +50,7 @@ jobs:
 
   lighthouse:
     needs: tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:

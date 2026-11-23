@@ -29,6 +29,7 @@
     previewExternalCalendar114493: 'hotel_v2_partner_preview_external_calendar_plan_114493',
     submitExternalCalendarProposal: 'hotel_v2_partner_apply_external_calendar_plan',
     submitExternalCalendarProposal114493: 'hotel_v2_partner_apply_external_calendar_plan_114493',
+    applyExternalCalendarDirect114496: 'hotel_v2_partner_apply_external_calendar_direct_114496',
   });
 
   const reviewedPlans = new Map();
@@ -420,6 +421,49 @@
     }
   }
 
+
+  async function applyExternalCalendarDirect114496(planValue, correlationId, idempotencyKey, icalUrl = null) {
+    const plan = planValue;
+    // Pilot-only until separate authenticated and denied-access acceptance for other Hotels.
+    if (!plan || plan.hotel_id !== Core.PUBLISHED_ARCHITECTURE_TARGET) {
+      throw new Error('Direct calendar connection is not enabled for this Hotel. No fallback was attempted.');
+    }
+    const correlation = exactUuid(correlationId, 'correlation_id');
+    const idempotency = exactUuid(idempotencyKey, 'idempotency_key');
+    const cache = reviewedExternalCalendarPlans.get(plan.plan_fingerprint);
+    if (!cache || cache.plan !== planValue || cache.bytes !== stable(plan)) {
+      throw new Error('Only the exact unchanged server-reviewed calendar plan can be applied. Run Review again.');
+    }
+    const secretOperation = plan.operations?.[0]?.entity === 'ical_secret';
+    const secretWrite = secretOperation && ['set', 'rotate'].includes(plan.operations[0].action);
+    if ((secretWrite && (typeof icalUrl !== 'string' || icalUrl !== cache.secretUrl))
+        || (!secretWrite && icalUrl !== null)
+        || (secretWrite && await sha256Hex(icalUrl) !== plan.operations[0].payload.url_fingerprint)) {
+      throw new Error('The transient calendar URL changed after Review. Run Review again.');
+    }
+    // Consume the exact plan before sending any write; never automatically retry
+    // or reuse it after a 403, 404, conflict, network failure, or invalid receipt.
+    reviewedExternalCalendarPlans.delete(plan.plan_fingerprint);
+    cache.secretUrl = null;
+    const value = await call(RPC.applyExternalCalendarDirect114496, {
+      p_reviewed_plan: plan,
+      p_correlation_id: correlation,
+      p_idempotency_key: idempotency,
+      p_ical_url: secretWrite ? icalUrl : null,
+    }, 'external_calendar');
+    try {
+      return Core.validateExternalCalendarApplyResult(value, {
+        plan, correlationId: correlation, idempotencyKey: idempotency,
+      });
+    } catch (error) {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      wrapped.saveSucceeded = true;
+      wrapped.isAmbiguousOutcome = false;
+      wrapped.userMessage = 'The direct calendar Save returned success, but its exact receipt could not be verified. Nothing was retried. Reload and inspect the source state.';
+      throw wrapped;
+    }
+  }
+
   function clearReviewedPlans() {
     reviewedPlans.clear();
     reviewedExternalCalendarPlans.clear();
@@ -443,6 +487,7 @@
     getExternalCalendarControl,
     previewExternalCalendarPlan,
     submitExternalCalendarProposal,
+    applyExternalCalendarDirect114496,
     clearReviewedPlans,
   });
 });

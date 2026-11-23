@@ -61,6 +61,11 @@
       calendarProviderNote: 'All provider options use an ICS export URL. Provider is saved separately from the source code.',
       wizardTitle: "Connect a calendar — guided setup",
       wizardIntro: "First send a request to Admin. After approval, add the private export URL. This does not turn on synchronization or booking.",
+      wizardIntroDirect: "Add a calendar source to your assigned Hotel without individual Admin approval. Next set the private URL, enable the source and sync. Bookings stay OFF.",
+      wizardAirbnbDirect: "Airbnb: Calendar → your listing → Availability → Connect calendars → Connect to another website → copy the export link. Set this private URL on the new source card after saving.",
+      wizardNextDirect: "After saving: Set URL → Enable → Run manual sync. The source is connected only after a successful health check and imported day blocks.",
+      wizardSubmitDirect: "3. Review and save calendar source",
+      directSaved: "Calendar change saved. Connection is not confirmed until the worker imports availability successfully.",
       wizardProvider: "1. Choose the booking platform",
       wizardRoom: "2. Match the apartment",
       wizardPlaceholder: "Choose the correct apartment",
@@ -168,6 +173,11 @@
       calendarProviderNote: 'Wszystkie opcje dostawcy używają adresu eksportu ICS. Dostawca jest zapisywany niezależnie od kodu źródła.',
       wizardTitle: "Połącz kalendarz — prosty kreator",
       wizardIntro: "Najpierw wyślij zgłoszenie do administratora. Po zatwierdzeniu dodasz prywatny link eksportu. To nie włącza automatycznie synchronizacji ani rezerwacji.",
+      wizardIntroDirect: "Dodaj kalendarz bezpośrednio do przypisanego hotelu, bez indywidualnej zgody administratora. Następnie ustaw prywatny URL, włącz źródło i wykonaj synchronizację. Rezerwacje pozostają wyłączone.",
+      wizardAirbnbDirect: "Airbnb: Kalendarz → Twoja oferta → Dostępność → Połącz kalendarze → Połącz z inną stroną → skopiuj link eksportu. Ustaw go po zapisaniu źródła.",
+      wizardNextDirect: "Po zapisaniu: Ustaw URL → Włącz → Uruchom ręczną synchronizację. Połączenie potwierdza dopiero udany import i blokady terminów.",
+      wizardSubmitDirect: "3. Sprawdź i zapisz źródło",
+      directSaved: "Zmiana kalendarza została zapisana. Połączenie będzie potwierdzone dopiero po udanym imporcie dostępności.",
       wizardProvider: "1. Wybierz platformę",
       wizardRoom: "2. Przypisz apartament",
       wizardPlaceholder: "Wybierz właściwy apartament",
@@ -275,6 +285,11 @@
       calendarProviderNote: 'כל אפשרויות הספק משתמשות בכתובת יצוא ICS. הספק נשמר בנפרד מקוד המקור.',
       wizardTitle: "חיבור יומן — אשף פשוט",
       wizardIntro: "ראשית שולחים בקשה לאישור מנהל. לאחר האישור מוסיפים קישור יצוא פרטי. הפעולה אינה מפעילה אוטומטית סנכרון או הזמנות.",
+      wizardIntroDirect: "מוסיפים מקור יומן ישירות למלון המשויך, ללא אישור מנהל נפרד. לאחר מכן מגדירים קישור פרטי, מפעילים ומסנכרנים. ההזמנות נשארות כבויות.",
+      wizardAirbnbDirect: "Airbnb: יומן → הנכס → זמינות → חיבור יומנים → חיבור לאתר אחר → העתקת קישור הייצוא. הגדירו את הקישור בכרטיס המקור לאחר השמירה.",
+      wizardNextDirect: "לאחר השמירה: הגדרת קישור → הפעלה → סנכרון ידני. החיבור מאושר רק אחרי ייבוא מוצלח ועדכון חסימות תאריכים.",
+      wizardSubmitDirect: "3. בדיקה ושמירת מקור היומן",
+      directSaved: "השינוי ביומן נשמר. החיבור יאושר רק לאחר ייבוא זמינות מוצלח.",
       wizardProvider: "1. בחרו פלטפורמה",
       wizardRoom: "2. התאימו את הדירה",
       wizardPlaceholder: "בחרו את הדירה הנכונה",
@@ -807,6 +822,14 @@
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="rates_pricing"><h2>${html(text('pricing'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(text('reviewedPricingIntro'))}</p>${proposal}${unavailable}${form}</section>`;
   }
 
+  // Release gate: keep the current Admin-proposal UI until the 114496
+  // backend, authenticated DB tests, and worker health are accepted.
+  // This flag is intentionally not enabled in production by this change.
+  function directExternalCalendarEnabled() {
+    return root.CYPRUSEYE_HOTELS_ICAL_DIRECT_114496_ENABLED === true
+      && state.workspace?.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET;
+  }
+
   function externalCalendarProviderLabel(sourceType) {
     return text(sourceType === 'booking_com' ? 'bookingCom' : sourceType === 'airbnb' ? 'airbnb' : 'genericIcal');
   }
@@ -837,7 +860,7 @@
     return `<details class="partner-hotel-workspace__card phw-calendar-wizard">
       <summary>${html(text('wizardTitle'))}</summary>
       <form class="partner-hotel-workspace__form phw-calendar-wizard__form" data-phw-external-create data-phw-calendar-wizard>
-        <p class="partner-hotel-workspace__panel-copy">${html(text('wizardIntro'))}</p>
+        <p class="partner-hotel-workspace__panel-copy">${html(text(directExternalCalendarEnabled() ? 'wizardIntroDirect' : 'wizardIntro'))}</p>
         <fieldset class="phw-calendar-wizard__providers">
           <legend>${html(text('wizardProvider'))}</legend>
           <div class="phw-calendar-wizard__options">
@@ -848,7 +871,7 @@
         </fieldset>
         <p data-phw-wizard-hint class="partner-hotel-workspace__panel-copy">${html(text('wizardChooseHint'))}</p>
         ${guide('booking_com','wizardBooking','https://www.youtube.com/watch?v=Smj-WfWpi4o','wizardLinkBooking')}
-        ${guide('airbnb','wizardAirbnb','https://www.airbnb.com/help/article/99','wizardLinkAirbnb')}
+        ${guide('airbnb',directExternalCalendarEnabled() ? 'wizardAirbnbDirect' : 'wizardAirbnb','https://www.airbnb.com/help/article/99','wizardLinkAirbnb')}
         ${guide('ical','wizardIcal',null,null)}
         <label class="partner-hotel-workspace__field">${html(text('wizardRoom'))}
           <select name="room_type_id" required><option value="" disabled selected>${html(text('wizardPlaceholder'))}</option>${roomOptions}</select>
@@ -865,8 +888,8 @@
           <p class="partner-hotel-workspace__panel-copy">${html(text('wizardUnitsNote'))}</p>
           <label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" value="${html(text('wizardReason'))}" required></label>
         </details>
-        <p class="phw-calendar-wizard__next">${html(text('wizardNext'))}</p>
-        <button type="submit" class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('wizardSubmit'))}</button>
+        <p class="phw-calendar-wizard__next">${html(text(directExternalCalendarEnabled() ? 'wizardNextDirect' : 'wizardNext'))}</p>
+        <button type="submit" class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text(directExternalCalendarEnabled() ? 'wizardSubmitDirect' : 'wizardSubmit'))}</button>
       </form>
     </details>`;
   }
@@ -1168,7 +1191,7 @@
     state.dialog.dir = state.language === 'he' ? 'rtl' : 'ltr';
     const affectedRooms = impact.affected_room_type_ids || [];
     const affectedRates = impact.affected_room_rate_ids || [];
-    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${affectedRooms.map((id) => html(roomName(id))).join(', ')} ${affectedRates.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${domain === 'external_calendar' ? `<p>${html(text('calendarUrlNeverShown'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text(domain === 'external_calendar' ? 'submitProposal' : 'save'))}</button></footer></div>`;
+    state.dialog.innerHTML = `<div class="partner-hotel-workspace-review__shell"><header class="partner-hotel-workspace-review__header"><h2 id="partnerHotelWorkspaceReviewTitle">${html(text('reviewTitle'))}</h2><button class="btn-sm" type="button" data-phw-review-cancel aria-label="${html(text('cancel'))}">×</button></header><div class="partner-hotel-workspace-review__body"><div class="partner-hotel-workspace-review__impact"><strong>${html(text('impacted'))}</strong><p>${html(impactLabel(impact.entity))} · ${html(impactLabel(impact.action))}</p><p>${html(impact.fields.map(fieldLabel).join(', '))}</p>${affectedRooms.map((id) => html(roomName(id))).join(', ')} ${affectedRates.map((id) => html(rateName(id))).join(', ')}${diagnostics(impact.id)}</div>${domain === 'pricing' ? `<h3>${html(text('before'))}</h3>${commercialColumns(preview.commercial_before)}<h3>${html(text('after'))}</h3>${commercialColumns(preview.commercial_after)}${preview.example_before ? `<h3>${html(text('exampleBefore'))}</h3>${exampleCommercial(preview.example_before)}` : ''}${preview.example_after ? `<h3>${html(text('exampleAfter'))}</h3>${exampleCommercial(preview.example_after)}` : ''}<p>${html(text('readOnly'))}</p>` : ''}${domain === 'external_calendar' ? `<p>${html(text('calendarUrlNeverShown'))}</p>` : ''}${preview.blocking_reasons.map((reason) => `<div class="partner-hotel-workspace__status" data-tone="warning">${html(blockerLabel(reason))}</div>`).join('')}</div><footer class="partner-hotel-workspace-review__footer"><button class="btn-sm" type="button" data-phw-review-cancel>${html(text('cancel'))}</button><button class="btn-sm primary" type="button" data-phw-review-save ${preview.blocking_reasons.length ? 'disabled' : ''}>${html(text(domain === 'external_calendar' && !directExternalCalendarEnabled() ? 'submitProposal' : 'save'))}</button></footer></div>`;
     state.dialog.showModal();
     focusables(state.dialog)[0]?.focus();
   }
@@ -1188,7 +1211,9 @@
             ? await Repository.submitSevenArchesPricingProposal(preview.reviewed_plan, correlation, idempotency)
           : domain === 'availability'
             ? await Repository.applyAvailabilityPlan(preview.reviewed_plan, correlation, idempotency)
-            : await Repository.submitExternalCalendarProposal(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
+            : directExternalCalendarEnabled()
+              ? await Repository.applyExternalCalendarDirect114496(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null)
+              : await Repository.submitExternalCalendarProposal(preview.reviewed_plan, correlation, idempotency, state.pending.secretUrl || null);
       if (result.workspace) state.workspace = result.workspace;
       if (domain === 'external_calendar') state.externalCalendar = result.control;
       if (domain === 'content') { state.mediaDraft = { property: [], rooms: {} }; state.photoDraft = { property: null, rooms: {} }; }
@@ -1205,7 +1230,7 @@
         }
       }
       closeReview(); render(); setStatus(text(domain === 'seven_arches_pricing'
-        ? 'proposalSubmitted' : domain === 'external_calendar' ? 'providerProposalSubmitted' : 'saved'), 'success');
+        ? 'proposalSubmitted' : domain === 'external_calendar' ? (directExternalCalendarEnabled() ? 'directSaved' : 'providerProposalSubmitted') : 'saved'), 'success');
     } catch (error) {
       closeReview();
       setStatus(error.userMessage || error.message, error.isStale || error.saveSucceeded ? 'warning' : 'error');
