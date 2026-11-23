@@ -83,7 +83,9 @@ test('Public request contract respects child ages and 1-4 choice / 5-8 bundle',(
   const api=exported.exports;
   const context={
     contract_version:'hotels_v2_public_request_context_114497_v1',
-    hotel_id:HOTEL,can_submit:false,rooms:[{id:'11111111-1111-4111-8111-111111111111',max_occupancy:4}],
+    hotel_id:HOTEL,can_submit:false,minimum_stay_nights:2,maximum_stay_nights:365,currency:'EUR',
+    rooms:[{id:'11111111-1111-4111-8111-111111111111',max_occupancy:4},
+           {id:'22222222-2222-4222-8222-222222222222',max_occupancy:4}],
     allocation_rules:[
       {min_guest_count:1,max_guest_count:4,allocation_mode:'customer_choice'},
       {min_guest_count:5,max_guest_count:8,allocation_mode:'required_bundle'},
@@ -108,5 +110,29 @@ test('Public request contract respects child ages and 1-4 choice / 5-8 bundle',(
   assert.throws(()=>api.prepareRequest(make(2,[18]),context),/INVALID_GUESTS/);
   assert.throws(()=>api.prepareRequest(make(8,[1]),context),/INVALID_GUESTS/);
   assert.equal(api.COPY.pl.heading,'Zapytanie o pobyt');
+  assert.throws(()=>api.prepareRequest({...make(2,[]),
+    data:{...make(2,[]).data,departure_date:'2027-03-11'}},context),/INVALID_DATES/);
+  assert.equal(api.prepareRequest({...make(2,[]),
+    data:{...make(2,[]).data,departure_date:'2027-03-24'}},context).room_type_id,context.rooms[0].id);
   assert.ok(api.COPY.he.pending);
+});
+
+
+test('request UI pins authoritative quotes and never silently replays an ambiguous begin',()=>{
+  assert.match(clientSrc,/verifiedPrice=Number\(options\.gross\)/);
+  assert.match(clientSrc,/Number\(issued\.quote\?\.gross\)!==verifiedPrice/);
+  assert.match(clientSrc,/Number\(issued\.quote\?\.due_now\)!==0/);
+  assert.match(clientSrc,/beginAttempted=true/);
+  assert.match(clientSrc,/finalized=true/);
+  assert.match(clientSrc,/RPC\.status/);
+  assert.match(clientSrc,/p_order_id:issued\.quote_id/);
+  assert.match(clientSrc,/previewButton\.disabled=finalized/);
+  assert.match(clientSrc,/if\(submitting\|\|finalized\|\|!verified\)return/);
+  assert.doesNotMatch(clientSrc,/retry.*RPC\.begin/);
+});
+test('display-only view stays protected while server-gated A-only form can appear',()=>{
+  assert.match(page,/form\.hidden = true/);
+  assert.match(page,/data-hotel-request-only-114497/);
+  assert.match(page,/Wyślij zapytanie poniżej/);
+  assert.match(page,/אין תשלום מקוון/);
 });
