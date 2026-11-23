@@ -1,0 +1,10 @@
+{
+  "source": "20260811449300_hotels_v2_post_conversion_reviewed_pricing_partner_calendar_successors.sql",
+  "method": "SHA-256 UTF8 bytes between AS $function$ and $function$ markers (PostgreSQL pg_proc.prosrc)",
+  "functions": {
+    "public.hotel_v2_external_calendar_control_common_114493(text,uuid,uuid)": "c0c62169383c97ead607f532a95096da55c03b5f5d1fe8d9736bbb2449398891",
+    "public.hotel_v2_external_calendar_preview_common_114493(text,jsonb)": "f500acc85f39bbe0ccb8b62aa6c210f753cd0aadc7ce48f1a5fbfb00f4f2ce5d",
+    "public.hotel_v2_external_calendar_apply_common_114493(text,jsonb,uuid,uuid,text)": "062355e3b34d98b3eeacff83cfc2f472b24eafe33dffe1a78bb5196a5dfc7a52"
+  },
+  "note": "Expected sources extracted from uploaded reviewed migration; production current hashes of preview and apply helpers are not yet reverified."
+}
