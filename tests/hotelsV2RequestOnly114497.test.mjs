@@ -26,6 +26,8 @@ test('request-only migration is transactional and OFF by default',()=>{
   assert.match(sql,/request_mode_enabled boolean NOT NULL DEFAULT false/);
   assert.match(sql,/INSERT INTO hotels_public_booking_114497_private\.request_mode_gate/);
   assert.match(sql,/hotels_public_booking_114494_private\.public_booking_state\(\) IS DISTINCT FROM false/);
+  assert.match(sql,/hotels_114497_global_booking_must_remain_off/);
+  assert.match(sql,/public_booking_state\(\) IS FALSE/);
   assert.match(sql,/hotels_post_114493_private\.catalog_epoch_is_exact_114493\(\)/);
   assert.doesNotMatch(sql,/UPDATE\s+public\.site_settings/i);
   assert.doesNotMatch(sql,/UPDATE\s+hotels_post_114489_private/i);
@@ -34,9 +36,12 @@ test('server rejects non-A booking and payment modes at every write step',()=>{
   for(const name of ['hotel_v2_public_create_request_quote_114497','hotel_v2_public_begin_request_114497','hotel_v2_partner_accept_request_114497']){
     assert.ok(sql.includes('CREATE FUNCTION public.'+name));
   }
-  assert.match(sql,/quote_core\(p_request\)->>'mode'/);
+  assert.match(sql,/v_candidate:=hotels_public_booking_114494_private\.quote_core\(p_request\)/);
+  assert.match(sql,/v_candidate->>'mode' IS DISTINCT FROM 'A'/);
+  assert.match(sql,/v_candidate->'available' IS DISTINCT FROM 'true'::jsonb/);
   assert.match(sql,/v_quote#>>'\{quote,mode\}' IS DISTINCT FROM 'A'/);
   assert.match(sql,/v_quote\.authority->>'mode' IS DISTINCT FROM 'A'/);
+  assert.match(sql,/v_quote\.authority->'available' IS DISTINCT FROM 'true'::jsonb/);
   assert.match(sql,/v_result->'payment_required' IS DISTINCT FROM 'false'::jsonb/);
   assert.match(sql,/v_result->>'status' NOT IN \('request_pending','confirmed'\)/);
   assert.match(sql,/hotels_public_booking_114494_private\.begin_core\(/);
@@ -147,4 +152,13 @@ test('live 7 Kamares child policy is server-derived, never invented',()=>{
   assert.match(clientSrc,/context\.minimum_child_age/);
   assert.match(clientSrc,/INVALID_CHILD_POLICY/);
   assert.doesNotMatch(clientSrc,/minimum_child_age\s*:\s*15/);
+});
+
+
+test('new quote path follows the real backend A-only and available-date constraints',()=>{
+  assert.match(sql,/v_quote#>'\{quote,available\}' IS DISTINCT FROM 'true'::jsonb/);
+  assert.match(sql,/v_quote->'available'='true'::jsonb/);
+  assert.match(sql,/hotels_public_booking_114494_private\.public_booking_state\(\) IS FALSE/);
+  assert.match(clientSrc,/options\?\.available!==true/);
+  assert.match(clientSrc,/Number\(options\.due_now\)!==0/);
 });
