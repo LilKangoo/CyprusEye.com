@@ -97,7 +97,7 @@
       commissionReadOnly: 'Commission is server-derived and read-only.', noPricingChanges: 'Change at least one exact Room tier before Preview.',
       pricingProposalHistory: 'Reviewed pricing proposals', pricingControlUnavailable: 'Exact reviewed pricing control is unavailable. No proposal can be prepared.',
       acceptedProposal: 'Accepted', rejectedProposal: 'Rejected', consumed: 'Consumed', expires: 'Expires',
-      pendingPartnerRequests: 'Requests awaiting your confirmation', acceptPartnerRequest: 'Confirm stay', partnerRequestAccepted: 'Stay confirmed after a fresh availability check.', partnerRequestInboxUnavailable: 'Partner request inbox is unavailable; no action was taken.',
+      pendingPartnerRequests: 'Requests awaiting your confirmation', acceptPartnerRequest: 'Confirm stay', partnerRequestAccepted: 'Stay confirmed after a fresh availability check.', partnerRequestInboxUnavailable: 'Partner request inbox is unavailable. Refresh before proceeding.', partnerAcceptanceUncertain: 'Confirmation could have succeeded. The inbox was refreshed. Check the reservation status; never click Confirm again without verifying.', partnerAcceptanceReview: 'Confirm this stay after reviewing dates, guests and the final amount? Availability will be checked again.',
       totalBookings: 'Visible bookings', upcomingBookings: 'Upcoming', currentRecentBookings: 'Current / recent',
       noBookings: 'No matching bookings are currently available.', noPayments: 'No authorized payment summaries are currently available.',
       bookingDates: 'Stay', bookingStatus: 'Booking status', guestCount: 'Guests', roomAllocation: 'Room allocation',
@@ -205,7 +205,7 @@
       commissionReadOnly: 'Prowizja jest wyliczana przez serwer i tylko do odczytu.', noPricingChanges: 'Przed podglądem zmień co najmniej jeden dokładny próg pokoju.',
       pricingProposalHistory: 'Propozycje cen do weryfikacji', pricingControlUnavailable: 'Dokładna kontrola cen do weryfikacji jest niedostępna. Nie można przygotować propozycji.',
       acceptedProposal: 'Zaakceptowana', rejectedProposal: 'Odrzucona', consumed: 'Rozpatrzona', expires: 'Wygasa',
-      pendingPartnerRequests: 'Zapytania czekające na Twoje potwierdzenie', acceptPartnerRequest: 'Potwierdź pobyt', partnerRequestAccepted: 'Pobyt potwierdzono po ponownej kontroli dostępności.', partnerRequestInboxUnavailable: 'Lista zapytań Partnera jest niedostępna. Nie wykonano żadnej operacji.',
+      pendingPartnerRequests: 'Zapytania czekające na Twoje potwierdzenie', acceptPartnerRequest: 'Potwierdź pobyt', partnerRequestAccepted: 'Pobyt potwierdzono po ponownej kontroli dostępności.', partnerRequestInboxUnavailable: 'Lista zapytań Partnera jest niedostępna. Odśwież przed kolejną operacją.', partnerAcceptanceUncertain: 'Potwierdzenie mogło się udać. Odświeżono listę. Sprawdź status rezerwacji — nie potwierdzaj ponownie bez weryfikacji.', partnerAcceptanceReview: 'Potwierdzić ten pobyt po sprawdzeniu dat, gości i końcowej ceny? Dostępność zostanie ponownie sprawdzona.',
       totalBookings: 'Widoczne rezerwacje', upcomingBookings: 'Nadchodzące', currentRecentBookings: 'Bieżące / ostatnie',
       noBookings: 'Obecnie nie ma pasujących rezerwacji.', noPayments: 'Obecnie nie ma dostępnych podsumowań płatności w tym zakresie uprawnień.',
       bookingDates: 'Pobyt', bookingStatus: 'Status rezerwacji', guestCount: 'Goście', roomAllocation: 'Przydział pokoi',
@@ -313,7 +313,7 @@
       commissionReadOnly: 'העמלה מחושבת בשרת ומוצגת לקריאה בלבד.', noPricingChanges: 'יש לשנות לפחות מדרגת חדר מדויקת אחת לפני התצוגה המקדימה.',
       pricingProposalHistory: 'הצעות תמחור לבדיקה', pricingControlUnavailable: 'בקרת התמחור המדויקת אינה זמינה. לא ניתן להכין הצעה.',
       acceptedProposal: 'אושרה', rejectedProposal: 'נדחתה', consumed: 'טופלה', expires: 'תפוגה',
-      pendingPartnerRequests: 'בקשות שממתינות לאישור שלך', acceptPartnerRequest: 'אישור השהייה', partnerRequestAccepted: 'השהייה אושרה לאחר בדיקת זמינות חוזרת.', partnerRequestInboxUnavailable: 'תיבת בקשות השותף אינה זמינה. לא בוצעה פעולה.',
+      pendingPartnerRequests: 'בקשות שממתינות לאישור שלך', acceptPartnerRequest: 'אישור השהייה', partnerRequestAccepted: 'השהייה אושרה לאחר בדיקת זמינות חוזרת.', partnerRequestInboxUnavailable: 'תיבת הבקשות אינה זמינה. יש לרענן לפני פעולה נוספת.', partnerAcceptanceUncertain: 'ייתכן שהאישור הצליח. הרשימה רועננה. יש לבדוק את מצב ההזמנה ולא לאשר שוב ללא אימות.', partnerAcceptanceReview: 'לאשר את השהייה לאחר בדיקת התאריכים, האורחים והמחיר? הזמינות תיבדק מחדש.',
       totalBookings: 'הזמנות מוצגות', upcomingBookings: 'קרובות', currentRecentBookings: 'נוכחיות / אחרונות',
       noBookings: 'אין כרגע הזמנות תואמות.', noPayments: 'אין כרגע סיכומי תשלום מורשים להצגה.',
       bookingDates: 'שהייה', bookingStatus: 'סטטוס הזמנה', guestCount: 'אורחים', roomAllocation: 'הקצאת חדרים',
@@ -1403,11 +1403,16 @@
       if (button.matches('[data-phw-close]')) { close({ restorePortal: true }); return; }
       if (button.matches('[data-phw-refresh]')) { if (state.loading) return; Repository.clearReviewedPlans(); void load(); return; }
       if (button.matches('[data-phw-request-accept]')) {
-        if (!requestOnlyInboxEnabled() || button.disabled) return;
-        button.disabled=true;
+        if (!requestOnlyInboxEnabled() || button.disabled || state.loading) return;
         const orderId=button.dataset.phwRequestAccept;
+        if (!state.pendingPartnerRequests.some(request=>request.order_id===orderId)) return;
+        // Confirm deliberately before irreversible allocation. No optimistic success.
+        if (typeof root.confirm!=='function' || !root.confirm(text('partnerAcceptanceReview'))) return;
+        button.disabled=true;
         void (async ()=>{
+          let attempted=false;
           try {
+            attempted=true;
             await Repository.acceptRequest114497(
               state.partnerId,state.workspace.hotel_id,orderId
             );
@@ -1415,7 +1420,13 @@
             await load();
             setStatus(text('partnerRequestAccepted'),'success');
           } catch (_error) {
-            setStatus(text('partnerRequestInboxUnavailable'),'warning');
+            // An ambiguous server response may already have confirmed inventory.
+            // Refresh the authorized inbox only; never replay Confirm automatically.
+            state.section='bookings';
+            if (attempted) {
+              try { await load(); } catch (_) {}
+            }
+            setStatus(text(attempted?'partnerAcceptanceUncertain':'partnerRequestInboxUnavailable'),'warning');
           }
         })();
         return;
