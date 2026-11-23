@@ -716,3 +716,28 @@ body.phw-open .hotels-v2-help-dialog__body p { color: var(--phw-muted); margin: 
 @media (prefers-reduced-motion: reduce) {
   .partner-stripe-button, .partner-hotel-workspace .partner-stripe-tile__action { transition: none; }
 }
+
+/* Partner Hotels V2: simple iCal wizard. No backend or public-booking changes. */
+.phw-calendar-wizard { margin-block: 16px; }
+.phw-calendar-wizard > summary { font-weight: 700; cursor: pointer; }
+.phw-calendar-wizard__form { padding-block-start: 18px; }
+.phw-calendar-wizard__providers { border: 0; padding: 0; margin: 0; min-width: 0; }
+.phw-calendar-wizard__providers legend { color: var(--phw-text); font-weight: 700; margin-bottom: 10px; }
+.phw-calendar-wizard__options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.phw-calendar-wizard__provider { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--phw-border); border-radius: 12px; background: var(--phw-surface-soft); color: var(--phw-text); cursor: pointer; min-width: 0; }
+.phw-calendar-wizard__provider:has(input:checked) { border-color: var(--phw-accent); box-shadow: inset 0 0 0 1px var(--phw-accent); }
+.phw-calendar-wizard__provider:focus-within { outline: 2px solid var(--phw-accent); outline-offset: 2px; }
+.phw-calendar-wizard__provider input { width: 18px; height: 18px; accent-color: var(--phw-accent-fill); }
+.phw-calendar-wizard__provider small { color: var(--phw-muted); }
+.phw-calendar-wizard__guide { padding: 14px; border: 1px solid var(--phw-border); border-radius: 12px; background: var(--phw-surface-soft); }
+.phw-calendar-wizard__guide[hidden], [data-phw-wizard-hint][hidden] { display: none !important; }
+.phw-calendar-wizard__guide p { margin: 0 0 10px; }
+.phw-calendar-wizard__guide a { color: var(--phw-info); }
+.phw-calendar-wizard__advanced { padding: 12px 14px; border: 1px solid var(--phw-border); border-radius: 12px; }
+.phw-calendar-wizard__advanced > summary { cursor: pointer; }
+.phw-calendar-wizard__advanced > .partner-hotel-workspace__form-grid { margin-block: 14px; }
+.phw-calendar-wizard__next { border-inline-start: 3px solid var(--phw-accent); padding-inline-start: 14px; }
+@media (max-width: 700px) {
+  .phw-calendar-wizard__options { grid-template-columns: minmax(0,1fr); }
+  .phw-calendar-wizard__provider { grid-template-columns: 24px 1fr auto; align-items: center; }
+}
