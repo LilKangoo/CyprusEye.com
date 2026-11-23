@@ -166,8 +166,9 @@ BEGIN
   INSERT INTO hotels_public_booking_114494_private.orders
   VALUES(p_id,v_bid,q.authority->>'mode',
     CASE WHEN q.authority->>'mode'='A' THEN 'request_pending' ELSE 'payment_pending' END);
-  INSERT INTO public.hotel_bookings VALUES
-  (v_bid,'9b6d99a0-923a-4fbc-be54-c066e856e6ca','Synthetic Guest',
+  INSERT INTO public.hotel_bookings
+  (id,hotel_id,customer_name,customer_email,arrival_date,departure_date,total_price,status)
+  VALUES (v_bid,'9b6d99a0-923a-4fbc-be54-c066e856e6ca','Synthetic Guest',
   'synthetic@example.invalid','2027-04-10','2027-04-12',200,'pending');
  END IF;
  RETURN hotels_public_booking_114494_private.status_core(p_id);
