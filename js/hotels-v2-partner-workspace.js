@@ -97,6 +97,7 @@
       commissionReadOnly: 'Commission is server-derived and read-only.', noPricingChanges: 'Change at least one exact Room tier before Preview.',
       pricingProposalHistory: 'Reviewed pricing proposals', pricingControlUnavailable: 'Exact reviewed pricing control is unavailable. No proposal can be prepared.',
       acceptedProposal: 'Accepted', rejectedProposal: 'Rejected', consumed: 'Consumed', expires: 'Expires',
+      pendingPartnerRequests: 'Requests awaiting your confirmation', acceptPartnerRequest: 'Confirm stay', partnerRequestAccepted: 'Stay confirmed after a fresh availability check.', partnerRequestInboxUnavailable: 'Partner request inbox is unavailable; no action was taken.',
       totalBookings: 'Visible bookings', upcomingBookings: 'Upcoming', currentRecentBookings: 'Current / recent',
       noBookings: 'No matching bookings are currently available.', noPayments: 'No authorized payment summaries are currently available.',
       bookingDates: 'Stay', bookingStatus: 'Booking status', guestCount: 'Guests', roomAllocation: 'Room allocation',
@@ -204,6 +205,7 @@
       commissionReadOnly: 'Prowizja jest wyliczana przez serwer i tylko do odczytu.', noPricingChanges: 'Przed podglądem zmień co najmniej jeden dokładny próg pokoju.',
       pricingProposalHistory: 'Propozycje cen do weryfikacji', pricingControlUnavailable: 'Dokładna kontrola cen do weryfikacji jest niedostępna. Nie można przygotować propozycji.',
       acceptedProposal: 'Zaakceptowana', rejectedProposal: 'Odrzucona', consumed: 'Rozpatrzona', expires: 'Wygasa',
+      pendingPartnerRequests: 'Zapytania czekające na Twoje potwierdzenie', acceptPartnerRequest: 'Potwierdź pobyt', partnerRequestAccepted: 'Pobyt potwierdzono po ponownej kontroli dostępności.', partnerRequestInboxUnavailable: 'Lista zapytań Partnera jest niedostępna. Nie wykonano żadnej operacji.',
       totalBookings: 'Widoczne rezerwacje', upcomingBookings: 'Nadchodzące', currentRecentBookings: 'Bieżące / ostatnie',
       noBookings: 'Obecnie nie ma pasujących rezerwacji.', noPayments: 'Obecnie nie ma dostępnych podsumowań płatności w tym zakresie uprawnień.',
       bookingDates: 'Pobyt', bookingStatus: 'Status rezerwacji', guestCount: 'Goście', roomAllocation: 'Przydział pokoi',
@@ -311,6 +313,7 @@
       commissionReadOnly: 'העמלה מחושבת בשרת ומוצגת לקריאה בלבד.', noPricingChanges: 'יש לשנות לפחות מדרגת חדר מדויקת אחת לפני התצוגה המקדימה.',
       pricingProposalHistory: 'הצעות תמחור לבדיקה', pricingControlUnavailable: 'בקרת התמחור המדויקת אינה זמינה. לא ניתן להכין הצעה.',
       acceptedProposal: 'אושרה', rejectedProposal: 'נדחתה', consumed: 'טופלה', expires: 'תפוגה',
+      pendingPartnerRequests: 'בקשות שממתינות לאישור שלך', acceptPartnerRequest: 'אישור השהייה', partnerRequestAccepted: 'השהייה אושרה לאחר בדיקת זמינות חוזרת.', partnerRequestInboxUnavailable: 'תיבת בקשות השותף אינה זמינה. לא בוצעה פעולה.',
       totalBookings: 'הזמנות מוצגות', upcomingBookings: 'קרובות', currentRecentBookings: 'נוכחיות / אחרונות',
       noBookings: 'אין כרגע הזמנות תואמות.', noPayments: 'אין כרגע סיכומי תשלום מורשים להצגה.',
       bookingDates: 'שהייה', bookingStatus: 'סטטוס הזמנה', guestCount: 'אורחים', roomAllocation: 'הקצאת חדרים',
@@ -432,7 +435,7 @@
     pricingProposal: null, pricingControl: null, pricingControlError: null,
     mediaDraft: { property: [], rooms: {} }, photoDraft: { property: null, rooms: {} },
     externalCalendar: null, externalCalendarError: null,
-    presentation: null, presentationError: null, helpController: null, lastRefresh: null,
+    presentation: null, presentationError: null, pendingPartnerRequests: [], partnerRequestInboxError: null, helpController: null, lastRefresh: null,
   };
 
   function text(key) { return PORTAL_COPY[state.language]?.[key] || COPY[state.language]?.[key] || COPY.en[key] || key; }
@@ -975,16 +978,39 @@
     </article>`;
   }
 
+  function requestOnlyInboxEnabled() {
+    return root.CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED === true
+      && state.workspace?.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+      && state.workspace?.assignment?.capabilities?.process_bookings === true;
+  }
+
+  function renderPartnerRequestInbox() {
+    if (!requestOnlyInboxEnabled()) return '';
+    if (state.partnerRequestInboxError) {
+      return `<section class="partner-hotel-workspace__card" data-phw-request-inbox><h3>${html(text('pendingPartnerRequests'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('partnerRequestInboxUnavailable'))}</p></section>`;
+    }
+    const rows=state.pendingPartnerRequests || [];
+    return `<section class="partner-hotel-workspace__card" data-phw-request-inbox><h3>${html(text('pendingPartnerRequests'))}</h3>
+      ${rows.length ? `<div class="partner-hotel-workspace__grid">${rows.map(item=>
+        `<article class="partner-hotel-workspace__card" data-phw-request-order="${html(item.order_id)}">
+          <strong>${html(item.arrival_date)} – ${html(item.departure_date)}</strong>
+          <p>${html(item.customer_name)} · ${html(item.customer_email)}</p>
+          <p>${html(text('customerPays'))}: ${html(presentationMoney(Number(item.total_price),item.currency || 'EUR'))}</p>
+          <button class="btn-sm primary" type="button" data-phw-request-accept="${html(item.order_id)}">${html(text('acceptPartnerRequest'))}</button>
+        </article>`).join('')}</div>` : `<p>${html(text('noBookings'))}</p>`}
+    </section>`;
+  }
+
   function renderBookings() {
     const presentation = state.presentation;
     const hasTotals = presentation?.bookings?.some((booking) => typeof booking.customer_total === 'number');
     const counts = [['total_bookings', 'totalBookings'], ['upcoming_bookings', 'upcomingBookings'], ['current_recent_bookings', 'currentRecentBookings']].filter(([key]) => Number.isInteger(presentation?.summary?.[key]) && presentation.summary[key] >= 0);
     if (!presentation?.capabilities.bookings_visible) {
       const canOpen = state.workspace?.sections?.bookings?.available === true;
-      return `<section class="partner-hotel-workspace__panel" data-phw-panel="bookings"><h2>${html(text('bookings'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(state.presentationError || text('bookingPresentationUnavailable'))}</p>${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="bookings">${html(text('openBookingManagement'))}</button>` : ''}</section>`;
+      return `<section class="partner-hotel-workspace__panel" data-phw-panel="bookings"><h2>${html(text('bookings'))}</h2><p class="partner-hotel-workspace__panel-copy">${html(state.presentationError || text('bookingPresentationUnavailable'))}</p>${renderPartnerRequestInbox()}${canOpen ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="bookings">${html(text('openBookingManagement'))}</button>` : ''}</section>`;
     }
     return `<section class="partner-hotel-workspace__panel" data-phw-panel="bookings"><h2>${html(text('bookings'))}</h2>
-      <p class="partner-hotel-workspace__panel-copy">${html(text('bookingsHint'))}</p>${counts.length ? `<div class="partner-hotel-workspace__summary">${counts.map(([key, label]) => `<span><strong>${presentationCount(presentation.summary[key])}</strong>${html(text(label))}</span>`).join('')}</div>` : ''}
+      <p class="partner-hotel-workspace__panel-copy">${html(text('bookingsHint'))}</p>${renderPartnerRequestInbox()}${counts.length ? `<div class="partner-hotel-workspace__summary">${counts.map(([key, label]) => `<span><strong>${presentationCount(presentation.summary[key])}</strong>${html(text(label))}</span>`).join('')}</div>` : ''}
       ${presentation.bookings.length ? `<label class="partner-hotel-workspace__field">${html(text('searchBookings'))}<input type="search" data-phw-booking-search autocomplete="off"></label><div class="partner-hotel-workspace__table-wrap phw-booking-table"><table class="partner-hotel-workspace__table"><thead><tr>${['bookings', 'bookingDates', 'roomAllocation', 'guestCount', 'bookingStatus', ...(hasTotals ? ['customerPays'] : [])].map((key) => `<th scope="col">${html(text(key))}</th>`).join('')}</tr></thead><tbody>${presentation.bookings.map((booking) => `<tr data-phw-booking-search-row="${html([booking.reference, booking.booking_id, booking.status, ...(booking.allocation || []).map((row) => localized(row.room_name_i18n))].filter(Boolean).join(' '))}"><th scope="row">${html(booking.reference || `#${booking.booking_id.slice(0, 8)}`)}</th><td>${html(booking.arrival_date)}<br>${html(booking.departure_date)}</td><td>${bookingAllocationMarkup(booking)}</td><td>${html(booking.guest_count ?? text('notProvided'))}</td><td>${statusBadge(presentationStatus(booking.status), booking.status === 'confirmed' ? 'success' : 'muted')}</td>${hasTotals ? `<td>${presentationMoney(booking.customer_total, booking.currency)}</td>` : ''}</tr>`).join('')}</tbody></table></div><div class="partner-hotel-workspace__grid phw-booking-mobile">${presentation.bookings.map((booking) => `<div data-phw-booking-search-row="${html([booking.reference, booking.booking_id, booking.status, ...(booking.allocation || []).map((row) => localized(row.room_name_i18n))].filter(Boolean).join(' '))}">${bookingCardMarkup(booking)}</div>`).join('')}</div><p data-phw-no-booking-results hidden>${html(text('noResults'))}</p>` : `<div class="phw-module-empty"><span class="phw-empty-icon">${icon('bookings')}</span><h3>${html(text('noBookings'))}</h3><p>${html(text('bookingsHint'))}</p></div>`}
       ${presentation.capabilities.full_booking_management ? `<button class="btn-sm primary" type="button" data-phw-existing-flow="bookings">${html(text('openBookingManagement'))}</button>` : ''}
     </section>`;
@@ -1283,6 +1309,7 @@
       state.workspace = workspace;
       state.externalCalendar = null; state.externalCalendarError = null; state.pricingControl = null; state.pricingControlError = null;
       state.presentation = null; state.presentationError = null;
+      state.pendingPartnerRequests = []; state.partnerRequestInboxError = null;
       try {
         state.presentation = await Repository.getBookingsPaymentsPresentation(
           state.partnerId,
@@ -1299,6 +1326,18 @@
         );
       } catch (error) {
         state.presentationError = error.userMessage || error.message;
+      }
+      if (root.CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED === true
+        && workspace.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+        && workspace.assignment.capabilities.process_bookings === true) {
+        try {
+          state.pendingPartnerRequests = await Repository.listPendingRequests114497(
+            state.partnerId,workspace.hotel_id
+          );
+        } catch (_error) {
+          state.pendingPartnerRequests=[];
+          state.partnerRequestInboxError='INBOX_UNAVAILABLE';
+        }
       }
       if (Core.isSevenArchesReviewedPricingWorkspace(workspace)) {
         try {
@@ -1362,6 +1401,24 @@
       const button = event.target.closest('button'); if (!button) return;
       if (button.matches('[data-phw-close]')) { close({ restorePortal: true }); return; }
       if (button.matches('[data-phw-refresh]')) { if (state.loading) return; Repository.clearReviewedPlans(); void load(); return; }
+      if (button.matches('[data-phw-request-accept]')) {
+        if (!requestOnlyInboxEnabled() || button.disabled) return;
+        button.disabled=true;
+        const orderId=button.dataset.phwRequestAccept;
+        void (async ()=>{
+          try {
+            await Repository.acceptRequest114497(
+              state.partnerId,state.workspace.hotel_id,orderId
+            );
+            state.section='bookings';
+            await load();
+            setStatus(text('partnerRequestAccepted'),'success');
+          } catch (_error) {
+            setStatus(text('partnerRequestInboxUnavailable'),'warning');
+          }
+        })();
+        return;
+      }
       if (button.matches('[data-phw-more]')) { openUtilityDrawer('more', button); return; }
       if (button.matches('[data-phw-menu]')) { openUtilityDrawer('menu', button); return; }
       if (button.matches('[data-phw-diagnostics]')) { openUtilityDrawer('diagnostics', button); return; }
