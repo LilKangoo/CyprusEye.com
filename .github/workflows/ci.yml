@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  hotels_direct_calendar_client_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax of pilot repository
+        run: node --check js/hotels-v2-partner-workspace-repository.js
+      - name: Fail-closed direct 114496 client tests
+        run: node --test tests/hotelsV2CalendarDirect114496Repository.test.mjs
+
   tests:
     runs-on: ubuntu-latest
     steps:
