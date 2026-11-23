@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  hotels_114496_latest_sql_static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assert the exact latest SQL draft is fail closed
+        run: node --test docs/hotels-v2-self-service-ical/114496_DIRECT_APPLY_STATIC_GATE.test.mjs
+
   tests:
     runs-on: ubuntu-latest
     steps:
