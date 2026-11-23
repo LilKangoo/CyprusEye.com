@@ -176,3 +176,10 @@ test('Partner review shows real room allocation and handles ambiguous confirmati
   assert.match(partner,/Repository\.acceptRequest114497\(/);
   assert.doesNotMatch(partner,/no action was taken/);
 });
+
+test('Partner request inbox suppresses stale customer rows on workspace switches',()=>{
+  assert.match(partner,/const requests=await Repository\.listPendingRequests114497\(/);
+  const gate=(partner.match(/if \(generation!==state\.generation \|\| state\.workspace!==workspace\) return;/g)||[]);
+  assert.equal(gate.length,2,'must guard both success and error callbacks');
+  assert.match(partner,/state\.pendingPartnerRequests=requests/);
+});
