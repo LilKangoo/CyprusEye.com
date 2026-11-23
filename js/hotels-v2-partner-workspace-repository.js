@@ -15,14 +15,20 @@
     previewPricing: 'hotel_v2_partner_preview_pricing_plan',
     applyPricing: 'hotel_v2_partner_apply_pricing_plan',
     previewSevenArchesPricingProposal: 'hotel_v2_partner_preview_seven_arches_pricing_proposal',
+    previewSevenArchesPricingProposal114493: 'hotel_v2_partner_preview_seven_arches_pricing_proposal_114493',
     submitSevenArchesPricingProposal: 'hotel_v2_partner_submit_seven_arches_pricing_proposal',
+    submitSevenArchesPricingProposal114493: 'hotel_v2_partner_submit_seven_arches_pricing_proposal_114493',
     sevenArchesPricingControl: 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114488',
+    sevenArchesPricingControl114493: 'hotel_v2_partner_get_seven_arches_reviewed_pricing_114493',
     previewCommercialStay: 'hotel_v2_partner_preview_commercial_stay',
     previewAvailability: 'hotel_v2_partner_preview_availability_plan',
     applyAvailability: 'hotel_v2_partner_apply_availability_plan',
     externalCalendarControl: 'hotel_v2_partner_get_external_calendar_control',
+    externalCalendarControl114493: 'hotel_v2_partner_get_external_calendar_control_114493',
     previewExternalCalendar: 'hotel_v2_partner_preview_external_calendar_plan',
+    previewExternalCalendar114493: 'hotel_v2_partner_preview_external_calendar_plan_114493',
     submitExternalCalendarProposal: 'hotel_v2_partner_apply_external_calendar_plan',
+    submitExternalCalendarProposal114493: 'hotel_v2_partner_apply_external_calendar_plan_114493',
   });
 
   const reviewedPlans = new Map();
@@ -267,7 +273,9 @@
   async function previewSevenArchesPricingProposal(draft) {
     const current = currentWorkspaces.get(`${draft?.partner_id}:${draft?.hotel_id}`);
     const cleanDraft = Core.validateSevenArchesReviewedPricingDraft(draft, current);
-    const value = await call(RPC.previewSevenArchesPricingProposal, { p_draft: cleanDraft }, 'seven_arches_pricing');
+    const rpc = cleanDraft.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+      ? RPC.previewSevenArchesPricingProposal114493 : RPC.previewSevenArchesPricingProposal;
+    const value = await call(rpc, { p_draft: cleanDraft }, 'seven_arches_pricing');
     const preview = Core.validateSevenArchesReviewedPricingPreview(value, cleanDraft, current);
     const plan = preview.reviewed_plan;
     reviewedSevenArchesPricingPlans.clear();
@@ -283,7 +291,9 @@
     const expectedHotelId = exactUuid(hotelId, 'hotel_id');
     const current = currentWorkspaces.get(`${expectedPartnerId}:${expectedHotelId}`);
     if (!current) throw new Error('Load the exact Partner Hotel workspace before reviewed pricing control.');
-    const value = await call(RPC.sevenArchesPricingControl, {
+    const rpc = expectedHotelId === Core.PUBLISHED_ARCHITECTURE_TARGET
+      ? RPC.sevenArchesPricingControl114493 : RPC.sevenArchesPricingControl;
+    const value = await call(rpc, {
       p_partner_id: expectedPartnerId,
       p_hotel_id: expectedHotelId,
     }, 'seven_arches_pricing');
@@ -299,7 +309,9 @@
     }
     let value;
     try {
-      value = await call(RPC.submitSevenArchesPricingProposal, {
+      const rpc = planValue.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+        ? RPC.submitSevenArchesPricingProposal114493 : RPC.submitSevenArchesPricingProposal;
+      value = await call(rpc, {
         p_reviewed_plan: planValue,
         p_correlation_id: correlation,
         p_idempotency_key: idempotency,
@@ -329,7 +341,9 @@
     if (!workspace || workspace.assignment.capabilities.manage_availability !== true) {
       throw new Error('Load the exact Partner Hotel assignment with manage_availability before external calendars.');
     }
-    const value = await call(RPC.externalCalendarControl, {
+    const rpc = expectedHotelId === Core.PUBLISHED_ARCHITECTURE_TARGET
+      ? RPC.externalCalendarControl114493 : RPC.externalCalendarControl;
+    const value = await call(rpc, {
       p_partner_id: expectedPartnerId,
       p_hotel_id: expectedHotelId,
     }, 'external_calendar');
@@ -350,7 +364,9 @@
     const secretUrl = cleanDraft.intent.entity === 'ical_secret'
       && ['set', 'rotate'].includes(cleanDraft.intent.action)
       ? cleanDraft.intent.payload.ical_url : null;
-    const value = await call(RPC.previewExternalCalendar, { p_draft: cleanDraft }, 'external_calendar');
+    const rpc = cleanDraft.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+      ? RPC.previewExternalCalendar114493 : RPC.previewExternalCalendar;
+    const value = await call(rpc, { p_draft: cleanDraft }, 'external_calendar');
     const preview = Core.validateExternalCalendarPreview(value, cleanDraft, control);
     reviewedExternalCalendarPlans.clear();
     if (preview.reviewed_plan) {
@@ -383,7 +399,9 @@
     }
     reviewedExternalCalendarPlans.delete(plan.plan_fingerprint);
     cache.secretUrl = null;
-    const value = await call(RPC.submitExternalCalendarProposal, {
+    const rpc = plan.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
+      ? RPC.submitExternalCalendarProposal114493 : RPC.submitExternalCalendarProposal;
+    const value = await call(rpc, {
       p_reviewed_plan: plan,
       p_correlation_id: correlation,
       p_idempotency_key: idempotency,
