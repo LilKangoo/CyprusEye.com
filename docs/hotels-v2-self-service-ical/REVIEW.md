@@ -27,3 +27,9 @@ The owner has explicitly chosen **self-service connections without per-calendar 
 ## Current release
 
 `PUBLIC_BOOKING=OFF` · `MANUAL_REQUEST=OFF` · `STRIPE_CHARGES=OFF` · `INSTANT_BOOKING=OFF` · `RELEASE=INCOMPLETE_DO_NOT_APPLY`.
+
+## Pinned provenance / SQL no-write preflight
+
+The reviewed 20260811449300 SQL migration source contains the exact PostgreSQL `prosrc` bytes for three common helpers (SHA-256 UTF-8 of their source bodies): `apply_common_114493=062355e3b34d98b3eeacff83cfc2f472b24eafe33dffe1a78bb5196a5dfc7a52`; `preview_common_114493=f500acc85f39bbe0ccb8b62aa6c210f753cd0aadc7ce48f1a5fbfb00f4f2ce5d`; `control_common_114493=c0c62169383c97ead607f532a95096da55c03b5f5d1fe8d9736bbb2449398891`. These are **local source calculations**, not production observations. Run the separate **read-only** SQL file and require installed+hash+owner/path match before considering a live migration. Confirm `_114495` migration status separately; do not run an unshipped migration as a side effect.
+
+This PR has synthetic no-write Node source/security tests. They are **not a substitute** for authenticated PostgreSQL execution or worker acceptance.
