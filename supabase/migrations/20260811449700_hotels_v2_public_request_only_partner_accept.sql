@@ -169,12 +169,12 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog','public','auth' AS $f$
 DECLARE
   v_quote jsonb;
+  v_candidate jsonb;
 BEGIN
   PERFORM hotels_public_booking_114497_private.require_request_only();
-  IF NOT (
-    hotels_public_booking_114494_private.quote_core(p_request)->>'mode'='A'
-    AND hotels_public_booking_114494_private.quote_core(p_request)->'available'='true'::jsonb
-  ) THEN
+  v_candidate:=hotels_public_booking_114494_private.quote_core(p_request);
+  IF v_candidate->>'mode' IS DISTINCT FROM 'A'
+    OR v_candidate->'available' IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION USING errcode='42501',
       message='hotels_114497_request_only_mode_required';
   END IF;
