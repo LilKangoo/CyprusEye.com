@@ -6,6 +6,21 @@ on:
   pull_request:
 
 jobs:
+  ical_worker_full_deno_typecheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno typecheck and full offline ICS tests
+        run: |
+          deno check supabase/functions/hotels-v2-external-calendar-sync/index.ts
+          deno test --allow-read \
+            supabase/functions/hotels-v2-external-calendar-sync/core_test.ts \
+            supabase/functions/hotels-v2-external-calendar-sync/index_test.ts \
+            supabase/functions/hotels-v2-external-calendar-sync/static_test.ts
+
   tests:
     runs-on: ubuntu-latest
     steps:
