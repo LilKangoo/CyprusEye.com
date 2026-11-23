@@ -59,6 +59,24 @@
       externalCalendars: 'External calendars', externalCalendarCreate: 'Add provider source', externalCalendarEdit: 'Edit source',
       calendarProvider: 'Provider', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Generic iCal',
       calendarProviderNote: 'All provider options use an ICS export URL. Provider is saved separately from the source code.',
+      wizardTitle: "Connect a calendar — guided setup",
+      wizardIntro: "First send a request to Admin. After approval, add the private export URL. This does not turn on synchronization or booking.",
+      wizardProvider: "1. Choose the booking platform",
+      wizardRoom: "2. Match the apartment",
+      wizardPlaceholder: "Choose the correct apartment",
+      wizardAirbnb: "Airbnb: Calendar → your listing → Availability → Connect calendars → Connect to another website → copy the export link. Add the link here only after Admin approval.",
+      wizardBooking: "Booking.com Extranet: Calendar & Pricing (or Rates & Availability) → Sync calendars → Export calendar / Copy link. This option is not available for every property.",
+      wizardIcal: "Find a private iCal/ICS export or subscription URL in your calendar service. A normal booking-page link is not a calendar feed.",
+      wizardLinkAirbnb: "Airbnb help",
+      wizardLinkBooking: "Booking.com guide video",
+      wizardAdvanced: "Advanced settings — optional",
+      wizardCode: "Source code — generated automatically",
+      wizardUnitsNote: "One external event blocks one unit by default. If the room contains multiple units, check this mapping before approval.",
+      wizardReason: "Add an external calendar source",
+      wizardSubmit: "3. Review request for Admin approval",
+      wizardNext: "After Admin approves the new source, choose “Add private URL” on its card below. The URL is never displayed again. Activation and successful sync are separate steps.",
+      wizardChooseHint: "Select a platform to see the export instructions.",
+      wizardWarning: "iCal is a periodically refreshed import, not a live two-way API connection.",
       configured: 'Configured (URL hidden)', notConfigured: 'Not configured', setUrl: 'Set URL', rotateUrl: 'Rotate URL', clearUrl: 'Clear URL',
       enableSource: 'Enable', disableSource: 'Disable', triggerSync: 'Run manual sync', activationOff: 'Enable is unavailable while the global external-calendar flag is OFF.',
       syncUnavailable: 'Manual sync requires an enabled source and global activation.',
@@ -148,6 +166,24 @@
       externalCalendars: 'Kalendarze zewnętrzne', externalCalendarCreate: 'Dodaj źródło dostawcy', externalCalendarEdit: 'Edytuj źródło',
       calendarProvider: 'Dostawca', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'Ogólny iCal',
       calendarProviderNote: 'Wszystkie opcje dostawcy używają adresu eksportu ICS. Dostawca jest zapisywany niezależnie od kodu źródła.',
+      wizardTitle: "Połącz kalendarz — prosty kreator",
+      wizardIntro: "Najpierw wyślij zgłoszenie do administratora. Po zatwierdzeniu dodasz prywatny link eksportu. To nie włącza automatycznie synchronizacji ani rezerwacji.",
+      wizardProvider: "1. Wybierz platformę",
+      wizardRoom: "2. Przypisz apartament",
+      wizardPlaceholder: "Wybierz właściwy apartament",
+      wizardAirbnb: "Airbnb: Kalendarz → Twoja oferta → Dostępność → Połącz kalendarze → Połącz z inną stroną → skopiuj link eksportu. Dodaj go tutaj dopiero po zatwierdzeniu.",
+      wizardBooking: "Booking.com Extranet: Kalendarz i ceny (lub Ceny i dostępność) → Synchronizuj kalendarze → Eksportuj kalendarz / Kopiuj link. Ta opcja nie jest dostępna dla każdego obiektu.",
+      wizardIcal: "Znajdź prywatny link eksportu/subskrypcji iCal/ICS w swoim kalendarzu. Zwykły link do strony rezerwacji nie wystarczy.",
+      wizardLinkAirbnb: "Instrukcja Airbnb",
+      wizardLinkBooking: "Film instruktażowy Booking.com",
+      wizardAdvanced: "Ustawienia zaawansowane — opcjonalnie",
+      wizardCode: "Kod źródła — generowany automatycznie",
+      wizardUnitsNote: "Domyślnie jedno wydarzenie blokuje jedną jednostkę. Jeśli typ pokoju obejmuje wiele jednostek, sprawdź to mapowanie przed zatwierdzeniem.",
+      wizardReason: "Dodanie kalendarza zewnętrznego",
+      wizardSubmit: "3. Sprawdź zgłoszenie do administratora",
+      wizardNext: "Po akceptacji administratora wybierz „Dodaj prywatny link” przy nowym źródle poniżej. Link nie będzie później wyświetlany. Aktywacja i synchronizacja wymagają dalszych kroków.",
+      wizardChooseHint: "Wybierz platformę, żeby zobaczyć instrukcję eksportu.",
+      wizardWarning: "iCal to okresowy import, nie natychmiastowe dwukierunkowe połączenie API.",
       configured: 'Skonfigurowano (URL ukryty)', notConfigured: 'Nie skonfigurowano', setUrl: 'Ustaw URL', rotateUrl: 'Obróć URL', clearUrl: 'Usuń URL',
       enableSource: 'Włącz', disableSource: 'Wyłącz', triggerSync: 'Uruchom ręczną synchronizację', activationOff: 'Włączenie jest niedostępne, gdy globalna flaga kalendarza zewnętrznego jest WYŁĄCZONA.',
       syncUnavailable: 'Ręczna synchronizacja wymaga włączonego źródła i globalnej aktywacji.',
@@ -237,6 +273,24 @@
       externalCalendars: 'יומנים חיצוניים', externalCalendarCreate: 'הוספת מקור ספק', externalCalendarEdit: 'עריכת מקור',
       calendarProvider: 'ספק', bookingCom: 'Booking.com', airbnb: 'Airbnb', genericIcal: 'iCal כללי',
       calendarProviderNote: 'כל אפשרויות הספק משתמשות בכתובת יצוא ICS. הספק נשמר בנפרד מקוד המקור.',
+      wizardTitle: "חיבור יומן — אשף פשוט",
+      wizardIntro: "ראשית שולחים בקשה לאישור מנהל. לאחר האישור מוסיפים קישור יצוא פרטי. הפעולה אינה מפעילה אוטומטית סנכרון או הזמנות.",
+      wizardProvider: "1. בחרו פלטפורמה",
+      wizardRoom: "2. התאימו את הדירה",
+      wizardPlaceholder: "בחרו את הדירה הנכונה",
+      wizardAirbnb: "Airbnb: יומן → הנכס → זמינות → חיבור יומנים → חיבור לאתר אחר → העתיקו קישור יצוא. מוסיפים את הקישור לאחר אישור מנהל.",
+      wizardBooking: "באקסטרנט של Booking.com: יומן ותמחור (או תעריפים וזמינות) → סנכרון יומנים → יצוא יומן / העתקת קישור. האפשרות אינה זמינה לכל נכס.",
+      wizardIcal: "מצאו במערכת היומן קישור יצוא או מנוי iCal/ICS פרטי. כתובת רגילה של דף הזמנה אינה מספיקה.",
+      wizardLinkAirbnb: "עזרה של Airbnb",
+      wizardLinkBooking: "סרטון הדרכה של Booking.com",
+      wizardAdvanced: "הגדרות מתקדמות — רשות",
+      wizardCode: "קוד מקור — נוצר אוטומטית",
+      wizardUnitsNote: "כברירת מחדל אירוע אחד חוסם יחידה אחת. אם סוג החדר כולל מספר יחידות, בדקו את המיפוי לפני האישור.",
+      wizardReason: "הוספת יומן חיצוני",
+      wizardSubmit: "3. בדיקת בקשה לאישור מנהל",
+      wizardNext: "לאחר אישור המנהל בחרו הוספת קישור פרטי בכרטיס המקור החדש. הקישור לא יוצג שוב. ההפעלה והסנכרון הם שלבים נפרדים.",
+      wizardChooseHint: "בחרו פלטפורמה להצגת הוראות הייצוא.",
+      wizardWarning: "iCal הוא יבוא תקופתי, ולא חיבור API דו־כיווני בזמן אמת.",
       configured: 'מוגדר (הכתובת מוסתרת)', notConfigured: 'לא מוגדר', setUrl: 'הגדרת כתובת', rotateUrl: 'החלפת כתובת', clearUrl: 'מחיקת כתובת',
       enableSource: 'הפעלה', disableSource: 'השבתה', triggerSync: 'הפעלת סנכרון ידני', activationOff: 'אי אפשר להפעיל כל עוד הדגל הגלובלי של יומן חיצוני כבוי.',
       syncUnavailable: 'סנכרון ידני דורש מקור פעיל והפעלה גלובלית.',
@@ -765,6 +819,58 @@
     ].map(([value, label]) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${html(text(label))}</option>`).join('');
   }
 
+
+  function generatedCalendarCode(provider, room, sources) {
+    if (!['booking_com', 'airbnb', 'ical'].includes(provider)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(room)) return '';
+    const prefix = provider === 'booking_com' ? 'booking' : provider;
+    const base = prefix + '-' + room.replace(/-/g, '').slice(0, 12).toLowerCase();
+    const used = new Set(sources.map((entry) => String(entry.code || '').toLowerCase()));
+    let code = base;
+    for (let n = 2; used.has(code) && n <= 999; n += 1) code = base + '-' + n;
+    return used.has(code) ? '' : code;
+  }
+
+  function renderCalendarWizard(roomOptions) {
+    const providerCard = (key, label) => `<label class="phw-calendar-wizard__provider"><input type="radio" name="source_type" value="${key}" required><strong>${html(text(label))}</strong><small>iCal / ICS</small></label>`;
+    const guide = (key, message, href, linkKey) => `<div data-phw-wizard-guide="${key}" class="phw-calendar-wizard__guide" hidden><p>${html(text(message))}</p>${href ? `<a target="_blank" rel="noopener noreferrer" href="${href}">${html(text(linkKey))}</a>` : ''}</div>`;
+    return `<details class="partner-hotel-workspace__card phw-calendar-wizard">
+      <summary>${html(text('wizardTitle'))}</summary>
+      <form class="partner-hotel-workspace__form phw-calendar-wizard__form" data-phw-external-create data-phw-calendar-wizard>
+        <p class="partner-hotel-workspace__panel-copy">${html(text('wizardIntro'))}</p>
+        <fieldset class="phw-calendar-wizard__providers">
+          <legend>${html(text('wizardProvider'))}</legend>
+          <div class="phw-calendar-wizard__options">
+            ${providerCard('booking_com','bookingCom')}
+            ${providerCard('airbnb','airbnb')}
+            ${providerCard('ical','genericIcal')}
+          </div>
+        </fieldset>
+        <p data-phw-wizard-hint class="partner-hotel-workspace__panel-copy">${html(text('wizardChooseHint'))}</p>
+        ${guide('booking_com','wizardBooking','https://www.youtube.com/watch?v=Smj-WfWpi4o','wizardLinkBooking')}
+        ${guide('airbnb','wizardAirbnb','https://www.airbnb.com/help/article/99','wizardLinkAirbnb')}
+        ${guide('ical','wizardIcal',null,null)}
+        <label class="partner-hotel-workspace__field">${html(text('wizardRoom'))}
+          <select name="room_type_id" required><option value="" disabled selected>${html(text('wizardPlaceholder'))}</option>${roomOptions}</select>
+        </label>
+        <p class="partner-hotel-workspace__panel-copy">${html(text('wizardWarning'))}</p>
+        <details class="phw-calendar-wizard__advanced">
+          <summary>${html(text('wizardAdvanced'))}</summary>
+          <div class="partner-hotel-workspace__form-grid">
+            <label class="partner-hotel-workspace__field">${html(text('wizardCode'))}<input name="code" data-phw-wizard-code maxlength="80" pattern="[a-z0-9][a-z0-9_-]{0,79}" required></label>
+            <label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label>
+            <label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label>
+            <label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label>
+          </div>
+          <p class="partner-hotel-workspace__panel-copy">${html(text('wizardUnitsNote'))}</p>
+          <label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" value="${html(text('wizardReason'))}" required></label>
+        </details>
+        <p class="phw-calendar-wizard__next">${html(text('wizardNext'))}</p>
+        <button type="submit" class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('wizardSubmit'))}</button>
+      </form>
+    </details>`;
+  }
+
   function renderExternalCalendars() {
     if (state.externalCalendarError) return `<section class="partner-hotel-workspace__form"><h3>${html(text('externalCalendars'))}</h3><div class="partner-hotel-workspace__status" data-tone="warning">${html(text('unavailable'))}</div>${diagnostics(state.externalCalendarError)}</section>`;
     const control = state.externalCalendar;
@@ -792,7 +898,7 @@
         ? text('pendingReview') : proposal.status === 'accepted' ? text('acceptedProposal') : text('rejectedProposal');
       return `<article class="partner-hotel-workspace__card" data-phw-external-proposal="${proposal.proposal_id}" data-proposal-status="${proposal.status}"><h4>${html(text('providerProposalHistory'))}</h4><p><strong>${html(status)}</strong> · ${html(externalCalendarProviderLabel(proposal.source_type || 'ical'))} · ${html(localized(room?.name_i18n, proposal.room_type_id || proposal.source_id))}</p><p>${html(proposal.reason)}</p><p>${html(text('expires'))}: ${html(proposal.expires_at)}</p>${diagnostics(proposal.proposal_id)}</article>`;
     }).join('');
-    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars data-provider-stage="${html(capability.stage)}"><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p>${providerActive ? '' : `<div class="partner-hotel-workspace__status" data-tone="warning">${html(text('providerUnavailable'))}</div>`}<div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div>${providerActive && capability.source_review_available ? `<details class="partner-hotel-workspace__card"><summary>${html(text('externalCalendarCreate'))}</summary><form class="partner-hotel-workspace__form" data-phw-external-create><div class="partner-hotel-workspace__form-grid"><label class="partner-hotel-workspace__field">${html(text('calendarProvider'))}<select name="source_type" required>${externalCalendarProviderOptions()}</select></label><label class="partner-hotel-workspace__field">${html(text('room'))}<select name="room_type_id" required>${roomOptions}</select></label><label class="partner-hotel-workspace__field">${html(text('code'))}<input name="code" required maxlength="80"></label><label class="partner-hotel-workspace__field">${html(text('intervalMinutes'))}<input name="sync_interval_minutes" type="number" min="15" max="1440" value="60" required></label><label class="partner-hotel-workspace__field">${html(text('unitsPerEvent'))}<input name="units_per_event" type="number" min="1" max="100" value="1" required></label><label class="partner-hotel-workspace__field">${html(text('priority'))}<input name="priority" type="number" min="-32768" max="32767" value="100" required></label></div><p class="partner-hotel-workspace__panel-copy">${html(text('calendarProviderNote'))}</p><label class="partner-hotel-workspace__field">${html(text('reason'))}<input name="reason" minlength="3" maxlength="500" required></label><button class="btn-sm primary" ${roomOptions ? '' : 'disabled'}>${html(text('review'))}</button></form></details>` : ''}</section>`;
+    return `<section class="partner-hotel-workspace__form" data-phw-external-calendars data-provider-stage="${html(capability.stage)}"><h3>${html(text('externalCalendars'))}</h3><p class="partner-hotel-workspace__panel-copy">${html(text('calendarUrlNeverShown'))}</p>${providerActive ? '' : `<div class="partner-hotel-workspace__status" data-tone="warning">${html(text('providerUnavailable'))}</div>`}<div class="partner-hotel-workspace__grid">${cards || `<p>${html(text('empty'))}</p>`}</div>${providerActive && capability.source_review_available ? renderCalendarWizard(roomOptions) : ''}</section>`;
   }
 
   function availabilityCalendar(availability, rooms) {
@@ -1295,7 +1401,23 @@
       if (button.matches('[data-phw-external-lifecycle]')) { openExternalCalendarAction(button.dataset.sourceId, 'calendar_source', button.dataset.phwExternalLifecycle, button); return; }
       if (button.matches('[data-phw-external-sync]')) { openExternalCalendarAction(button.dataset.sourceId, 'calendar_sync', 'trigger', button); }
     });
+    state.root.addEventListener('input', (event) => {
+      if (event.target.matches('[data-phw-wizard-code]')) event.target.dataset.manual = 'true';
+    });
     state.root.addEventListener('change', (event) => {
+      const wizard = event.target.closest('[data-phw-calendar-wizard]');
+      if (wizard && (event.target.name === 'source_type' || event.target.name === 'room_type_id')) {
+        const provider = wizard.querySelector('input[name="source_type"]:checked')?.value || '';
+        const room = wizard.elements.room_type_id?.value || '';
+        const code = wizard.elements.code;
+        if (code && code.dataset.manual !== 'true') code.value = generatedCalendarCode(provider, room, state.externalCalendar?.sources || []);
+        wizard.querySelectorAll('[data-phw-wizard-guide]').forEach((item) => {
+          item.hidden = item.dataset.phwWizardGuide !== provider;
+        });
+        const hint = wizard.querySelector('[data-phw-wizard-hint]');
+        if (hint) hint.hidden = Boolean(provider);
+        return;
+      }
       if (event.target.matches('[data-phw-guest-filter]')) {
         const card = event.target.closest('[data-phw-reviewed-room]');
         card.dataset.mobileGuest = event.target.value;
