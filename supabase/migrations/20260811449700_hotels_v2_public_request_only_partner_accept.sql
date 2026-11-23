@@ -47,6 +47,9 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'pg_catalog','public','auth' AS $f$
 BEGIN
   PERFORM hotels_public_booking_114494_private.require_safety();
+  IF hotels_public_booking_114494_private.public_booking_state() IS DISTINCT FROM false THEN
+    RAISE EXCEPTION USING errcode='42501',message='hotels_114497_global_booking_must_remain_off';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM hotels_public_booking_114497_private.request_mode_gate
     WHERE singleton AND request_mode_enabled AND hotel_id=
@@ -72,6 +75,7 @@ BEGIN
     'contract_version','hotels_v2_public_request_only_capability_114497_v1',
     'hotel_id','9b6d99a0-923a-4fbc-be54-c066e856e6ca',
     'can_submit',coalesce(v_enabled,false)
+      AND hotels_public_booking_114494_private.public_booking_state() IS FALSE
   );
 END $f$;
 REVOKE ALL ON FUNCTION public.hotel_v2_public_request_capability_114497()
@@ -117,7 +121,8 @@ BEGIN
   RETURN jsonb_build_object(
     'contract_version','hotels_v2_public_request_context_114497_v1',
     'hotel_id',v_hotel.id,
-    'can_submit',coalesce(v_enabled,false),
+    'can_submit',coalesce(v_enabled,false)
+      AND hotels_public_booking_114494_private.public_booking_state() IS FALSE,
     'minimum_stay_nights',v_hotel.minimum_stay_nights,
     'maximum_stay_nights',365,
     'currency',v_hotel.currency,
@@ -148,7 +153,9 @@ BEGIN
   FROM hotels_public_booking_114497_private.request_mode_gate WHERE singleton;
   RETURN v_quote || jsonb_build_object(
     'can_submit',coalesce(v_enabled,false)
-      AND v_quote->>'mode'='A',
+      AND hotels_public_booking_114494_private.public_booking_state() IS FALSE
+      AND v_quote->>'mode'='A'
+      AND v_quote->'available'='true'::jsonb,
     'request_only',true
   );
 END $f$;
@@ -164,13 +171,16 @@ DECLARE
   v_quote jsonb;
 BEGIN
   PERFORM hotels_public_booking_114497_private.require_request_only();
-  IF hotels_public_booking_114494_private.quote_core(p_request)->>'mode'
-       IS DISTINCT FROM 'A' THEN
+  IF NOT (
+    hotels_public_booking_114494_private.quote_core(p_request)->>'mode'='A'
+    AND hotels_public_booking_114494_private.quote_core(p_request)->'available'='true'::jsonb
+  ) THEN
     RAISE EXCEPTION USING errcode='42501',
       message='hotels_114497_request_only_mode_required';
   END IF;
   v_quote:=hotels_public_booking_114494_private.issue_quote(p_request);
-  IF v_quote#>>'{quote,mode}' IS DISTINCT FROM 'A' THEN
+  IF v_quote#>>'{quote,mode}' IS DISTINCT FROM 'A'
+    OR v_quote#>'{quote,available}' IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION USING errcode='42501',
       message='hotels_114497_request_only_mode_changed';
   END IF;
@@ -194,7 +204,8 @@ BEGIN
   v_quote:=hotels_public_booking_114494_private.require_quote(
     p_quote_id,p_lookup_token
   );
-  IF v_quote.authority->>'mode' IS DISTINCT FROM 'A' THEN
+  IF v_quote.authority->>'mode' IS DISTINCT FROM 'A'
+    OR v_quote.authority->'available' IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION USING errcode='42501',
       message='hotels_114497_request_only_mode_required';
   END IF;
