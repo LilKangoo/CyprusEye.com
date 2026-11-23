@@ -62,7 +62,10 @@ test('new public pilot UI does not reuse legacy raw hotel_bookings.insert',()=>{
   assert.match(clientSrc,/status\.payment_required!==false/);
 });
 test('Partner inbox is explicitly frontend gated and uses one-shot accept',()=>{
-  assert.match(partner,/CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED === true/g);
+  assert.match(partner,/state\.partnerRequestInboxReady === true/);
+  assert.match(partner,/state\.partnerRequestInboxReady = true/);
+  assert.match(partner,/state\.partnerRequestInboxReady = false/);
+  assert.doesNotMatch(partner,/CYPRUSEYE_HOTELS_V2_REQUEST_ONLY_114497_ENABLED/);
   assert.match(partner,/Repository\.listPendingRequests114497/);
   assert.match(partner,/Repository\.acceptRequest114497/);
   assert.match(repository,/const currentRequestOnlyOrders = new Map\(\)/);
