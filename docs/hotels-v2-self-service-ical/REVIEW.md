@@ -1,6 +1,6 @@
 # Reviewed direct Partner calendar apply — 114496 DRAFT
 
-**STATUS: DESIGN / SQL DRAFT ONLY — NO PRODUCTION INSTALLATION, NO SQL EXECUTION.**
+**STATUS: DESIGN / SQL DRAFT ONLY — DO NOT APPLY TO PRODUCTION. NO PRODUCTION INSTALLATION, NO SQL EXECUTION.**
 
 The owner has explicitly chosen **self-service connections without per-calendar Admin approval**. The current public RPC `hotel_v2_partner_apply_external_calendar_plan_114493` places operations into `pending_admin_review`; the new RPC in the accompanying `.sql` is a proposed, separate entrypoint which calls the **existing reviewed** `hotel_v2_external_calendar_apply_common_114493('partner',...)`. It does not replace or mutate reviewed 114489/114493 functions.
 
