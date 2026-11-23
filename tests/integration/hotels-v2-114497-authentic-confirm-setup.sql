@@ -77,6 +77,9 @@ RETURNS jsonb LANGUAGE sql STABLE AS $f$
  'mode',coalesce(p->>'force_mode','A'),
  'available',coalesce((p->>'available')::boolean,true),
  'currency','EUR','gross',200,'due_now',0,
+ 'adults',coalesce((p->>'adults')::integer,2),
+ 'child_ages',coalesce(p->'child_ages','[]'::jsonb),
+ 'extras','[]'::jsonb,
  'arrival_date',coalesce(p->>'arrival_date','2027-04-10'),
  'departure_date',coalesce(p->>'departure_date','2027-04-12'),
  'allocation',jsonb_build_array(jsonb_build_object(
