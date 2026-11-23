@@ -12,9 +12,11 @@ BOOT="$ROOT/tests/integration/hotels-v2-114497-postgres-synthetic-bootstrap.sql"
 MIG="$ROOT/supabase/migrations/20260811449700_hotels_v2_public_request_only_partner_accept.sql"
 SETUP="$ROOT/tests/integration/hotels-v2-114497-authentic-confirm-setup.sql"
 CORE="$ROOT/tests/integration/hotels-v2-114497-authentic-confirm-core-114494.sql"
+BEGIN_CORE="$ROOT/tests/integration/hotels-v2-114497-authentic-begin-core-114494.sql"
+BEGIN_ACCEPT="$ROOT/tests/integration/hotels-v2-114497-authentic-begin-setup-and-tests.sql"
 IMAGE="postgres:17.6-alpine"
 CTR="hotel-114497-real-core-${GITHUB_RUN_ID:-local}-$$"
-for f in "$BOOT" "$MIG" "$SETUP" "$CORE"; do
+for f in "$BOOT" "$MIG" "$SETUP" "$CORE" "$BEGIN_CORE" "$BEGIN_ACCEPT"; do
   [ -f "$f" ] || { echo "STOP: missing $f"; exit 2; }
 done
 docker info >/dev/null
@@ -118,6 +120,10 @@ if [ "$WIN" != "t" ];then
 fi
 echo "COMPETING_SAME_ROOM_APPROVALS=ONE_ONLY_PASS"
 echo "AUTHENTIC_LOCK_INVENTORY_AND_CONFIRM_CORE=PASS"
+run_sql "$BEGIN_CORE"
+echo "AUTHENTIC_SHA_PINNED_114494_BEGIN_CORE=PASS"
+run_sql "$BEGIN_ACCEPT"
+echo "AUTHENTIC_BEGIN_CORE_IDEMPOTENCY_AND_NO_PAYMENT=PASS"
 echo "SIMULATED_CALENDAR_PRICE_AND_CONSTRAINTS=YES"
 echo "FULL_REAL_114494_INTEGRATION=NOT_TESTED"
 echo "PRODUCTION_CHANGES=NONE"
