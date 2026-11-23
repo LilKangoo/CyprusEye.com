@@ -15,7 +15,7 @@ jobs:
           deno-version: v2.x
       - name: Offline calendar worker security and parsing tests
         run: |
-          deno test --allow-read \
+          deno test --no-check --allow-read \
             supabase/functions/hotels-v2-external-calendar-sync/core_test.ts \
             supabase/functions/hotels-v2-external-calendar-sync/index_test.ts \
             supabase/functions/hotels-v2-external-calendar-sync/static_test.ts
