@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  ical_worker_security_offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Offline calendar worker security and parsing tests
+        run: |
+          deno test --allow-read \
+            supabase/functions/hotels-v2-external-calendar-sync/core_test.ts \
+            supabase/functions/hotels-v2-external-calendar-sync/index_test.ts \
+            supabase/functions/hotels-v2-external-calendar-sync/static_test.ts
+
   tests:
     runs-on: ubuntu-latest
     steps:
