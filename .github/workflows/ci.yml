@@ -6,6 +6,21 @@ on:
   pull_request:
 
 jobs:
+  calendar_wizard_independent_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: JS syntax
+        run: node --check js/hotels-v2-partner-workspace.js
+      - name: Calendar wizard no-network assertions
+        run: node --test tests/hotelsV2CalendarWizardUi.test.mjs
+      - name: Verify fresh production build
+        run: |
+          npm ci
+          npm run build
+          test -f dist/js/hotels-v2-partner-workspace.js
+          test -f dist/partners/hotels-v2-workspace.css
+
   tests:
     runs-on: ubuntu-latest
     steps:
