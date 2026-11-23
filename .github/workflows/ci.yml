@@ -6,6 +6,13 @@ on:
   pull_request:
 
 jobs:
+  a3_independent_route_gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify A3 pilot/legacy routes without database
+        run: node --test tests/owner-release/hotels-a3-routing.test.mjs
+
   tests:
     runs-on: ubuntu-latest
     steps:
