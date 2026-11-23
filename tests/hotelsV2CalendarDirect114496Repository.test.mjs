@@ -35,7 +35,7 @@ function setup(hotelId=HOTEL, scenario={}) {
     if (scenario.error && name === 'hotel_v2_partner_apply_external_calendar_direct_114496') {
       return {data:null,status:scenario.error.status,error:{code:scenario.error.code,message:scenario.error.message}};
     }
-    if (name.endsWith('preview_external_calendar_plan_114493')) {
+    if (/^hotel_v2_partner_preview_external_calendar_plan(?:_114493)?$/.test(name)) {
       return {data:{changed:true,reviewed_plan:scenario.plan},error:null};
     }
     if (name === 'hotel_v2_partner_apply_external_calendar_direct_114496') {
