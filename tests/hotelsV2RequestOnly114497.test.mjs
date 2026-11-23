@@ -84,6 +84,7 @@ test('Public request contract respects child ages and 1-4 choice / 5-8 bundle',(
   const context={
     contract_version:'hotels_v2_public_request_context_114497_v1',
     hotel_id:HOTEL,can_submit:false,minimum_stay_nights:2,maximum_stay_nights:365,currency:'EUR',
+    children_policy:'minimum_age',minimum_child_age:15,
     rooms:[{id:'11111111-1111-4111-8111-111111111111',max_occupancy:4},
            {id:'22222222-2222-4222-8222-222222222222',max_occupancy:4}],
     allocation_rules:[
@@ -102,11 +103,12 @@ test('Public request contract respects child ages and 1-4 choice / 5-8 bundle',(
       }
     };
   }
-  const single=api.prepareRequest(make(2,[7]),context);
+  const single=api.prepareRequest(make(2,[15]),context);
   assert.equal(single.room_type_id,context.rooms[0].id);
-  assert.equal(single.child_ages[0],7);
-  const bundle=api.prepareRequest(make(4,[7]),context);
+  assert.equal(single.child_ages[0],15);
+  const bundle=api.prepareRequest(make(4,[15]),context);
   assert.equal(bundle.room_type_id,null);
+  assert.throws(()=>api.prepareRequest(make(2,[14]),context),/INVALID_CHILD_POLICY/);
   assert.throws(()=>api.prepareRequest(make(2,[18]),context),/INVALID_GUESTS/);
   assert.throws(()=>api.prepareRequest(make(8,[1]),context),/INVALID_GUESTS/);
   assert.equal(api.COPY.pl.heading,'Zapytanie o pobyt');
@@ -115,6 +117,8 @@ test('Public request contract respects child ages and 1-4 choice / 5-8 bundle',(
   assert.equal(api.prepareRequest({...make(2,[]),
     data:{...make(2,[]).data,departure_date:'2027-03-24'}},context).room_type_id,context.rooms[0].id);
   assert.ok(api.COPY.he.pending);
+  assert.match(api.COPY.pl.childMinimum,/Minimalny wiek dziecka/);
+  assert.ok(api.COPY.en.childPolicyError);
 });
 
 
@@ -135,4 +139,12 @@ test('display-only view stays protected while server-gated A-only form can appea
   assert.match(page,/data-hotel-request-only-114497/);
   assert.match(page,/Wyślij zapytanie poniżej/);
   assert.match(page,/אין תשלום מקוון/);
+});
+
+test('live 7 Kamares child policy is server-derived, never invented',()=>{
+  assert.match(sql,/'children_policy',v_hotel\.children_policy/);
+  assert.match(sql,/'minimum_child_age',v_hotel\.minimum_child_age/);
+  assert.match(clientSrc,/context\.minimum_child_age/);
+  assert.match(clientSrc,/INVALID_CHILD_POLICY/);
+  assert.doesNotMatch(clientSrc,/minimum_child_age\s*:\s*15/);
 });
