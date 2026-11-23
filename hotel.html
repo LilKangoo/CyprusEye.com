@@ -25,6 +25,7 @@
   <script type="module" src="/js/authUi.js?v=4"></script>
   <script src="/js/hotel-pricing.js?v=20260403_1"></script>
   <script src="/js/hotel-booking-ui.js?v=20260509_lang1"></script>
+  <script src="/js/hotels-v2-public-request-114497.js?v=20261123_request_draft"></script>
   <script src="/js/hotels-v2-seven-arches-public-pricing.js?v=20260913_114489"></script>
   <script src="/js/footer-referral.js" defer></script>
   <link rel="stylesheet" href="/assets/css/compact-header.css?v=2" />
@@ -725,10 +726,10 @@
       const form = $('#bookForm');
       if (form) form.hidden = true;
       hotelPageBookingUi?.renderPublicDisplayOnly?.(hotel, form);
-      setNodeText('#hotelHeroCtaLabel', pageText('Zobacz apartamenty', 'View apartments'));
-      setNodeText('#hotelHeroCtaMeta', pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
-      setNodeText('#hotelBookingTitle', pageText('Informacje o apartamentach', 'Apartment information'));
-      setNodeText('#priceLive', pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      setNodeText('#hotelHeroCtaLabel', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytaj o pobyt', 'Request a stay') : pageText('Zobacz apartamenty', 'View apartments'));
+      setNodeText('#hotelHeroCtaMeta', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Wymagane potwierdzenie Partnera. Bez płatności.', 'Partner confirmation required. No payment now.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
+      setNodeText('#hotelBookingTitle', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Zapytanie o pobyt', 'Stay request') : pageText('Informacje o apartamentach', 'Apartment information'));
+      setNodeText('#priceLive', document.querySelector('[data-hotel-request-only-114497]') ? pageText('Cenę i dostępność sprawdzisz poniżej.', 'Check price and availability below.') : pageText('Rezerwacja online nie jest włączona.', 'Online booking is not enabled.'));
       return true;
     }
 
@@ -1348,6 +1349,19 @@
       if (isHotelPageDisplayOnly()) {
         renderHotelHeroSummary(hotel);
         renderHotelPageDisplayOnly();
+        // The new request-only widget is a separate, server-gated path.
+        // Never unhide/reuse the legacy direct-insert form for converted pilot.
+        try {
+          const requestWidget = await window.HotelsV2PublicRequest114497?.mount?.({
+            hotelId: hotel.id,
+            target: document.getElementById('bookingSection'),
+            client: (await import('/js/supabaseClient.js')).supabase,
+            lang: getHotelPageLanguage(),
+          });
+          if (requestWidget) renderHotelPageDisplayOnly();
+        } catch (_error) {
+          // Fail closed: the public booking form stays disabled.
+        }
       }
       void setupHotelPagePhoneInput();
       hotelPageBookingUi?.refreshLocationSummaryMap?.(document.getElementById('hotelPageLocationSummary'));
