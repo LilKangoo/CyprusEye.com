@@ -1,0 +1,15 @@
+name: A3 independent route gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'js/hotels-v2-partner-workspace-repository.js'
+      - 'tests/owner-release/hotels-a3-routing.test.mjs'
+      - '.github/workflows/a3-independent-route-gate.yml'
+jobs:
+  pilot-routes:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact A3 routes without Supabase
+        run: node --test tests/owner-release/hotels-a3-routing.test.mjs
