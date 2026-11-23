@@ -14,9 +14,10 @@ SETUP="$ROOT/tests/integration/hotels-v2-114497-authentic-confirm-setup.sql"
 CORE="$ROOT/tests/integration/hotels-v2-114497-authentic-confirm-core-114494.sql"
 BEGIN_CORE="$ROOT/tests/integration/hotels-v2-114497-authentic-begin-core-114494.sql"
 BEGIN_ACCEPT="$ROOT/tests/integration/hotels-v2-114497-authentic-begin-setup-and-tests.sql"
+GROUP_SETUP="$ROOT/tests/integration/hotels-v2-114497-authentic-group-setup.sql"
 IMAGE="postgres:17.6-alpine"
 CTR="hotel-114497-real-core-${GITHUB_RUN_ID:-local}-$$"
-for f in "$BOOT" "$MIG" "$SETUP" "$CORE" "$BEGIN_CORE" "$BEGIN_ACCEPT"; do
+for f in "$BOOT" "$MIG" "$SETUP" "$CORE" "$BEGIN_CORE" "$BEGIN_ACCEPT" "$GROUP_SETUP"; do
   [ -f "$f" ] || { echo "STOP: missing $f"; exit 2; }
 done
 docker info >/dev/null
@@ -124,6 +125,51 @@ run_sql "$BEGIN_CORE"
 echo "AUTHENTIC_SHA_PINNED_114494_BEGIN_CORE=PASS"
 run_sql "$BEGIN_ACCEPT"
 echo "AUTHENTIC_BEGIN_CORE_IDEMPOTENCY_AND_NO_PAYMENT=PASS"
+
+run_sql "$GROUP_SETUP"
+run_accept '95555555-5555-4555-8555-555555555555' >"$TMP/group1.log" 2>&1 & gpid1=$!
+run_accept '96666666-6666-4666-8666-666666666666' >"$TMP/group2.log" 2>&1 & gpid2=$!
+group1=0;group2=0
+wait "$gpid1" || group1=$?
+wait "$gpid2" || group2=$?
+if { [ "$group1" -eq 0 ] && [ "$group2" -ne 0 ]; } ||
+   { [ "$group1" -ne 0 ] && [ "$group2" -eq 0 ]; }; then
+  echo "COMPETING_5_GUEST_TWO_ROOM_APPROVALS=ONE_ONLY_PASS"
+else
+  echo "STOP: both-room competition expected one winner, got $group1/$group2"
+  sed -n '1,28p' "$TMP/group1.log"
+  sed -n '1,28p' "$TMP/group2.log"
+  exit 1
+fi
+
+BUNDLE="$(docker exec -u postgres "$CTR" psql -X -qAt -v ON_ERROR_STOP=1   -U postgres -d postgres -c "
+  WITH confirmed_group AS (
+    SELECT o.booking_id FROM hotels_public_booking_114494_private.orders o
+    JOIN public.hotel_bookings b ON b.id=o.booking_id
+    WHERE b.arrival_date='2027-06-10' AND o.mode='A' AND o.status='confirmed'
+  )
+  SELECT (SELECT count(*) FROM confirmed_group)=1
+    AND (SELECT count(*) FROM public.hotel_booking_room_allocations a
+      JOIN confirmed_group g ON g.booking_id=a.booking_id)=2
+    AND (SELECT count(*) FROM public.hotel_inventory_commitments c
+      WHERE c.stay_date IN ('2027-06-10','2027-06-11'))=4
+    AND (SELECT sum(x) FROM (
+      SELECT unnest(a.allocated_guest_counts)::int AS x
+      FROM public.hotel_booking_room_allocations a
+      JOIN confirmed_group g ON g.booking_id=a.booking_id) z)=5
+    AND (SELECT sum(x) FROM (
+      SELECT unnest(a.pricing_guest_counts)::int AS x
+      FROM public.hotel_booking_room_allocations a
+      JOIN confirmed_group g ON g.booking_id=a.booking_id) z)=4
+    AND (SELECT count(*) FROM public.hotel_inventory_commitments)=6
+    AND (SELECT count(*) FROM hotels_public_booking_114494_private.payment_jobs)=0;
+  ")"
+if [ "$BUNDLE" != "t" ]; then
+  echo "STOP: 5-person group allocation or calendar inventory invariant failed"
+  exit 1
+fi
+echo "FIVE_GUESTS_TWO_ROOMS_ALLOCATED_3_PLUS_2_PRICE_2_PLUS_2=PASS"
+echo "AUTHENTIC_114494_GROUP_ATOMICITY=PASS"
 echo "SIMULATED_CALENDAR_PRICE_AND_CONSTRAINTS=YES"
 echo "FULL_REAL_114494_INTEGRATION=NOT_TESTED"
 echo "PRODUCTION_CHANGES=NONE"
