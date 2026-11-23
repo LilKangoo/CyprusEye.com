@@ -1339,12 +1339,16 @@
       if (workspace.hotel_id === Core.PUBLISHED_ARCHITECTURE_TARGET
         && workspace.assignment.capabilities.process_bookings === true) {
         try {
-          state.pendingPartnerRequests = await Repository.listPendingRequests114497(
+          const requests=await Repository.listPendingRequests114497(
             state.partnerId,workspace.hotel_id
           );
+          // Never render a previous Partner/Hotel's in-flight private customer rows.
+          if (generation!==state.generation || state.workspace!==workspace) return;
+          state.pendingPartnerRequests=requests;
           // The scoped server RPC is the source of truth: no separate JS rollout flag.
           state.partnerRequestInboxReady = true;
         } catch (_error) {
+          if (generation!==state.generation || state.workspace!==workspace) return;
           state.pendingPartnerRequests=[];
           state.partnerRequestInboxError='INBOX_UNAVAILABLE';
         }
