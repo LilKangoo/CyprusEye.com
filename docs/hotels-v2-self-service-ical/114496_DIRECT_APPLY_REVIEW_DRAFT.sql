@@ -55,7 +55,9 @@ BEGIN
   v_entity := v_operation->>'entity';
   v_action := v_operation->>'action';
 
-  IF NOT (
+  IF pg_catalog.jsonb_typeof(v_operation) IS DISTINCT FROM 'object'
+    OR v_entity IS NULL OR v_action IS NULL
+    OR NOT (
        (v_entity='calendar_source' AND v_action IN('create','update','enable','disable'))
     OR (v_entity='ical_secret' AND v_action IN('set','rotate','clear'))
     OR (v_entity='calendar_sync' AND v_action='trigger')
