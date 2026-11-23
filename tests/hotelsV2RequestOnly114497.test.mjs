@@ -56,7 +56,7 @@ test('new public pilot UI does not reuse legacy raw hotel_bookings.insert',()=>{
   assert.match(page,/HotelsV2PublicRequest114497\?\.mount/);
   assert.match(page,/if \(isHotelPageDisplayOnly\(\)\)/);
   assert.match(clientSrc,/const PILOT =/);
-  assert.match(clientSrc,/request_only/);
+  assert.match(clientSrc,/hotel_v2_public_request_context_114497/);
   assert.doesNotMatch(clientSrc,/hotel_bookings/);
   assert.match(clientSrc,/options\?\.mode!=='A'/);
   assert.match(clientSrc,/status\.payment_required!==false/);
